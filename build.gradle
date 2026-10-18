@@ -1,0 +1,30 @@
+plugins { id 'java' }
+
+group = 'dev.ghostfusion'
+version = '0.1.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 8
+}
+
+tasks.register('offlineTests', JavaExec) {
+    group = 'verification'
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.ghostfusion.tests.CoreTests'
+}
+
+tasks.register('headlessDemo', JavaExec) {
+    group = 'verification'
+    dependsOn classes
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'dev.ghostfusion.demo.DemoMain'
+}
+
+check.dependsOn offlineTests, headlessDemo
