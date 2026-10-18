@@ -24,7 +24,7 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
-      - name: Compile and test offline core
+      - name: Compile and test offline core and host
         shell: bash
         run: |
           set -euo pipefail
@@ -33,9 +33,11 @@ jobs:
           find src/test/java -name '*.java' -print0 | xargs -0 javac --release 8 -cp .build/classes -d .build/tests
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.CoreTests | tee .build/test.log
           grep -q 'CORE_REGRESSION_PASS assertions=36' .build/test.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.HostRuntimeTests | tee .build/host.log
+          grep -q 'HOST_REGRESSION_PASS' .build/host.log
           java -cp .build/classes dev.ghostfusion.demo.DemoMain | tee .build/demo.log
           grep -q 'DEMO_PASS' .build/demo.log
-      - name: Package demonstrator
+      - name: Package headless demonstrator
         if: matrix.java == '17'
         run: |
           mkdir -p dist
