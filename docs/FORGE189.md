@@ -9,7 +9,7 @@
 - Headless core remains compiled with Java 8 target by JDK 17 and 21.
 - Forge dependencies sourced via Maven Central and `https://maven.minecraftforge.net/`.
 
-Historical ForgeGradle snapshot tooling is known to have repository/TLS and Java compatibility issues; **a real CI success is required** before claiming the Forge JAR is available. The exact runtime is not yet tested in Minecraft. **Do not run `setupDecompWorkspace` in CI**: that legacy task triggers thousands of HTTP asset downloads from `resources.download.minecraft.net`, which return HTTP 400 in the GitHub runner. Try `gradle -p forge189 build` directly; confirm on CI before claiming success. Never upload game files or third-party paid-client binaries to this repository.
+Historical ForgeGradle snapshot tooling is known to have repository/TLS and Java compatibility issues; **a real CI success is required** before claiming the Forge JAR is available. The exact runtime is not yet tested in Minecraft. Never upload game files or third-party paid-client binaries to this repository.
 
 ## Runtime wiring
 `GhostCMod` initializes one `HostRuntime` and registers `ForgeEventAdapter` on both MinecraftForge and FML buses. The adapter covers:

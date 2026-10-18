@@ -34,6 +34,9 @@ public abstract class Setting<T> {
             allowed = new java.util.LinkedHashSet<String>(java.util.Arrays.asList(choices));
             if (allowed.contains(null) || !allowed.contains(initial)) throw new IllegalArgumentException("Invalid initial choice");
         }
+        public java.util.List<String> options() {
+            return java.util.Collections.unmodifiableList(new java.util.ArrayList<String>(allowed));
+        }
         public String parse(String s) {
             if (!allowed.contains(s)) throw new IllegalArgumentException("Invalid choice for " + id());
             return s;
@@ -48,6 +51,8 @@ public abstract class Setting<T> {
                 throw new IllegalArgumentException("Invalid range: " + id);
             this.min = min; this.max = max;
         }
+        public double min() { return min; }
+        public double max() { return max; }
         public Double parse(String s) {
             final double n = Double.parseDouble(s);
             if (!Double.isFinite(n) || n < min || n > max)

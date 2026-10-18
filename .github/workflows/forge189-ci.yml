@@ -48,6 +48,11 @@ jobs:
             mcmod.info \
             dev/ghostfusion/forge189/GhostCMod.class \
             dev/ghostfusion/forge189/ForgeEventAdapter.class \
+            dev/ghostfusion/forge189/GhostClickGui.class \
+            dev/ghostfusion/forge189/RenderStateGuard.class \
+            dev/ghostfusion/ui/UiState.class \
+            dev/ghostfusion/ui/UiSettingsStore.class \
+            dev/ghostfusion/ui/UiActions.class \
             dev/ghostfusion/host/HostRuntime.class \
             dev/ghostfusion/core/ModuleRegistry.class \
             dev/ghostfusion/core/ProfileStore.class; do

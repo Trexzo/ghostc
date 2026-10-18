@@ -9,6 +9,9 @@ import net.minecraftforge.fml.common.gameevent.InputEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.common.network.FMLNetworkEvent;
 import org.lwjgl.input.Keyboard;
+import org.lwjgl.opengl.GL11;
+import net.minecraft.client.gui.ScaledResolution;
+import java.util.Locale;
 
 /**
  * All Forge/LWJGL concerns terminate here; no Minecraft or obfuscated types in the core.
@@ -37,20 +40,62 @@ public final class ForgeEventAdapter {
         int code = Keyboard.getEventKey();
         // Event code 0 means no keyboard key; no keybind should fire.
         if (code == 0) return;
+
+        if (code == Keyboard.KEY_F7 && Keyboard.getEventKeyState() &&
+            !Keyboard.isRepeatEvent() && minecraft.currentScreen == null && minecraft.inGameHasFocus) {
+            host.inputFocus(true);
+            minecraft.displayGuiScreen(new GhostClickGui(host));
+            return;
+        }
         // Suppress module hotkeys when chat, text entry or any GUI has focus.
         host.key(code, Keyboard.getEventKeyState(), minecraft.currentScreen != null || !minecraft.inGameHasFocus);
     }
 
     @SubscribeEvent
     public void onOverlay(RenderGameOverlayEvent.Text event) {
-        if (host.render2d()) {
-            String label = "GhostC R0.2 | F8: Status";
-            minecraft.fontRendererObj.drawStringWithShadow(label, 5, 5, 0xF5F5FF);
-            if (!host.profileWarning().isEmpty()) {
-                minecraft.fontRendererObj.drawStringWithShadow(
-                    host.profileWarning(), 5, 17, 0xFF9999);
+        final boolean status = host.render2d();
+        final boolean metrics = host.metricsFrameRequested();
+        if (!status && !metrics) return;
+        final ScaledResolution resolution = event.resolution;
+        RenderStateGuard.draw(new Runnable() {
+            public void run() {
+                final float scale = host.statusScale();
+                final String statusText = host.detailedStatus()
+                    ? "GhostC R0.3  |  F7 ClickGUI" : "GhostC";
+                final int sw = resolution.getScaledWidth();
+                final int sh = resolution.getScaledHeight();
+                final int statusWidth = Math.max(1, Math.round((minecraft.fontRendererObj.getStringWidth(statusText) + 4) * scale));
+                final int statusHeight = Math.max(1, Math.round((minecraft.fontRendererObj.FONT_HEIGHT + 5) * scale));
+                final int x = host.ui().pixelX(sw, statusWidth);
+                final int y = host.ui().pixelY(sh, statusHeight + (metrics ? 24 : 0));
+                if (status) {
+                    GL11.glPushMatrix();
+                    try {
+                        GL11.glTranslatef(x, y, 0);
+                        GL11.glScalef(scale, scale, 1);
+                        if (host.statusShadow()) minecraft.fontRendererObj.drawStringWithShadow(statusText, 2, 2, 0xF2F2FF);
+                        else minecraft.fontRendererObj.drawString(statusText, 2, 2, 0xF2F2FF);
+                    } finally { GL11.glPopMatrix(); }
+                }
+                if (metrics) {
+                    int dy = status ? statusHeight : 0;
+                    if (host.showFps()) {
+                        minecraft.fontRendererObj.drawStringWithShadow(
+                            "FPS " + Minecraft.getDebugFPS(), x + 2, y + dy, 0xFFB2CBFF);
+                        dy += minecraft.fontRendererObj.FONT_HEIGHT + 2;
+                    }
+                    if (host.showCoordinates() && minecraft.thePlayer != null) {
+                        String location = String.format(Locale.ROOT, "XYZ %.1f %.1f %.1f",
+                            minecraft.thePlayer.posX, minecraft.thePlayer.posY, minecraft.thePlayer.posZ);
+                        minecraft.fontRendererObj.drawStringWithShadow(
+                            location, x + 2, y + dy, 0xFFB2CBFF);
+                    }
+                }
+                String warning = !host.uiWarning().isEmpty() ? host.uiWarning() : host.profileWarning();
+                if (!warning.isEmpty()) minecraft.fontRendererObj.drawStringWithShadow(warning, x + 2,
+                    Math.min(sh - 12, y + statusHeight + 25), 0xFFFF9999);
             }
-        }
+        });
     }
 
     @SubscribeEvent
