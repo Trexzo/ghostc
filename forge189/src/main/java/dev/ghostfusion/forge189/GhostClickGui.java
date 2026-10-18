@@ -28,7 +28,7 @@ public final class GhostClickGui extends GuiScreen {
     private String message = "";
     private boolean hudPage;
     private boolean hudDragging;
-    private int dragX, dragY, scroll;
+    private int dragX, dragY, scroll, settingScroll;
     private int x, y, w, h, side;
     private int listY, listH, visibleRows;
     private int previewX, previewY, previewW, previewH;
@@ -110,7 +110,8 @@ public final class GhostClickGui extends GuiScreen {
             GhostModule.Category c = i == 0 ? null : GhostModule.Category.valueOf(names[i]);
             boolean active = ui.category() == c;
             if (active) rect(x + 4, yy - 3, side - 8, 19, 0x556B83EA);
-            label(names[i], x + 12, yy + 1, active ? accent() : 0xFFD4D7E0);
+            if (yy < y + h - 48) label(names[i], x + 12, yy + 1,
+                active ? accent() : 0xFFD4D7E0);
             yy += 23;
         }
         label("F7: OPEN", x + 10, y + h - 35, 0xFF929BAC);
@@ -150,8 +151,11 @@ public final class GhostClickGui extends GuiScreen {
             "KEYBIND: " + (e.keybind() == 0 ? "NONE" : Keyboard.getKeyName(e.keybind()));
         label(trim(keyText, w - side - 39), x + side + 16, bindY + 5, 0xFFEAECF5);
         int sY = bindY + 24;
-        for (Map.Entry<String, Setting<?>> kv : e.settings().entrySet()) {
-            if (sY + 20 > y + h - 18) break;
+        List<Map.Entry<String, Setting<?>>> settings = new ArrayList<Map.Entry<String, Setting<?>>>(e.settings().entrySet());
+        int available = Math.max(0, (y + h - 18 - sY) / 22);
+        settingScroll = Math.max(0, Math.min(settingScroll, Math.max(0, settings.size() - available)));
+        for (int i = settingScroll; i < settings.size() && i < settingScroll + available; i++) {
+            Map.Entry<String, Setting<?>> kv = settings.get(i);
             Setting<?> setting = kv.getValue();
             rect(x + side + 11, sY, w - side - 26, 19, 0x443B465C);
             label(trim(setting.id(), Math.max(30, (w - side) / 2 - 14)), x + side + 15, sY + 5, 0xFFE0E4EF);
@@ -169,6 +173,9 @@ public final class GhostClickGui extends GuiScreen {
             }
             sY += 22;
         }
+        if (settings.size() > available) label(
+            (settingScroll + 1) + "-" + Math.min(settings.size(), settingScroll + available) +
+            "/" + settings.size() + "  scroll", x + side + 13, bindY + 6, 0xFFE7E8F5);
     }
     private String trim(String text, int maxPixels) {
         if (maxPixels < 12) return "";
@@ -199,7 +206,17 @@ public final class GhostClickGui extends GuiScreen {
         if (button != 0) return;
         if (inside(mx,my,x+w-99,y+6,40,17)) {
             ui.layout(ui.layout() == UiState.Layout.WIDE ? UiState.Layout.COMPACT : UiState.Layout.WIDE);
-            rebuild(); host.persistUi(); return;
+            rebuild();
+            if (search != null) {
+                String oldQuery = search.getText();
+                boolean focused = search.isFocused();
+                search = new GuiTextField(42, fontRendererObj, x + side + 12, y + 45,
+                    Math.max(50, w - side - 24), 17);
+                search.setMaxStringLength(100);
+                search.setText(oldQuery);
+                search.setFocused(focused);
+            }
+            host.persistUi(); return;
         }
         if (inside(mx,my,x+w-55,y+6,50,17)) {
             ui.theme(ui.theme() == UiState.Theme.INDIGO ? UiState.Theme.GRAPHITE : UiState.Theme.INDIGO);
@@ -233,7 +250,10 @@ public final class GhostClickGui extends GuiScreen {
                 if (mx >= x+w-60) {
                     try { host.uiActions().toggle(e.module().id()); message = ""; }
                     catch (RuntimeException ex) { message = "Unable to toggle: " + e.module().id(); }
-                } else selected = e.module().id();
+                } else {
+                    selected = e.module().id();
+                    settingScroll = 0;
+                }
             }
             return;
         }
@@ -243,8 +263,10 @@ public final class GhostClickGui extends GuiScreen {
             capture = selected; message = ""; return;
         }
         int yy = settingY + 24;
-        for (Map.Entry<String,Setting<?>> it : e.settings().entrySet()) {
-            if (yy + 20 > y + h - 18) break;
+        List<Map.Entry<String, Setting<?>>> settings = new ArrayList<Map.Entry<String, Setting<?>>>(e.settings().entrySet());
+        int available = Math.max(0, (y + h - 18 - yy) / 22);
+        for (int i = settingScroll; i < settings.size() && i < settingScroll + available; i++) {
+            Map.Entry<String, Setting<?>> it = settings.get(i);
             if (inside(mx,my,x+side+11,yy,w-side-26,19)) {
                 try {
                     Setting<?> setting = it.getValue();
@@ -253,8 +275,9 @@ public final class GhostClickGui extends GuiScreen {
                     else if (setting instanceof Setting.Number) {
                         int right = x+w-17;
                         int barWidth = Math.max(33,(w-side)/3);
-                        host.uiActions().fraction(selected,it.getKey(),
-                            (double)(mx-(right-barWidth))/barWidth);
+                        if (inside(mx,my,right-barWidth,yy,barWidth,19))
+                            host.uiActions().fraction(selected,it.getKey(),
+                                (double)(mx-(right-barWidth))/barWidth);
                     }
                     message = "";
                 } catch (RuntimeException ex) { message = "Setting rejected"; }
@@ -278,8 +301,18 @@ public final class GhostClickGui extends GuiScreen {
         int wheel = Mouse.getEventDWheel();
         if (wheel != 0 && !hudPage) {
             int direction = wheel > 0 ? -1 : 1;
-            int max = Math.max(0,entries().size() - visibleRows);
-            scroll = Math.max(0,Math.min(max,scroll + direction));
+            int mx = Mouse.getEventX() * width / Math.max(1, mc.displayWidth);
+            int my = height - Mouse.getEventY() * height / Math.max(1, mc.displayHeight) - 1;
+            if (my > listY + listH && inside(mx,my,x+side,y+73,w-side,h-73)) {
+                ModuleRegistry.Entry e = host.modules().get(selected);
+                int settingY = listY + listH + 5 + 22 + 24;
+                int available = Math.max(0,(y+h-18-settingY)/22);
+                int max = Math.max(0,e.settings().size()-available);
+                settingScroll = Math.max(0,Math.min(max, settingScroll+direction));
+            } else {
+                int max = Math.max(0,entries().size() - visibleRows);
+                scroll = Math.max(0,Math.min(max,scroll + direction));
+            }
         }
     }
     @Override protected void keyTyped(char character,int keyCode) throws IOException {
