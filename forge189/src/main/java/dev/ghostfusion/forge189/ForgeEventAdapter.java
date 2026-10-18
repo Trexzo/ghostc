@@ -52,7 +52,7 @@ public final class ForgeEventAdapter {
                 if (!WorldSnapshot.finitePublic(p.posX) || !WorldSnapshot.finitePublic(p.posY) ||
                     !WorldSnapshot.finitePublic(p.posZ) || !WorldSnapshot.finitePublic(health)) continue;
                 players.add(new WorldSnapshot.Entity(p.getEntityId(),p.posX,p.posY,p.posZ,
-                    health,!p.isDead,!p.isInvisible(),true));
+                    health,!p.isDead,!p.isInvisible() && minecraft.thePlayer.canEntityBeSeen(p),true));
             }
             host.services().publish(new WorldSnapshot(
                 host.services().generation(),host.services().tick(),
