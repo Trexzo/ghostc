@@ -1,4 +1,4 @@
-# GhostC R0.5 — first functional modules
+# GhostC R0.5 — first functional modules (retained in R0.6)
 
 The original Forge 1.8.9 UI exposes all five modules under **F7**. Existing status/FPS overlays from R0.3 remain supported. The new modules are **disabled by default** and persist to `.minecraft/config/ghostc/default.properties`. No third-party binaries or recovered client sources were imported.
 
