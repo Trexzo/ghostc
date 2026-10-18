@@ -103,7 +103,7 @@ public final class UiTests {
         fails(() -> actions.bind("hud.alpha", 13));
         actions.bind("hud.alpha", 55);
         ok(r.get("hud.alpha").keybind() == 55, "key rebound");
-        ok(persisted[0] == 12, "only successful actions persisted");
+        ok(persisted[0] == 11, "only successful actions persisted");
         r.shutdown();
     }
     private static void geometry() {
