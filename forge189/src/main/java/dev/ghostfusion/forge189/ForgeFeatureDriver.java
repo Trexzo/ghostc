@@ -10,6 +10,7 @@ import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.potion.Potion;
 import org.lwjgl.input.Mouse;
 
@@ -31,7 +32,7 @@ public final class ForgeFeatureDriver {
         if (mc.thePlayer == null || mc.theWorld == null) return;
         boolean sprint = host.featureEnabled("movement.sprint");
         if (!sprint || mc.currentScreen != null || !mc.inGameHasFocus) return;
-        EntityPlayer player = mc.thePlayer;
+        EntityPlayerSP player = mc.thePlayer;
         if (player.movementInput == null) return;
         boolean run = SprintPolicy.shouldSprint(
             true, true, player.onGround, player.isCollidedHorizontally,
