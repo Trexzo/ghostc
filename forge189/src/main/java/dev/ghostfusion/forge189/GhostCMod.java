@@ -13,7 +13,7 @@ import java.io.File;
  * Real Forge 1.8.9 entrypoint. No injection, external process or network connection.
  * All game objects stay within this adapter package.
  */
-@Mod(modid = "ghostc", name = "GhostC", version = "0.2.0",
+@Mod(modid = "ghostc", name = "GhostC", version = "0.5.0",
      acceptedMinecraftVersions = "[1.8.9]", clientSideOnly = true)
 public final class GhostCMod {
     private ForgeEventAdapter adapter;
