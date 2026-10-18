@@ -18,10 +18,10 @@ public final class ActionCoordinator {
     }
     private static final class Request {
         final String owner; final Type type; final Phase phase; final int argument, priority;
-        final long expiry, generation, ordinal;
+        final long start, expiry, generation, ordinal;
         Request(String owner,Type type,Phase phase,int argument,int priority,
-                long expiry,long generation,long ordinal) {
-            this.owner=owner; this.type=type; this.phase=phase; this.argument=argument;
+                long start,long expiry,long generation,long ordinal) {
+            this.start=start; this.owner=owner; this.type=type; this.phase=phase; this.argument=argument;
             this.priority=priority; this.expiry=expiry; this.generation=generation; this.ordinal=ordinal;
         }
     }
@@ -43,7 +43,7 @@ public final class ActionCoordinator {
         if(requests.size()>=256 && !requests.containsKey(owner+"#"+type))
             throw new IllegalStateException("action capacity exceeded");
         requests.put(owner+"#"+type, new Request(owner,type,phase,argument,
-            priority,tick+ttl,generation,++ordinal));
+            priority,tick,tick+ttl,generation,++ordinal));
     }
     public Decision consume(Type type,Phase phase,long tick,long generation) {
         check();
@@ -52,7 +52,7 @@ public final class ActionCoordinator {
         if(consumed!=null && epoch!=null && consumed==tick && epoch==generation) return null;
         Request best=null;
         for(Request r:requests.values()) {
-            if(r.type!=type || r.phase!=phase || r.generation!=generation || tick>=r.expiry) continue;
+            if(r.type!=type || r.phase!=phase || r.generation!=generation || tick<r.start || tick>=r.expiry) continue;
             if(best==null || r.priority>best.priority ||
                 (r.priority==best.priority && r.ordinal<best.ordinal)) best=r;
         }
@@ -64,6 +64,20 @@ public final class ActionCoordinator {
     public void cancelOwner(String owner) {
         check(); ServiceValidation.owner(owner);
         for(Type type:Type.values()) requests.remove(owner+"#"+type);
+    }
+    /** Remove stale or expired intents each owner tick; no unbounded backlog. */
+    public int prune(long tick, long generation) {
+        check();
+        if(tick<0 || generation<0) throw new IllegalArgumentException("prune time");
+        int removed=0;
+        java.util.Iterator<Request> iterator=requests.values().iterator();
+        while(iterator.hasNext()) {
+            Request request=iterator.next();
+            if(request.generation!=generation || tick>=request.expiry) {
+                iterator.remove(); removed++;
+            }
+        }
+        return removed;
     }
     public int pending() { check(); return requests.size(); }
     public void reset() {

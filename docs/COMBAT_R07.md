@@ -32,3 +32,9 @@ The contract deliberately does not intercept Minecraft's `clickMouse()`, game pa
 **In-game validation is still outstanding.** Use a licensed Minecraft 1.8.9 Forge 11.15.1.2318 instance and an authorized local test world, not a competitive server, to check rendered settings, physical click interaction, use-item/block animation, custom bindings, sword-only gating, focus, disconnect/rejoin, latency and actual client tick behavior. Capture logs and observations for Issues #4 and #5 at the next consolidated runtime milestone.
 
 No proprietary client source, binaries, assets, native injector, or packet bypass has been committed.
+
+## G3 coordinator hardening in the same PR
+
+The existing shared ActionCoordinator and RotationCoordinator now attach a start-tick boundary to each request: no intent may be consumed/resolved **before its submission tick**. They also implement explicit owner-thread `prune(tick,generation)`, invoked automatically from `SessionServices.tickAdvance()`. This prevents unconsumed one-tick requests from filling the 256-entry action queue during long sessions, and prevents stale camera/output intents from accumulating. The idempotent session-reset and tick-bound single-consume rules remain unchanged.
+
+`CoordinatorHygieneTests` validates future-start fencing, epoch rejection, expiration, wrong-thread rejection, and 1,800 owner ticks with unique unconsumed requests without queue growth. These are offline contract assertions, not an in-game packet or input-lifecycle test.

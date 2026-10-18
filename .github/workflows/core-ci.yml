@@ -45,6 +45,8 @@ jobs:
           grep -q 'COMBAT_REGRESSION_PASS' .build/combat.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.CombatMoreTests | tee .build/combat-more.log
           grep -q 'COMBAT_MORE_REGRESSION_PASS' .build/combat-more.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.CoordinatorHygieneTests | tee .build/hygiene.log
+          grep -q 'COORDINATOR_HYGIENE_PASS' .build/hygiene.log
           java -cp .build/classes dev.ghostfusion.demo.DemoMain | tee .build/demo.log
           grep -q 'DEMO_PASS' .build/demo.log
       - name: Package headless demonstrator
