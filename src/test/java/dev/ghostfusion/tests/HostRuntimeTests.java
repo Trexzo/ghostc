@@ -50,6 +50,19 @@ public final class HostRuntimeTests {
         ok(!host.render2d(), "closed host never renders");
         ok(!host.enqueue(GameEvent.Kind.CLIENT_TICK), "closed host rejects producer events");
     }
+    private static void testLostKeyReleaseOnFocusChange(Path config) {
+        HostRuntime host = new HostRuntime(config);
+        host.worldPresence(true);
+        host.key(HostRuntime.DEFAULT_STATUS_KEY, true, false);
+        ok(!host.render2d(), "first held press disables status");
+        // The OS may swallow the key-up while a user alt-tabs or opens a GUI.
+        host.inputFocus(true);
+        host.inputFocus(false);
+        host.key(HostRuntime.DEFAULT_STATUS_KEY, true, false);
+        ok(host.render2d(), "lost key release recovered on focus loss");
+        host.key(HostRuntime.DEFAULT_STATUS_KEY, false, false);
+        host.close();
+    }
     private static void testPersistence(Path config) {
         HostRuntime host = new HostRuntime(config);
         ok(host.modules().get("hud.status").state() == ModuleRegistry.State.ENABLED, "profile loaded enabled setting");
@@ -100,6 +113,7 @@ public final class HostRuntimeTests {
         Path dir = Files.createTempDirectory("ghostc-host-tests-");
         checkDefaultsAndWorld(dir.resolve("sessions"));
         testPersistence(dir.resolve("sessions"));
+        testLostKeyReleaseOnFocusChange(dir.resolve("focus"));
         testQueuedEventsAndThread(dir.resolve("queues"));
         testCorruptProfile(dir.resolve("corrupt"));
         ok(count > 280, "meaningful regression coverage");

@@ -28,6 +28,7 @@ public final class HostRuntime {
     private final ProfileStore profiles;
     private volatile boolean closed;
     private boolean worldPresent;
+    private boolean inputBlocked;
     private String profileWarning = "";
 
     public HostRuntime(Path configDirectory) {
@@ -76,10 +77,17 @@ public final class HostRuntime {
         input.clearPressed();
         modules.dispatch(event(GameEvent.Kind.WORLD_CHANGE));
     }
+    /** Focus transition resets stale key-down state (GUI, chat, alt-tab). */
+    public void inputFocus(boolean blocked) {
+        if (!active()) return;
+        if (blocked && !inputBlocked) input.clearPressed();
+        inputBlocked = blocked;
+    }
     public void key(int keycode, boolean pressed, boolean textFieldOrMenuFocused) {
         if (!active()) return;
+        inputFocus(textFieldOrMenuFocused);
         ModuleRegistry.State before = modules.get(overlay.id()).state();
-        input.keyEvent(keycode, pressed, textFieldOrMenuFocused);
+        input.keyEvent(keycode, pressed, inputBlocked);
         if (modules.get(overlay.id()).state() != before) persist();
     }
     public void disconnect() {

@@ -27,6 +27,7 @@ public final class ForgeEventAdapter {
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
+        host.inputFocus(minecraft.currentScreen != null || !minecraft.inGameHasFocus);
         host.worldPresence(minecraft.theWorld != null);
         host.tick();
     }
@@ -37,7 +38,7 @@ public final class ForgeEventAdapter {
         // Event code 0 means no keyboard key; no keybind should fire.
         if (code == 0) return;
         // Suppress module hotkeys when chat, text entry or any GUI has focus.
-        host.key(code, Keyboard.getEventKeyState(), minecraft.currentScreen != null);
+        host.key(code, Keyboard.getEventKeyState(), minecraft.currentScreen != null || !minecraft.inGameHasFocus);
     }
 
     @SubscribeEvent
