@@ -1,6 +1,6 @@
-# GhostC R0.6 — Aim Assist and AutoClicker
+# GhostC R0.6 — Aim Assist and AutoClicker (still supported in R0.7)
 
-**Implementation:** Two opt-in first-party Minecraft 1.8.9 features. Both are **disabled by default**, exposed under the F7 COMBAT category, saved by the existing profile store, and require a valid focused game world. Forge client-tick is the single consumer; Minecraft, network and render objects never enter pure Java policy classes.
+**Implementation:** Two opt-in first-party Minecraft 1.8.9 features in R0.6; Block Hit and Hit Select were added in R0.7. Both are **disabled by default**, exposed under the F7 COMBAT category, saved by the existing profile store, and require a valid focused game world. Forge client-tick is the single consumer; Minecraft, network and render objects never enter pure Java policy classes.
 
 ## Aim Assist — `combat.aimassist`
 - `range` 2–6 (default **4.5** blocks, measured using world snapshot feet positions)
