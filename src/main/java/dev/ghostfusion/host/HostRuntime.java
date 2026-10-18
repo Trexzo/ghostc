@@ -5,6 +5,10 @@ import dev.ghostfusion.core.GameEvent;
 import dev.ghostfusion.core.InputRouter;
 import dev.ghostfusion.core.ModuleRegistry;
 import dev.ghostfusion.core.ProfileStore;
+import dev.ghostfusion.core.Setting;
+import dev.ghostfusion.ui.UiState;
+import dev.ghostfusion.ui.UiSettingsStore;
+import dev.ghostfusion.ui.UiActions;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -22,6 +26,15 @@ public final class HostRuntime {
     private static final int MAX_EVENTS_PER_TICK = 128;
     private final ModuleRegistry modules = new ModuleRegistry();
     private final StatusOverlayModule overlay = new StatusOverlayModule();
+    private final MetricsOverlayModule metrics = new MetricsOverlayModule();
+    private final Setting.Number statusScale = new Setting.Number("scale", 1.0, 0.75, 1.75);
+    private final Setting.Choice statusStyle = new Setting.Choice("style", "detailed", "minimal", "detailed");
+    private final Setting.Bool statusShadow = new Setting.Bool("shadow", true);
+    private final Setting.Bool showFps = new Setting.Bool("show_fps", true);
+    private final Setting.Bool showCoordinates = new Setting.Bool("show_coordinates", false);
+    private final UiState ui = new UiState();
+    private final UiSettingsStore uiStore;
+    private final UiActions uiActions;
     private final InputRouter input = new InputRouter(modules);
     private final BoundedIngress ingress = new BoundedIngress(256);
     private final AtomicLong sequence = new AtomicLong();
@@ -30,18 +43,35 @@ public final class HostRuntime {
     private boolean worldPresent;
     private boolean inputBlocked;
     private String profileWarning = "";
+    private String uiWarning = "";
 
     public HostRuntime(Path configDirectory) {
         if (configDirectory == null) throw new IllegalArgumentException("configDirectory");
-        modules.register(overlay, DEFAULT_STATUS_KEY);
+        modules.register(overlay, DEFAULT_STATUS_KEY, statusScale, statusStyle, statusShadow);
+        modules.register(metrics, 0, showFps, showCoordinates);
         modules.setEnabled(overlay.id(), true);
         profiles = new ProfileStore(configDirectory, modules);
+        uiStore = new UiSettingsStore(configDirectory, ui);
+        uiActions = new UiActions(modules, new Runnable() {
+            public void run() { persist(); }
+        });
+        try { uiStore.load(); }
+        catch (Exception e) { uiWarning = "UI preferences: " + e.getClass().getSimpleName(); }
         if (Files.exists(configDirectory.resolve("default.properties"))) {
             try { profiles.load("default"); }
             catch (Exception e) { profileWarning = "Profile load: " + e.getClass().getSimpleName(); }
         }
     }
     public ModuleRegistry modules() { return modules; }
+    public UiState ui() { modules.assertOwnerThread(); return ui; }
+    public UiActions uiActions() { modules.assertOwnerThread(); return uiActions; }
+    public String uiWarning() { return uiWarning; }
+    public float statusScale() { return statusScale.get().floatValue(); }
+    public boolean statusShadow() { return statusShadow.get(); }
+    public boolean detailedStatus() { return "detailed".equals(statusStyle.get()); }
+    public boolean metricsFrameRequested() { return worldPresent && metrics.frameRequested(); }
+    public boolean showFps() { return showFps.get(); }
+    public boolean showCoordinates() { return showCoordinates.get(); }
     public String profileWarning() { return profileWarning; }
     public boolean worldPresent() { return worldPresent; }
     public int pendingEvents() { return ingress.pending(); }
@@ -68,6 +98,7 @@ public final class HostRuntime {
     public boolean render2d() {
         if (!active() || !worldPresent) return false;
         overlay.beginFrame();
+        metrics.beginFrame();
         modules.dispatch(event(GameEvent.Kind.RENDER_2D));
         return overlay.frameRequested();
     }
@@ -103,10 +134,18 @@ public final class HostRuntime {
             profileWarning = "Profile save: " + e.getClass().getSimpleName();
         }
     }
+    public void persistUi() {
+        if (!active()) return;
+        try { uiStore.save(); uiWarning = ""; }
+        catch (IOException | IllegalArgumentException e) {
+            uiWarning = "UI save: " + e.getClass().getSimpleName();
+        }
+    }
     /** Call from the owning client thread only. */
     public void close() {
         if (!active()) return;
         persist();
+        persistUi();
         input.clearPressed();
         modules.shutdown();
         closed = true;
