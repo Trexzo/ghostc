@@ -54,6 +54,11 @@ public final class HostRuntime {
     private final Setting.Bool aimRequireClick = new Setting.Bool("require_click", true);
     private final Setting.Number clickRate = new Setting.Number("cps", 10.0, 4.0, 15.0);
     private final Setting.Bool clickEntitiesOnly = new Setting.Bool("entity_only", true);
+    private final Setting.Number blockInterval = new Setting.Number("interval_ticks", 4, 2, 10);
+    private final Setting.Bool blockRequireTarget = new Setting.Bool("require_target", true);
+    private final Setting.Number hitMaxHurt = new Setting.Number("max_hurt_time", 2, 0, 10);
+    private final Setting.Number hitGap = new Setting.Number("min_gap_ticks", 2, 1, 8);
+    private final Setting.Bool hitRequireTarget = new Setting.Bool("require_target", true);
     private final UiState ui = new UiState();
     private final UiSettingsStore uiStore;
     private final UiActions uiActions;
@@ -85,6 +90,10 @@ public final class HostRuntime {
             0, aimRange, aimFov, aimSpeed, aimVisible, aimRequireClick);
         modules.register(new FeatureModule("combat.clicker", "AutoClicker", GhostModule.Category.COMBAT),
             0, clickRate, clickEntitiesOnly);
+        modules.register(new FeatureModule("combat.blockhit", "Block Hit", GhostModule.Category.COMBAT),
+            0, blockInterval, blockRequireTarget);
+        modules.register(new FeatureModule("combat.hitselect", "Hit Select", GhostModule.Category.COMBAT),
+            0, hitMaxHurt, hitGap, hitRequireTarget);
         modules.setEnabled(overlay.id(), true);
         profiles = new ProfileStore(configDirectory, modules);
         uiStore = new UiSettingsStore(configDirectory, ui);
@@ -133,6 +142,11 @@ public final class HostRuntime {
     public boolean aimRequireClick() { modules.assertOwnerThread(); return aimRequireClick.get(); }
     public double clickCps() { modules.assertOwnerThread(); return clickRate.get(); }
     public boolean clickEntityOnly() { modules.assertOwnerThread(); return clickEntitiesOnly.get(); }
+    public int blockIntervalTicks() { modules.assertOwnerThread(); return (int)Math.round(blockInterval.get()); }
+    public boolean blockRequireTarget() { modules.assertOwnerThread(); return blockRequireTarget.get(); }
+    public int hitMaxHurtTime() { modules.assertOwnerThread(); return (int)Math.round(hitMaxHurt.get()); }
+    public int hitGapTicks() { modules.assertOwnerThread(); return (int)Math.round(hitGap.get()); }
+    public boolean hitRequireTarget() { modules.assertOwnerThread(); return hitRequireTarget.get(); }
     public String profileWarning() { return profileWarning; }
     public boolean worldPresent() { return worldPresent; }
     public int pendingEvents() { return ingress.pending(); }

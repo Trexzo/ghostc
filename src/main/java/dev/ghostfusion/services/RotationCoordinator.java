@@ -17,10 +17,10 @@ public final class RotationCoordinator {
     private static final class Request {
         final String owner; final Scope scope;
         final float yaw, pitch; final int priority;
-        final long expiry, generation, ordinal;
+        final long start, expiry, generation, ordinal;
         Request(String owner, Scope scope, float yaw, float pitch, int priority,
-                long expiry, long generation, long ordinal) {
-            this.owner=owner; this.scope=scope; this.yaw=yaw; this.pitch=pitch;
+                long start, long expiry, long generation, long ordinal) {
+            this.start=start; this.owner=owner; this.scope=scope; this.yaw=yaw; this.pitch=pitch;
             this.priority=priority; this.expiry=expiry;
             this.generation=generation; this.ordinal=ordinal;
         }
@@ -39,7 +39,7 @@ public final class RotationCoordinator {
         if (scope == null || !WorldSnapshot.finite(yaw) || !WorldSnapshot.finite(pitch) ||
             pitch < -90 || pitch > 90 || lifetimeTicks > 200) throw new IllegalArgumentException("rotation");
         requests.put(owner, new Request(owner, scope, yaw, pitch, priority,
-            now + lifetimeTicks, generation, ++nextOrdinal));
+            now, now + lifetimeTicks, generation, ++nextOrdinal));
     }
     public void cancel(String owner) {
         assertOwner(); ServiceValidation.owner(owner); requests.remove(owner);
@@ -51,7 +51,7 @@ public final class RotationCoordinator {
             throw new IllegalArgumentException("decision");
         Request best = null;
         for (Request r : requests.values()) {
-            if (r.scope != scope || r.generation != generation || tick >= r.expiry) continue;
+            if (r.scope != scope || r.generation != generation || tick < r.start || tick >= r.expiry) continue;
             if (best == null || r.priority > best.priority ||
                 (r.priority == best.priority && r.ordinal < best.ordinal))
                 best = r;
@@ -59,6 +59,20 @@ public final class RotationCoordinator {
         // Fallback always restores the host-provided original camera/packet view.
         return best == null ? new Decision(null, actualYaw, actualPitch, scope) :
             new Decision(best.owner, best.yaw, best.pitch, scope);
+    }
+    /** Remove expired or wrong-session camera/output intents on each owner tick. */
+    public int prune(long tick, long generation) {
+        assertOwner();
+        if(tick<0 || generation<0) throw new IllegalArgumentException("prune time");
+        int count=0;
+        java.util.Iterator<Request> iterator=requests.values().iterator();
+        while(iterator.hasNext()) {
+            Request request=iterator.next();
+            if(request.generation!=generation || tick>=request.expiry) {
+                iterator.remove(); count++;
+            }
+        }
+        return count;
     }
     public int pending() { assertOwner(); return requests.size(); }
     public void clear() { assertOwner(); requests.clear(); }

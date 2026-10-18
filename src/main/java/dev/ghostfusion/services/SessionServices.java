@@ -39,6 +39,8 @@ public final class SessionServices {
         check(); if(!connected) return;
         if(tick==Long.MAX_VALUE) throw new IllegalStateException("tick overflow");
         tick++;
+        rotations.prune(tick,generation);
+        actions.prune(tick,generation);
     }
     public void publish(WorldSnapshot next) {
         check();
