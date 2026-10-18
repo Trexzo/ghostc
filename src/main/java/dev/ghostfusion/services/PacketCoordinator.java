@@ -1,0 +1,116 @@
+package dev.ghostfusion.services;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+/**
+ * Transport-independent packet intentions; only a future adapter can supply a Transport.
+ * Every accepted submission receives exactly one terminal completion, including cancellation.
+ * Not connected to Netty or Minecraft networking in R0.4.
+ */
+public final class PacketCoordinator {
+    public enum Direction { INBOUND, OUTBOUND }
+    public enum Result { SENT, CANCELLED, STALE_SESSION, TRANSPORT_FAILED, REJECTED, SHUTDOWN }
+    public interface Completion { void complete(Result result); }
+    public interface Transport { void deliver(Direction direction, byte[] payload) throws Exception; }
+    public static final class Metrics {
+        public final int queued; public final long rejected, delivered, cancelled, failed, callbackFailures;
+        Metrics(int queued,long rejected,long delivered,long cancelled,long failed,long callbackFailures) {
+            this.queued=queued; this.rejected=rejected; this.delivered=delivered;
+            this.cancelled=cancelled; this.failed=failed; this.callbackFailures=callbackFailures;
+        }
+    }
+    private static final class Pending {
+        final long id, generation; final String owner;
+        final Direction direction; final byte[] payload; final Completion completion;
+        Pending(long id,long generation,String owner,Direction direction,byte[] payload,Completion completion) {
+            this.id=id; this.generation=generation; this.owner=owner;
+            this.direction=direction; this.payload=payload; this.completion=completion;
+        }
+    }
+    private final Thread thread=Thread.currentThread();
+    private final int capacity;
+    private final LinkedHashMap<Long, Pending> queue=new LinkedHashMap<Long, Pending>();
+    private long idSequence, rejected, delivered, cancelled, failed, callbackFailures;
+    private boolean stopped;
+    public PacketCoordinator(int capacity) {
+        if(capacity<1 || capacity>4096) throw new IllegalArgumentException("capacity");
+        this.capacity=capacity;
+    }
+    private void check() {
+        if(Thread.currentThread()!=thread) throw new IllegalStateException("packet owner thread");
+        if(stopped) throw new IllegalStateException("packet stopped");
+    }
+    private void callback(Completion completion,Result result) {
+        try { completion.complete(result); }
+        catch(Throwable ignored) { callbackFailures++; }
+    }
+    /** Returns a unique positive ID or -1 on capacity rejection; never stores caller's byte array. */
+    public long submit(String owner,Direction direction,byte[] payload,long generation,Completion callback) {
+        check(); ServiceValidation.owner(owner);
+        if(direction==null || payload==null || payload.length==0 || payload.length>32768 ||
+           generation<0 || callback==null) throw new IllegalArgumentException("packet");
+        if(queue.size()>=capacity) {
+            rejected++; callback(callback,Result.REJECTED); return -1;
+        }
+        long id=++idSequence;
+        queue.put(id,new Pending(id,generation,owner,direction,payload.clone(),callback));
+        return id;
+    }
+    public boolean cancel(long id) {
+        check();
+        Pending p=queue.remove(id);
+        if(p==null) return false;
+        cancelled++; callback(p.completion,Result.CANCELLED); return true;
+    }
+    public int cancelOwner(String owner) {
+        check(); ServiceValidation.owner(owner);
+        int count=0;
+        for(Pending p:new ArrayList<Pending>(queue.values())) if(p.owner.equals(owner) && cancel(p.id)) count++;
+        return count;
+    }
+    public int flush(Transport transport,long generation,int budget) {
+        check();
+        if(transport==null || generation<0 || budget<1 || budget>capacity)
+            throw new IllegalArgumentException("flush");
+        int n=0;
+        for(Pending p:new ArrayList<Pending>(queue.values())) {
+            if(n>=budget) break;
+            if(queue.remove(p.id)==null) continue;
+            n++;
+            if(p.generation!=generation) {
+                cancelled++; callback(p.completion,Result.STALE_SESSION);
+                continue;
+            }
+            try {
+                transport.deliver(p.direction,p.payload.clone());
+                delivered++; callback(p.completion,Result.SENT);
+            } catch(Exception e) {
+                failed++; callback(p.completion,Result.TRANSPORT_FAILED);
+            }
+        }
+        return n;
+    }
+    public void reset() {
+        check();
+        for(Pending p:new ArrayList<Pending>(queue.values())) {
+            if(queue.remove(p.id)!=null) {
+                cancelled++; callback(p.completion,Result.STALE_SESSION);
+            }
+        }
+    }
+    public Metrics metrics() {
+        check(); return new Metrics(queue.size(),rejected,delivered,cancelled,failed,callbackFailures);
+    }
+    public void shutdown() {
+        if(Thread.currentThread()!=thread) throw new IllegalStateException("packet owner thread");
+        if(stopped) return;
+        for(Pending p:new ArrayList<Pending>(queue.values())) {
+            if(queue.remove(p.id)!=null) {
+                cancelled++; callback(p.completion,Result.SHUTDOWN);
+            }
+        }
+        stopped=true;
+    }
+}

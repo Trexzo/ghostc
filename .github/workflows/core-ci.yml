@@ -37,6 +37,8 @@ jobs:
           grep -q 'HOST_REGRESSION_PASS' .build/host.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.UiTests | tee .build/ui.log
           grep -q 'UI_REGRESSION_PASS' .build/ui.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.ServicesTests | tee .build/services.log
+          grep -q 'SERVICES_REGRESSION_PASS' .build/services.log
           java -cp .build/classes dev.ghostfusion.demo.DemoMain | tee .build/demo.log
           grep -q 'DEMO_PASS' .build/demo.log
       - name: Package headless demonstrator

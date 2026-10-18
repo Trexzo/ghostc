@@ -1,6 +1,10 @@
 package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.host.HostRuntime;
+import dev.ghostfusion.services.WorldSnapshot;
+import net.minecraft.entity.player.EntityPlayer;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.event.world.WorldEvent;
@@ -33,6 +37,25 @@ public final class ForgeEventAdapter {
         host.inputFocus(minecraft.currentScreen != null || !minecraft.inGameHasFocus);
         host.worldPresence(minecraft.theWorld != null);
         host.tick();
+        // Read-only player snapshot; no rotation, input, combat or packet side effects.
+        if (host.services().connected() && minecraft.theWorld != null && minecraft.thePlayer != null) {
+            List<WorldSnapshot.Entity> players = new ArrayList<WorldSnapshot.Entity>();
+            for (Object raw : minecraft.theWorld.playerEntities) {
+                if (!(raw instanceof EntityPlayer)) continue;
+                EntityPlayer p = (EntityPlayer) raw;
+                if (p == minecraft.thePlayer) continue;
+                if (players.size() == 256) break;
+                double health = Math.max(0.0, (double)p.getHealth());
+                if (!WorldSnapshot.finitePublic(p.posX) || !WorldSnapshot.finitePublic(p.posY) ||
+                    !WorldSnapshot.finitePublic(p.posZ) || !WorldSnapshot.finitePublic(health)) continue;
+                players.add(new WorldSnapshot.Entity(p.getEntityId(),p.posX,p.posY,p.posZ,
+                    health,!p.isDead,!p.isInvisible(),true));
+            }
+            host.services().publish(new WorldSnapshot(
+                host.services().generation(),host.services().tick(),
+                minecraft.thePlayer.posX,minecraft.thePlayer.posY,minecraft.thePlayer.posZ,
+                minecraft.thePlayer.rotationYaw,minecraft.thePlayer.rotationPitch,players));
+        }
     }
 
     @SubscribeEvent
