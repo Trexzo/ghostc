@@ -53,6 +53,13 @@ jobs:
             dev/ghostfusion/ui/UiState.class \
             dev/ghostfusion/ui/UiSettingsStore.class \
             dev/ghostfusion/ui/UiActions.class \
+            dev/ghostfusion/services/SessionServices.class \
+            dev/ghostfusion/services/WorldSnapshot.class \
+            dev/ghostfusion/services/TargetSelector.class \
+            dev/ghostfusion/services/RotationCoordinator.class \
+            dev/ghostfusion/services/ActionCoordinator.class \
+            dev/ghostfusion/services/PacketCoordinator.class \
+            dev/ghostfusion/services/InventoryCoordinator.class \
             dev/ghostfusion/host/HostRuntime.class \
             dev/ghostfusion/core/ModuleRegistry.class \
             dev/ghostfusion/core/ProfileStore.class; do

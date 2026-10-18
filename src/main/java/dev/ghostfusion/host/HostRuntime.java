@@ -9,6 +9,7 @@ import dev.ghostfusion.core.Setting;
 import dev.ghostfusion.ui.UiState;
 import dev.ghostfusion.ui.UiSettingsStore;
 import dev.ghostfusion.ui.UiActions;
+import dev.ghostfusion.services.SessionServices;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -25,6 +26,7 @@ public final class HostRuntime {
     public static final int DEFAULT_STATUS_KEY = 66;
     private static final int MAX_EVENTS_PER_TICK = 128;
     private final ModuleRegistry modules = new ModuleRegistry();
+    private final SessionServices services = new SessionServices();
     private final StatusOverlayModule overlay = new StatusOverlayModule();
     private final MetricsOverlayModule metrics = new MetricsOverlayModule();
     private final Setting.Number statusScale = new Setting.Number("scale", 1.0, 0.75, 1.75);
@@ -63,6 +65,7 @@ public final class HostRuntime {
         }
     }
     public ModuleRegistry modules() { return modules; }
+    public SessionServices services() { modules.assertOwnerThread(); return services; }
     public UiState ui() { modules.assertOwnerThread(); return ui; }
     public UiActions uiActions() { modules.assertOwnerThread(); return uiActions; }
     public String uiWarning() { return uiWarning; }
@@ -92,6 +95,7 @@ public final class HostRuntime {
     }
     public void tick() {
         if (!active()) return;
+        services.tickAdvance();
         ingress.drain(modules, MAX_EVENTS_PER_TICK);
         modules.dispatch(event(GameEvent.Kind.CLIENT_TICK));
     }
@@ -104,6 +108,7 @@ public final class HostRuntime {
     }
     public void worldPresence(boolean present) {
         if (!active() || worldPresent == present) return;
+        services.world(present);
         worldPresent = present;
         input.clearPressed();
         modules.dispatch(event(GameEvent.Kind.WORLD_CHANGE));
@@ -125,6 +130,7 @@ public final class HostRuntime {
         if (!active()) return;
         worldPresence(false);
         input.clearPressed();
+        services.disconnect();
         modules.dispatch(event(GameEvent.Kind.SESSION_DISCONNECT));
     }
     public void persist() {
@@ -148,6 +154,7 @@ public final class HostRuntime {
         persistUi();
         input.clearPressed();
         modules.shutdown();
+        services.close();
         closed = true;
     }
 }
