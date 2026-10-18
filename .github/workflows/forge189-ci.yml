@@ -1,0 +1,51 @@
+name: Forge 1.8.9 CI
+
+on:
+  push:
+    branches: [main, "feature/**"]
+    paths:
+      - "forge189/**"
+      - "src/main/**"
+      - ".github/workflows/forge189-ci.yml"
+  pull_request:
+    paths:
+      - "forge189/**"
+      - "src/main/**"
+      - ".github/workflows/forge189-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  forge189:
+    name: Forge 1.8.9 compile + reobfuscate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '4.10.3'
+      - name: Build Forge 1.8.9 mod
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon -p forge189 setupDecompWorkspace build --stacktrace
+          test -n "$(find forge189/build/libs -maxdepth 1 -name 'ghostc-forge189-*.jar' -print -quit)"
+      - name: Checksums
+        shell: bash
+        run: |
+          cd forge189/build/libs
+          sha256sum ghostc-forge189-*.jar > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ghostc-forge189-unverified-ingame
+          path: |
+            forge189/build/libs/ghostc-forge189-*.jar
+            forge189/build/libs/SHA256SUMS.txt
+          if-no-files-found: error
