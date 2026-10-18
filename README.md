@@ -26,7 +26,7 @@ java -cp .build/classes:.build/tests dev.ghostfusion.tests.HostRuntimeTests
 java -cp .build/classes dev.ghostfusion.demo.DemoMain
 ```
 
-For Forge builds use **JDK 8 + Gradle 4.10.3** and `gradle -p forge189 setupDecompWorkspace build`. This old Gradle / ForgeGradle toolchain may have external repository compatibility issues; CI results take priority over assumptions.
+For Forge builds use **JDK 8 + Gradle 4.10.3** and `gradle -p forge189 build`. This old Gradle / ForgeGradle toolchain may have external repository compatibility issues; CI results take priority over assumptions.
 
 ## Next gates
 
