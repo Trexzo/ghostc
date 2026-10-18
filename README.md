@@ -10,8 +10,8 @@
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
 - Two opt-in combat modules: bounded Aim Assist (local camera, FOV/range/speed/visible/hold-gated) and deterministic hold-to-click AutoClicker (CPS and optional entity-only constraint) through shared G3 owner-thread arbiters. No anticheat evasion or packet injection, and game runtime unverified.
 - Five first-party functional modules: keystrokes, CPS counter, nearby-player Target HUD, player box/tracer ESP, and Auto Sprint. Forge code provides actual rendering or local player sprint requests, while testable pure-Java policies own filtering and telemetry. **In-game behavior is unverified.**
-- Shared pure-Java services: read-only player snapshots and selection, rotation/action arbitration, packet-intent completion, serial inventory intent, session generation fencing. **No real combat/packet interception yet.**
-- Offline core, host and UI regression tests run in GitHub Actions for JDK 17/21; separate legacy ForgeGradle CI produces a reobfuscated mod JAR on JDK 8.
+- Shared pure-Java services: read-only player snapshots and selection, rotation/action arbitration, packet-intent completion, serial inventory intent, session generation fencing. **Camera correction and vanilla attack-key intents exist; no Netty packet interception or manipulation.**
+- Offline core, host, UI, service, feature and combat regression tests run in GitHub Actions for JDK 17/21; separate legacy ForgeGradle CI produces a reobfuscated mod JAR on JDK 8.
 
 ## GitHub builds
 

@@ -75,6 +75,11 @@ jobs:
             grep -Fxq "$entry" forge189/build/jar-contents.txt
           done
           javap -verbose -classpath "$JAR" dev.ghostfusion.forge189.GhostCMod | grep -q 'major version: 52'
+          javap -verbose -classpath "$JAR" dev.ghostfusion.forge189.ForgeCombatController | grep -q 'major version: 52'
+          VERSION=$(sed -n "s/^version = '\\([^']*\\)'/\\1/p" forge189/build.gradle | head -1)
+          test -n "$VERSION"
+          test "$(basename "$JAR")" = "ghostc-forge189-$VERSION.jar"
+          unzip -p "$JAR" mcmod.info | grep -Fq "\"version\": \"$VERSION\""
           echo "FORGE189_JAR_STRUCTURE_PASS"
       - name: Checksums
         shell: bash
