@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R0.5:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R0.6:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- Two opt-in combat modules: bounded Aim Assist (local camera, FOV/range/speed/visible/hold-gated) and deterministic hold-to-click AutoClicker (CPS and optional entity-only constraint) through shared G3 owner-thread arbiters. No anticheat evasion or packet injection, and game runtime unverified.
 - Five first-party functional modules: keystrokes, CPS counter, nearby-player Target HUD, player box/tracer ESP, and Auto Sprint. Forge code provides actual rendering or local player sprint requests, while testable pure-Java policies own filtering and telemetry. **In-game behavior is unverified.**
 - Shared pure-Java services: read-only player snapshots and selection, rotation/action arbitration, packet-intent completion, serial inventory intent, session generation fencing. **No real combat/packet interception yet.**
 - Offline core, host and UI regression tests run in GitHub Actions for JDK 17/21; separate legacy ForgeGradle CI produces a reobfuscated mod JAR on JDK 8.
@@ -29,6 +30,7 @@ java -cp .build/classes:.build/tests dev.ghostfusion.tests.HostRuntimeTests
 java -cp .build/classes:.build/tests dev.ghostfusion.tests.UiTests
 java -cp .build/classes:.build/tests dev.ghostfusion.tests.ServicesTests
 java -cp .build/classes:.build/tests dev.ghostfusion.tests.FeatureTests
+java -cp .build/classes:.build/tests dev.ghostfusion.tests.CombatTests
 java -cp .build/classes dev.ghostfusion.demo.DemoMain
 ```
 
@@ -45,5 +47,6 @@ See [issues](../../issues) for Forge runtime acceptance (#2), ClickGUI/HUD (#3),
 - [ClickGUI / HUD acceptance](docs/CLICKGUI.md)
 - [Gameplay service contracts](docs/SERVICES.md)
 - [R0.5 gameplay/render modules](docs/FEATURES.md)
+- [R0.6 optional combat controls](docs/COMBAT.md)
 - [Provenance](docs/PROVENANCE.md)
 - [Verification](docs/VERIFICATION.md)

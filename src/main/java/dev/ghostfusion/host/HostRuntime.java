@@ -47,6 +47,13 @@ public final class HostRuntime {
     private final Setting.Bool espWalls = new Setting.Bool("through_walls", false);
     private final Setting.Number espWidth = new Setting.Number("line_width", 1.5, 1.0, 4.0);
     private final Setting.Choice espStyle = new Setting.Choice("style", "box", "box", "tracer", "both");
+    private final Setting.Number aimRange = new Setting.Number("range", 4.5, 2.0, 6.0);
+    private final Setting.Number aimFov = new Setting.Number("fov", 30.0, 5.0, 90.0);
+    private final Setting.Number aimSpeed = new Setting.Number("degrees_per_tick", 4.0, 0.5, 15.0);
+    private final Setting.Bool aimVisible = new Setting.Bool("visible_only", true);
+    private final Setting.Bool aimRequireClick = new Setting.Bool("require_click", true);
+    private final Setting.Number clickRate = new Setting.Number("cps", 10.0, 4.0, 15.0);
+    private final Setting.Bool clickEntitiesOnly = new Setting.Bool("entity_only", true);
     private final UiState ui = new UiState();
     private final UiSettingsStore uiStore;
     private final UiActions uiActions;
@@ -74,6 +81,10 @@ public final class HostRuntime {
             0, espRange, espVisible, espWalls, espWidth, espStyle);
         modules.register(new FeatureModule("movement.sprint", "Auto Sprint", GhostModule.Category.MOVEMENT),
             0);
+        modules.register(new FeatureModule("combat.aimassist", "Aim Assist", GhostModule.Category.COMBAT),
+            0, aimRange, aimFov, aimSpeed, aimVisible, aimRequireClick);
+        modules.register(new FeatureModule("combat.clicker", "AutoClicker", GhostModule.Category.COMBAT),
+            0, clickRate, clickEntitiesOnly);
         modules.setEnabled(overlay.id(), true);
         profiles = new ProfileStore(configDirectory, modules);
         uiStore = new UiSettingsStore(configDirectory, ui);
@@ -115,6 +126,13 @@ public final class HostRuntime {
     public boolean espThroughWalls() { modules.assertOwnerThread(); return espWalls.get(); }
     public float espLineWidth() { modules.assertOwnerThread(); return espWidth.get().floatValue(); }
     public String espStyle() { modules.assertOwnerThread(); return espStyle.get(); }
+    public double aimRange() { modules.assertOwnerThread(); return aimRange.get(); }
+    public double aimFov() { modules.assertOwnerThread(); return aimFov.get(); }
+    public double aimDegreesPerTick() { modules.assertOwnerThread(); return aimSpeed.get(); }
+    public boolean aimVisibleOnly() { modules.assertOwnerThread(); return aimVisible.get(); }
+    public boolean aimRequireClick() { modules.assertOwnerThread(); return aimRequireClick.get(); }
+    public double clickCps() { modules.assertOwnerThread(); return clickRate.get(); }
+    public boolean clickEntityOnly() { modules.assertOwnerThread(); return clickEntitiesOnly.get(); }
     public String profileWarning() { return profileWarning; }
     public boolean worldPresent() { return worldPresent; }
     public int pendingEvents() { return ingress.pending(); }

@@ -64,6 +64,9 @@ jobs:
             dev/ghostfusion/features/CpsMeter.class \
             dev/ghostfusion/features/SprintPolicy.class \
             dev/ghostfusion/features/TargetHudPolicy.class \
+            dev/ghostfusion/features/AimAssistPolicy.class \
+            dev/ghostfusion/features/FixedClickScheduler.class \
+            dev/ghostfusion/forge189/ForgeCombatController.class \
             dev/ghostfusion/forge189/ForgeFeatureDriver.class \
             dev/ghostfusion/forge189/PlayerEspRenderer.class \
             dev/ghostfusion/host/HostRuntime.class \

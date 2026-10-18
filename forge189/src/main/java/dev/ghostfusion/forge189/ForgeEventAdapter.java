@@ -26,12 +26,14 @@ public final class ForgeEventAdapter {
     private final Minecraft minecraft;
     private final HostRuntime host;
     private final ForgeFeatureDriver features;
+    private final ForgeCombatController combat;
 
     public ForgeEventAdapter(Minecraft minecraft, HostRuntime host) {
         if (minecraft == null || host == null) throw new IllegalArgumentException("null dependency");
         this.minecraft = minecraft;
         this.host = host;
         this.features = new ForgeFeatureDriver(minecraft,host);
+        this.combat = new ForgeCombatController(minecraft,host);
     }
 
     @SubscribeEvent
@@ -40,7 +42,7 @@ public final class ForgeEventAdapter {
         host.inputFocus(minecraft.currentScreen != null || !minecraft.inGameHasFocus);
         host.worldPresence(minecraft.theWorld != null);
         host.tick();
-        // Read-only player snapshot; no rotation, input, combat or packet side effects.
+        // Read-only player snapshot published before the single combat intent bridge runs.
         if (host.services().connected() && minecraft.theWorld != null && minecraft.thePlayer != null) {
             List<WorldSnapshot.Entity> players = new ArrayList<WorldSnapshot.Entity>();
             for (Object raw : minecraft.theWorld.playerEntities) {
@@ -60,6 +62,7 @@ public final class ForgeEventAdapter {
                 minecraft.thePlayer.rotationYaw,minecraft.thePlayer.rotationPitch,players));
         }
         features.tick();
+        combat.tick();
     }
 
     @SubscribeEvent
@@ -101,7 +104,7 @@ public final class ForgeEventAdapter {
             public void run() {
                 final float scale = host.statusScale();
                 final String statusText = host.detailedStatus()
-                    ? "GhostC R0.5  |  F7 ClickGUI" : "GhostC";
+                    ? "GhostC R0.6  |  F7 ClickGUI" : "GhostC";
                 final int sw = resolution.getScaledWidth();
                 final int sh = resolution.getScaledHeight();
                 final int statusWidth = Math.max(1, Math.round((minecraft.fontRendererObj.getStringWidth(statusText) + 4) * scale));
@@ -148,12 +151,13 @@ public final class ForgeEventAdapter {
 
     @SubscribeEvent
     public void onWorldUnload(WorldEvent.Unload event) {
-        if (event.world.isRemote) { host.worldPresence(false); features.reset(); }
+        if (event.world.isRemote) { host.worldPresence(false); features.reset(); combat.reset(); }
     }
 
     @SubscribeEvent
     public void onDisconnect(FMLNetworkEvent.ClientDisconnectionFromServerEvent event) {
         host.disconnect();
         features.reset();
+        combat.reset();
     }
 }
