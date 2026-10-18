@@ -60,6 +60,12 @@ jobs:
             dev/ghostfusion/services/ActionCoordinator.class \
             dev/ghostfusion/services/PacketCoordinator.class \
             dev/ghostfusion/services/InventoryCoordinator.class \
+            dev/ghostfusion/features/FeatureModule.class \
+            dev/ghostfusion/features/CpsMeter.class \
+            dev/ghostfusion/features/SprintPolicy.class \
+            dev/ghostfusion/features/TargetHudPolicy.class \
+            dev/ghostfusion/forge189/ForgeFeatureDriver.class \
+            dev/ghostfusion/forge189/PlayerEspRenderer.class \
             dev/ghostfusion/host/HostRuntime.class \
             dev/ghostfusion/core/ModuleRegistry.class \
             dev/ghostfusion/core/ProfileStore.class; do
