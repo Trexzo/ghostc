@@ -9,6 +9,7 @@ Aim for a high-quality, configurable Minecraft 1.8.9 ghost client with reliable 
 - **InputRouter (R0.1):** edge-triggered keybindings and typing focus suppression.
 - **BoundedIngress (R0.1):** bounded cross-thread queue with rejection counters and owner-thread drains.
 - **ProfileStore (R0.1):** typed settings, schema version 1, backup and preflight.
+- **First-party modules (G4/R0.5):** Forge-backed Auto Sprint and render-only ESP/Keystrokes/CPS/Target HUD using session snapshots, bounded telemetry and protected GL state. Actual in-game verification remains pending.
 - **Shared services (G3/R0.4):** owner-thread contracts for immutable world snapshots and target selection, rotation/action arbitration, bounded packet intents, serial inventory transaction intents, session-generation invalidation. No live attack/packet interception yet.
 - **Visual platform (G2/R0.3):** searchable ClickGUI, original themes, draggable HUD and scoped render-state restoration. Visual acceptance still requires in-game evidence.
 

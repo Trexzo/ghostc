@@ -10,6 +10,8 @@ import dev.ghostfusion.ui.UiState;
 import dev.ghostfusion.ui.UiSettingsStore;
 import dev.ghostfusion.ui.UiActions;
 import dev.ghostfusion.services.SessionServices;
+import dev.ghostfusion.features.FeatureModule;
+import dev.ghostfusion.core.GhostModule;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -34,6 +36,17 @@ public final class HostRuntime {
     private final Setting.Bool statusShadow = new Setting.Bool("shadow", true);
     private final Setting.Bool showFps = new Setting.Bool("show_fps", true);
     private final Setting.Bool showCoordinates = new Setting.Bool("show_coordinates", false);
+    private final Setting.Bool keysJump = new Setting.Bool("show_jump", true);
+    private final Setting.Bool keysSneak = new Setting.Bool("show_sneak", true);
+    private final Setting.Bool cpsRight = new Setting.Bool("show_right", true);
+    private final Setting.Number targetRange = new Setting.Number("range", 8.0, 2.0, 24.0);
+    private final Setting.Bool targetVisible = new Setting.Bool("visible_only", true);
+    private final Setting.Bool targetHealth = new Setting.Bool("show_health", true);
+    private final Setting.Number espRange = new Setting.Number("range", 32.0, 2.0, 80.0);
+    private final Setting.Bool espVisible = new Setting.Bool("visible_only", true);
+    private final Setting.Bool espWalls = new Setting.Bool("through_walls", false);
+    private final Setting.Number espWidth = new Setting.Number("line_width", 1.5, 1.0, 4.0);
+    private final Setting.Choice espStyle = new Setting.Choice("style", "box", "box", "tracer", "both");
     private final UiState ui = new UiState();
     private final UiSettingsStore uiStore;
     private final UiActions uiActions;
@@ -51,6 +64,16 @@ public final class HostRuntime {
         if (configDirectory == null) throw new IllegalArgumentException("configDirectory");
         modules.register(overlay, DEFAULT_STATUS_KEY, statusScale, statusStyle, statusShadow);
         modules.register(metrics, 0, showFps, showCoordinates);
+        modules.register(new FeatureModule("hud.keystrokes", "Keystrokes", GhostModule.Category.RENDER),
+            0, keysJump, keysSneak);
+        modules.register(new FeatureModule("hud.cps", "CPS Counter", GhostModule.Category.RENDER),
+            0, cpsRight);
+        modules.register(new FeatureModule("hud.target", "Target HUD", GhostModule.Category.RENDER),
+            0, targetRange, targetVisible, targetHealth);
+        modules.register(new FeatureModule("render.esp", "Player ESP", GhostModule.Category.RENDER),
+            0, espRange, espVisible, espWalls, espWidth, espStyle);
+        modules.register(new FeatureModule("movement.sprint", "Auto Sprint", GhostModule.Category.MOVEMENT),
+            0);
         modules.setEnabled(overlay.id(), true);
         profiles = new ProfileStore(configDirectory, modules);
         uiStore = new UiSettingsStore(configDirectory, ui);
@@ -75,6 +98,23 @@ public final class HostRuntime {
     public boolean metricsFrameRequested() { return worldPresent && metrics.frameRequested(); }
     public boolean showFps() { return showFps.get(); }
     public boolean showCoordinates() { return showCoordinates.get(); }
+    /** Owner-thread read-only settings bridge for Forge features. */
+    public boolean featureEnabled(String id) {
+        modules.assertOwnerThread();
+        return !closed && worldPresent &&
+            modules.get(id).state() == ModuleRegistry.State.ENABLED;
+    }
+    public boolean keysJump() { modules.assertOwnerThread(); return keysJump.get(); }
+    public boolean keysSneak() { modules.assertOwnerThread(); return keysSneak.get(); }
+    public boolean cpsRight() { modules.assertOwnerThread(); return cpsRight.get(); }
+    public double targetRange() { modules.assertOwnerThread(); return targetRange.get(); }
+    public boolean targetVisible() { modules.assertOwnerThread(); return targetVisible.get(); }
+    public boolean targetHealth() { modules.assertOwnerThread(); return targetHealth.get(); }
+    public double espRange() { modules.assertOwnerThread(); return espRange.get(); }
+    public boolean espVisible() { modules.assertOwnerThread(); return espVisible.get(); }
+    public boolean espThroughWalls() { modules.assertOwnerThread(); return espWalls.get(); }
+    public float espLineWidth() { modules.assertOwnerThread(); return espWidth.get().floatValue(); }
+    public String espStyle() { modules.assertOwnerThread(); return espStyle.get(); }
     public String profileWarning() { return profileWarning; }
     public boolean worldPresent() { return worldPresent; }
     public int pendingEvents() { return ingress.pending(); }
@@ -122,9 +162,13 @@ public final class HostRuntime {
     public void key(int keycode, boolean pressed, boolean textFieldOrMenuFocused) {
         if (!active()) return;
         inputFocus(textFieldOrMenuFocused);
-        ModuleRegistry.State before = modules.get(overlay.id()).state();
+        ModuleRegistry.Entry changed = null;
+        ModuleRegistry.State before = null;
+        if (keycode != 0) for (ModuleRegistry.Entry entry : modules.all()) {
+            if (entry.keybind() == keycode) { changed = entry; before = entry.state(); break; }
+        }
         input.keyEvent(keycode, pressed, inputBlocked);
-        if (modules.get(overlay.id()).state() != before) persist();
+        if (changed != null && changed.state() != before) persist();
     }
     public void disconnect() {
         if (!active()) return;

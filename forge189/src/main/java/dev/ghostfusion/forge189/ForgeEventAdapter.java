@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
+import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.event.world.WorldEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.InputEvent;
@@ -24,11 +25,13 @@ import java.util.Locale;
 public final class ForgeEventAdapter {
     private final Minecraft minecraft;
     private final HostRuntime host;
+    private final ForgeFeatureDriver features;
 
     public ForgeEventAdapter(Minecraft minecraft, HostRuntime host) {
         if (minecraft == null || host == null) throw new IllegalArgumentException("null dependency");
         this.minecraft = minecraft;
         this.host = host;
+        this.features = new ForgeFeatureDriver(minecraft,host);
     }
 
     @SubscribeEvent
@@ -56,6 +59,7 @@ public final class ForgeEventAdapter {
                 minecraft.thePlayer.posX,minecraft.thePlayer.posY,minecraft.thePlayer.posZ,
                 minecraft.thePlayer.rotationYaw,minecraft.thePlayer.rotationPitch,players));
         }
+        features.tick();
     }
 
     @SubscribeEvent
@@ -75,16 +79,29 @@ public final class ForgeEventAdapter {
     }
 
     @SubscribeEvent
+    public void onMouse(InputEvent.MouseInputEvent event) {
+        features.mouseInput();
+    }
+
+    @SubscribeEvent
+    public void onRenderWorld(RenderWorldLastEvent event) {
+        features.render3d(event.partialTicks);
+    }
+
+    @SubscribeEvent
     public void onOverlay(RenderGameOverlayEvent.Text event) {
         final boolean status = host.render2d();
         final boolean metrics = host.metricsFrameRequested();
-        if (!status && !metrics) return;
+        if (!status && !metrics) {
+            features.render2d(event.resolution);
+            return;
+        }
         final ScaledResolution resolution = event.resolution;
         RenderStateGuard.draw(new Runnable() {
             public void run() {
                 final float scale = host.statusScale();
                 final String statusText = host.detailedStatus()
-                    ? "GhostC R0.3  |  F7 ClickGUI" : "GhostC";
+                    ? "GhostC R0.5  |  F7 ClickGUI" : "GhostC";
                 final int sw = resolution.getScaledWidth();
                 final int sh = resolution.getScaledHeight();
                 final int statusWidth = Math.max(1, Math.round((minecraft.fontRendererObj.getStringWidth(statusText) + 4) * scale));
@@ -119,6 +136,7 @@ public final class ForgeEventAdapter {
                     Math.min(sh - 12, y + statusHeight + 25), 0xFFFF9999);
             }
         });
+        features.render2d(event.resolution);
     }
 
     @SubscribeEvent
@@ -130,11 +148,12 @@ public final class ForgeEventAdapter {
 
     @SubscribeEvent
     public void onWorldUnload(WorldEvent.Unload event) {
-        if (event.world.isRemote) host.worldPresence(false);
+        if (event.world.isRemote) { host.worldPresence(false); features.reset(); }
     }
 
     @SubscribeEvent
     public void onDisconnect(FMLNetworkEvent.ClientDisconnectionFromServerEvent event) {
         host.disconnect();
+        features.reset();
     }
 }
