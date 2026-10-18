@@ -173,7 +173,9 @@ public final class UiTests {
     private static void hostIntegration() throws Exception {
         Path dir = Files.createTempDirectory("ghostc-ui-host-");
         HostRuntime host = new HostRuntime(dir);
-        ok(host.modules().all().size() == 2, "two real HUD modules registered");
+        ok(host.modules().get("hud.status").module() != null &&
+            host.modules().get("hud.metrics").module() != null &&
+            host.modules().all().size() >= 2, "original HUD modules retained after new registrations");
         host.ui().layout(UiState.Layout.COMPACT);
         host.ui().theme(UiState.Theme.GRAPHITE);
         host.ui().position(0.43, 0.61);
