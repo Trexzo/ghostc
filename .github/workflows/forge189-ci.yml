@@ -37,6 +37,24 @@ jobs:
           set -euo pipefail
           gradle --no-daemon -p forge189 build --stacktrace
           test -n "$(find forge189/build/libs -maxdepth 1 -name 'ghostc-forge189-*.jar' -print -quit)"
+      - name: Inspect Forge development JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR=$(find forge189/build/libs -maxdepth 1 -name 'ghostc-forge189-*.jar' ! -name '*-sources.jar' -print -quit)
+          test -n "$JAR"
+          jar tf "$JAR" > forge189/build/jar-contents.txt
+          for entry in \
+            mcmod.info \
+            dev/ghostfusion/forge189/GhostCMod.class \
+            dev/ghostfusion/forge189/ForgeEventAdapter.class \
+            dev/ghostfusion/host/HostRuntime.class \
+            dev/ghostfusion/core/ModuleRegistry.class \
+            dev/ghostfusion/core/ProfileStore.class; do
+            grep -Fxq "$entry" forge189/build/jar-contents.txt
+          done
+          javap -verbose -classpath "$JAR" dev.ghostfusion.forge189.GhostCMod | grep -q 'major version: 52'
+          echo "FORGE189_JAR_STRUCTURE_PASS"
       - name: Checksums
         shell: bash
         run: |
