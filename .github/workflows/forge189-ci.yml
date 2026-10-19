@@ -101,6 +101,7 @@ jobs:
             forge189/build/libs/SHA256SUMS.txt
             tools/Invoke-GhostCAcceptance.ps1
             docs/RUNTIME_R10.md
+            docs/RUNTIME_R11.md
           if-no-files-found: error
 
   windows-forge189:
@@ -167,7 +168,11 @@ jobs:
           $previous = Join-Path $mods 'ghostc-forge189-0.9.0.jar'
           [IO.File]::WriteAllText($previous, 'OLDER OWNED GHOSTC TEST JAR')
           $priorHash = (Get-FileHash -LiteralPath $previous -Algorithm SHA256).Hash
-          $jar = (Resolve-Path 'forge189/build/libs/ghostc-forge189-1.0.0.jar').Path
+          $config = Get-Content -LiteralPath 'forge189/build.gradle' -Raw
+          $versionMatch = [regex]::Match($config, "(?m)^version = '([^']+)'")
+          if (!$versionMatch.Success) { throw 'Cannot find current Forge artifact version' }
+          $version = $versionMatch.Groups[1].Value
+          $jar = (Resolve-Path "forge189/build/libs/ghostc-forge189-$version.jar").Path
           $hash = (Get-FileHash -LiteralPath $jar -Algorithm SHA256).Hash
           $tool = (Resolve-Path 'tools/Invoke-GhostCAcceptance.ps1').Path
           $wrongHash = ('0' * 64)
@@ -197,7 +202,7 @@ jobs:
               ((Get-Content -LiteralPath $report -Raw) -notmatch 'UNVERIFIED IN-GAME')) {
             throw 'Acceptance report missing its unverified runtime disclaimer'
           }
-          $installed = Join-Path $mods 'ghostc-forge189-1.0.0.jar'
+          $installed = Join-Path $mods "ghostc-forge189-$version.jar"
           [IO.File]::AppendAllText($installed, 'TAMPERED FILE')
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Rollback -GameDir $root *> $null
           if ($LASTEXITCODE -eq 0 -or
@@ -215,7 +220,7 @@ jobs:
               (Get-FileHash -LiteralPath $previous -Algorithm SHA256).Hash -ne $priorHash) {
             throw 'Rollback did not restore the original client byte-for-byte'
           }
-          if ((Test-Path -LiteralPath (Join-Path $mods 'ghostc-forge189-1.0.0.jar')) -or
+          if ((Test-Path -LiteralPath (Join-Path $mods "ghostc-forge189-$version.jar")) -or
               (Test-Path -LiteralPath (Join-Path $root 'ghostc-acceptance/install-state.json'))) {
             throw 'Rollback left an active client or transaction state behind'
           }

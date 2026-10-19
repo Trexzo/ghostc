@@ -4,6 +4,7 @@ import dev.ghostfusion.core.GhostModule;
 import dev.ghostfusion.core.ModuleRegistry;
 import dev.ghostfusion.core.Setting;
 import dev.ghostfusion.host.HostRuntime;
+import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.ui.UiState;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
@@ -334,6 +335,7 @@ public final class GhostClickGui extends GuiScreen {
         super.keyTyped(character,keyCode);
     }
     @Override public void onGuiClosed() {
+        host.diagnostics().record(Counter.GUI_CLOSE);
         Keyboard.enableRepeatEvents(false);
         hudDragging = false;
         capture = null;

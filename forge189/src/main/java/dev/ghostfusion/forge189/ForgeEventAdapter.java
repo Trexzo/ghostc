@@ -73,6 +73,7 @@ public final class ForgeEventAdapter {
 
     @SubscribeEvent
     public void onKey(InputEvent.KeyInputEvent event) {
+        host.diagnostics().record(Counter.KEY_CALLBACK);
         int code = Keyboard.getEventKey();
         // Event code 0 means no keyboard key; no keybind should fire.
         if (code == 0) return;
@@ -80,6 +81,7 @@ public final class ForgeEventAdapter {
         if (code == Keyboard.KEY_F7 && Keyboard.getEventKeyState() &&
             !Keyboard.isRepeatEvent() && minecraft.currentScreen == null && minecraft.inGameHasFocus) {
             host.inputFocus(true);
+            host.diagnostics().record(Counter.GUI_OPEN);
             minecraft.displayGuiScreen(new GhostClickGui(host));
             return;
         }
@@ -89,16 +91,19 @@ public final class ForgeEventAdapter {
 
     @SubscribeEvent
     public void onMouse(InputEvent.MouseInputEvent event) {
+        host.diagnostics().record(Counter.MOUSE_CALLBACK);
         features.mouseInput();
     }
 
     @SubscribeEvent
     public void onRenderWorld(RenderWorldLastEvent event) {
+        host.diagnostics().record(Counter.WORLD_RENDER_FRAME);
         features.render3d(event.partialTicks);
     }
 
     @SubscribeEvent
     public void onOverlay(RenderGameOverlayEvent.Text event) {
+        host.diagnostics().record(Counter.OVERLAY_FRAME);
         final boolean status = host.render2d();
         final boolean metrics = host.metricsFrameRequested();
         if (!status && !metrics) {
@@ -110,7 +115,7 @@ public final class ForgeEventAdapter {
             public void run() {
                 final float scale = host.statusScale();
                 final String statusText = host.detailedStatus()
-                    ? "GhostC R1.0  |  F7 ClickGUI" : "GhostC";
+                    ? "GhostC R1.1  |  F7 ClickGUI" : "GhostC";
                 final int sw = resolution.getScaledWidth();
                 final int sh = resolution.getScaledHeight();
                 final int statusWidth = Math.max(1, Math.round((minecraft.fontRendererObj.getStringWidth(statusText) + 4) * scale));

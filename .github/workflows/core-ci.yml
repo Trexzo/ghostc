@@ -51,6 +51,8 @@ jobs:
           grep -q 'RUNTIME_SAFETY_PASS' .build/runtime-safety.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.FeatureFaultTests | tee .build/feature-fault.log
           grep -q 'FEATURE_FAULT_PASS' .build/feature-fault.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.ViewportRuntimeTests | tee .build/viewport.log
+          grep -q 'VIEWPORT_RUNTIME_PASS' .build/viewport.log
           java -cp .build/classes dev.ghostfusion.demo.DemoMain | tee .build/demo.log
           grep -q 'DEMO_PASS' .build/demo.log
       - name: Package headless demonstrator

@@ -90,11 +90,17 @@ public final class ForgeFeatureDriver {
         mc.fontRendererObj.drawStringWithShadow(text,x,y+1,0xFFE3E9FF);
     }
     private void drawDiagnostics(int sw,int sh) {
-        int width=178, height=63;
-        int x=Math.max(3,sw-width-4), y=4;
-        Gui.drawRect(x,y,x+width,y+height,0xC31B2133);
-        mc.fontRendererObj.drawStringWithShadow("GhostC R1.0 diagnostics",x+5,y+5,0xFFAEAAFF);
+        int width=208, height=87;
+        int x=Math.max(0,sw-width-4), y=4;
+        Gui.drawRect(x,y,Math.min(sw,x+width),y+height,0xC31B2133);
+        mc.fontRendererObj.drawStringWithShadow("GhostC R1.1 diagnostics",x+5,y+5,0xFFAEAAFF);
         String epoch="Epoch " + host.services().generation() + " | Tick " + host.services().tick();
+        String gui="F7 "+host.diagnostics().count(Counter.GUI_OPEN)+
+            " | GUI frames "+host.diagnostics().count(Counter.GUI_FRAME);
+        String render="2D "+host.diagnostics().count(Counter.OVERLAY_FRAME)+
+            " | World "+host.diagnostics().count(Counter.WORLD_RENDER_FRAME);
+        String events="Keys "+host.diagnostics().count(Counter.KEY_CALLBACK)+
+            " | Mouse "+host.diagnostics().count(Counter.MOUSE_CALLBACK);
         String queue="Action "+host.services().actions().pending()+
             " | Rotation "+host.services().rotations().pending();
         String applied="Aim "+host.diagnostics().count(Counter.AIM_APPLIED)+
@@ -103,9 +109,12 @@ public final class ForgeFeatureDriver {
         String focus="Focus lost "+host.diagnostics().count(Counter.FOCUS_LOST)+
             " | Suppressed "+host.diagnostics().count(Counter.INPUT_SUPPRESSED);
         mc.fontRendererObj.drawStringWithShadow(epoch,x+5,y+17,0xFFC9D1DF);
-        mc.fontRendererObj.drawStringWithShadow(queue,x+5,y+28,0xFFC9D1DF);
-        mc.fontRendererObj.drawStringWithShadow(applied,x+5,y+39,0xFFC9D1DF);
-        mc.fontRendererObj.drawStringWithShadow(focus,x+5,y+50,0xFFC9D1DF);
+        mc.fontRendererObj.drawStringWithShadow(gui,x+5,y+28,0xFFC9D1DF);
+        mc.fontRendererObj.drawStringWithShadow(render,x+5,y+39,0xFFC9D1DF);
+        mc.fontRendererObj.drawStringWithShadow(events,x+5,y+50,0xFFC9D1DF);
+        mc.fontRendererObj.drawStringWithShadow(queue,x+5,y+61,0xFFC9D1DF);
+        mc.fontRendererObj.drawStringWithShadow(applied,x+5,y+72,0xFFC9D1DF);
+        // Focus/suppression remains in the saved local report.
     }
     private void drawTarget(int sw,int sh) {
         WorldSnapshot w=host.services().snapshot();

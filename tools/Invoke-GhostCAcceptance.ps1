@@ -1,7 +1,7 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-  GhostC 1.0 Windows acceptance: checksum-gated Prepare, Collect, Rollback.
+  GhostC versioned Windows acceptance: checksum-gated Prepare, Collect, Rollback.
 .DESCRIPTION
   Modifies only ghostc-forge189*.jar files inside the supplied Minecraft profile.
   Never launches Minecraft, changes Java, reads private logs or touches unrelated mods.
