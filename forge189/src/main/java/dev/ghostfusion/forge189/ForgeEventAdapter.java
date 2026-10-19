@@ -115,7 +115,7 @@ public final class ForgeEventAdapter {
             public void run() {
                 final float scale = host.statusScale();
                 final String statusText = host.detailedStatus()
-                    ? "GhostC R1.2  |  F7 ClickGUI" : "GhostC";
+                    ? "GhostC " + GhostCMod.CLIENT_VERSION + " | F7 ClickGUI" : "GhostC";
                 final int sw = resolution.getScaledWidth();
                 final int sh = resolution.getScaledHeight();
                 final int statusWidth = Math.max(1, Math.round((minecraft.fontRendererObj.getStringWidth(statusText) + 4) * scale));

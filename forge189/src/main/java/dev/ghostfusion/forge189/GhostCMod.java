@@ -13,9 +13,11 @@ import java.io.File;
  * Real Forge 1.8.9 entrypoint. No injection, external process or network connection.
  * All game objects stay within this adapter package.
  */
-@Mod(modid = "ghostc", name = "GhostC", version = "1.2.0",
+@Mod(modid = "ghostc", name = "GhostC", version = GhostCMod.CLIENT_VERSION,
      acceptedMinecraftVersions = "[1.8.9]", clientSideOnly = true)
 public final class GhostCMod {
+    /** A single Forge-side display/version source for the status and diagnostics HUDs. */
+    public static final String CLIENT_VERSION = "1.3.0";
     private ForgeEventAdapter adapter;
 
     @Mod.EventHandler

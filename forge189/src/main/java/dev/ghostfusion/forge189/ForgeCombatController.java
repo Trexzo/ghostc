@@ -20,9 +20,13 @@ import net.minecraft.item.ItemSword;
 import net.minecraft.util.MovingObjectPosition;
 
 /**
- * Single Forge owner of optional local camera and attack-key pulse writes.
- * Both feature producers submit intent through G3 coordinators before this
- * bridge consumes it. No packet injection, hooks or bypass routines.
+ * Sole Forge owner of optional local combat writes.
+ *
+ * Each module's Java callback goes through HostRuntime.runFeature (which
+ * quarantines only that module on RuntimeException). Requests are canceled
+ * BEFORE scheduling and again when a callback fails; no prior-tick attack,
+ * use, or camera request may survive a module failure. There is no packet
+ * interception, reflection or anticheat evasion.
  */
 public final class ForgeCombatController {
     private static final String AIM_ID = "combat.aimassist";
@@ -45,8 +49,8 @@ public final class ForgeCombatController {
     }
 
     void tick() {
-        SessionServices session = host.services();
-        EntityPlayerSP player = mc.thePlayer;
+        final SessionServices session = host.services();
+        final EntityPlayerSP player = mc.thePlayer;
         if (player == null || mc.theWorld == null || !session.connected() ||
             mc.currentScreen != null || !mc.inGameHasFocus) {
             reset();
@@ -54,112 +58,152 @@ public final class ForgeCombatController {
         }
 
         boolean physicalDown = mc.gameSettings.keyBindAttack.isKeyDown();
-        boolean held = physicalInput.allowed(session.generation(), true, true, false,
+        final boolean held = physicalInput.allowed(session.generation(), true, true, false,
             physicalDown, mc.gameSettings.keyBindAttack.getKeyCode(),
             mc.gameSettings.keyBindUseItem.getKeyCode());
         if (physicalDown && !held) host.diagnostics().record(Counter.INPUT_SUPPRESSED);
-        WorldSnapshot snapshot = session.snapshot();
 
-        if (host.featureEnabled(AIM_ID) && snapshot != null &&
-            (!host.aimRequireClick() || held)) {
-            // Aim at player upper torso; policy never writes rotation itself.
-            AimAssistPolicy.Suggestion suggestion = aim.suggest(
-                snapshot, player.getEyeHeight(), 1.25,
-                host.aimRange(), host.aimFov(), host.aimDegreesPerTick(),
-                host.aimVisibleOnly());
-            if (suggestion != null) {
-                session.rotations().request(AIM_ID, RotationCoordinator.Scope.CAMERA,
-                    suggestion.yaw, suggestion.pitch, 10,
-                    session.tick(), 1, session.generation());
-            } else {
-                session.rotations().cancel(AIM_ID);
-            }
-        } else session.rotations().cancel(AIM_ID);
-
-        RotationCoordinator.Decision rotation = session.rotations().decide(
-            RotationCoordinator.Scope.CAMERA, session.tick(), session.generation(),
-            player.rotationYaw, player.rotationPitch);
-        if (AIM_ID.equals(rotation.owner) && host.featureEnabled(AIM_ID) &&
-            (!host.aimRequireClick() || held)) {
-            player.rotationYaw = rotation.yaw;
-            player.rotationPitch = rotation.pitch;
-            host.diagnostics().record(Counter.AIM_APPLIED);
+        // Cancel any previous owned request before scheduling the new one.
+        // This also makes disabled, focus-lost and failing modules fail closed.
+        session.rotations().cancel(AIM_ID);
+        final WorldSnapshot snapshot = session.snapshot();
+        if (snapshot != null && host.featureEnabled(AIM_ID)) {
+            boolean healthy = host.runFeature(AIM_ID, new Runnable() {
+                public void run() {
+                    if (host.aimRequireClick() && !held) return;
+                    AimAssistPolicy.Suggestion suggestion = aim.suggest(
+                        snapshot, player.getEyeHeight(), 1.25,
+                        host.aimRange(), host.aimFov(), host.aimDegreesPerTick(),
+                        host.aimVisibleOnly());
+                    if (suggestion == null) return;
+                    session.rotations().request(AIM_ID, RotationCoordinator.Scope.CAMERA,
+                        suggestion.yaw, suggestion.pitch, 10,
+                        session.tick(), 1, session.generation());
+                    RotationCoordinator.Decision rotation = session.rotations().decide(
+                        RotationCoordinator.Scope.CAMERA, session.tick(), session.generation(),
+                        player.rotationYaw, player.rotationPitch);
+                    if (AIM_ID.equals(rotation.owner)) {
+                        player.rotationYaw = rotation.yaw;
+                        player.rotationPitch = rotation.pitch;
+                        host.diagnostics().record(Counter.AIM_APPLIED);
+                    }
+                }
+            });
+            if (!healthy) session.rotations().cancel(AIM_ID);
         }
 
-        // Snapshot the crosshair once for the current tick. Both policies and
-        // the final bridge authorization use exactly the same target identity.
-        EntityLivingBase target = null;
+        // Snapshot the current crosshair exactly once for all combat policies.
+        EntityLivingBase found = null;
         if (mc.objectMouseOver != null &&
             mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY &&
             mc.objectMouseOver.entityHit instanceof EntityLivingBase &&
             mc.objectMouseOver.entityHit != player &&
             !mc.objectMouseOver.entityHit.isDead) {
-            target = (EntityLivingBase)mc.objectMouseOver.entityHit;
+            found = (EntityLivingBase)mc.objectMouseOver.entityHit;
         }
-        boolean validTarget = target != null;
-        boolean clickEnabled = host.featureEnabled(CLICK_ID);
-        boolean hitEnabled = host.featureEnabled(HIT_ID);
-        boolean blockEnabled = host.featureEnabled(BLOCK_ID);
-        boolean useHeld = mc.gameSettings.keyBindUseItem.isKeyDown();
+        final EntityLivingBase target = found;
+        final boolean validTarget = target != null;
+        final boolean useHeld = mc.gameSettings.keyBindUseItem.isKeyDown();
         ItemStack equipped = player.getHeldItem();
-        boolean sword = equipped != null && equipped.getItem() instanceof ItemSword;
+        final boolean sword = equipped != null && equipped.getItem() instanceof ItemSword;
+        final boolean[] extraAttackQueued = {false};
 
-        boolean clickEligible = clickEnabled && !useHeld && !player.isUsingItem() &&
-            (!host.clickEntityOnly() || validTarget);
-        // An enabled Hit Select applies ONLY to our additional AutoClicker
-        // presses; it cannot cancel Minecraft's normal physical mouse clicks.
-        if (!hitEnabled) hitSelect.reset();
-        boolean dueClick = scheduler.due(System.nanoTime(), clickEligible, held, host.clickCps());
-        boolean hitSelectWasAccepted = false;
-        if (dueClick) {
-            boolean approve = !hitEnabled || hitSelect.accept(
-                true, !host.hitRequireTarget() || validTarget,
-                target == null ? 0 : target.hurtTime,
-                host.hitMaxHurtTime(), host.hitGapTicks(), session.tick(), session.generation());
-            hitSelectWasAccepted = approve;
-            if (approve) {
-                session.actions().request(CLICK_ID, ActionCoordinator.Type.ATTACK,
-                    ActionCoordinator.Phase.OUTPUT, 0, 10,
-                    session.tick(), 1, session.generation());
+        if (!host.featureEnabled(HIT_ID)) hitSelect.reset();
+        session.actions().cancelOwner(CLICK_ID);
+        if (host.featureEnabled(CLICK_ID)) {
+            boolean healthy = host.runFeature(CLICK_ID, new Runnable() {
+                public void run() {
+                    boolean eligible = !useHeld && !player.isUsingItem() &&
+                        (!host.clickEntityOnly() || validTarget);
+                    if (!scheduler.due(System.nanoTime(), eligible, held, host.clickCps()))
+                        return;
+                    final boolean[] allowed = {true};
+                    if (host.featureEnabled(HIT_ID)) {
+                        allowed[0] = false;
+                        // A faulty Hit Select disables only itself and rejects
+                        // this extra pulse; the clicker stays enabled.
+                        host.runFeature(HIT_ID, new Runnable() {
+                            public void run() {
+                                allowed[0] = hitSelect.accept(true,
+                                    !host.hitRequireTarget() || validTarget,
+                                    target == null ? 0 : target.hurtTime,
+                                    host.hitMaxHurtTime(), host.hitGapTicks(),
+                                    session.tick(), session.generation());
+                            }
+                        });
+                    }
+                    if (!allowed[0]) return;
+                    session.actions().request(CLICK_ID, ActionCoordinator.Type.ATTACK,
+                        ActionCoordinator.Phase.OUTPUT, 0, 10,
+                        session.tick(), 1, session.generation());
+                    extraAttackQueued[0] = true;
+                }
+            });
+            if (!healthy) {
+                scheduler.reset();
+                hitSelect.reset();
+                extraAttackQueued[0] = false;
+                session.actions().cancelOwner(CLICK_ID);
             }
+        } else {
+            scheduler.reset();
+            session.actions().cancelOwner(CLICK_ID);
         }
 
-        // Block Hit is the only module allowed to request extra USE pulses.
-        // A sword, attack hold and no competing vanilla use action are mandatory.
-        if (blockHit.due(blockEnabled, held, useHeld || player.isUsingItem(),
-                sword, validTarget, host.blockRequireTarget(),
-                dueClick && (!hitEnabled || hitSelectWasAccepted),
-                host.blockIntervalTicks(), session.tick(), session.generation())) {
-            session.actions().request(BLOCK_ID, ActionCoordinator.Type.USE,
-                ActionCoordinator.Phase.OUTPUT, 0, 10,
-                session.tick(), 1, session.generation());
+        session.actions().cancelOwner(BLOCK_ID);
+        if (host.featureEnabled(BLOCK_ID)) {
+            boolean healthy = host.runFeature(BLOCK_ID, new Runnable() {
+                public void run() {
+                    if (!blockHit.due(true, held, useHeld || player.isUsingItem(),
+                        sword, validTarget, host.blockRequireTarget(),
+                        extraAttackQueued[0], host.blockIntervalTicks(),
+                        session.tick(), session.generation())) return;
+                    session.actions().request(BLOCK_ID, ActionCoordinator.Type.USE,
+                        ActionCoordinator.Phase.OUTPUT, 0, 10,
+                        session.tick(), 1, session.generation());
+                }
+            });
+            if (!healthy) {
+                blockHit.reset();
+                session.actions().cancelOwner(BLOCK_ID);
+            }
+        } else {
+            blockHit.reset();
         }
 
         ActionCoordinator.Decision attack = session.actions().consume(
             ActionCoordinator.Type.ATTACK, ActionCoordinator.Phase.OUTPUT,
             session.tick(), session.generation());
-        if (attack != null && CLICK_ID.equals(attack.owner) && clickEnabled && held &&
-            !useHeld && !player.isUsingItem() &&
+        if (attack != null && CLICK_ID.equals(attack.owner) &&
+            host.featureEnabled(CLICK_ID) && held && !useHeld && !player.isUsingItem() &&
             (!host.clickEntityOnly() || validTarget) &&
-            (!hitEnabled || (!host.hitRequireTarget() || validTarget))) {
-            // Enqueue one normal vanilla key press; no direct attackEntity or
-            // packet send. The action coordinator prevents double consumption.
-            KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
-            host.diagnostics().record(Counter.EXTRA_ATTACK);
+            (!host.featureEnabled(HIT_ID) || (!host.hitRequireTarget() || validTarget))) {
+            host.runFeature(CLICK_ID, new Runnable() {
+                public void run() {
+                    // Normal vanilla key path, not direct attackEntity/packets.
+                    KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
+                    host.diagnostics().record(Counter.EXTRA_ATTACK);
+                }
+            });
         }
 
         ActionCoordinator.Decision use = session.actions().consume(
             ActionCoordinator.Type.USE, ActionCoordinator.Phase.OUTPUT,
             session.tick(), session.generation());
-        if (use != null && BLOCK_ID.equals(use.owner) && blockEnabled && held &&
-            sword && !useHeld && !player.isUsingItem() &&
+        if (use != null && BLOCK_ID.equals(use.owner) &&
+            host.featureEnabled(BLOCK_ID) && held && sword &&
+            !useHeld && !player.isUsingItem() &&
             (!host.blockRequireTarget() || validTarget)) {
-            KeyBinding.onTick(mc.gameSettings.keyBindUseItem.getKeyCode());
-            host.diagnostics().record(Counter.EXTRA_USE);
+            host.runFeature(BLOCK_ID, new Runnable() {
+                public void run() {
+                    KeyBinding.onTick(mc.gameSettings.keyBindUseItem.getKeyCode());
+                    host.diagnostics().record(Counter.EXTRA_USE);
+                }
+            });
         }
     }
 
-    /** Clears held-timer state and both owned requests on world/focus transition. */
+    /** Clears timers and all pending owned intents on world or focus change. */
     void reset() {
         scheduler.reset();
         physicalInput.reset();
