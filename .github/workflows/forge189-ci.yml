@@ -170,6 +170,21 @@ jobs:
           $jar = (Resolve-Path 'forge189/build/libs/ghostc-forge189-1.0.0.jar').Path
           $hash = (Get-FileHash -LiteralPath $jar -Algorithm SHA256).Hash
           $tool = (Resolve-Path 'tools/Invoke-GhostCAcceptance.ps1').Path
+          $wrongHash = ('0' * 64)
+          if ($wrongHash -eq $hash) { $wrongHash = ('F' * 64) }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Prepare -GameDir $root -JarPath $jar -ExpectedSha256 $wrongHash *> $null
+          if ($LASTEXITCODE -eq 0 -or !(Test-Path -LiteralPath $previous) -or
+              (Test-Path -LiteralPath (Join-Path $root 'ghostc-acceptance/install-state.json'))) {
+            throw 'Wrong checksum was not safely rejected without changes'
+          }
+          $conflict = Join-Path $mods 'ghostc-unknown.jar'
+          [IO.File]::WriteAllText($conflict, 'UNKNOWN GHOSTC FIXTURE')
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Prepare -GameDir $root -JarPath $jar -ExpectedSha256 $hash *> $null
+          if ($LASTEXITCODE -eq 0 -or !(Test-Path -LiteralPath $previous)) {
+            throw 'Duplicate named GhostC JAR was not safely rejected'
+          }
+          Remove-Item -LiteralPath $conflict
+          Write-Output 'WINDOWS_ACCEPTANCE_NEGATIVE_PREFLIGHT_PASS'
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Prepare -GameDir $root -JarPath $jar -ExpectedSha256 $hash
           if ($LASTEXITCODE -ne 0) { throw 'Prepare transaction failed' }
           if ((Test-Path -LiteralPath $previous) -or !(Test-Path -LiteralPath (Join-Path $root 'ghostc-acceptance/install-state.json'))) {
@@ -182,6 +197,18 @@ jobs:
               ((Get-Content -LiteralPath $report -Raw) -notmatch 'UNVERIFIED IN-GAME')) {
             throw 'Acceptance report missing its unverified runtime disclaimer'
           }
+          $installed = Join-Path $mods 'ghostc-forge189-1.0.0.jar'
+          [IO.File]::AppendAllText($installed, 'TAMPERED FILE')
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Rollback -GameDir $root *> $null
+          if ($LASTEXITCODE -eq 0 -or
+              !(Test-Path -LiteralPath (Join-Path $root 'ghostc-acceptance/install-state.json'))) {
+            throw 'Tampered installation did not block rollback'
+          }
+          Copy-Item -LiteralPath $jar -Destination $installed -Force
+          if ((Get-FileHash -LiteralPath $installed -Algorithm SHA256).Hash -ne $hash) {
+            throw 'Unable to restore test fixture before rollback'
+          }
+          Write-Output 'WINDOWS_ACCEPTANCE_TAMPER_GUARD_PASS'
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Rollback -GameDir $root
           if ($LASTEXITCODE -ne 0) { throw 'Rollback transaction failed' }
           if (!(Test-Path -LiteralPath $previous) -or
