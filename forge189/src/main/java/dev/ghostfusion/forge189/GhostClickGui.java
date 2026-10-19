@@ -6,6 +6,7 @@ import dev.ghostfusion.core.Setting;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.ui.UiState;
+import dev.ghostfusion.ui.GuiLayout;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
 import org.lwjgl.input.Keyboard;
@@ -24,6 +25,7 @@ public final class GhostClickGui extends GuiScreen {
     private final HostRuntime host;
     private final UiState ui;
     private GuiTextField search;
+    private int searchPositionX=-1, searchPositionY=-1, searchPositionWidth=-1;
     private String selected = "hud.status";
     private String capture;
     private String message = "";
@@ -43,24 +45,29 @@ public final class GhostClickGui extends GuiScreen {
     @Override public void initGui() {
         Keyboard.enableRepeatEvents(true);
         rebuild();
-        search = new GuiTextField(42, fontRendererObj, x + side + 12, y + 45, Math.max(50, w - side - 24), 17);
-        search.setMaxStringLength(100);
-        search.setText(ui.query());
         host.inputFocus(true);
     }
     private void rebuild() {
-        w = Math.min(Math.max(180, width - 16), ui.layout() == UiState.Layout.WIDE ? 600 : 390);
-        h = Math.min(Math.max(120, height - 12), 430);
-        x = Math.max(0, (width - w) / 2);
-        y = Math.max(0, (height - h) / 2);
-        side = Math.min(ui.layout() == UiState.Layout.WIDE ? 118 : 93, Math.max(72, w / 3));
-        listY = y + 73;
-        listH = Math.max(36, (h - 91) / 2);
-        visibleRows = Math.max(1, listH / 28);
-        previewX = x + side + 12;
-        previewY = y + 82;
-        previewW = Math.max(120, w - side - 24);
-        previewH = Math.max(50, h - 104);
+        GuiLayout g = GuiLayout.calculate(width,height,ui.layout());
+        x=g.x; y=g.y; w=g.width; h=g.height; side=g.sidebar;
+        listY=g.listY; listH=g.listHeight; visibleRows=g.visibleRows;
+        previewX=g.previewX; previewY=g.previewY;
+        previewW=g.previewWidth; previewH=g.previewHeight;
+        syncSearch(g);
+    }
+    private void syncSearch(GuiLayout g) {
+        if (search!=null && searchPositionX==g.searchX &&
+            searchPositionY==g.searchY && searchPositionWidth==g.searchWidth) return;
+        String previous=search==null?ui.query():search.getText();
+        boolean focused=search!=null && search.isFocused();
+        GuiTextField resized=new GuiTextField(42,fontRendererObj,
+            g.searchX,g.searchY,g.searchWidth,17);
+        resized.setMaxStringLength(100);
+        resized.setText(previous);
+        resized.setFocused(focused);
+        search=resized;
+        searchPositionX=g.searchX; searchPositionY=g.searchY;
+        searchPositionWidth=g.searchWidth;
     }
     private int bg() { return ui.theme() == UiState.Theme.INDIGO ? 0xF3161A2C : 0xF31A1C20; }
     private int panel() { return ui.theme() == UiState.Theme.INDIGO ? 0xFF22283E : 0xFF303339; }
@@ -75,6 +82,8 @@ public final class GhostClickGui extends GuiScreen {
         fontRendererObj.drawStringWithShadow(value, atX, atY, color);
     }
     @Override public void drawScreen(final int mx, final int my, float partialTicks) {
+        host.diagnostics().record(Counter.GUI_FRAME);
+        rebuild();
         if (search != null && !hudPage) {
             search.updateCursorCounter();
             ui.query(search.getText());
@@ -84,7 +93,6 @@ public final class GhostClickGui extends GuiScreen {
         });
     }
     private void drawUi(int mx, int my) {
-        rebuild();
         rect(0, 0, width, height, 0x99060B13);
         rect(x, y, w, h, bg());
         rect(x, y, side, h, panel());
@@ -187,6 +195,7 @@ public final class GhostClickGui extends GuiScreen {
         return out + "..";
     }
     private void drawHudEditor(int mx, int my) {
+        if (previewW<1 || previewH<1) return;
         label("HUD POSITION EDITOR", x + side + 12, y + 49, accent());
         label("Drag the status preview. Coordinates survive restart.", x + side + 12,
             y + 62, 0xFFBAC1D3);
@@ -208,15 +217,6 @@ public final class GhostClickGui extends GuiScreen {
         if (inside(mx,my,x+w-99,y+6,40,17)) {
             ui.layout(ui.layout() == UiState.Layout.WIDE ? UiState.Layout.COMPACT : UiState.Layout.WIDE);
             rebuild();
-            if (search != null) {
-                String oldQuery = search.getText();
-                boolean focused = search.isFocused();
-                search = new GuiTextField(42, fontRendererObj, x + side + 12, y + 45,
-                    Math.max(50, w - side - 24), 17);
-                search.setMaxStringLength(100);
-                search.setText(oldQuery);
-                search.setFocused(focused);
-            }
             host.persistUi(); return;
         }
         if (inside(mx,my,x+w-55,y+6,50,17)) {
@@ -226,6 +226,7 @@ public final class GhostClickGui extends GuiScreen {
         if (inside(mx,my,x+side+8,y+3,70,24)) { hudPage = false; return; }
         if (inside(mx,my,x+side+84,y+3,47,24)) { hudPage = true; capture = null; return; }
         if (hudPage) {
+            if (previewW<1 || previewH<1) return;
             int hx = previewX + ui.pixelX(previewW, HUD_WIDTH);
             int hy = previewY + ui.pixelY(previewH, HUD_HEIGHT);
             if (inside(mx,my,hx,hy,Math.min(HUD_WIDTH,previewW),Math.min(HUD_HEIGHT,previewH))) {
@@ -288,7 +289,7 @@ public final class GhostClickGui extends GuiScreen {
         }
     }
     @Override protected void mouseClickMove(int mx,int my,int button,long timeSinceLastClick) {
-        if (hudDragging && button == 0) {
+        if (hudDragging && button == 0 && previewW>0 && previewH>0) {
             ui.positionPixels(mx - previewX - dragX, my - previewY - dragY,
                 previewW,previewH,HUD_WIDTH,HUD_HEIGHT);
         }
@@ -326,7 +327,7 @@ public final class GhostClickGui extends GuiScreen {
             catch (RuntimeException ex) { message = "Key already assigned or invalid"; }
             return;
         }
-        if (keyCode == Keyboard.KEY_ESCAPE) {
+        if (keyCode == Keyboard.KEY_ESCAPE || keyCode == Keyboard.KEY_F7) {
             mc.displayGuiScreen(null); return;
         }
         if (!hudPage && search.textboxKeyTyped(character,keyCode)) {
