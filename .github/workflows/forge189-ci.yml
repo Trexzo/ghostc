@@ -70,6 +70,7 @@ jobs:
             dev/ghostfusion/features/HitSelectPolicy.class \
             dev/ghostfusion/features/PhysicalInputGate.class \
             dev/ghostfusion/host/RuntimeDiagnostics.class \
+            dev/ghostfusion/host/FeatureFaultGuard.class \
             dev/ghostfusion/forge189/ForgeCombatController.class \
             dev/ghostfusion/forge189/ForgeFeatureDriver.class \
             dev/ghostfusion/forge189/PlayerEspRenderer.class \
@@ -93,6 +94,60 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ghostc-forge189-unverified-ingame
+          path: |
+            forge189/build/libs/ghostc-forge189-*.jar
+            forge189/build/libs/SHA256SUMS.txt
+          if-no-files-found: error
+
+  windows-forge189:
+    name: Windows / JDK8 / Forge 1.8.9 build smoke
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '4.10.3'
+      - name: Compile, reobfuscate and inspect JAR on Windows
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          gradle --no-daemon -p forge189 build --stacktrace
+          if ($LASTEXITCODE -ne 0) { throw 'Forge 1.8.9 Windows compilation failed' }
+          $config = Get-Content -LiteralPath forge189/build.gradle -Raw
+          $match = [regex]::Match($config, "(?m)^version = '([^']+)'")
+          if (!$match.Success) { throw 'Cannot parse Forge artifact version' }
+          $version = $match.Groups[1].Value
+          $file = Join-Path 'forge189/build/libs' "ghostc-forge189-$version.jar"
+          if (!(Test-Path -LiteralPath $file)) { throw "Missing versioned JAR: $file" }
+          $contents = & jar tf $file
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect JAR entries' }
+          foreach ($class in @(
+            'mcmod.info',
+            'dev/ghostfusion/forge189/GhostCMod.class',
+            'dev/ghostfusion/forge189/ForgeEventAdapter.class',
+            'dev/ghostfusion/forge189/ForgeCombatController.class',
+            'dev/ghostfusion/forge189/ForgeFeatureDriver.class',
+            'dev/ghostfusion/host/HostRuntime.class',
+            'dev/ghostfusion/host/FeatureFaultGuard.class',
+            'dev/ghostfusion/host/RuntimeDiagnostics.class'
+          )) {
+            if ($contents -notcontains $class) { throw "Missing JAR entry: $class" }
+          }
+          $bytecode = (& javap -verbose -classpath $file dev.ghostfusion.forge189.GhostCMod) -join "`n"
+          if ($LASTEXITCODE -ne 0 -or $bytecode -notmatch 'major version: 52') {
+            throw 'Forge entrypoint is not Java 8 bytecode'
+          }
+          $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $(Split-Path -Leaf $file)" | Set-Content -LiteralPath 'forge189/build/libs/SHA256SUMS.txt' -Encoding ascii
+          Write-Output "WINDOWS_FORGE189_SMOKE_PASS version=$version"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ghostc-forge189-windows-build-unverified-ingame
           path: |
             forge189/build/libs/ghostc-forge189-*.jar
             forge189/build/libs/SHA256SUMS.txt
