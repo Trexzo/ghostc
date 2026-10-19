@@ -61,25 +61,26 @@ public final class ViewportHitTests {
         ok(GuiHitZones.moduleIndex(g,g.x+g.sidebar+8,g.listY,0,100)==-1,"outside left");
         ok(GuiHitZones.moduleIndex(g,g.x+g.width-11,g.listY,0,100)==-1,"outside right");
         ok(GuiHitZones.moduleIndex(g,x,g.listY,100,100)==-1,"scrolled beyond count");
+        int settingX=g.x+g.sidebar+12;
         int start=GuiHitZones.settingStartY(g),visible=GuiHitZones.visibleSettings(g);
         ok(visible>0,"desktop settings visible");
         for(int row=0;row<visible;row++) {
             int yy=start+row*22;
-            ok(GuiHitZones.settingIndex(g,x,yy,1,100)==row+1,
+            ok(GuiHitZones.settingIndex(g,settingX,yy,1,100)==row+1,
                "setting active row "+row);
-            ok(GuiHitZones.settingIndex(g,x,yy+18,1,100)==row+1,
+            ok(GuiHitZones.settingIndex(g,settingX,yy+18,1,100)==row+1,
                "setting last active pixel "+row);
-            ok(GuiHitZones.settingIndex(g,x,yy+19,1,100)==-1,
+            ok(GuiHitZones.settingIndex(g,settingX,yy+19,1,100)==-1,
                "setting separator rejects clicks "+row);
-            ok(GuiHitZones.settingIndex(g,x,yy+21,1,100)==-1,
+            ok(GuiHitZones.settingIndex(g,settingX,yy+21,1,100)==-1,
                "setting separator boundary "+row);
         }
-        ok(!GuiHitZones.settingsArea(g,x,g.listY),"settings not module list");
+        ok(!GuiHitZones.settingsArea(g,settingX,g.listY),"settings not module list");
         ok(!GuiHitZones.moduleArea(g,x,start),"modules not settings");
-        ok(GuiHitZones.settingsArea(g,x,start),"settings area only");
+        ok(GuiHitZones.settingsArea(g,settingX,start),"settings area only");
         ok(GuiHitZones.moduleArea(g,x,g.listY),"module area only");
         rejects(()->GuiHitZones.moduleIndex(g,x,g.listY,-1,1),"negative module scroll");
-        rejects(()->GuiHitZones.settingIndex(g,x,start,0,-1),"negative settings count");
+        rejects(()->GuiHitZones.settingIndex(g,settingX,start,0,-1),"negative settings count");
         rejects(()->GuiHitZones.moduleIndex(null,x,g.listY,0,1),"null layout");
     }
     private static void fuzz() {
@@ -89,6 +90,7 @@ public final class ViewportHitTests {
             int w=1+rng.nextInt(2400),h=1+rng.nextInt(1400);
             GuiLayout g=GuiLayout.calculate(w,h,modes[i%2]);
             int x=g.x+g.sidebar+10;
+            int settingX=g.x+g.sidebar+12;
             int count=rng.nextInt(85),scroll=rng.nextInt(96);
             for(int row=0;row<Math.min(10,g.visibleRows);row++) {
                 int top=g.listY+row*28;
@@ -102,10 +104,10 @@ public final class ViewportHitTests {
             int vis=GuiHitZones.visibleSettings(g),sCount=rng.nextInt(23),sScroll=rng.nextInt(25);
             for(int row=0;row<Math.min(8,vis);row++) {
                 int top=GuiHitZones.settingStartY(g)+row*22;
-                int got=GuiHitZones.settingIndex(g,x,top+4,sScroll,sCount);
+                int got=GuiHitZones.settingIndex(g,settingX,top+4,sScroll,sCount);
                 boolean possible=g.width-g.sidebar-26>1 && sScroll+row<sCount;
                 ok(got==(possible?sScroll+row:-1),"settings row "+i+"/"+row);
-                ok(GuiHitZones.settingIndex(g,x,top+20,sScroll,sCount)==-1,
+                ok(GuiHitZones.settingIndex(g,settingX,top+20,sScroll,sCount)==-1,
                    "settings separator "+i+"/"+row);
             }
             // Clicks just outside the panel must not activate hidden items.
