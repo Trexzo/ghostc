@@ -95,7 +95,7 @@ public final class UiSettingsStore {
         Path tmp = Files.createTempFile(directory, "ghostc-ui-", ".tmp");
         try {
             try (OutputStream out = Files.newOutputStream(tmp)) { p.store(out, "GhostC UI preferences"); }
-            if (Files.exists(file)) Files.copy(file, directory.resolve("ui.properties.bak"), StandardCopyOption.REPLACE_EXISTING);
+            ConfigIntegrity.rotateVerifiedBackup(file);
             try { Files.move(tmp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
             catch (AtomicMoveNotSupportedException ex) { Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING); }
         } finally { Files.deleteIfExists(tmp); }

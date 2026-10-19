@@ -43,7 +43,7 @@ public final class ProfileStore {
         Path temp = Files.createTempFile(directory, name + "-", ".tmp");
         try {
             try (OutputStream out = Files.newOutputStream(temp)) { data.store(out, "GhostFusion schema=1"); }
-            if (Files.exists(destination)) Files.copy(destination, destination.resolveSibling(destination.getFileName() + ".bak"), StandardCopyOption.REPLACE_EXISTING);
+            ConfigIntegrity.rotateVerifiedBackup(destination);
             try { Files.move(temp, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
             catch (AtomicMoveNotSupportedException ex) { Files.move(temp, destination, StandardCopyOption.REPLACE_EXISTING); }
         } finally { Files.deleteIfExists(temp); }
