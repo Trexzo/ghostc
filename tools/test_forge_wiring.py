@@ -23,6 +23,18 @@ class ForgeWiring(unittest.TestCase):
         self.gl = (FORGE / "RenderStateGuard.java").read_text(encoding="utf-8")
         self.adapter = (FORGE / "ForgeEventAdapter.java").read_text(encoding="utf-8")
 
+    def test_typed_backup_protection_uses_same_live_load_parser(self):
+        integrity=content("src/main/java/dev/ghostfusion/core/ConfigIntegrity.java")
+        profiles=content("src/main/java/dev/ghostfusion/core/ProfileStore.java")
+        ui=content("src/main/java/dev/ghostfusion/ui/UiSettingsStore.java")
+        self.assertIn("typedValidator.test(p)",integrity)
+        self.assertIn("stage(ConfigIntegrity.read(source))",profiles)
+        self.assertIn("stage(ConfigIntegrity.read(file))",ui)
+        self.assertIn("rotateVerifiedBackup(destination,",profiles)
+        self.assertIn("rotateVerifiedBackup(file,",ui)
+        self.assertIn("stage(candidate)",profiles)
+        self.assertIn("stage(candidate)",ui)
+
     def test_each_feature_has_runtime_fault_gate(self):
         for stable_id in (
             "hud.keystrokes", "hud.cps", "hud.target", "hud.diagnostics"
@@ -318,8 +330,8 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("Properties p=read(staged)",core)
         self.assertIn("!verify(p)",core)
         self.assertIn("Files.move(staged,backup,StandardCopyOption.ATOMIC_MOVE",core)
-        self.assertIn("ConfigIntegrity.rotateVerifiedBackup(destination);",profile)
-        self.assertIn("ConfigIntegrity.rotateVerifiedBackup(file);",ui)
+        self.assertIn("ConfigIntegrity.rotateVerifiedBackup(destination,",profile)
+        self.assertIn("ConfigIntegrity.rotateVerifiedBackup(file,",ui)
         self.assertNotIn("Files.copy(destination, destination.resolveSibling",profile)
         self.assertNotIn("Files.copy(file, directory.resolve(\"ui.properties.bak\")",ui)
         self.assertIn("dev.ghostfusion.tests.BackupRotationTests",

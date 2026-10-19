@@ -86,7 +86,15 @@ public final class ConfigIntegrity {
      *         source exists or its current bytes do not pass validation.
      */
     public static boolean rotateVerifiedBackup(Path primary) throws IOException {
-        if(primary==null)throw new IllegalArgumentException("primary");
+        return rotateVerifiedBackup(primary, new java.util.function.Predicate<Properties>() {
+            public boolean test(Properties candidate) { return true; }
+        });
+    }
+    /** Validate the staged, integrity-checked bytes against the caller's load schema. */
+    public static boolean rotateVerifiedBackup(Path primary,
+            java.util.function.Predicate<Properties> typedValidator) throws IOException {
+        if(primary==null || typedValidator==null)
+            throw new IllegalArgumentException("primary/validator");
         if(!Files.isRegularFile(primary,java.nio.file.LinkOption.NOFOLLOW_LINKS) ||
             Files.size(primary)>MAX_BYTES) return false;
         Path staged=Files.createTempFile(primary.getParent(),"ghostc-backup-", ".tmp");
@@ -94,7 +102,7 @@ public final class ConfigIntegrity {
             try {
                 Files.copy(primary,staged,StandardCopyOption.REPLACE_EXISTING);
                 Properties p=read(staged);
-                if(!"1".equals(p.getProperty("schema")) || !verify(p))
+                if(!"1".equals(p.getProperty("schema")) || !verify(p) || !typedValidator.test(p))
                     return false;
             } catch(IOException | RuntimeException corrupted) {
                 // A malformed/unsealed primary must not replace the good .bak.

@@ -43,7 +43,13 @@ public final class ProfileStore {
         Path temp = Files.createTempFile(directory, name + "-", ".tmp");
         try {
             try (OutputStream out = Files.newOutputStream(temp)) { data.store(out, "GhostFusion schema=1"); }
-            ConfigIntegrity.rotateVerifiedBackup(destination);
+            ConfigIntegrity.rotateVerifiedBackup(destination,
+                new java.util.function.Predicate<Properties>() {
+                    public boolean test(Properties candidate) {
+                        try { stage(candidate); return true; }
+                        catch (RuntimeException invalid) { return false; }
+                    }
+                });
             try { Files.move(temp, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
             catch (AtomicMoveNotSupportedException ex) { Files.move(temp, destination, StandardCopyOption.REPLACE_EXISTING); }
         } finally { Files.deleteIfExists(temp); }
@@ -75,8 +81,8 @@ public final class ProfileStore {
             }
         }
     }
-    private void loadFile(Path source) throws java.io.IOException {
-        Properties data=ConfigIntegrity.read(source);
+    /** Typed preflight shared by loading and backup admission; no live mutations. */
+    private LinkedHashMap<String, Staged> stage(Properties data) {
         if (!"1".equals(data.getProperty("schema"))) throw new IllegalArgumentException("Unsupported profile schema");
         LinkedHashMap<String, Staged> plan = new LinkedHashMap<String, Staged>();
         for (ModuleRegistry.Entry e : registry.all()) {
@@ -98,6 +104,10 @@ public final class ProfileStore {
         }
         java.util.HashSet<Integer> keys = new java.util.HashSet<Integer>();
         for (Staged st : plan.values()) if (st.key != 0 && !keys.add(st.key)) throw new IllegalArgumentException("Duplicate profile keybind");
+        return plan;
+    }
+    private void loadFile(Path source) throws java.io.IOException {
+        LinkedHashMap<String, Staged> plan=stage(ConfigIntegrity.read(source));
         LinkedHashMap<String, Staged> old = new LinkedHashMap<String, Staged>();
         for (ModuleRegistry.Entry e : registry.all()) {
             Staged st = new Staged(); st.enabled = e.state() == ModuleRegistry.State.ENABLED;
