@@ -171,6 +171,21 @@ class ForgeWiring(unittest.TestCase):
         ci=content(".github/workflows/core-ci.yml")
         self.assertIn("dev.ghostfusion.tests.FaultPrivacyTests",ci)
 
+    def test_reserved_f7_cannot_be_bound_or_loaded_from_profile(self):
+        registry=content("src/main/java/dev/ghostfusion/core/ModuleRegistry.java")
+        reserved=content("src/main/java/dev/ghostfusion/core/ReservedKeys.java")
+        loader=content("src/main/java/dev/ghostfusion/core/ProfileStore.java")
+        gate=content("src/main/java/dev/ghostfusion/features/PhysicalInputGate.java")
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        self.assertIn("public static final int CLICK_GUI = 65",reserved)
+        self.assertIn("ReservedKeys.reserved(key)",registry)
+        self.assertIn("ModuleRegistry.validateKey(stage.key)",loader)
+        self.assertIn("ReservedKeys.CLICK_GUI",gate)
+        self.assertIn("if (keyCode == Keyboard.KEY_F7) {",gui)
+        self.assertIn("mc.displayGuiScreen(null);",gui)
+        ci=content(".github/workflows/core-ci.yml")
+        self.assertIn("dev.ghostfusion.tests.ReservedKeyTests",ci)
+
     def test_forge_project_version_matches_mod_annotation(self):
         gradle=content("forge189/build.gradle")
         match=re.search(r"(?m)^version = '([0-9]+\.[0-9]+\.[0-9]+)'",gradle)

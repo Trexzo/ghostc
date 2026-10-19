@@ -1,6 +1,7 @@
 package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.core.GhostModule;
+import dev.ghostfusion.core.ReservedKeys;
 import dev.ghostfusion.core.ModuleRegistry;
 import dev.ghostfusion.core.Setting;
 import dev.ghostfusion.host.HostRuntime;
@@ -353,8 +354,11 @@ public final class GhostClickGui extends GuiScreen {
         if (capture != null) {
             String id = capture; capture = null;
             if (keyCode == Keyboard.KEY_ESCAPE) return;
+            if (keyCode == Keyboard.KEY_F7) {
+                mc.displayGuiScreen(null);
+                return;
+            }
             if (keyCode == Keyboard.KEY_BACK || keyCode == Keyboard.KEY_DELETE) keyCode = 0;
-            if (keyCode == Keyboard.KEY_F7) { message = "F7 reserved for ClickGUI"; return; }
             try { host.uiActions().bind(id,keyCode); message = ""; }
             catch (RuntimeException ex) { message = "Key already assigned or invalid"; }
             return;

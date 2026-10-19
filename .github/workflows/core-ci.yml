@@ -65,6 +65,8 @@ jobs:
           grep -q 'GUI_CHROME_PASS' .build/gui-chrome.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.CompactGuiTests | tee .build/compact-gui.log
           grep -q 'COMPACT_GUI_PASS' .build/compact-gui.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.ReservedKeyTests | tee .build/reserved-key.log
+          grep -q 'RESERVED_KEY_PASS' .build/reserved-key.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.FaultPrivacyTests | tee .build/fault-privacy.log
           grep -q 'FAULT_PRIVACY_PASS' .build/fault-privacy.log
           java -cp .build/classes dev.ghostfusion.demo.DemoMain | tee .build/demo.log
