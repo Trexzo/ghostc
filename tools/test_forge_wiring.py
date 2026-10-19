@@ -238,6 +238,36 @@ class ForgeWiring(unittest.TestCase):
                       content(".github/workflows/core-ci.yml"))
         self.assertNotIn("ui.widgets().positionPixels(draggingWidget,",gui)
 
+    def test_accessible_hud_editor_and_actual_feature_footprints(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        driver=(FORGE/"ForgeFeatureDriver.java").read_text(encoding="utf-8")
+        editor=content("src/main/java/dev/ghostfusion/ui/HudEditorControls.java")
+        geometry=content("src/main/java/dev/ghostfusion/ui/HudPreviewGeometry.java")
+        sizes=content("src/main/java/dev/ghostfusion/ui/HudFootprints.java")
+        for item in ("STATUS","KEYS","CPS","TARGET"):
+            self.assertIn(item,editor)
+        for name in ("KEYSTROKES","TARGET"):
+            self.assertIn("HudFootprints.height(Widget."+name,driver)
+        self.assertIn("HudFootprints.height(widget,host.keysJump()",gui)
+        self.assertIn("HudEditorControls.tabAt(",gui)
+        self.assertIn("hudControls.nudge(ui,",gui)
+        self.assertIn("hudControls.reset(ui)",gui)
+        self.assertIn("hudControls.select(picked)",gui)
+        self.assertIn("Keyboard.KEY_LEFT",gui)
+        self.assertIn("Keyboard.KEY_RIGHT",gui)
+        self.assertIn("Keyboard.KEY_UP",gui)
+        self.assertIn("Keyboard.KEY_DOWN",gui)
+        self.assertIn("Keyboard.KEY_LSHIFT",gui)
+        self.assertIn("Keyboard.KEY_RSHIFT",gui)
+        self.assertIn("geometry.moveWidget(ui.widgets(),draggingWidget",gui)
+        self.assertIn("geometry.widget(ui.widgets(),widget,hudWidth(widget),hudHeight(widget))",gui)
+        self.assertIn("widget(anchors,widget,actualWidth,actualHeight)",geometry)
+        self.assertIn("moveWidget(anchors,widget,mouseX,mouseY,grabX,grabY,widget.width,widget.height)",geometry)
+        self.assertIn("case KEYSTROKES: return 37+(jump?20:0)+(sneak?20:0);",sizes)
+        self.assertIn("case TARGET: return targetHealth?43:29;",sizes)
+        self.assertIn("dev.ghostfusion.tests.HudEditorControlsTests",
+                      content(".github/workflows/core-ci.yml"))
+
     def test_forge_project_version_matches_mod_annotation(self):
         gradle=content("forge189/build.gradle")
         match=re.search(r"(?m)^version = '([0-9]+\.[0-9]+\.[0-9]+)'",gradle)

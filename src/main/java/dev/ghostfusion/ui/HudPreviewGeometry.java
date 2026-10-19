@@ -49,8 +49,13 @@ public final class HudPreviewGeometry {
             (int)Math.round((double)realHeight*canvas.height/screenHeight)));
     }
     public Rect widget(HudPositions anchors,HudPositions.Widget widget) {
+        if(widget==null)throw new IllegalArgumentException("HUD widget");
+        return widget(anchors,widget,widget.width,widget.height);
+    }
+    public Rect widget(HudPositions anchors,HudPositions.Widget widget,
+                       int actualWidth,int actualHeight) {
         if(anchors==null||widget==null)throw new IllegalArgumentException("HUD widget");
-        int width=displayWidth(widget.width),height=displayHeight(widget.height);
+        int width=displayWidth(actualWidth),height=displayHeight(actualHeight);
         return new Rect(canvas.x+anchors.pixelX(widget,canvas.width,width),
             canvas.y+anchors.pixelY(widget,canvas.height,height),width,height);
     }
@@ -62,7 +67,13 @@ public final class HudPreviewGeometry {
     }
     public void moveWidget(HudPositions anchors,HudPositions.Widget widget,
                            int mouseX,int mouseY,int grabX,int grabY) {
-        Rect previous=widget(anchors,widget);
+        if(widget==null)throw new IllegalArgumentException("HUD widget");
+        moveWidget(anchors,widget,mouseX,mouseY,grabX,grabY,widget.width,widget.height);
+    }
+    public void moveWidget(HudPositions anchors,HudPositions.Widget widget,
+                           int mouseX,int mouseY,int grabX,int grabY,
+                           int actualWidth,int actualHeight) {
+        Rect previous=widget(anchors,widget,actualWidth,actualHeight);
         anchors.positionPixels(widget,mouseX-canvas.x-grabX,mouseY-canvas.y-grabY,
             canvas.width,canvas.height,previous.width,previous.height);
     }

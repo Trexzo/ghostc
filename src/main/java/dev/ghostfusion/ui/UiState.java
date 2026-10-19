@@ -15,8 +15,10 @@ public final class UiState {
     private String query = "";
     private final HudPositions widgets = new HudPositions();
     private GhostModule.Category category;
-    private double hudX = 0.025;
-    private double hudY = 0.055;
+    public static final double DEFAULT_HUD_X = 0.025;
+    public static final double DEFAULT_HUD_Y = 0.055;
+    private double hudX = DEFAULT_HUD_X;
+    private double hudY = DEFAULT_HUD_Y;
 
     public Layout layout() { return layout; }
     public Theme theme() { return theme; }

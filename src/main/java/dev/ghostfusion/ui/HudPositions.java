@@ -56,6 +56,10 @@ public final class HudPositions {
         double fy=(double)y/Math.max(1,viewportHeight-contentHeight);
         position(widget,fx,fy);
     }
+    public void reset(Widget widget) {
+        require(widget);
+        position(widget,widget.defaultX,widget.defaultY);
+    }
     public static String property(Widget widget,boolean horizontal) {
         require(widget);
         return "hud."+widget.storageId+(horizontal?".x":".y");
