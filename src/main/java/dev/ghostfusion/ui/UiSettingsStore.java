@@ -44,8 +44,19 @@ public final class UiSettingsStore {
             }
         }
     }
-    private void loadFile(Path file) throws IOException {
-        Properties p=ConfigIntegrity.read(file);
+    /** Fully parsed UI preferences before any live state change. */
+    private static final class Staged {
+        final UiState.Layout layout;
+        final UiState.Theme theme;
+        final double x, y;
+        final double[][] positions;
+        Staged(UiState.Layout layout, UiState.Theme theme,
+                double x, double y, double[][] positions) {
+            this.layout=layout; this.theme=theme;
+            this.x=x; this.y=y; this.positions=positions;
+        }
+    }
+    private Staged stage(Properties p) {
         if (!"1".equals(p.getProperty("schema"))) throw new IllegalArgumentException("Invalid UI schema");
         final UiState.Layout layout = UiState.Layout.valueOf(p.getProperty("layout"));
         final UiState.Theme theme = UiState.Theme.valueOf(p.getProperty("theme"));
@@ -53,8 +64,6 @@ public final class UiSettingsStore {
         final double y = Double.parseDouble(p.getProperty("hud.y"));
         if (!Double.isFinite(x) || !Double.isFinite(y) || x < 0 || x > 1 || y < 0 || y > 1)
             throw new IllegalArgumentException("Invalid HUD coordinates");
-        // Optional R1.9 widget fields preserve existing schema=1 UI files.
-        // Validate all six values BEFORE mutating legacy or new preferences.
         final HudPositions.Widget[] widgets=HudPositions.Widget.values();
         final double[][] positions=new double[widgets.length][2];
         for(int i=0;i<widgets.length;i++) {
@@ -69,12 +78,16 @@ public final class UiSettingsStore {
                 throw new IllegalArgumentException("Invalid widget HUD position");
             positions[i][0]=px; positions[i][1]=py;
         }
-        // No field mutates until all persisted fields have been validated.
-        state.layout(layout);
-        state.theme(theme);
-        state.position(x, y);
+        return new Staged(layout,theme,x,y,positions);
+    }
+    private void loadFile(Path file) throws IOException {
+        Staged staged=stage(ConfigIntegrity.read(file));
+        state.layout(staged.layout);
+        state.theme(staged.theme);
+        state.position(staged.x,staged.y);
+        final HudPositions.Widget[] widgets=HudPositions.Widget.values();
         for(int i=0;i<widgets.length;i++)
-            state.widgets().position(widgets[i],positions[i][0],positions[i][1]);
+            state.widgets().position(widgets[i],staged.positions[i][0],staged.positions[i][1]);
     }
     public void save() throws IOException {
         Files.createDirectories(directory);
@@ -95,7 +108,13 @@ public final class UiSettingsStore {
         Path tmp = Files.createTempFile(directory, "ghostc-ui-", ".tmp");
         try {
             try (OutputStream out = Files.newOutputStream(tmp)) { p.store(out, "GhostC UI preferences"); }
-            ConfigIntegrity.rotateVerifiedBackup(file);
+            ConfigIntegrity.rotateVerifiedBackup(file,
+                new java.util.function.Predicate<Properties>() {
+                    public boolean test(Properties candidate) {
+                        try { stage(candidate); return true; }
+                        catch (RuntimeException invalid) { return false; }
+                    }
+                });
             try { Files.move(tmp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
             catch (AtomicMoveNotSupportedException ex) { Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING); }
         } finally { Files.deleteIfExists(tmp); }

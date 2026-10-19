@@ -93,6 +93,19 @@ public final class BackupRotationTests {
         store.save("default");
         ok(Arrays.equals(latestBackup,bytes(backup)),"legacy cannot poison verified backup");
         ok(ConfigIntegrity.verify(read(primary)),"saved legacy upgraded to sealed format");
+        // A correctly sealed but unloadable module profile is not a backup.
+        byte[] typedSafeBackup=bytes(backup);
+        for(String badKey : new String[]{"-1","65536","87","not-an-integer"}) {
+            Properties unusable=read(primary);
+            unusable.setProperty("module.test.feature.key",badKey);
+            ConfigIntegrity.seal(unusable);
+            write(primary,unusable);
+            ok(ConfigIntegrity.verify(read(primary)),"sealed invalid module fixture");
+            store.save("default");
+            ok(Arrays.equals(typedSafeBackup,bytes(backup)),
+                "unloadable module profile cannot poison backup: "+badKey);
+            ok(ConfigIntegrity.verify(read(primary)),"healthy module primary replaces damaged");
+        }
         registry.shutdown();
     }
     private static void ui() throws Exception {
@@ -134,6 +147,21 @@ public final class BackupRotationTests {
         store.save();
         ok(Arrays.equals(prior,bytes(backup)),"normal save also rejects oversize backup");
         ok(ConfigIntegrity.verify(read(primary)),"UI recovers to sealed primary");
+        noTempLeaks(dir);
+        byte[] typedSafeBackup=bytes(backup);
+        String[] fields={"layout","theme","hud.x","hud.target.y"};
+        String[] values={"NOT_A_LAYOUT","NOT_A_THEME","NaN","1.5"};
+        for(int i=0;i<fields.length;i++) {
+            Properties unusable=read(primary);
+            unusable.setProperty(fields[i],values[i]);
+            ConfigIntegrity.seal(unusable);
+            write(primary,unusable);
+            ok(ConfigIntegrity.verify(read(primary)),"sealed invalid UI fixture");
+            store.save();
+            ok(Arrays.equals(typedSafeBackup,bytes(backup)),
+                "unloadable UI cannot poison backup: "+fields[i]);
+            ok(ConfigIntegrity.verify(read(primary)),"healthy UI replaces damaged");
+        }
         noTempLeaks(dir);
     }
     public static void main(String[] args) throws Exception {
