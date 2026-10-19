@@ -30,10 +30,28 @@ public final class UiSettingsStore {
         final double y = Double.parseDouble(p.getProperty("hud.y"));
         if (!Double.isFinite(x) || !Double.isFinite(y) || x < 0 || x > 1 || y < 0 || y > 1)
             throw new IllegalArgumentException("Invalid HUD coordinates");
+        // Optional R1.9 widget fields preserve existing schema=1 UI files.
+        // Validate all six values BEFORE mutating legacy or new preferences.
+        final HudPositions.Widget[] widgets=HudPositions.Widget.values();
+        final double[][] positions=new double[widgets.length][2];
+        for(int i=0;i<widgets.length;i++) {
+            HudPositions.Widget widget=widgets[i];
+            String rawX=p.getProperty(HudPositions.property(widget,true),
+                Double.toString(state.widgets().x(widget)));
+            String rawY=p.getProperty(HudPositions.property(widget,false),
+                Double.toString(state.widgets().y(widget)));
+            double px=Double.parseDouble(rawX),py=Double.parseDouble(rawY);
+            if(!Double.isFinite(px)||!Double.isFinite(py)||
+                px<0||px>1||py<0||py>1)
+                throw new IllegalArgumentException("Invalid widget HUD position");
+            positions[i][0]=px; positions[i][1]=py;
+        }
         // No field mutates until all persisted fields have been validated.
         state.layout(layout);
         state.theme(theme);
         state.position(x, y);
+        for(int i=0;i<widgets.length;i++)
+            state.widgets().position(widgets[i],positions[i][0],positions[i][1]);
     }
     public void save() throws IOException {
         Files.createDirectories(directory);
@@ -43,6 +61,12 @@ public final class UiSettingsStore {
         p.setProperty("theme", state.theme().name());
         p.setProperty("hud.x", Double.toString(state.hudX()));
         p.setProperty("hud.y", Double.toString(state.hudY()));
+        for(HudPositions.Widget widget:HudPositions.Widget.values()) {
+            p.setProperty(HudPositions.property(widget,true),
+                Double.toString(state.widgets().x(widget)));
+            p.setProperty(HudPositions.property(widget,false),
+                Double.toString(state.widgets().y(widget)));
+        }
         Path file = directory.resolve("ui.properties");
         Path tmp = Files.createTempFile(directory, "ghostc-ui-", ".tmp");
         try {

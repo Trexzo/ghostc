@@ -11,6 +11,7 @@ import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiHitZones;
 import dev.ghostfusion.ui.GuiChrome;
 import dev.ghostfusion.ui.GuiSelection;
+import dev.ghostfusion.ui.HudPositions.Widget;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
 import org.lwjgl.input.Keyboard;
@@ -35,6 +36,7 @@ public final class GhostClickGui extends GuiScreen {
     private String message = "";
     private boolean hudPage;
     private boolean hudDragging;
+    private Widget draggingWidget; // null means the original Status HUD
     private int dragX, dragY, scroll, settingScroll;
     private int x, y, w, h, side;
     private int listY, listH, visibleRows;
@@ -59,6 +61,7 @@ public final class GhostClickGui extends GuiScreen {
         previewW=g.previewWidth; previewH=g.previewHeight;
         if (!GuiChrome.interactive(g)) {
             hudDragging=false;
+            draggingWidget=null;
             capture=null;
         }
         syncSearch(g);
@@ -221,7 +224,7 @@ public final class GhostClickGui extends GuiScreen {
     private void drawHudEditor(int mx, int my) {
         if (previewW<1 || previewH<1) return;
         label("HUD POSITION EDITOR", x + side + 12, y + 49, accent());
-        label("Drag the status preview. Coordinates survive restart.", x + side + 12,
+        label(trim("Drag Status, Keys, CPS or Target to reposition.",w-side-20), x + side + 12,
             y + 62, 0xFFBAC1D3);
         rect(previewX, previewY, previewW, previewH, 0xFF0D1220);
         for (int gridX = previewX + 30; gridX < previewX + previewW; gridX += 30)
@@ -231,8 +234,20 @@ public final class GhostClickGui extends GuiScreen {
         int hx = previewX + ui.pixelX(previewW, HUD_WIDTH);
         int hy = previewY + ui.pixelY(previewH, HUD_HEIGHT);
         rect(hx, hy, Math.min(HUD_WIDTH,previewW), Math.min(HUD_HEIGHT,previewH), 0xFF444C78);
-        label("GhostC HUD", hx + 7, hy + 7, 0xFFFFFFFF);
-        label(String.format(java.util.Locale.ROOT, "X %.1f%%   Y %.1f%%", ui.hudX()*100, ui.hudY()*100),
+        label("Status", hx + 7, hy + 7, 0xFFFFFFFF);
+        for (Widget widget:Widget.values()) {
+            int wx=previewX+ui.widgets().pixelX(widget,previewW,widget.width);
+            int wy=previewY+ui.widgets().pixelY(widget,previewH,widget.height);
+            int ww=Math.min(widget.width,previewW),wh=Math.min(widget.height,previewH);
+            rect(wx,wy,ww,wh,widget==draggingWidget && hudDragging ?
+                0xFF8376CD : 0xFF313950);
+            label(widget==Widget.KEYSTROKES?"Keys":
+                  widget==Widget.CPS?"CPS":"Target",
+                wx+Math.min(5,Math.max(0,ww-1)),wy+Math.min(5,Math.max(0,wh-1)),
+                0xFFFFFFFF);
+        }
+        label(String.format(java.util.Locale.ROOT, "Status X %.1f%%  Y %.1f%%",
+            ui.hudX()*100, ui.hudY()*100),
             previewX, previewY + previewH + 9, 0xFFBEC6D9);
     }
     @Override protected void mouseClicked(int mx, int my, int button) throws IOException {
@@ -255,10 +270,24 @@ public final class GhostClickGui extends GuiScreen {
         if (header==GuiChrome.Header.HUD) { hudPage = true; capture = null; return; }
         if (hudPage) {
             if (previewW<1 || previewH<1) return;
-            int hx = previewX + ui.pixelX(previewW, HUD_WIDTH);
-            int hy = previewY + ui.pixelY(previewH, HUD_HEIGHT);
+            // Reverse paint order: the topmost widget receives the click.
+            Widget[] all=Widget.values();
+            for (int i=all.length-1;i>=0;i--) {
+                Widget widget=all[i];
+                int wx=previewX+ui.widgets().pixelX(widget,previewW,widget.width);
+                int wy=previewY+ui.widgets().pixelY(widget,previewH,widget.height);
+                if (inside(mx,my,wx,wy,
+                    Math.min(widget.width,previewW),Math.min(widget.height,previewH))) {
+                    hudDragging=true; draggingWidget=widget;
+                    dragX=mx-wx;dragY=my-wy;
+                    return;
+                }
+            }
+            int hx=previewX+ui.pixelX(previewW,HUD_WIDTH);
+            int hy=previewY+ui.pixelY(previewH,HUD_HEIGHT);
             if (inside(mx,my,hx,hy,Math.min(HUD_WIDTH,previewW),Math.min(HUD_HEIGHT,previewH))) {
-                hudDragging = true; dragX = mx - hx; dragY = my - hy;
+                hudDragging=true;draggingWidget=null;
+                dragX=mx-hx;dragY=my-hy;
             }
             return;
         }
@@ -315,13 +344,22 @@ public final class GhostClickGui extends GuiScreen {
     @Override protected void mouseClickMove(int mx,int my,int button,long timeSinceLastClick) {
         if (hudDragging && button == 0 && previewW>0 && previewH>0 &&
             GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout()))) {
-            ui.positionPixels(mx - previewX - dragX, my - previewY - dragY,
-                previewW,previewH,HUD_WIDTH,HUD_HEIGHT);
+            if (draggingWidget==null)
+                ui.positionPixels(mx-previewX-dragX,my-previewY-dragY,
+                    previewW,previewH,HUD_WIDTH,HUD_HEIGHT);
+            else
+                ui.widgets().positionPixels(draggingWidget,
+                    mx-previewX-dragX,my-previewY-dragY,
+                    previewW,previewH,draggingWidget.width,draggingWidget.height);
         }
     }
     @Override protected void mouseReleased(int mx,int my,int state) {
         super.mouseReleased(mx,my,state);
-        if (hudDragging) { hudDragging = false; host.persistUi(); }
+        if (hudDragging) {
+            hudDragging=false;
+            draggingWidget=null;
+            host.persistUi();
+        }
     }
     @Override public void handleMouseInput() throws IOException {
         super.handleMouseInput();
@@ -378,6 +416,7 @@ public final class GhostClickGui extends GuiScreen {
         host.diagnostics().record(Counter.GUI_CLOSE);
         Keyboard.enableRepeatEvents(false);
         hudDragging = false;
+        draggingWidget = null;
         capture = null;
         host.persistUi();
         host.inputFocus(true);
