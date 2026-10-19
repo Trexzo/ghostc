@@ -309,6 +309,22 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("ConfigIntegrity.seal(lifecycle)",
                       content("src/test/java/dev/ghostfusion/tests/CoreTests.java"))
 
+    def test_verified_staged_backup_rotation_replaces_unconditional_copy(self):
+        core=content("src/main/java/dev/ghostfusion/core/ConfigIntegrity.java")
+        profile=content("src/main/java/dev/ghostfusion/core/ProfileStore.java")
+        ui=content("src/main/java/dev/ghostfusion/ui/UiSettingsStore.java")
+        self.assertIn("public static boolean rotateVerifiedBackup(Path primary)",core)
+        self.assertIn("Files.copy(primary,staged,StandardCopyOption.REPLACE_EXISTING)",core)
+        self.assertIn("Properties p=read(staged)",core)
+        self.assertIn("!verify(p)",core)
+        self.assertIn("Files.move(staged,backup,StandardCopyOption.ATOMIC_MOVE",core)
+        self.assertIn("ConfigIntegrity.rotateVerifiedBackup(destination);",profile)
+        self.assertIn("ConfigIntegrity.rotateVerifiedBackup(file);",ui)
+        self.assertNotIn("Files.copy(destination, destination.resolveSibling",profile)
+        self.assertNotIn("Files.copy(file, directory.resolve(\"ui.properties.bak\")",ui)
+        self.assertIn("dev.ghostfusion.tests.BackupRotationTests",
+                      content(".github/workflows/core-ci.yml"))
+
     def test_forge_project_version_matches_mod_annotation(self):
         gradle=content("forge189/build.gradle")
         match=re.search(r"(?m)^version = '([0-9]+\.[0-9]+\.[0-9]+)'",gradle)

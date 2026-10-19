@@ -74,6 +74,46 @@ public final class ConfigIntegrity {
         return p;
     }
     /**
+     * Rotate a backup only from the exact bytes of a verified modern config.
+     *
+     * The source may have become damaged since startup; never overwrite the
+     * last known-good .bak with it. Copy to a private temporary file and
+     * validate THAT copy before atomically promoting it to the backup.
+     * Legacy unsealed files are readable but cannot be authenticated as a
+     * safe replacement for an existing verified backup.
+     *
+     * @return true if a verified primary was promoted; false if no suitable
+     *         source exists or its current bytes do not pass validation.
+     */
+    public static boolean rotateVerifiedBackup(Path primary) throws IOException {
+        if(primary==null)throw new IllegalArgumentException("primary");
+        if(!Files.isRegularFile(primary,java.nio.file.LinkOption.NOFOLLOW_LINKS) ||
+            Files.size(primary)>MAX_BYTES) return false;
+        Path staged=Files.createTempFile(primary.getParent(),"ghostc-backup-", ".tmp");
+        try {
+            try {
+                Files.copy(primary,staged,StandardCopyOption.REPLACE_EXISTING);
+                Properties p=read(staged);
+                if(!"1".equals(p.getProperty("schema")) || !verify(p))
+                    return false;
+            } catch(IOException | RuntimeException corrupted) {
+                // A malformed/unsealed primary must not replace the good .bak.
+                return false;
+            }
+            Path backup=primary.resolveSibling(primary.getFileName()+".bak");
+            try {
+                Files.move(staged,backup,StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING);
+            } catch(AtomicMoveNotSupportedException ex) {
+                Files.move(staged,backup,StandardCopyOption.REPLACE_EXISTING);
+            }
+            return true;
+        } finally {
+            Files.deleteIfExists(staged);
+        }
+    }
+
+    /**
      * Only called after the backup has been parsed/validated and applied.
      * Preserve the corrupt original as .corrupt, without rotating .bak.
      */
