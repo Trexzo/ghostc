@@ -10,9 +10,15 @@ public final class GuiChrome {
     public enum Header { NONE, MODULES, HUD, LAYOUT, THEME }
     private GuiChrome() { }
 
-    /** Minimum viable layout for distinct header controls and six sidebar rows. */
+    /**
+     * The wide and compact layouts have different sidebar widths. The HUD tab
+     * ends at sidebar+131, and the layout button starts at width-99. Requiring
+     * width >= sidebar+230 keeps their hit rectangles disjoint in BOTH modes.
+     * A fixed 445px minimum made Compact (max 390px) permanently unusable.
+     */
     public static boolean interactive(GuiLayout g) {
-        return g != null && g.width >= 445 && g.height >= 250;
+        return g != null && g.height >= 250 &&
+            g.sidebar >= 70 && g.width >= g.sidebar + 230;
     }
 
     private static boolean hit(int px,int py,int x,int y,int w,int h) {
