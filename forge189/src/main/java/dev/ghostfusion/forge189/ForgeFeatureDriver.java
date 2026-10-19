@@ -4,6 +4,7 @@ import dev.ghostfusion.features.CpsMeter;
 import dev.ghostfusion.features.SprintPolicy;
 import dev.ghostfusion.features.TargetHudPolicy;
 import dev.ghostfusion.host.HostRuntime;
+import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.services.WorldSnapshot;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
@@ -59,6 +60,7 @@ public final class ForgeFeatureDriver {
                 if (host.featureEnabled("hud.keystrokes")) drawKeys(sw,sh);
                 if (host.featureEnabled("hud.cps")) drawCps(sw,sh);
                 if (host.featureEnabled("hud.target")) drawTarget(sw,sh);
+                if (host.featureEnabled("hud.diagnostics")) drawDiagnostics(sw,sh);
             }
         });
     }
@@ -86,6 +88,24 @@ public final class ForgeFeatureDriver {
         String text=host.cpsRight() ? "L "+l+" | R "+r+" CPS" : "L "+l+" CPS";
         Gui.drawRect(x-2,y-2,x+101,y+13,0xBE131927);
         mc.fontRendererObj.drawStringWithShadow(text,x,y+1,0xFFE3E9FF);
+    }
+    private void drawDiagnostics(int sw,int sh) {
+        int width=178, height=63;
+        int x=Math.max(3,sw-width-4), y=4;
+        Gui.drawRect(x,y,x+width,y+height,0xC31B2133);
+        mc.fontRendererObj.drawStringWithShadow("GhostC R0.8 diagnostics",x+5,y+5,0xFFAEAAFF);
+        String epoch="Epoch " + host.services().generation() + " | Tick " + host.services().tick();
+        String queue="Action "+host.services().actions().pending()+
+            " | Rotation "+host.services().rotations().pending();
+        String applied="Aim "+host.diagnostics().count(Counter.AIM_APPLIED)+
+            " | Attack "+host.diagnostics().count(Counter.EXTRA_ATTACK)+
+            " | Use "+host.diagnostics().count(Counter.EXTRA_USE);
+        String focus="Focus lost "+host.diagnostics().count(Counter.FOCUS_LOST)+
+            " | Suppressed "+host.diagnostics().count(Counter.INPUT_SUPPRESSED);
+        mc.fontRendererObj.drawStringWithShadow(epoch,x+5,y+17,0xFFC9D1DF);
+        mc.fontRendererObj.drawStringWithShadow(queue,x+5,y+28,0xFFC9D1DF);
+        mc.fontRendererObj.drawStringWithShadow(applied,x+5,y+39,0xFFC9D1DF);
+        mc.fontRendererObj.drawStringWithShadow(focus,x+5,y+50,0xFFC9D1DF);
     }
     private void drawTarget(int sw,int sh) {
         WorldSnapshot w=host.services().snapshot();

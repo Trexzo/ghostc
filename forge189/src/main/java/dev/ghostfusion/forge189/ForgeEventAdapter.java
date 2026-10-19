@@ -2,13 +2,13 @@ package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.services.WorldSnapshot;
+import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import net.minecraft.entity.player.EntityPlayer;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
-import net.minecraftforge.event.world.WorldEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.InputEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
@@ -39,9 +39,14 @@ public final class ForgeEventAdapter {
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
-        host.inputFocus(minecraft.currentScreen != null || !minecraft.inGameHasFocus);
-        host.worldPresence(minecraft.theWorld != null);
+        final boolean worldReady = minecraft.theWorld != null && minecraft.thePlayer != null;
+        final boolean focusBlocked = minecraft.currentScreen != null || !minecraft.inGameHasFocus;
+        host.inputFocus(focusBlocked);
+        // Make END client tick the sole source of world readiness. A Forge
+        // world-load callback may occur before the local player is available.
+        host.worldPresence(worldReady);
         host.tick();
+        if (!worldReady || focusBlocked) features.reset();
         // Read-only player snapshot published before the single combat intent bridge runs.
         if (host.services().connected() && minecraft.theWorld != null && minecraft.thePlayer != null) {
             List<WorldSnapshot.Entity> players = new ArrayList<WorldSnapshot.Entity>();
@@ -56,6 +61,7 @@ public final class ForgeEventAdapter {
                 players.add(new WorldSnapshot.Entity(p.getEntityId(),p.posX,p.posY,p.posZ,
                     health,!p.isDead,!p.isInvisible() && minecraft.thePlayer.canEntityBeSeen(p),true));
             }
+            host.diagnostics().record(Counter.SNAPSHOT);
             host.services().publish(new WorldSnapshot(
                 host.services().generation(),host.services().tick(),
                 minecraft.thePlayer.posX,minecraft.thePlayer.posY,minecraft.thePlayer.posZ,
@@ -104,7 +110,7 @@ public final class ForgeEventAdapter {
             public void run() {
                 final float scale = host.statusScale();
                 final String statusText = host.detailedStatus()
-                    ? "GhostC R0.7  |  F7 ClickGUI" : "GhostC";
+                    ? "GhostC R0.8  |  F7 ClickGUI" : "GhostC";
                 final int sw = resolution.getScaledWidth();
                 final int sh = resolution.getScaledHeight();
                 final int statusWidth = Math.max(1, Math.round((minecraft.fontRendererObj.getStringWidth(statusText) + 4) * scale));
@@ -134,7 +140,9 @@ public final class ForgeEventAdapter {
                             location, x + 2, y + dy, 0xFFB2CBFF);
                     }
                 }
-                String warning = !host.uiWarning().isEmpty() ? host.uiWarning() : host.profileWarning();
+
+                String warning = !host.uiWarning().isEmpty() ? host.uiWarning() :
+                    !host.diagnosticsWarning().isEmpty() ? host.diagnosticsWarning() : host.profileWarning();
                 if (!warning.isEmpty()) minecraft.fontRendererObj.drawStringWithShadow(warning, x + 2,
                     Math.min(sh - 12, y + statusHeight + 25), 0xFFFF9999);
             }
@@ -142,22 +150,23 @@ public final class ForgeEventAdapter {
         features.render2d(event.resolution);
     }
 
-    @SubscribeEvent
-    public void onWorldLoad(WorldEvent.Load event) {
-        if (event.world.isRemote && event.world == minecraft.theWorld) {
-            host.worldPresence(true);
-        }
-    }
-
-    @SubscribeEvent
-    public void onWorldUnload(WorldEvent.Unload event) {
-        if (event.world.isRemote) { host.worldPresence(false); features.reset(); combat.reset(); }
-    }
-
+    /**
+     * Network disconnect notifications may run off the Minecraft owner thread.
+     * Never mutate HostRuntime or feature state from the FML network callback.
+     * END client tick already handles world transitions; this notification only
+     * finalizes the disconnect and optionally exports nonidentifying counters.
+     */
     @SubscribeEvent
     public void onDisconnect(FMLNetworkEvent.ClientDisconnectionFromServerEvent event) {
-        host.disconnect();
-        features.reset();
-        combat.reset();
+        minecraft.addScheduledTask(new Runnable() {
+            public void run() {
+                if (host.isClosed()) return;
+                // Ignore a stale queued disconnect after joining another world.
+                if (minecraft.theWorld != null && minecraft.thePlayer != null) return;
+                host.disconnect();
+                features.reset();
+                combat.reset();
+            }
+        });
     }
 }

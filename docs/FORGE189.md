@@ -1,4 +1,4 @@
-# G1 — Minecraft 1.8.9 Forge adapter
+# G1 — Minecraft 1.8.9 Forge adapter (R0.8)
 
 ## Versions / trust boundary
 - Minecraft **1.8.9**
@@ -23,7 +23,7 @@ The core references no Forge/Minecraft classes. It owns event ordering, lifecycl
 
 ## Manual acceptance (not yet verified)
 1. Use a clean licensed Minecraft 1.8.9 Forge profile with Forge 11.15.1.2318.
-2. Install the JAR built by the **Forge CI** workflow, not the headless core demo.
+2. Install the versioned 0.8.0 JAR built by the **Forge CI** workflow, not the headless core demo.
 3. Launch, open a world; confirm a small GhostC status string appears.
 4. Press F8 once: hides text. Press F8 again: restores text. Repeated keydown must not cause multiple toggles.
 5. Open chat, press F8, close chat: state must not toggle.

@@ -4,6 +4,8 @@ import dev.ghostfusion.features.AimAssistPolicy;
 import dev.ghostfusion.features.FixedClickScheduler;
 import dev.ghostfusion.features.HitSelectPolicy;
 import dev.ghostfusion.features.BlockHitPolicy;
+import dev.ghostfusion.features.PhysicalInputGate;
+import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.services.ActionCoordinator;
 import dev.ghostfusion.services.RotationCoordinator;
@@ -34,6 +36,7 @@ public final class ForgeCombatController {
     private final FixedClickScheduler scheduler = new FixedClickScheduler();
     private final HitSelectPolicy hitSelect = new HitSelectPolicy();
     private final BlockHitPolicy blockHit = new BlockHitPolicy();
+    private final PhysicalInputGate physicalInput = new PhysicalInputGate();
 
     ForgeCombatController(Minecraft mc, HostRuntime host) {
         if (mc == null || host == null) throw new IllegalArgumentException("null bridge dependency");
@@ -50,7 +53,11 @@ public final class ForgeCombatController {
             return;
         }
 
-        boolean held = mc.gameSettings.keyBindAttack.isKeyDown();
+        boolean physicalDown = mc.gameSettings.keyBindAttack.isKeyDown();
+        boolean held = physicalInput.allowed(session.generation(), true, true, false,
+            physicalDown, mc.gameSettings.keyBindAttack.getKeyCode(),
+            mc.gameSettings.keyBindUseItem.getKeyCode());
+        if (physicalDown && !held) host.diagnostics().record(Counter.INPUT_SUPPRESSED);
         WorldSnapshot snapshot = session.snapshot();
 
         if (host.featureEnabled(AIM_ID) && snapshot != null &&
@@ -76,6 +83,7 @@ public final class ForgeCombatController {
             (!host.aimRequireClick() || held)) {
             player.rotationYaw = rotation.yaw;
             player.rotationPitch = rotation.pitch;
+            host.diagnostics().record(Counter.AIM_APPLIED);
         }
 
         // Snapshot the crosshair once for the current tick. Both policies and
@@ -137,6 +145,7 @@ public final class ForgeCombatController {
             // Enqueue one normal vanilla key press; no direct attackEntity or
             // packet send. The action coordinator prevents double consumption.
             KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
+            host.diagnostics().record(Counter.EXTRA_ATTACK);
         }
 
         ActionCoordinator.Decision use = session.actions().consume(
@@ -146,12 +155,14 @@ public final class ForgeCombatController {
             sword && !useHeld && !player.isUsingItem() &&
             (!host.blockRequireTarget() || validTarget)) {
             KeyBinding.onTick(mc.gameSettings.keyBindUseItem.getKeyCode());
+            host.diagnostics().record(Counter.EXTRA_USE);
         }
     }
 
     /** Clears held-timer state and both owned requests on world/focus transition. */
     void reset() {
         scheduler.reset();
+        physicalInput.reset();
         hitSelect.reset();
         blockHit.reset();
         SessionServices session = host.services();
