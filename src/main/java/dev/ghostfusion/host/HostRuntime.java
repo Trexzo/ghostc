@@ -12,6 +12,7 @@ import dev.ghostfusion.ui.UiActions;
 import dev.ghostfusion.services.SessionServices;
 import dev.ghostfusion.features.FeatureModule;
 import dev.ghostfusion.core.GhostModule;
+import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,6 +30,7 @@ public final class HostRuntime {
     private static final int MAX_EVENTS_PER_TICK = 128;
     private final ModuleRegistry modules = new ModuleRegistry();
     private final SessionServices services = new SessionServices();
+    private final RuntimeDiagnostics diagnostics = new RuntimeDiagnostics();
     private final StatusOverlayModule overlay = new StatusOverlayModule();
     private final MetricsOverlayModule metrics = new MetricsOverlayModule();
     private final Setting.Number statusScale = new Setting.Number("scale", 1.0, 0.75, 1.75);
@@ -66,14 +68,18 @@ public final class HostRuntime {
     private final BoundedIngress ingress = new BoundedIngress(256);
     private final AtomicLong sequence = new AtomicLong();
     private final ProfileStore profiles;
+    private final Path configDirectory;
+    private boolean disconnectReported = true;
     private volatile boolean closed;
     private boolean worldPresent;
     private boolean inputBlocked;
     private String profileWarning = "";
     private String uiWarning = "";
+    private String diagnosticsWarning = "";
 
     public HostRuntime(Path configDirectory) {
         if (configDirectory == null) throw new IllegalArgumentException("configDirectory");
+        this.configDirectory = configDirectory;
         modules.register(overlay, DEFAULT_STATUS_KEY, statusScale, statusStyle, statusShadow);
         modules.register(metrics, 0, showFps, showCoordinates);
         modules.register(new FeatureModule("hud.keystrokes", "Keystrokes", GhostModule.Category.RENDER),
@@ -94,6 +100,8 @@ public final class HostRuntime {
             0, blockInterval, blockRequireTarget);
         modules.register(new FeatureModule("combat.hitselect", "Hit Select", GhostModule.Category.COMBAT),
             0, hitMaxHurt, hitGap, hitRequireTarget);
+        modules.register(new FeatureModule("hud.diagnostics", "Runtime Diagnostics", GhostModule.Category.RENDER),
+            0);
         modules.setEnabled(overlay.id(), true);
         profiles = new ProfileStore(configDirectory, modules);
         uiStore = new UiSettingsStore(configDirectory, ui);
@@ -109,6 +117,17 @@ public final class HostRuntime {
     }
     public ModuleRegistry modules() { return modules; }
     public SessionServices services() { modules.assertOwnerThread(); return services; }
+    public RuntimeDiagnostics diagnostics() { modules.assertOwnerThread(); return diagnostics; }
+    public boolean diagnosticsEnabled() {
+        modules.assertOwnerThread();
+        return modules.get("hud.diagnostics").state() == ModuleRegistry.State.ENABLED;
+    }
+    public String diagnosticsWarning() { return diagnosticsWarning; }
+    public void exportDiagnostics() {
+        if (!active() || !diagnosticsEnabled()) return;
+        try { diagnostics.save(configDirectory); diagnosticsWarning = ""; }
+        catch (IOException e) { diagnosticsWarning = "Diagnostics: " + e.getClass().getSimpleName(); }
+    }
     public UiState ui() { modules.assertOwnerThread(); return ui; }
     public UiActions uiActions() { modules.assertOwnerThread(); return uiActions; }
     public String uiWarning() { return uiWarning; }
@@ -168,6 +187,7 @@ public final class HostRuntime {
     public void tick() {
         if (!active()) return;
         services.tickAdvance();
+        diagnostics.record(Counter.CLIENT_TICK);
         ingress.drain(modules, MAX_EVENTS_PER_TICK);
         modules.dispatch(event(GameEvent.Kind.CLIENT_TICK));
     }
@@ -181,6 +201,8 @@ public final class HostRuntime {
     public void worldPresence(boolean present) {
         if (!active() || worldPresent == present) return;
         services.world(present);
+        diagnostics.record(present ? Counter.WORLD_ENTER : Counter.WORLD_LEAVE);
+        if (present) disconnectReported = false;
         worldPresent = present;
         input.clearPressed();
         modules.dispatch(event(GameEvent.Kind.WORLD_CHANGE));
@@ -188,7 +210,10 @@ public final class HostRuntime {
     /** Focus transition resets stale key-down state (GUI, chat, alt-tab). */
     public void inputFocus(boolean blocked) {
         if (!active()) return;
-        if (blocked && !inputBlocked) input.clearPressed();
+        if (blocked != inputBlocked) {
+            diagnostics.record(blocked ? Counter.FOCUS_LOST : Counter.FOCUS_GAINED);
+            if (blocked) input.clearPressed();
+        }
         inputBlocked = blocked;
     }
     public void key(int keycode, boolean pressed, boolean textFieldOrMenuFocused) {
@@ -202,12 +227,16 @@ public final class HostRuntime {
         input.keyEvent(keycode, pressed, inputBlocked);
         if (changed != null && changed.state() != before) persist();
     }
+    /** Idempotent even when WorldEvent leaves before network-disconnect arrives. */
     public void disconnect() {
-        if (!active()) return;
+        if (!active() || disconnectReported) return;
         worldPresence(false);
+        disconnectReported = true;
         input.clearPressed();
         services.disconnect();
+        diagnostics.record(Counter.DISCONNECT);
         modules.dispatch(event(GameEvent.Kind.SESSION_DISCONNECT));
+        exportDiagnostics();
     }
     public void persist() {
         if (!active()) return;
@@ -228,6 +257,7 @@ public final class HostRuntime {
         if (!active()) return;
         persist();
         persistUi();
+        exportDiagnostics();
         input.clearPressed();
         modules.shutdown();
         services.close();

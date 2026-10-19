@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R0.7:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R0.8:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,8 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R0.8 runtime safety: physical-release admission before automated combat pulses after GUI/focus/world changes, conflicting/unbound F7 keybind rejection, single-authoritative world readiness at END client tick and scheduled network disconnect callbacks on the Minecraft owner thread.
+- Opt-in `hud.diagnostics`: nonidentifying tick/focus/session/action counters visible in game; on disconnect or close, writes `.minecraft/config/ghostc/diagnostics-last.properties` with a backup and no user/server metadata.
 - Two additional opt-in combat controls: **Block Hit** (bounded sword-only USE pulses while attack is physically held, delayed when an extra attack pulse is queued) and **Hit Select** (target-hurt-time and minimum-tick-gap filtering of **AutoClicker-generated extra presses only**). Neither suppresses manual attacks; integration is Forge-CI-tested, not in-game verified.
 - Two opt-in combat modules: bounded Aim Assist (local camera, FOV/range/speed/visible/hold-gated) and deterministic hold-to-click AutoClicker (CPS and optional entity-only constraint) through shared G3 owner-thread arbiters. No anticheat evasion or packet injection, and game runtime unverified.
 - Five first-party functional modules: keystrokes, CPS counter, nearby-player Target HUD, player box/tracer ESP, and Auto Sprint. Forge code provides actual rendering or local player sprint requests, while testable pure-Java policies own filtering and telemetry. **In-game behavior is unverified.**
@@ -51,5 +53,6 @@ See [issues](../../issues) for Forge runtime acceptance (#2), ClickGUI/HUD (#3),
 - [R0.5 gameplay/render modules](docs/FEATURES.md)
 - [R0.6–R0.7 optional combat controls](docs/COMBAT.md)
 - [R0.7 action safety/verification](docs/COMBAT_R07.md)
+- [R0.8 runtime admission and diagnostics](docs/RUNTIME_R08.md)
 - [Provenance](docs/PROVENANCE.md)
 - [Verification](docs/VERIFICATION.md)

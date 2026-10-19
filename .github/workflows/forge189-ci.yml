@@ -68,6 +68,8 @@ jobs:
             dev/ghostfusion/features/FixedClickScheduler.class \
             dev/ghostfusion/features/BlockHitPolicy.class \
             dev/ghostfusion/features/HitSelectPolicy.class \
+            dev/ghostfusion/features/PhysicalInputGate.class \
+            dev/ghostfusion/host/RuntimeDiagnostics.class \
             dev/ghostfusion/forge189/ForgeCombatController.class \
             dev/ghostfusion/forge189/ForgeFeatureDriver.class \
             dev/ghostfusion/forge189/PlayerEspRenderer.class \
