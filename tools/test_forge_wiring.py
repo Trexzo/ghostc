@@ -330,8 +330,8 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("Properties p=read(staged)",core)
         self.assertIn("!verify(p)",core)
         self.assertIn("Files.move(staged,backup,StandardCopyOption.ATOMIC_MOVE",core)
-        self.assertIn("ConfigIntegrity.rotateVerifiedBackup(destination);",profile)
-        self.assertIn("ConfigIntegrity.rotateVerifiedBackup(file);",ui)
+        self.assertIn("ConfigIntegrity.rotateVerifiedBackup(destination,",profile)
+        self.assertIn("ConfigIntegrity.rotateVerifiedBackup(file,",ui)
         self.assertNotIn("Files.copy(destination, destination.resolveSibling",profile)
         self.assertNotIn("Files.copy(file, directory.resolve(\"ui.properties.bak\")",ui)
         self.assertIn("dev.ghostfusion.tests.BackupRotationTests",
