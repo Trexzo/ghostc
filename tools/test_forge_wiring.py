@@ -133,7 +133,8 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("row>=g.visibleRows",model)
         self.assertIn("offset%28>=25",model)
         self.assertIn("(py-top)%22>=19",model)
-        self.assertIn("if (button != 0 || !inside(mx,my,x,y,w,h)) return;",gui)
+        self.assertIn("if (button != 0 || !GuiChrome.interactive(zone) ||",gui)
+        self.assertIn("!inside(mx,my,x,y,w,h)) return;",gui)
         self.assertNotIn("int idx = scroll + (my-listY)/28;",gui)
 
     def test_clickgui_header_and_sidebar_chrome_are_bounded(self):
