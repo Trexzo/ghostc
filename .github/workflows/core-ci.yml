@@ -59,6 +59,8 @@ jobs:
           python3 tools/test_forge_wiring.py
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.ViewportRuntimeTests | tee .build/viewport.log
           grep -q 'VIEWPORT_RUNTIME_PASS' .build/viewport.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.ViewportHitTests | tee .build/viewport-hit.log
+          grep -q 'VIEWPORT_HIT_PASS' .build/viewport-hit.log
           java -cp .build/classes dev.ghostfusion.demo.DemoMain | tee .build/demo.log
           grep -q 'DEMO_PASS' .build/demo.log
       - name: Package headless demonstrator

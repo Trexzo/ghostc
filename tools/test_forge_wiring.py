@@ -113,6 +113,29 @@ class ForgeWiring(unittest.TestCase):
             self.assertIn("Double.isFinite(box."+field+")",esp)
         self.assertIn("Double.isFinite(rm.viewerPosX)",esp)
 
+    def test_render_and_mouse_are_fenced_by_live_identity(self):
+        tracker=content("src/main/java/dev/ghostfusion/services/WorldIdentityTracker.java")
+        self.assertIn("public boolean matches(Object currentWorld,Object currentPlayer)",tracker)
+        self.assertIn("world==currentWorld && player==currentPlayer",tracker)
+        self.assertEqual(self.adapter.count(
+            "if (!worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) return;"),3)
+        self.assertIn("features.render3d(event.partialTicks)",self.adapter)
+        self.assertIn("features.mouseInput()",self.adapter)
+        self.assertIn("final boolean status = host.render2d();",self.adapter)
+
+    def test_gui_hitboxes_match_visible_rows(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        model=content("src/main/java/dev/ghostfusion/ui/GuiHitZones.java")
+        for call in ("GuiHitZones.moduleIndex(", "GuiHitZones.settingIndex(",
+                     "GuiHitZones.moduleArea(", "GuiHitZones.settingsArea(",
+                     "GuiHitZones.visibleSettings("):
+            self.assertIn(call,gui)
+        self.assertIn("row>=g.visibleRows",model)
+        self.assertIn("offset%28>=25",model)
+        self.assertIn("(py-top)%22>=19",model)
+        self.assertIn("if (button != 0 || !inside(mx,my,x,y,w,h)) return;",gui)
+        self.assertNotIn("int idx = scroll + (my-listY)/28;",gui)
+
     def test_forge_project_version_matches_mod_annotation(self):
         gradle=content("forge189/build.gradle")
         match=re.search(r"(?m)^version = '([0-9]+\.[0-9]+\.[0-9]+)'",gradle)

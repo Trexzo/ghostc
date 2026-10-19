@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R1.4:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R1.5:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R1.5 immediate render/input admission: reject mouse and both 2D/3D render callbacks that arrive after an unadmitted world/player swap but before the next END tick; visible-row-only ClickGUI module and setting hitboxes, bounded wheel regions and reliable small viewport click handling. New seeded `ViewportHitTests` and Forge wiring gates guard against regressions.
 - R1.4 session correctness: detect world/dimension/local-player object identity replacements without an empty-world tick, invalidate both old session generations and stale snapshots, skip malformed player poses, and reject nonfinite ESP geometry before calling OpenGL. All backed by direct Forge wiring and seeded lifecycle regression tests.
 - R1.3 combat reliability: independent Java exception quarantine for Aim Assist, AutoClicker, Hit Select and Block Hit with fail-closed action/camera intent cancellation. Enhanced pure-Java session/fault replays and real Forge combat wiring checks, plus one shared mod version constant for both in-game HUD labels.
 - R1.2 Forge feature wiring reconciliation: all HUD features, 3D ESP and Auto Sprint are once again routed through `HostRuntime.runFeature` with per-feature exception quarantine; independently guarded OpenGL state, visible sanitized fault warning and remapped Minecraft key labels.
@@ -70,5 +71,6 @@ See [issues](../../issues) for Forge runtime acceptance (#2), ClickGUI/HUD (#3),
 - [R1.2 Forge feature wiring reconciliation](docs/RUNTIME_R12.md)
 - [R1.3 fail-closed combat integration](docs/RUNTIME_R13.md)
 - [R1.4 world identity and snapshot safety](docs/RUNTIME_R14.md)
+- [R1.5 render identity and accurate GUI input](docs/RUNTIME_R15.md)
 - [Provenance](docs/PROVENANCE.md)
 - [Verification](docs/VERIFICATION.md)

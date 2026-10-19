@@ -44,4 +44,11 @@ public final class WorldIdentityTracker {
     public boolean ready() {
         check(); return world!=null && player!=null;
     }
+    /** Validate immediate render/input callbacks without mutating session state.
+     * A new world/player must first pass the next owner END-tick transition. */
+    public boolean matches(Object currentWorld,Object currentPlayer) {
+        check();
+        return world!=null && player!=null &&
+            world==currentWorld && player==currentPlayer;
+    }
 }
