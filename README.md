@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R2.4:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R2.5:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R2.5 typed backup validation: profiles and UI backups are checked against the **same complete typed settings parser used at load time**, in addition to the canonical SHA-256 digest. Correctly sealed but unloadable keybinds, enums or HUD positions can no longer replace a known-good .bak. Both success and negative paths are regression-tested.
 - R2.4 backup rotation hardening: module-profile and UI saves now verify the exact staged source bytes, canonical digest and schema before replacing the prior .bak. A damaged or legacy unsealed primary can be overwritten with a new healthy save **without poisoning the last verified backup**; atomic promotion and temporary-file cleanup protect existing backups. Seeded corruption-and-save regression tests and Forge source contracts prevent reintroduction.
 - R2.3 config resilience: modern module profiles and UI preferences include a canonical SHA-256 corruption check while legacy schema-1 files remain readable. Startup can restore validated .bak copies without overwriting the only good backup, preserving damaged originals as .corrupt. Oversized config files and malformed digests are rejected before any state mutation.
 - R2.2 bounded Status/Metrics renderer: measure the combined Status/FPS/XYZ footprint so metrics-only HUDs and long coordinates remain screen-anchored. Status and Metrics now render through separate fault guards, and the F7 editor uses their measured footprint. Includes seeded geometry and independent fault-isolation regression coverage.
@@ -90,5 +91,6 @@ See [issues](../../issues) for Forge runtime acceptance (#2), ClickGUI/HUD (#3),
 - [R2.2 bounded Status/Metrics rendering and fault isolation](docs/RUNTIME_R22.md)
 - [R2.3 integrity-checked preferences and safe backup recovery](docs/RUNTIME_R23.md)
 - [R2.4 verified backup rotation and corruption-safe saves](docs/RUNTIME_R24.md)
+- [R2.5 typed backup admission](docs/RUNTIME_R25.md)
 - [Provenance](docs/PROVENANCE.md)
 - [Verification](docs/VERIFICATION.md)
