@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R1.6:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R1.7:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R1.7 Compact GUI recovery: replaced the impossible 445px minimum (Compact maxes at 390px) with geometry-derived safe boundaries so Compact and Wide both work; reconciles selected module with current search/category results, preventing hidden settings/keybinding edits and handling zero results safely. Automated tests validate resize/toggle behavior and 25k seeded selection transitions.
 - R1.6 ClickGUI chrome safety: header tabs/layout/theme controls and sidebar category clicks share exact visible geometry, while undersized scaled viewports display a resize notice and disable ambiguous controls. The module registry now retains exception types without private exception messages; both behaviors are protected by new Java and Forge-wiring tests.
 - R1.5 immediate render/input admission: reject mouse and both 2D/3D render callbacks that arrive after an unadmitted world/player swap but before the next END tick; visible-row-only ClickGUI module and setting hitboxes, bounded wheel regions and reliable small viewport click handling. New seeded `ViewportHitTests` and Forge wiring gates guard against regressions.
 - R1.4 session correctness: detect world/dimension/local-player object identity replacements without an empty-world tick, invalidate both old session generations and stale snapshots, skip malformed player poses, and reject nonfinite ESP geometry before calling OpenGL. All backed by direct Forge wiring and seeded lifecycle regression tests.
@@ -74,5 +75,6 @@ See [issues](../../issues) for Forge runtime acceptance (#2), ClickGUI/HUD (#3),
 - [R1.4 world identity and snapshot safety](docs/RUNTIME_R14.md)
 - [R1.5 render identity and accurate GUI input](docs/RUNTIME_R15.md)
 - [R1.6 safe ClickGUI chrome and private fault reporting](docs/RUNTIME_R16.md)
+- [R1.7 compact GUI and filtered module selection](docs/RUNTIME_R17.md)
 - [Provenance](docs/PROVENANCE.md)
 - [Verification](docs/VERIFICATION.md)

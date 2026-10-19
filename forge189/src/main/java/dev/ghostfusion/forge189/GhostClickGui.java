@@ -9,6 +9,7 @@ import dev.ghostfusion.ui.UiState;
 import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiHitZones;
 import dev.ghostfusion.ui.GuiChrome;
+import dev.ghostfusion.ui.GuiSelection;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
 import org.lwjgl.input.Keyboard;
@@ -138,7 +139,14 @@ public final class GhostClickGui extends GuiScreen {
         label("ESC: CLOSE", x + 10, y + h - 23, 0xFF929BAC);
     }
     private List<ModuleRegistry.Entry> entries() {
-        return ui.filtered(host.modules());
+        List<ModuleRegistry.Entry> filtered=ui.filtered(host.modules());
+        String next=GuiSelection.reconcile(selected,filtered);
+        if (selected == null ? next != null : !selected.equals(next)) {
+            selected=next;
+            settingScroll=0;
+            capture=null;
+        }
+        return filtered;
     }
     private void drawModules(int mx, int my) {
         drawSidebar();
@@ -161,6 +169,10 @@ public final class GhostClickGui extends GuiScreen {
         }
         int sy = listY + listH + 5;
         rect(x + side + 9, sy - 4, w - side - 20, 1, 0x557E879D);
+        if (selected == null) {
+            label("No matching modules", x + side + 13, sy + 5, 0xFFBAC1D3);
+            return;
+        }
         ModuleRegistry.Entry e;
         try { e = host.modules().get(selected); }
         catch (IllegalArgumentException ex) { return; }
@@ -255,6 +267,7 @@ public final class GhostClickGui extends GuiScreen {
             ui.category(category==0 ? null : GhostModule.Category.valueOf(
                 new String[]{"ALL","COMBAT","MOVEMENT","WORLD","RENDER","UTILITY"}[category]));
             scroll=0;
+            entries(); // immediately invalidate settings/key capture from the old filter
             return;
         }
         List<ModuleRegistry.Entry> filtered = entries();
@@ -272,6 +285,7 @@ public final class GhostClickGui extends GuiScreen {
             }
             return;
         }
+        if (selected == null) return;
         ModuleRegistry.Entry e = host.modules().get(selected);
         int settingY = listY + listH + 5 + 22;
         if (inside(mx,my,x+side+11,settingY,w-side-26,18)) {
@@ -319,6 +333,8 @@ public final class GhostClickGui extends GuiScreen {
             int mx = Mouse.getEventX() * width / Math.max(1, mc.displayWidth);
             int my = height - Mouse.getEventY() * height / Math.max(1, mc.displayHeight) - 1;
             if (GuiHitZones.settingsArea(zone,mx,my)) {
+                entries();
+                if (selected == null) return;
                 ModuleRegistry.Entry e = host.modules().get(selected);
                 int max = Math.max(0,e.settings().size()-GuiHitZones.visibleSettings(zone));
                 settingScroll = Math.max(0,Math.min(max, settingScroll+direction));
@@ -346,8 +362,11 @@ public final class GhostClickGui extends GuiScreen {
         if (keyCode == Keyboard.KEY_ESCAPE || keyCode == Keyboard.KEY_F7) {
             mc.displayGuiScreen(null); return;
         }
-        if (!hudPage && search.textboxKeyTyped(character,keyCode)) {
-            ui.query(search.getText()); scroll = 0; return;
+        if (!hudPage && search != null && search.textboxKeyTyped(character,keyCode)) {
+            ui.query(search.getText());
+            scroll=0;
+            entries(); // reject stale selected settings as the search changes
+            return;
         }
         super.keyTyped(character,keyCode);
     }

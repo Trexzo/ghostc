@@ -146,8 +146,23 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout()))",gui)
         self.assertIn("hudDragging=false;",gui)
         self.assertIn("capture=null;",gui)
-        self.assertIn("g.width >= 445 && g.height >= 250",chrome)
+        self.assertIn("g.width >= g.sidebar + 230",chrome)
+        self.assertIn("g.height >= 250",chrome)
+        self.assertNotIn("g.width >= 445",chrome)
         self.assertNotIn("inside(mx,my,x+4,y+63,side-8,6*23)",gui)
+
+    def test_compact_and_filtered_selection_are_live_in_forge(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        selection=content("src/main/java/dev/ghostfusion/ui/GuiSelection.java")
+        self.assertIn("GuiSelection.reconcile(selected,filtered)",gui)
+        self.assertIn("if (selected == null) {",gui)
+        self.assertIn('label("No matching modules"',gui)
+        self.assertIn("if (selected == null) return;",gui)
+        self.assertIn("entries(); // immediately invalidate settings/key capture",gui)
+        self.assertIn("entries(); // reject stale selected settings",gui)
+        self.assertIn("if (visible.isEmpty()) return null;",selection)
+        ci=content(".github/workflows/core-ci.yml")
+        self.assertIn("dev.ghostfusion.tests.CompactGuiTests",ci)
 
     def test_core_module_fault_never_retains_private_messages(self):
         module=content("src/main/java/dev/ghostfusion/core/ModuleRegistry.java")
