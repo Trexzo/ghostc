@@ -288,6 +288,27 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.StatusHudLayoutTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_config_integrity_and_startup_recovery_wired(self):
+        profile=content("src/main/java/dev/ghostfusion/core/ProfileStore.java")
+        ui=content("src/main/java/dev/ghostfusion/ui/UiSettingsStore.java")
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        integrity=content("src/main/java/dev/ghostfusion/core/ConfigIntegrity.java")
+        self.assertIn('public static final String FIELD = "integrity.sha256"',integrity)
+        self.assertIn("ConfigIntegrity.seal(data)",profile)
+        self.assertIn("ConfigIntegrity.seal(p)",ui)
+        self.assertIn("ConfigIntegrity.read(source)",profile)
+        self.assertIn("ConfigIntegrity.read(file)",ui)
+        self.assertIn("public boolean loadRecovering(String name)",profile)
+        self.assertIn("public boolean loadRecovering()",ui)
+        self.assertIn("ConfigIntegrity.restoreBackup(primary)",profile)
+        self.assertIn("ConfigIntegrity.restoreBackup(primary)",ui)
+        self.assertIn("if(uiStore.loadRecovering())",host)
+        self.assertIn('if(profiles.loadRecovering("default"))',host)
+        self.assertIn("dev.ghostfusion.tests.ConfigRecoveryTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("ConfigIntegrity.seal(lifecycle)",
+                      content("src/test/java/dev/ghostfusion/tests/CoreTests.java"))
+
     def test_forge_project_version_matches_mod_annotation(self):
         gradle=content("forge189/build.gradle")
         match=re.search(r"(?m)^version = '([0-9]+\.[0-9]+\.[0-9]+)'",gradle)
