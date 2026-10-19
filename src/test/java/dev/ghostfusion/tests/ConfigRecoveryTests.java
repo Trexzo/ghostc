@@ -89,6 +89,18 @@ public final class ConfigRecoveryTests {
         boolean oversize=false;
         try{ConfigIntegrity.read(tooBig);}catch(java.io.IOException expected){oversize=true;}
         ok(oversize,"size guard before properties load");
+        // A schema-1 legacy file has no digest; its field count must still
+        // respect the same hard cap as modern sealed configurations.
+        Properties fieldBomb=new Properties();
+        fieldBomb.setProperty("schema","1");
+        for(int i=0;i<4100;i++)
+            fieldBomb.setProperty("legacy.field."+i,"v");
+        Path bombFile=folder.resolve("legacy-field-bomb.properties");
+        write(bombFile,fieldBomb);
+        boolean tooManyFields=false;
+        try{ConfigIntegrity.read(bombFile);}
+        catch(IllegalArgumentException expected){tooManyFields=true;}
+        ok(tooManyFields,"legacy field count is capped without checksum");
     }
     private static void profileRecovery() throws Exception {
         Path folder=Files.createTempDirectory("ghostc-profile-restore");
@@ -195,6 +207,79 @@ public final class ConfigRecoveryTests {
         ok(java.util.Arrays.equals(oldPrimary,Files.readAllBytes(primary)),
            "no replacement from corrupt backup");
     }
+    private static void rejectUnusableRecoveryWithoutMutation() throws Exception {
+        Path folder=Files.createTempDirectory("ghostc-r26-typed-recovery");
+        ModuleRegistry registry=new ModuleRegistry();
+        Setting.Bool safe=new Setting.Bool("safe",true);
+        registry.register(new Dummy("test.feature"),44,safe);
+        ProfileStore profiles=new ProfileStore(folder,registry);
+        registry.setEnabled("test.feature",true);
+        profiles.save("default");
+        safe.setFromText("false");
+        profiles.save("default");
+        Path primary=folder.resolve("default.properties");
+        Path backup=folder.resolve("default.properties.bak");
+        Properties corrupt=read(primary);
+        corrupt.setProperty("module.test.feature.key","11");
+        write(primary,corrupt); // damaged seal on primary
+        byte[] originalPrimary=Files.readAllBytes(primary);
+        Properties sealedButUnusable=read(backup);
+        sealedButUnusable.setProperty("module.test.feature.key","65"); // reserved F7
+        ConfigIntegrity.seal(sealedButUnusable);
+        write(backup,sealedButUnusable);
+        byte[] invalidBackup=Files.readAllBytes(backup);
+        ok(ConfigIntegrity.verify(read(backup)),"typed-bad backup checksum is valid");
+        registry.setEnabled("test.feature",false);
+        registry.bind("test.feature",51);
+        safe.setFromText("false");
+        boolean rejected=false;
+        try{profiles.loadRecovering("default");}
+        catch(IllegalArgumentException expected){rejected=true;}
+        ok(rejected,"typed-invalid sealed module backup rejected");
+        ok(registry.get("test.feature").state()==ModuleRegistry.State.DISABLED &&
+           registry.get("test.feature").keybind()==51 && !safe.get(),
+           "failed profile recovery never modifies live registry");
+        ok(java.util.Arrays.equals(originalPrimary,Files.readAllBytes(primary)),
+           "failed profile recovery preserves original primary");
+        ok(java.util.Arrays.equals(invalidBackup,Files.readAllBytes(backup)),
+           "failed profile recovery does not mutate unusable backup");
+        ok(!Files.exists(folder.resolve("default.properties.corrupt")),
+           "failed preflight does not create false successful recovery artifact");
+        registry.shutdown();
+
+        Path uiFolder=Files.createTempDirectory("ghostc-r26-ui-recovery");
+        UiState state=new UiState();
+        UiSettingsStore ui=new UiSettingsStore(uiFolder,state);
+        state.position(.2,.3); ui.save();
+        state.position(.8,.9); ui.save();
+        Path uiPrimary=uiFolder.resolve("ui.properties");
+        Path uiBackup=uiFolder.resolve("ui.properties.bak");
+        Properties damagedUI=read(uiPrimary);
+        damagedUI.setProperty("hud.y","0.15");
+        write(uiPrimary,damagedUI);
+        byte[] originalUI=Files.readAllBytes(uiPrimary);
+        Properties invalidUI=read(uiBackup);
+        invalidUI.setProperty("layout","INVALID_LAYOUT");
+        ConfigIntegrity.seal(invalidUI);
+        write(uiBackup,invalidUI);
+        byte[] invalidUIBackup=Files.readAllBytes(uiBackup);
+        ok(ConfigIntegrity.verify(read(uiBackup)),"unloadable UI backup checksum is valid");
+        state.position(.51,.57);
+        state.layout(UiState.Layout.COMPACT);
+        boolean rejectedUI=false;
+        try{ui.loadRecovering();}
+        catch(IllegalArgumentException expected){rejectedUI=true;}
+        ok(rejectedUI,"typed-invalid sealed UI backup rejected");
+        ok(state.layout()==UiState.Layout.COMPACT &&
+           state.hudX()==.51 && state.hudY()==.57,
+           "failed UI recovery cannot mutate in-memory preferences");
+        ok(java.util.Arrays.equals(originalUI,Files.readAllBytes(uiPrimary)),
+           "failed UI recovery preserves original primary");
+        ok(java.util.Arrays.equals(invalidUIBackup,Files.readAllBytes(uiBackup)),
+           "failed UI recovery preserves original invalid backup");
+        ok(!Files.exists(uiFolder.resolve("ui.properties.corrupt")),
+           "failed UI preflight does not create recovery artifact");
+    }
     private static void hostStartup() throws Exception {
         Path folder=Files.createTempDirectory("ghostc-startup-recover");
         HostRuntime host=new HostRuntime(folder);
@@ -227,6 +312,7 @@ public final class ConfigRecoveryTests {
         checksum();
         profileRecovery();
         uiRecovery();
+        rejectUnusableRecoveryWithoutMutation();
         hostStartup();
         ok(count>7000,"meaningful integrity and recovery regression coverage");
         System.out.println("CONFIG_RECOVERY_PASS assertions="+count);
