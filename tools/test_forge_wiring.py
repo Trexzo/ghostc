@@ -179,6 +179,8 @@ class ForgeWiring(unittest.TestCase):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         self.assertIn("public static final int CLICK_GUI = 65",reserved)
         self.assertIn("ReservedKeys.reserved(key)",registry)
+        router=content("src/main/java/dev/ghostfusion/core/InputRouter.java")
+        self.assertIn("if (key == 0 || ReservedKeys.reserved(key)) return;",router)
         self.assertIn("ModuleRegistry.validateKey(stage.key)",loader)
         self.assertIn("ReservedKeys.CLICK_GUI",gate)
         self.assertIn("if (keyCode == Keyboard.KEY_F7) {",gui)
