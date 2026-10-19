@@ -115,7 +115,7 @@ public final class ForgeEventAdapter {
             public void run() {
                 final float scale = host.statusScale();
                 final String statusText = host.detailedStatus()
-                    ? "GhostC R1.1  |  F7 ClickGUI" : "GhostC";
+                    ? "GhostC R1.2  |  F7 ClickGUI" : "GhostC";
                 final int sw = resolution.getScaledWidth();
                 final int sh = resolution.getScaledHeight();
                 final int statusWidth = Math.max(1, Math.round((minecraft.fontRendererObj.getStringWidth(statusText) + 4) * scale));
@@ -146,7 +146,8 @@ public final class ForgeEventAdapter {
                     }
                 }
 
-                String warning = !host.uiWarning().isEmpty() ? host.uiWarning() :
+                String warning = !host.faultWarning().isEmpty() ? host.faultWarning() :
+                    !host.uiWarning().isEmpty() ? host.uiWarning() :
                     !host.diagnosticsWarning().isEmpty() ? host.diagnosticsWarning() : host.profileWarning();
                 if (!warning.isEmpty()) minecraft.fontRendererObj.drawStringWithShadow(warning, x + 2,
                     Math.min(sh - 12, y + statusHeight + 25), 0xFFFF9999);

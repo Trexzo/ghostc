@@ -9,6 +9,8 @@ import dev.ghostfusion.services.WorldSnapshot;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.settings.GameSettings;
+import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.client.entity.EntityPlayerSP;
@@ -30,9 +32,13 @@ public final class ForgeFeatureDriver {
         esp = new PlayerEspRenderer(mc, host);
     }
     void tick() {
-        if (mc.thePlayer == null || mc.theWorld == null) return;
-        boolean sprint = host.featureEnabled("movement.sprint");
-        if (!sprint || mc.currentScreen != null || !mc.inGameHasFocus) return;
+        if (mc.thePlayer == null || mc.theWorld == null ||
+            mc.currentScreen != null || !mc.inGameHasFocus) return;
+        host.runFeature("movement.sprint", new Runnable() {
+            public void run() { sprintTick(); }
+        });
+    }
+    private void sprintTick() {
         EntityPlayerSP player = mc.thePlayer;
         if (player.movementInput == null) return;
         boolean run = SprintPolicy.shouldSprint(
@@ -51,36 +57,61 @@ public final class ForgeFeatureDriver {
         cps.mouse(button, Mouse.getEventButtonState(), System.nanoTime(), focused);
     }
     void reset() { cps.clear(); }
-    void render3d(float partialTicks) { esp.draw(partialTicks); }
+    void render3d(final float partialTicks) {
+        host.runFeature("render.esp", new Runnable() {
+            public void run() { esp.draw(partialTicks); }
+        });
+    }
+    /** A separate guarded GL scope for every feature prevents a failed callback
+     * from contaminating another feature's render state in the same frame. */
+    private void drawFeature(String id, final Runnable painter) {
+        host.runFeature(id, new Runnable() {
+            public void run() { RenderStateGuard.draw(painter); }
+        });
+    }
     void render2d(final ScaledResolution resolution) {
         if (!host.worldPresent() || mc.thePlayer == null || mc.theWorld == null) return;
         final int sw=resolution.getScaledWidth(), sh=resolution.getScaledHeight();
-        RenderStateGuard.draw(new Runnable() {
-            public void run() {
-                if (host.featureEnabled("hud.keystrokes")) drawKeys(sw,sh);
-                if (host.featureEnabled("hud.cps")) drawCps(sw,sh);
-                if (host.featureEnabled("hud.target")) drawTarget(sw,sh);
-                if (host.featureEnabled("hud.diagnostics")) drawDiagnostics(sw,sh);
-            }
+        drawFeature("hud.keystrokes", new Runnable() {
+            public void run() { drawKeys(sw,sh); }
         });
+        drawFeature("hud.cps", new Runnable() {
+            public void run() { drawCps(sw,sh); }
+        });
+        drawFeature("hud.target", new Runnable() {
+            public void run() { drawTarget(sw,sh); }
+        });
+        drawFeature("hud.diagnostics", new Runnable() {
+            public void run() { drawDiagnostics(sw,sh); }
+        });
+    }
+    private String keyName(KeyBinding binding) {
+        int code = binding.getKeyCode();
+        if (code == 0) return "?";
+        String display = GameSettings.getKeyDisplayString(code);
+        return display == null || display.trim().isEmpty() ? "?" :
+            display.toUpperCase(java.util.Locale.ROOT);
     }
     private void key(String label, int x,int y,int width,boolean pressed) {
         Gui.drawRect(x,y,x+width,y+17,pressed ? 0xCBA8A9FF : 0xB3171C30);
+        // Allow remapped mouse/keyboard names without overflowing 25px cells.
+        while(label.length()>1 && mc.fontRendererObj.getStringWidth(label)>width-5)
+            label=label.substring(0,label.length()-1);
         int textWidth=mc.fontRendererObj.getStringWidth(label);
         mc.fontRendererObj.drawStringWithShadow(label,
             x+(width-textWidth)/2,y+5,pressed ? 0xFF121629 : 0xFFF0F0FF);
     }
     private void drawKeys(int sw,int sh) {
         int x=Math.max(3,sw-111), y=Math.max(3,sh-100);
-        key("W",x+29,y,25,mc.gameSettings.keyBindForward.isKeyDown());
-        key("A",x,y+20,25,mc.gameSettings.keyBindLeft.isKeyDown());
-        key("S",x+29,y+20,25,mc.gameSettings.keyBindBack.isKeyDown());
-        key("D",x+58,y+20,25,mc.gameSettings.keyBindRight.isKeyDown());
+        key(keyName(mc.gameSettings.keyBindForward),x+29,y,25,mc.gameSettings.keyBindForward.isKeyDown());
+        key(keyName(mc.gameSettings.keyBindLeft),x,y+20,25,mc.gameSettings.keyBindLeft.isKeyDown());
+        key(keyName(mc.gameSettings.keyBindBack),x+29,y+20,25,mc.gameSettings.keyBindBack.isKeyDown());
+        key(keyName(mc.gameSettings.keyBindRight),x+58,y+20,25,mc.gameSettings.keyBindRight.isKeyDown());
         int row=y+40;
         if (host.keysJump()) {
-            key("SPACE",x,row,83,mc.gameSettings.keyBindJump.isKeyDown()); row+=20;
+            key(keyName(mc.gameSettings.keyBindJump),x,row,83,mc.gameSettings.keyBindJump.isKeyDown()); row+=20;
         }
-        if (host.keysSneak()) key("SHIFT",x,row,83,mc.gameSettings.keyBindSneak.isKeyDown());
+        if (host.keysSneak()) key(keyName(mc.gameSettings.keyBindSneak),x,row,83,mc.gameSettings.keyBindSneak.isKeyDown());
     }
     private void drawCps(int sw,int sh) {
         int x=Math.max(3,sw-111), y=Math.max(3,sh-24);
