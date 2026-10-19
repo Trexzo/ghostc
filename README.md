@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R2.2:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R2.3:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R2.3 config resilience: modern module profiles and UI preferences include a canonical SHA-256 corruption check while legacy schema-1 files remain readable. Startup can restore validated .bak copies without overwriting the only good backup, preserving damaged originals as .corrupt. Oversized config files and malformed digests are rejected before any state mutation.
 - R2.2 bounded Status/Metrics renderer: measure the combined Status/FPS/XYZ footprint so metrics-only HUDs and long coordinates remain screen-anchored. Status and Metrics now render through separate fault guards, and the F7 editor uses their measured footprint. Includes seeded geometry and independent fault-isolation regression coverage.
 - R2.1 accessible HUD controls: dedicated Status/Keys/CPS/Target selector tabs, one-pixel arrow nudges (Shift+Arrow 10 pixels), and a reset action. Live editor previews and the actual Forge renderers now share settings-dependent Keystrokes/Target HUD heights, preserving normalized anchors and UI schema-1 persistence.
 - R2.0 viewport-accurate HUD editor: a letterboxed representation of the actual Minecraft scaled screen replaces the stretched editor canvas; preview widget footprints, normalized drag coordinates and rendered anchors now share a pure geometry model, with automatic status size/scale parity. This corrects visual misplacement on widescreen aspect ratios while retaining all R1.9 widget preferences.
@@ -86,5 +87,6 @@ See [issues](../../issues) for Forge runtime acceptance (#2), ClickGUI/HUD (#3),
 - [R2.0 screen-aspect accurate HUD preview](docs/RUNTIME_R20.md)
 - [R2.1 accessible HUD selection, keyboard moves and dynamic footprints](docs/RUNTIME_R21.md)
 - [R2.2 bounded Status/Metrics rendering and fault isolation](docs/RUNTIME_R22.md)
+- [R2.3 integrity-checked preferences and safe backup recovery](docs/RUNTIME_R23.md)
 - [Provenance](docs/PROVENANCE.md)
 - [Verification](docs/VERIFICATION.md)

@@ -73,6 +73,8 @@ jobs:
           grep -q 'HUD_PREVIEW_PASS' .build/hud-preview.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudEditorControlsTests | tee .build/hud-editor-controls.log
           grep -q 'HUD_EDITOR_CONTROLS_PASS' .build/hud-editor-controls.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.ConfigRecoveryTests | tee .build/config-recovery.log
+          grep -q 'CONFIG_RECOVERY_PASS' .build/config-recovery.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.StatusHudLayoutTests | tee .build/status-hud-layout.log
           grep -q 'STATUS_HUD_LAYOUT_PASS' .build/status-hud-layout.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.FaultPrivacyTests | tee .build/fault-privacy.log

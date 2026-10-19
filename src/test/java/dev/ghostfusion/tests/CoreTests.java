@@ -118,6 +118,9 @@ public final class CoreTests {
         Properties lifecycle = new Properties();
         try (InputStream in = Files.newInputStream(config)) { lifecycle.load(in); }
         lifecycle.setProperty("module.c.enabled", "true");
+        // Preserve a valid integrity seal: this fixture tests transactional
+        // callback rollback rather than corrupt-file rejection.
+        ConfigIntegrity.seal(lifecycle);
         try (OutputStream out = Files.newOutputStream(config)) { lifecycle.store(out, "simulate-module-failure"); }
         c.failEnable = true;
         boolean enableFailure = false;

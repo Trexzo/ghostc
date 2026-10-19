@@ -1,5 +1,7 @@
 package dev.ghostfusion.ui;
 
+import dev.ghostfusion.core.ConfigIntegrity;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -19,10 +21,31 @@ public final class UiSettingsStore {
         this.state = state;
     }
     public void load() throws IOException {
-        Path file = directory.resolve("ui.properties");
-        if (!Files.exists(file)) return;
-        Properties p = new Properties();
-        try (InputStream in = Files.newInputStream(file)) { p.load(in); }
+        Path file=directory.resolve("ui.properties");
+        if(!Files.exists(file))return;
+        loadFile(file);
+    }
+    public boolean loadRecovering() throws IOException {
+        Path primary=directory.resolve("ui.properties");
+        Path backup=directory.resolve("ui.properties.bak");
+        if(!Files.exists(primary) && !Files.exists(backup))return false;
+        try {
+            loadFile(primary);
+            return false;
+        } catch(IOException | RuntimeException primaryFailure) {
+            if(!Files.exists(backup))throw primaryFailure;
+            try {
+                loadFile(backup);
+                ConfigIntegrity.restoreBackup(primary);
+                return true;
+            } catch(IOException | RuntimeException backupFailure) {
+                primaryFailure.addSuppressed(backupFailure);
+                throw primaryFailure;
+            }
+        }
+    }
+    private void loadFile(Path file) throws IOException {
+        Properties p=ConfigIntegrity.read(file);
         if (!"1".equals(p.getProperty("schema"))) throw new IllegalArgumentException("Invalid UI schema");
         final UiState.Layout layout = UiState.Layout.valueOf(p.getProperty("layout"));
         final UiState.Theme theme = UiState.Theme.valueOf(p.getProperty("theme"));
@@ -67,6 +90,7 @@ public final class UiSettingsStore {
             p.setProperty(HudPositions.property(widget,false),
                 Double.toString(state.widgets().y(widget)));
         }
+        ConfigIntegrity.seal(p);
         Path file = directory.resolve("ui.properties");
         Path tmp = Files.createTempFile(directory, "ghostc-ui-", ".tmp");
         try {

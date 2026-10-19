@@ -116,11 +116,16 @@ public final class HostRuntime {
         uiActions = new UiActions(modules, new Runnable() {
             public void run() { persist(); }
         });
-        try { uiStore.load(); }
-        catch (Exception e) { uiWarning = "UI preferences: " + e.getClass().getSimpleName(); }
-        if (Files.exists(configDirectory.resolve("default.properties"))) {
-            try { profiles.load("default"); }
-            catch (Exception e) { profileWarning = "Profile load: " + e.getClass().getSimpleName(); }
+        try {
+            if(uiStore.loadRecovering())
+                uiWarning="UI preferences recovered from backup";
+        } catch(Exception e) {uiWarning="UI preferences: "+e.getClass().getSimpleName();}
+        if (Files.exists(configDirectory.resolve("default.properties")) ||
+            Files.exists(configDirectory.resolve("default.properties.bak"))) {
+            try {
+                if(profiles.loadRecovering("default"))
+                    profileWarning="Profile recovered from backup";
+            } catch(Exception e) {profileWarning="Profile load: "+e.getClass().getSimpleName();}
         }
     }
     public ModuleRegistry modules() { return modules; }

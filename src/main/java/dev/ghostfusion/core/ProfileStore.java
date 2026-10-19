@@ -39,6 +39,7 @@ public final class ProfileStore {
             for (Setting<?> s : e.settings().values())
                 data.setProperty(pre + "setting." + s.id(), s.serialize());
         }
+        ConfigIntegrity.seal(data);
         Path temp = Files.createTempFile(directory, name + "-", ".tmp");
         try {
             try (OutputStream out = Files.newOutputStream(temp)) { data.store(out, "GhostFusion schema=1"); }
@@ -49,8 +50,33 @@ public final class ProfileStore {
     }
     public void load(String name) throws java.io.IOException {
         registry.assertOwnerThread();
-        Properties data = new Properties();
-        try (InputStream in = Files.newInputStream(path(name))) { data.load(in); }
+        loadFile(path(name));
+    }
+    /**
+     * Retains the original strict load contract; opt-in startup path recovers
+     * from a validated .bak, preserving a failed primary as .corrupt.
+     */
+    public boolean loadRecovering(String name) throws java.io.IOException {
+        registry.assertOwnerThread();
+        Path primary=path(name);
+        try {
+            loadFile(primary);
+            return false;
+        } catch(java.io.IOException | RuntimeException primaryFailure) {
+            Path backup=primary.resolveSibling(primary.getFileName()+".bak");
+            if(!Files.exists(backup))throw primaryFailure;
+            try {
+                loadFile(backup);
+                ConfigIntegrity.restoreBackup(primary);
+                return true;
+            } catch(java.io.IOException | RuntimeException backupFailure) {
+                primaryFailure.addSuppressed(backupFailure);
+                throw primaryFailure;
+            }
+        }
+    }
+    private void loadFile(Path source) throws java.io.IOException {
+        Properties data=ConfigIntegrity.read(source);
         if (!"1".equals(data.getProperty("schema"))) throw new IllegalArgumentException("Unsupported profile schema");
         LinkedHashMap<String, Staged> plan = new LinkedHashMap<String, Staged>();
         for (ModuleRegistry.Entry e : registry.all()) {
