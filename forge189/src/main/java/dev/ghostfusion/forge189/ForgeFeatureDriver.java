@@ -2,6 +2,7 @@ package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.features.CpsMeter;
 import dev.ghostfusion.ui.HudPositions.Widget;
+import dev.ghostfusion.ui.HudFootprints;
 import dev.ghostfusion.features.SprintPolicy;
 import dev.ghostfusion.features.TargetHudPolicy;
 import dev.ghostfusion.host.HostRuntime;
@@ -104,7 +105,8 @@ public final class ForgeFeatureDriver {
     }
     private void drawKeys(int sw,int sh) {
         int x=host.ui().widgets().pixelX(Widget.KEYSTROKES,sw,Widget.KEYSTROKES.width);
-        int y=host.ui().widgets().pixelY(Widget.KEYSTROKES,sh,Widget.KEYSTROKES.height);
+        int y=host.ui().widgets().pixelY(Widget.KEYSTROKES,sh,
+            HudFootprints.height(Widget.KEYSTROKES,host.keysJump(),host.keysSneak(),host.targetHealth()));
         key(keyName(mc.gameSettings.keyBindForward),x+29,y,25,mc.gameSettings.keyBindForward.isKeyDown());
         key(keyName(mc.gameSettings.keyBindLeft),x,y+20,25,mc.gameSettings.keyBindLeft.isKeyDown());
         key(keyName(mc.gameSettings.keyBindBack),x+29,y+20,25,mc.gameSettings.keyBindBack.isKeyDown());
@@ -159,7 +161,9 @@ public final class ForgeFeatureDriver {
         EntityPlayer player=(EntityPlayer)e;
         String name=player.getName();
         if (name == null || name.length() > 26) name="Player #"+target.id;
-        int width=160,height=host.targetHealth()?43:29;
+        int width=HudFootprints.width(Widget.TARGET);
+        int height=HudFootprints.height(Widget.TARGET,host.keysJump(),
+            host.keysSneak(),host.targetHealth());
         int x=host.ui().widgets().pixelX(Widget.TARGET,sw,width);
         int y=host.ui().widgets().pixelY(Widget.TARGET,sh,height);
         Gui.drawRect(x,y,x+width,y+height,0xD0141A2B);

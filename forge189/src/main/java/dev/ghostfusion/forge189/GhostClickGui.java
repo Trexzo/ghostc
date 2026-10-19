@@ -13,6 +13,8 @@ import dev.ghostfusion.ui.GuiChrome;
 import dev.ghostfusion.ui.GuiSelection;
 import dev.ghostfusion.ui.HudPositions.Widget;
 import dev.ghostfusion.ui.HudPreviewGeometry;
+import dev.ghostfusion.ui.HudFootprints;
+import dev.ghostfusion.ui.HudEditorControls;
 import dev.ghostfusion.ui.HudPreviewGeometry.Rect;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
@@ -39,6 +41,7 @@ public final class GhostClickGui extends GuiScreen {
     private boolean hudPage;
     private boolean hudDragging;
     private Widget draggingWidget; // null means the original Status HUD
+    private final HudEditorControls hudControls = new HudEditorControls();
     private int dragX, dragY, scroll, settingScroll;
     private int x, y, w, h, side;
     private int listY, listH, visibleRows;
@@ -226,6 +229,12 @@ public final class GhostClickGui extends GuiScreen {
     private HudPreviewGeometry previewGeometry() {
         return new HudPreviewGeometry(previewX,previewY,previewW,previewH,width,height);
     }
+    private int hudWidth(Widget widget) {
+        return HudFootprints.width(widget);
+    }
+    private int hudHeight(Widget widget) {
+        return HudFootprints.height(widget,host.keysJump(),host.keysSneak(),host.targetHealth());
+    }
     private int statusPreviewWidth() {
         String statusText=host.detailedStatus() ?
             "GhostC "+GhostCMod.CLIENT_VERSION+" | F7 ClickGUI" : "GhostC";
@@ -238,8 +247,14 @@ public final class GhostClickGui extends GuiScreen {
     private void drawHudEditor(int mx, int my) {
         if (previewW<1 || previewH<1) return;
         label("HUD POSITION EDITOR",x+side+12,y+49,accent());
-        label(trim("Drag each HUD on the scaled-screen preview.",w-side-20),
-            x+side+12,y+62,0xFFBAC1D3);
+        int tabsX=x+side+12, tabsY=y+62, tabsWidth=w-side-24;
+        for (HudEditorControls.Item item:HudEditorControls.Item.values()) {
+            int bx=HudEditorControls.tabLeft(tabsX,tabsWidth,item);
+            int bw=HudEditorControls.tabWidth(tabsWidth,item);
+            rect(bx,tabsY,bw,17,item==hudControls.selected()?0xFF575C8D:panel());
+            label(trim(item.label,bw-5),bx+3,tabsY+4,
+                item==hudControls.selected()?0xFFFFFFFF:0xFFBEC6D9);
+        }
         rect(previewX,previewY,previewW,previewH,0xFF0D1220);
         HudPreviewGeometry geometry=previewGeometry();
         Rect canvas=geometry.canvas;
@@ -251,19 +266,20 @@ public final class GhostClickGui extends GuiScreen {
 
         Rect status=geometry.status(ui,statusPreviewWidth(),statusPreviewHeight());
         rect(status.x,status.y,status.width,status.height,
-            hudDragging && draggingWidget==null ? 0xFF8376CD : 0xFF444C78);
+            hudControls.selected()==HudEditorControls.Item.STATUS ? 0xFF8376CD : 0xFF444C78);
         if(status.width>=30 && status.height>=12)
             label("Status",status.x+2,status.y+2,0xFFFFFFFF);
 
         for(Widget widget:Widget.values()) {
-            Rect r=geometry.widget(ui.widgets(),widget);
+            Rect r=geometry.widget(ui.widgets(),widget,hudWidth(widget),hudHeight(widget));
             rect(r.x,r.y,r.width,r.height,
-                hudDragging && widget==draggingWidget ? 0xFF8376CD : 0xFF384B66);
+                hudControls.selected()==HudEditorControls.itemFor(widget) ?
+                    0xFF8376CD : 0xFF384B66);
             String tag=widget==Widget.KEYSTROKES?"K":widget==Widget.CPS?"C":"T";
             if(r.width>=8 && r.height>=10)
                 label(tag,r.x+1,r.y+1,0xFFFFFFFF);
         }
-        label(trim("S Status  K Keys  C CPS  T Target | drag to move",w-side-20),
+        label(trim("Arrows: 1px | Shift+Arrow: 10px | R: Reset",w-side-20),
             previewX,previewY+previewH+8,0xFFBEC6D9);
     }
     @Override protected void mouseClicked(int mx, int my, int button) throws IOException {
@@ -286,14 +302,23 @@ public final class GhostClickGui extends GuiScreen {
         if (header==GuiChrome.Header.HUD) { hudPage = true; capture = null; return; }
         if (hudPage) {
             if (previewW<1 || previewH<1) return;
+            HudEditorControls.Item picked=HudEditorControls.tabAt(
+                x+side+12,y+62,w-side-24,mx,my);
+            if(picked!=null) {
+                hudControls.select(picked);
+                hudDragging=false;
+                draggingWidget=null;
+                return;
+            }
             HudPreviewGeometry geometry=previewGeometry();
             if (!geometry.canvas.contains(mx,my)) return;
             // Reverse paint order: the topmost widget receives the click.
             Widget[] all=Widget.values();
             for(int i=all.length-1;i>=0;i--) {
                 Widget widget=all[i];
-                Rect r=geometry.widget(ui.widgets(),widget);
+                Rect r=geometry.widget(ui.widgets(),widget,hudWidth(widget),hudHeight(widget));
                 if(r.contains(mx,my)) {
+                    hudControls.select(HudEditorControls.itemFor(widget));
                     hudDragging=true;draggingWidget=widget;
                     dragX=mx-r.x;dragY=my-r.y;
                     return;
@@ -301,6 +326,7 @@ public final class GhostClickGui extends GuiScreen {
             }
             Rect status=geometry.status(ui,statusPreviewWidth(),statusPreviewHeight());
             if(status.contains(mx,my)) {
+                hudControls.select(HudEditorControls.Item.STATUS);
                 hudDragging=true;draggingWidget=null;
                 dragX=mx-status.x;dragY=my-status.y;
             }
@@ -364,7 +390,8 @@ public final class GhostClickGui extends GuiScreen {
                 geometry.moveStatus(ui,statusPreviewWidth(),statusPreviewHeight(),
                     mx,my,dragX,dragY);
             else
-                geometry.moveWidget(ui.widgets(),draggingWidget,mx,my,dragX,dragY);
+                geometry.moveWidget(ui.widgets(),draggingWidget,mx,my,dragX,dragY,
+                    hudWidth(draggingWidget),hudHeight(draggingWidget));
         }
     }
     @Override protected void mouseReleased(int mx,int my,int state) {
@@ -417,6 +444,30 @@ public final class GhostClickGui extends GuiScreen {
         }
         if (keyCode == Keyboard.KEY_ESCAPE || keyCode == Keyboard.KEY_F7) {
             mc.displayGuiScreen(null); return;
+        }
+        if (hudPage) {
+            if (keyCode==Keyboard.KEY_R) {
+                hudControls.reset(ui);
+                host.persistUi();
+                return;
+            }
+            int dx=0,dy=0;
+            if(keyCode==Keyboard.KEY_LEFT)dx=-1;
+            else if(keyCode==Keyboard.KEY_RIGHT)dx=1;
+            else if(keyCode==Keyboard.KEY_UP)dy=-1;
+            else if(keyCode==Keyboard.KEY_DOWN)dy=1;
+            if(dx!=0 || dy!=0) {
+                int step=(Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) ||
+                          Keyboard.isKeyDown(Keyboard.KEY_RSHIFT))?10:1;
+                HudEditorControls.Item item=hudControls.selected();
+                int cw=item==HudEditorControls.Item.STATUS ?
+                    statusPreviewWidth():hudWidth(item.widget);
+                int ch=item==HudEditorControls.Item.STATUS ?
+                    statusPreviewHeight():hudHeight(item.widget);
+                hudControls.nudge(ui,dx*step,dy*step,width,height,cw,ch);
+                host.persistUi();
+                return;
+            }
         }
         if (!hudPage && search != null && search.textboxKeyTyped(character,keyCode)) {
             ui.query(search.getText());
