@@ -31,6 +31,13 @@ public final class HostRuntime {
     private final ModuleRegistry modules = new ModuleRegistry();
     private final SessionServices services = new SessionServices();
     private final RuntimeDiagnostics diagnostics = new RuntimeDiagnostics();
+    private final FeatureFaultGuard featureFaults = new FeatureFaultGuard(modules, new FeatureFaultGuard.OnFault() {
+        public void report(String stableId, String exceptionType) {
+            diagnostics.record(Counter.FEATURE_FAULT);
+            faultWarning = "Module disabled: " + stableId + " (" + exceptionType + ")";
+            persist();
+        }
+    });
     private final StatusOverlayModule overlay = new StatusOverlayModule();
     private final MetricsOverlayModule metrics = new MetricsOverlayModule();
     private final Setting.Number statusScale = new Setting.Number("scale", 1.0, 0.75, 1.75);
@@ -76,6 +83,7 @@ public final class HostRuntime {
     private String profileWarning = "";
     private String uiWarning = "";
     private String diagnosticsWarning = "";
+    private String faultWarning = "";
 
     public HostRuntime(Path configDirectory) {
         if (configDirectory == null) throw new IllegalArgumentException("configDirectory");
@@ -118,6 +126,13 @@ public final class HostRuntime {
     public ModuleRegistry modules() { return modules; }
     public SessionServices services() { modules.assertOwnerThread(); return services; }
     public RuntimeDiagnostics diagnostics() { modules.assertOwnerThread(); return diagnostics; }
+    public String faultWarning() { modules.assertOwnerThread(); return faultWarning; }
+    /** Visual/sprint callbacks are isolated per module; a failing module is disabled and persisted. */
+    public boolean runFeature(String id, Runnable callback) {
+        if (!active() || !worldPresent) return false;
+        return featureFaults.execute(id, callback);
+    }
+    public FeatureFaultGuard featureFaults() { modules.assertOwnerThread(); return featureFaults; }
     public boolean diagnosticsEnabled() {
         modules.assertOwnerThread();
         return modules.get("hud.diagnostics").state() == ModuleRegistry.State.ENABLED;

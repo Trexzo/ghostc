@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R0.8:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R0.9:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,8 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R0.9 stability: fault containment for Forge visual and Auto Sprint callbacks; failing features are disabled, persisted and reported without retaining exception messages. HUD keystrokes reflect actual Minecraft keybindings, not hardcoded WASD labels.
+- New independent Windows JDK8 ForgeGradle build smoke gate, checks versioned Java 8 mod entrypoint and key classes; Windows GitHub runner is **not** a licensed Minecraft launch.
 - R0.8 runtime safety: physical-release admission before automated combat pulses after GUI/focus/world changes, conflicting/unbound F7 keybind rejection, single-authoritative world readiness at END client tick and scheduled network disconnect callbacks on the Minecraft owner thread.
 - Opt-in `hud.diagnostics`: nonidentifying tick/focus/session/action counters visible in game; on disconnect or close, writes `.minecraft/config/ghostc/diagnostics-last.properties` with a backup and no user/server metadata.
 - Two additional opt-in combat controls: **Block Hit** (bounded sword-only USE pulses while attack is physically held, delayed when an extra attack pulse is queued) and **Hit Select** (target-hurt-time and minimum-tick-gap filtering of **AutoClicker-generated extra presses only**). Neither suppresses manual attacks; integration is Forge-CI-tested, not in-game verified.
@@ -54,5 +56,6 @@ See [issues](../../issues) for Forge runtime acceptance (#2), ClickGUI/HUD (#3),
 - [R0.6–R0.7 optional combat controls](docs/COMBAT.md)
 - [R0.7 action safety/verification](docs/COMBAT_R07.md)
 - [R0.8 runtime admission and diagnostics](docs/RUNTIME_R08.md)
+- [R0.9 Windows build and fault containment](docs/RUNTIME_R09.md)
 - [Provenance](docs/PROVENANCE.md)
 - [Verification](docs/VERIFICATION.md)

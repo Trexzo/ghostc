@@ -7,3 +7,10 @@
 - GitHub Actions creates an explicitly named **headless** JAR artifact for each eligible CI run; it cannot launch Minecraft.
 
 Definition of done: tests and CI green, applicable integration/runtime gates separately documented, no unsupported performance claims.
+
+
+## R0.9 verification extension (pending CI evidence)
+
+- GitHub Core CI runs JDK17 and JDK21 Java 8-compatible source tests, including `FeatureFaultTests` for per-feature quarantine, sanitized fault reporting, frame-by-frame no-repeat behavior and profile persistence.
+- GitHub Forge CI runs the existing Linux/JDK8 ForgeGradle build and a new separate Windows/JDK8 compile and reobfuscation gate. Both publish explicitly labelled unverified-in-game artifacts.
+- Latest source and acceptance boundaries are documented in [R0.9](RUNTIME_R09.md); actual licensed Windows Minecraft GUI / OpenGL / gameplay tests remain pending.
