@@ -71,12 +71,30 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("resized.setText(previous)",gui)
         self.assertIn("resized.setFocused(focused)",gui)
 
+    def test_combat_fault_boundaries_and_intent_cancellation(self):
+        combat=(FORGE/"ForgeCombatController.java").read_text(encoding="utf-8")
+        for id in ("combat.aimassist","combat.clicker","combat.hitselect","combat.blockhit"):
+            self.assertIn('"'+id+'"',combat)
+        for constant in ("AIM_ID","CLICK_ID","HIT_ID","BLOCK_ID"):
+            self.assertIn('host.runFeature('+constant+',',combat)
+        self.assertIn('session.rotations().cancel(AIM_ID);',combat)
+        self.assertGreaterEqual(combat.count('session.actions().cancelOwner(CLICK_ID);'),2)
+        self.assertGreaterEqual(combat.count('session.actions().cancelOwner(BLOCK_ID);'),2)
+        self.assertIn('extraAttackQueued[0]',combat)
+        self.assertIn('KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode())',combat)
+        self.assertIn('KeyBinding.onTick(mc.gameSettings.keyBindUseItem.getKeyCode())',combat)
+        self.assertNotIn('attackEntity(',combat)
+        self.assertNotIn('sendPacket(',combat)
+
     def test_forge_project_version_matches_mod_annotation(self):
         gradle=content("forge189/build.gradle")
         match=re.search(r"(?m)^version = '([0-9]+\.[0-9]+\.[0-9]+)'",gradle)
         self.assertIsNotNone(match)
         mod=(FORGE/"GhostCMod.java").read_text(encoding="utf-8")
-        self.assertIn('version = "'+match.group(1)+'"',mod)
+        self.assertIn('public static final String CLIENT_VERSION = "'+match.group(1)+'"',mod)
+        self.assertIn('version = GhostCMod.CLIENT_VERSION',mod)
+        self.assertIn('GhostCMod.CLIENT_VERSION',self.adapter)
+        self.assertIn('GhostCMod.CLIENT_VERSION',self.feature)
         info=content("forge189/src/main/resources/mcmod.info")
         self.assertIn('"version": "'+match.group(1)+'"',info)
 

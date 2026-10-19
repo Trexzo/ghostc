@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R1.2:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R1.3:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R1.3 combat reliability: independent Java exception quarantine for Aim Assist, AutoClicker, Hit Select and Block Hit with fail-closed action/camera intent cancellation. Enhanced pure-Java session/fault replays and real Forge combat wiring checks, plus one shared mod version constant for both in-game HUD labels.
 - R1.2 Forge feature wiring reconciliation: all HUD features, 3D ESP and Auto Sprint are once again routed through `HostRuntime.runFeature` with per-feature exception quarantine; independently guarded OpenGL state, visible sanitized fault warning and remapped Minecraft key labels.
 - New Java/Python regression gates verify both the pure feature fault behavior and its actual Forge source wiring so later refactors cannot silently bypass the guard. **In-game rendering, input and stability remain unverified.**
 - R1.1 ClickGUI viewport fixes: search hitboxes and focus rebind on scaled-screen changes; HUD editor preview and list geometry cannot exceed the window, and F7 can also close the GUI.
@@ -66,5 +67,6 @@ See [issues](../../issues) for Forge runtime acceptance (#2), ClickGUI/HUD (#3),
 - [R1.0 verified Windows acceptance transaction](docs/RUNTIME_R10.md)
 - [R1.1 viewport reliability and callback evidence](docs/RUNTIME_R11.md)
 - [R1.2 Forge feature wiring reconciliation](docs/RUNTIME_R12.md)
+- [R1.3 fail-closed combat integration](docs/RUNTIME_R13.md)
 - [Provenance](docs/PROVENANCE.md)
 - [Verification](docs/VERIFICATION.md)
