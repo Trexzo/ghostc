@@ -196,7 +196,7 @@ class ForgeWiring(unittest.TestCase):
         positions=content("src/main/java/dev/ghostfusion/ui/HudPositions.java")
         for widget in ("KEYSTROKES","CPS","TARGET"):
             self.assertIn("Widget."+widget,driver)
-            self.assertIn("Widget."+widget,positions)
+            self.assertRegex(positions, r"(?m)^\s*"+widget+r'\("')
         self.assertGreaterEqual(driver.count(".widgets().pixelX("),3)
         self.assertGreaterEqual(driver.count(".widgets().pixelY("),3)
         self.assertIn("draggingWidget=widget;",gui)
