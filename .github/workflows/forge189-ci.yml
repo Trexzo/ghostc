@@ -113,6 +113,7 @@ jobs:
             docs/RUNTIME_R19.md
             docs/RUNTIME_R20.md
             docs/RUNTIME_R21.md
+            docs/RUNTIME_R22.md
           if-no-files-found: error
 
   windows-forge189:

@@ -121,7 +121,7 @@ class ForgeWiring(unittest.TestCase):
             "if (!worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) return;"),3)
         self.assertIn("features.render3d(event.partialTicks)",self.adapter)
         self.assertIn("features.mouseInput()",self.adapter)
-        self.assertIn("final boolean status = host.render2d();",self.adapter)
+        self.assertRegex(self.adapter,r"final boolean status\s*=\s*host\.render2d\(\);")
 
     def test_gui_hitboxes_match_visible_rows(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
@@ -266,6 +266,26 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("case KEYSTROKES: return 37+(jump?20:0)+(sneak?20:0);",sizes)
         self.assertIn("case TARGET: return targetHealth?43:29;",sizes)
         self.assertIn("dev.ghostfusion.tests.HudEditorControlsTests",
+                      content(".github/workflows/core-ci.yml"))
+
+    def test_status_metrics_layout_and_independent_fault_isolation(self):
+        adapter=self.adapter
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        layout=content("src/main/java/dev/ghostfusion/ui/StatusHudLayout.java")
+        self.assertIn("StatusHudLayout.calculate(host.ui(),sw,sh,",adapter)
+        self.assertIn('host.runFeature("hud.status",new Runnable()',adapter)
+        self.assertIn('host.runFeature("hud.metrics",new Runnable()',adapter)
+        self.assertIn("layout.y+layout.fpsY",adapter)
+        self.assertIn("layout.y+layout.coordinatesY",adapter)
+        self.assertIn("trimStringToWidth(statusText,allowed)",adapter)
+        self.assertIn("StatusHudLayout.calculate(ui,width,height",gui)
+        self.assertIn("statusFootprint().measuredWidth",gui)
+        self.assertIn("statusFootprint().measuredHeight",gui)
+        self.assertIn("Math.max(w,(long)fpsWidth+2)",layout)
+        self.assertIn("Math.max(w,(long)coordinatesWidth+2)",layout)
+        self.assertIn("ui.pixelX(viewportWidth,visibleW)",layout)
+        self.assertIn("ui.pixelY(viewportHeight,visibleH)",layout)
+        self.assertIn("dev.ghostfusion.tests.StatusHudLayoutTests",
                       content(".github/workflows/core-ci.yml"))
 
     def test_forge_project_version_matches_mod_annotation(self):

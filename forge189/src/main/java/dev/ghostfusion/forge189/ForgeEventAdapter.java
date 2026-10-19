@@ -2,6 +2,7 @@ package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.services.WorldSnapshot;
+import dev.ghostfusion.ui.StatusHudLayout;
 import dev.ghostfusion.services.WorldIdentityTracker;
 import java.util.HashSet;
 import java.util.Set;
@@ -130,56 +131,97 @@ public final class ForgeEventAdapter {
     public void onOverlay(RenderGameOverlayEvent.Text event) {
         host.diagnostics().record(Counter.OVERLAY_FRAME);
         if (!worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) return;
-        final boolean status = host.render2d();
-        final boolean metrics = host.metricsFrameRequested();
-        if (!status && !metrics) {
-            features.render2d(event.resolution);
-            return;
-        }
-        final ScaledResolution resolution = event.resolution;
-        RenderStateGuard.draw(new Runnable() {
-            public void run() {
-                final float scale = host.statusScale();
-                final String statusText = host.detailedStatus()
-                    ? "GhostC " + GhostCMod.CLIENT_VERSION + " | F7 ClickGUI" : "GhostC";
-                final int sw = resolution.getScaledWidth();
-                final int sh = resolution.getScaledHeight();
-                final int statusWidth = Math.max(1, Math.round((minecraft.fontRendererObj.getStringWidth(statusText) + 4) * scale));
-                final int statusHeight = Math.max(1, Math.round((minecraft.fontRendererObj.FONT_HEIGHT + 5) * scale));
-                final int x = host.ui().pixelX(sw, statusWidth);
-                final int y = host.ui().pixelY(sh, statusHeight + (metrics ? 24 : 0));
-                if (status) {
-                    GL11.glPushMatrix();
-                    try {
-                        GL11.glTranslatef(x, y, 0);
-                        GL11.glScalef(scale, scale, 1);
-                        if (host.statusShadow()) minecraft.fontRendererObj.drawStringWithShadow(statusText, 2, 2, 0xF2F2FF);
-                        else minecraft.fontRendererObj.drawString(statusText, 2, 2, 0xF2F2FF);
-                    } finally { GL11.glPopMatrix(); }
-                }
-                if (metrics) {
-                    int dy = status ? statusHeight : 0;
-                    if (host.showFps()) {
-                        minecraft.fontRendererObj.drawStringWithShadow(
-                            "FPS " + Minecraft.getDebugFPS(), x + 2, y + dy, 0xFFB2CBFF);
-                        dy += minecraft.fontRendererObj.FONT_HEIGHT + 2;
-                    }
-                    if (host.showCoordinates() && minecraft.thePlayer != null) {
-                        String location = String.format(Locale.ROOT, "XYZ %.1f %.1f %.1f",
-                            minecraft.thePlayer.posX, minecraft.thePlayer.posY, minecraft.thePlayer.posZ);
-                        minecraft.fontRendererObj.drawStringWithShadow(
-                            location, x + 2, y + dy, 0xFFB2CBFF);
-                    }
-                }
+        final boolean status=host.render2d();
+        final boolean metrics=host.metricsFrameRequested();
+        final ScaledResolution resolution=event.resolution;
+        final int sw=resolution.getScaledWidth(),sh=resolution.getScaledHeight();
+        final int fontHeight=minecraft.fontRendererObj.FONT_HEIGHT;
+        final float scale=host.statusScale();
+        final String statusText=host.detailedStatus()
+            ? "GhostC " + GhostCMod.CLIENT_VERSION + " | F7 ClickGUI" : "GhostC";
+        final String fpsText=metrics && host.showFps()
+            ? "FPS " + Minecraft.getDebugFPS() : null;
+        final String coordsText=metrics && host.showCoordinates() && minecraft.thePlayer!=null
+            ? String.format(Locale.ROOT,"XYZ %.1f %.1f %.1f",
+                minecraft.thePlayer.posX,minecraft.thePlayer.posY,minecraft.thePlayer.posZ) : null;
+        if(status || fpsText!=null || coordsText!=null) {
+            final int statusWidth=status ? Math.max(1,
+                Math.round((minecraft.fontRendererObj.getStringWidth(statusText)+4)*scale)) : 0;
+            final int statusHeight=status ? Math.max(1,
+                Math.round((fontHeight+5)*scale)) : 0;
+            final StatusHudLayout layout=StatusHudLayout.calculate(host.ui(),sw,sh,
+                status,fpsText!=null,coordsText!=null,
+                statusWidth,statusHeight,
+                fpsText==null?0:minecraft.fontRendererObj.getStringWidth(fpsText),
+                coordsText==null?0:minecraft.fontRendererObj.getStringWidth(coordsText),
+                fontHeight);
 
-                String warning = !host.faultWarning().isEmpty() ? host.faultWarning() :
-                    !host.uiWarning().isEmpty() ? host.uiWarning() :
-                    !host.diagnosticsWarning().isEmpty() ? host.diagnosticsWarning() : host.profileWarning();
-                if (!warning.isEmpty()) minecraft.fontRendererObj.drawStringWithShadow(warning, x + 2,
-                    Math.min(sh - 12, y + statusHeight + 25), 0xFFFF9999);
+            // Independent fault domains: a bad Status draw cannot prevent FPS
+            // or coordinates from rendering in the same overlay frame.
+            if(status) host.runFeature("hud.status",new Runnable() {
+                public void run() {
+                    RenderStateGuard.draw(new Runnable() {
+                        public void run() {
+                            int allowed=Math.max(0,(int)((sw-layout.x-4)/scale));
+                            String shown=minecraft.fontRendererObj.trimStringToWidth(statusText,allowed);
+                            if(shown.isEmpty()) return;
+                            GL11.glTranslatef(layout.x,layout.y,0);
+                            GL11.glScalef(scale,scale,1);
+                            if(host.statusShadow())
+                                minecraft.fontRendererObj.drawStringWithShadow(shown,2,2,0xF2F2FF);
+                            else minecraft.fontRendererObj.drawString(shown,2,2,0xF2F2FF);
+                        }
+                    });
+                }
+            });
+            if(metrics && (fpsText!=null || coordsText!=null))
+                host.runFeature("hud.metrics",new Runnable() {
+                    public void run() {
+                        RenderStateGuard.draw(new Runnable() {
+                            public void run() {
+                                int available=Math.max(0,sw-layout.x-2);
+                                if(fpsText!=null) {
+                                    int py=layout.y+layout.fpsY;
+                                    if(py>=0 && py+fontHeight<=sh) {
+                                        String shown=minecraft.fontRendererObj.trimStringToWidth(
+                                            fpsText,available);
+                                        minecraft.fontRendererObj.drawStringWithShadow(
+                                            shown,layout.x+2,py,0xFFB2CBFF);
+                                    }
+                                }
+                                if(coordsText!=null) {
+                                    int py=layout.y+layout.coordinatesY;
+                                    if(py>=0 && py+fontHeight<=sh) {
+                                        String shown=minecraft.fontRendererObj.trimStringToWidth(
+                                            coordsText,available);
+                                        minecraft.fontRendererObj.drawStringWithShadow(
+                                            shown,layout.x+2,py,0xFFB2CBFF);
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
+            String warning=!host.faultWarning().isEmpty() ? host.faultWarning() :
+                !host.uiWarning().isEmpty() ? host.uiWarning() :
+                !host.diagnosticsWarning().isEmpty() ? host.diagnosticsWarning() :
+                host.profileWarning();
+            if(!warning.isEmpty()) {
+                final String notice=warning;
+                final int nx=layout.x,ny=Math.max(0,Math.min(sh-fontHeight-1,
+                    layout.y+layout.height+3));
+                RenderStateGuard.draw(new Runnable() {
+                    public void run() {
+                        minecraft.fontRendererObj.drawStringWithShadow(
+                            minecraft.fontRendererObj.trimStringToWidth(notice,
+                                Math.max(0,sw-nx-2)),
+                            nx+2,ny,0xFFFF9999);
+                    }
+                });
             }
-        });
-        features.render2d(event.resolution);
+        }
+        // Other HUD modules retain their own independent fault guards.
+        features.render2d(resolution);
     }
 
     /**

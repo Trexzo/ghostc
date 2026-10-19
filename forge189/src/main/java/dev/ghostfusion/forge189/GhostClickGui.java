@@ -14,8 +14,10 @@ import dev.ghostfusion.ui.GuiSelection;
 import dev.ghostfusion.ui.HudPositions.Widget;
 import dev.ghostfusion.ui.HudPreviewGeometry;
 import dev.ghostfusion.ui.HudFootprints;
+import dev.ghostfusion.ui.StatusHudLayout;
 import dev.ghostfusion.ui.HudEditorControls;
 import dev.ghostfusion.ui.HudPreviewGeometry.Rect;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
 import org.lwjgl.input.Keyboard;
@@ -235,15 +237,28 @@ public final class GhostClickGui extends GuiScreen {
     private int hudHeight(Widget widget) {
         return HudFootprints.height(widget,host.keysJump(),host.keysSneak(),host.targetHealth());
     }
-    private int statusPreviewWidth() {
-        String statusText=host.detailedStatus() ?
-            "GhostC "+GhostCMod.CLIENT_VERSION+" | F7 ClickGUI" : "GhostC";
-        return Math.max(1,Math.round(
-            (fontRendererObj.getStringWidth(statusText)+4)*host.statusScale()));
+    private StatusHudLayout statusFootprint() {
+        boolean status=host.featureEnabled("hud.status");
+        boolean metrics=host.featureEnabled("hud.metrics");
+        boolean fps=metrics && host.showFps();
+        boolean coordinates=metrics && host.showCoordinates() && mc.thePlayer!=null;
+        // The Status anchor remains selectable even when both modules are off.
+        if(!status && !fps && !coordinates) status=true;
+        String title=host.detailedStatus()
+            ? "GhostC "+GhostCMod.CLIENT_VERSION+" | F7 ClickGUI" : "GhostC";
+        float scale=host.statusScale();
+        int statusW=Math.max(1,Math.round((fontRendererObj.getStringWidth(title)+4)*scale));
+        int statusH=Math.max(1,Math.round((fontRendererObj.FONT_HEIGHT+5)*scale));
+        String fpsText=fps?"FPS "+Minecraft.getDebugFPS():"";
+        String coordsText=coordinates
+            ? String.format(java.util.Locale.ROOT,"XYZ %.1f %.1f %.1f",
+                mc.thePlayer.posX,mc.thePlayer.posY,mc.thePlayer.posZ) : "";
+        return StatusHudLayout.calculate(ui,width,height,status,fps,coordinates,
+            statusW,statusH,fontRendererObj.getStringWidth(fpsText),
+            fontRendererObj.getStringWidth(coordsText),fontRendererObj.FONT_HEIGHT);
     }
-    private int statusPreviewHeight() {
-        return Math.max(1,Math.round((fontRendererObj.FONT_HEIGHT+5)*host.statusScale()));
-    }
+    private int statusPreviewWidth() { return statusFootprint().measuredWidth; }
+    private int statusPreviewHeight() { return statusFootprint().measuredHeight; }
     private void drawHudEditor(int mx, int my) {
         if (previewW<1 || previewH<1) return;
         label("HUD POSITION EDITOR",x+side+12,y+49,accent());
