@@ -101,7 +101,11 @@ public final class ModuleRegistry {
     private void fault(Entry e, Throwable cause) {
         try { e.module.onDisable(); } catch (Throwable ignored) { /* isolation */ }
         e.state = State.FAULTED;
-        e.lastFault = cause.getClass().getSimpleName() + ": " + String.valueOf(cause.getMessage());
+        // Exception messages may contain private chat, server info or account
+        // data supplied by third-party modules. Retain only the class name.
+        String type = cause.getClass().getSimpleName();
+        if (type.isEmpty()) type = "Throwable";
+        e.lastFault = type.length() > 60 ? type.substring(0,60) : type;
     }
     public void shutdown() {
         assertOwnerThread(); if (shutdown) return;

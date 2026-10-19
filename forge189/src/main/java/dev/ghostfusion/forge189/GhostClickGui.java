@@ -8,6 +8,7 @@ import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.ui.UiState;
 import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiHitZones;
+import dev.ghostfusion.ui.GuiChrome;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
 import org.lwjgl.input.Keyboard;
@@ -54,6 +55,10 @@ public final class GhostClickGui extends GuiScreen {
         listY=g.listY; listH=g.listHeight; visibleRows=g.visibleRows;
         previewX=g.previewX; previewY=g.previewY;
         previewW=g.previewWidth; previewH=g.previewHeight;
+        if (!GuiChrome.interactive(g)) {
+            hudDragging=false;
+            capture=null;
+        }
         syncSearch(g);
     }
     private void syncSearch(GuiLayout g) {
@@ -96,6 +101,11 @@ public final class GhostClickGui extends GuiScreen {
     private void drawUi(int mx, int my) {
         rect(0, 0, width, height, 0x99060B13);
         rect(x, y, w, h, bg());
+        if (!GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout()))) {
+            label(trim("GhostC: enlarge game window or reduce GUI scale",w-16),
+                x+8,y+Math.min(18,Math.max(0,h-1)),accent());
+            return;
+        }
         rect(x, y, side, h, panel());
         rect(x, y, w, 30, 0xBB080C1A);
         label("GHOSTC", x + 10, y + 10, accent());
@@ -124,7 +134,7 @@ public final class GhostClickGui extends GuiScreen {
                 active ? accent() : 0xFFD4D7E0);
             yy += 23;
         }
-        label("F7: OPEN", x + 10, y + h - 35, 0xFF929BAC);
+        label("F7: CLOSE", x + 10, y + h - 35, 0xFF929BAC);
         label("ESC: CLOSE", x + 10, y + h - 23, 0xFF929BAC);
     }
     private List<ModuleRegistry.Entry> entries() {
@@ -215,18 +225,21 @@ public final class GhostClickGui extends GuiScreen {
     @Override protected void mouseClicked(int mx, int my, int button) throws IOException {
         super.mouseClicked(mx, my, button);
         rebuild();
-        if (button != 0 || !inside(mx,my,x,y,w,h)) return;
-        if (inside(mx,my,x+w-99,y+6,40,17)) {
+        GuiLayout zone = GuiLayout.calculate(width,height,ui.layout());
+        if (button != 0 || !GuiChrome.interactive(zone) ||
+            !inside(mx,my,x,y,w,h)) return;
+        GuiChrome.Header header=GuiChrome.headerAt(zone,mx,my);
+        if (header==GuiChrome.Header.LAYOUT) {
             ui.layout(ui.layout() == UiState.Layout.WIDE ? UiState.Layout.COMPACT : UiState.Layout.WIDE);
             rebuild();
             host.persistUi(); return;
         }
-        if (inside(mx,my,x+w-55,y+6,50,17)) {
+        if (header==GuiChrome.Header.THEME) {
             ui.theme(ui.theme() == UiState.Theme.INDIGO ? UiState.Theme.GRAPHITE : UiState.Theme.INDIGO);
             host.persistUi(); return;
         }
-        if (inside(mx,my,x+side+8,y+3,70,24)) { hudPage = false; return; }
-        if (inside(mx,my,x+side+84,y+3,47,24)) { hudPage = true; capture = null; return; }
+        if (header==GuiChrome.Header.MODULES) { hudPage = false; return; }
+        if (header==GuiChrome.Header.HUD) { hudPage = true; capture = null; return; }
         if (hudPage) {
             if (previewW<1 || previewH<1) return;
             int hx = previewX + ui.pixelX(previewW, HUD_WIDTH);
@@ -237,16 +250,13 @@ public final class GhostClickGui extends GuiScreen {
             return;
         }
         if (search != null) search.mouseClicked(mx,my,button);
-        if (inside(mx,my,x+4,y+63,side-8,6*23)) {
-            int idx = (my - (y+62)) / 23;
-            if (idx >= 0 && idx <= 5) {
-                ui.category(idx == 0 ? null : GhostModule.Category.valueOf(
-                    new String[]{"ALL","COMBAT","MOVEMENT","WORLD","RENDER","UTILITY"}[idx]));
-                scroll = 0;
-            }
+        int category=GuiChrome.categoryIndex(zone,mx,my);
+        if (category>=0) {
+            ui.category(category==0 ? null : GhostModule.Category.valueOf(
+                new String[]{"ALL","COMBAT","MOVEMENT","WORLD","RENDER","UTILITY"}[category]));
+            scroll=0;
             return;
         }
-        GuiLayout zone = GuiLayout.calculate(width,height,ui.layout());
         List<ModuleRegistry.Entry> filtered = entries();
         if (GuiHitZones.moduleArea(zone,mx,my)) {
             int idx = GuiHitZones.moduleIndex(zone,mx,my,scroll,filtered.size());
@@ -288,7 +298,8 @@ public final class GhostClickGui extends GuiScreen {
         }
     }
     @Override protected void mouseClickMove(int mx,int my,int button,long timeSinceLastClick) {
-        if (hudDragging && button == 0 && previewW>0 && previewH>0) {
+        if (hudDragging && button == 0 && previewW>0 && previewH>0 &&
+            GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout()))) {
             ui.positionPixels(mx - previewX - dragX, my - previewY - dragY,
                 previewW,previewH,HUD_WIDTH,HUD_HEIGHT);
         }
@@ -303,6 +314,7 @@ public final class GhostClickGui extends GuiScreen {
         if (wheel != 0 && !hudPage) {
             rebuild();
             GuiLayout zone=GuiLayout.calculate(width,height,ui.layout());
+            if (!GuiChrome.interactive(zone)) return;
             int direction = wheel > 0 ? -1 : 1;
             int mx = Mouse.getEventX() * width / Math.max(1, mc.displayWidth);
             int my = height - Mouse.getEventY() * height / Math.max(1, mc.displayHeight) - 1;
@@ -317,6 +329,11 @@ public final class GhostClickGui extends GuiScreen {
         }
     }
     @Override protected void keyTyped(char character,int keyCode) throws IOException {
+        if (!GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout()))) {
+            if (keyCode==Keyboard.KEY_ESCAPE || keyCode==Keyboard.KEY_F7)
+                mc.displayGuiScreen(null);
+            return;
+        }
         if (capture != null) {
             String id = capture; capture = null;
             if (keyCode == Keyboard.KEY_ESCAPE) return;

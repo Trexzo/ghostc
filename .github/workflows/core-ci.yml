@@ -61,6 +61,10 @@ jobs:
           grep -q 'VIEWPORT_RUNTIME_PASS' .build/viewport.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.ViewportHitTests | tee .build/viewport-hit.log
           grep -q 'VIEWPORT_HIT_PASS' .build/viewport-hit.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiChromeTests | tee .build/gui-chrome.log
+          grep -q 'GUI_CHROME_PASS' .build/gui-chrome.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.FaultPrivacyTests | tee .build/fault-privacy.log
+          grep -q 'FAULT_PRIVACY_PASS' .build/fault-privacy.log
           java -cp .build/classes dev.ghostfusion.demo.DemoMain | tee .build/demo.log
           grep -q 'DEMO_PASS' .build/demo.log
       - name: Package headless demonstrator
