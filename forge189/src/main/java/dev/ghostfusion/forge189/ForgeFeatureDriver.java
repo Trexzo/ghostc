@@ -1,6 +1,7 @@
 package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.features.CpsMeter;
+import dev.ghostfusion.ui.HudPositions.Widget;
 import dev.ghostfusion.features.SprintPolicy;
 import dev.ghostfusion.features.TargetHudPolicy;
 import dev.ghostfusion.host.HostRuntime;
@@ -102,7 +103,8 @@ public final class ForgeFeatureDriver {
             x+(width-textWidth)/2,y+5,pressed ? 0xFF121629 : 0xFFF0F0FF);
     }
     private void drawKeys(int sw,int sh) {
-        int x=Math.max(3,sw-111), y=Math.max(3,sh-100);
+        int x=host.ui().widgets().pixelX(Widget.KEYSTROKES,sw,Widget.KEYSTROKES.width);
+        int y=host.ui().widgets().pixelY(Widget.KEYSTROKES,sh,Widget.KEYSTROKES.height);
         key(keyName(mc.gameSettings.keyBindForward),x+29,y,25,mc.gameSettings.keyBindForward.isKeyDown());
         key(keyName(mc.gameSettings.keyBindLeft),x,y+20,25,mc.gameSettings.keyBindLeft.isKeyDown());
         key(keyName(mc.gameSettings.keyBindBack),x+29,y+20,25,mc.gameSettings.keyBindBack.isKeyDown());
@@ -114,7 +116,8 @@ public final class ForgeFeatureDriver {
         if (host.keysSneak()) key(keyName(mc.gameSettings.keyBindSneak),x,row,83,mc.gameSettings.keyBindSneak.isKeyDown());
     }
     private void drawCps(int sw,int sh) {
-        int x=Math.max(3,sw-111), y=Math.max(3,sh-24);
+        int x=2+host.ui().widgets().pixelX(Widget.CPS,sw,Widget.CPS.width);
+        int y=2+host.ui().widgets().pixelY(Widget.CPS,sh,Widget.CPS.height);
         int l=cps.left(System.nanoTime()), r=cps.right(System.nanoTime());
         String text=host.cpsRight() ? "L "+l+" | R "+r+" CPS" : "L "+l+" CPS";
         Gui.drawRect(x-2,y-2,x+101,y+13,0xBE131927);
@@ -157,7 +160,8 @@ public final class ForgeFeatureDriver {
         String name=player.getName();
         if (name == null || name.length() > 26) name="Player #"+target.id;
         int width=160,height=host.targetHealth()?43:29;
-        int x=Math.max(2,sw/2-width/2),y=Math.max(2,sh-height-46);
+        int x=host.ui().widgets().pixelX(Widget.TARGET,sw,width);
+        int y=host.ui().widgets().pixelY(Widget.TARGET,sh,height);
         Gui.drawRect(x,y,x+width,y+height,0xD0141A2B);
         Gui.drawRect(x,y,x+2,y+height,0xFF9A8CFF);
         mc.fontRendererObj.drawStringWithShadow(name,x+9,y+7,0xFFF1F2FF);

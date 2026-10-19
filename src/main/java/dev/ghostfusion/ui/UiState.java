@@ -13,6 +13,7 @@ public final class UiState {
     private Layout layout = Layout.WIDE;
     private Theme theme = Theme.INDIGO;
     private String query = "";
+    private final HudPositions widgets = new HudPositions();
     private GhostModule.Category category;
     private double hudX = 0.025;
     private double hudY = 0.055;
@@ -20,6 +21,7 @@ public final class UiState {
     public Layout layout() { return layout; }
     public Theme theme() { return theme; }
     public String query() { return query; }
+    public HudPositions widgets() { return widgets; }
     public GhostModule.Category category() { return category; }
     public double hudX() { return hudX; }
     public double hudY() { return hudY; }

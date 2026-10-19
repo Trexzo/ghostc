@@ -188,6 +188,37 @@ class ForgeWiring(unittest.TestCase):
         ci=content(".github/workflows/core-ci.yml")
         self.assertIn("dev.ghostfusion.tests.ReservedKeyTests",ci)
 
+    def test_multi_widget_hud_positions_wired_to_forge(self):
+        driver=(FORGE/"ForgeFeatureDriver.java").read_text(encoding="utf-8")
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        state=content("src/main/java/dev/ghostfusion/ui/UiState.java")
+        store=content("src/main/java/dev/ghostfusion/ui/UiSettingsStore.java")
+        positions=content("src/main/java/dev/ghostfusion/ui/HudPositions.java")
+        for widget in ("KEYSTROKES","CPS","TARGET"):
+            self.assertIn("Widget."+widget,driver)
+            self.assertRegex(positions, r"(?m)^\s*"+widget+r'\("')
+        self.assertGreaterEqual(driver.count(".widgets().pixelX("),3)
+        self.assertGreaterEqual(driver.count(".widgets().pixelY("),3)
+        self.assertIn("draggingWidget=widget;",gui)
+        self.assertIn("widgets().positionPixels(draggingWidget,",gui)
+        self.assertIn("for (Widget widget:Widget.values())",gui)
+        self.assertIn("public HudPositions widgets() { return widgets; }",state)
+        self.assertIn('p.setProperty("schema", "1")',store)
+        self.assertIn("HudPositions.property(widget,true)",store)
+        self.assertIn("HudPositions.property(widget,false)",store)
+        self.assertIn("final double[][] positions",store)
+        self.assertIn("dev.ghostfusion.tests.HudPlacementTests",
+                      content(".github/workflows/core-ci.yml"))
+
+    def test_legacy_status_hud_storage_remains_backward_compatible(self):
+        store=content("src/main/java/dev/ghostfusion/ui/UiSettingsStore.java")
+        state=content("src/main/java/dev/ghostfusion/ui/UiState.java")
+        self.assertIn('p.getProperty("hud.x")',store)
+        self.assertIn('p.getProperty("hud.y")',store)
+        self.assertIn('p.setProperty("hud.x"',store)
+        self.assertIn('p.setProperty("hud.y"',store)
+        self.assertIn("public void position(double x, double y)",state)
+
     def test_forge_project_version_matches_mod_annotation(self):
         gradle=content("forge189/build.gradle")
         match=re.search(r"(?m)^version = '([0-9]+\.[0-9]+\.[0-9]+)'",gradle)
