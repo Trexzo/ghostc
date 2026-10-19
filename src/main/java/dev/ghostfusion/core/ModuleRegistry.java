@@ -57,7 +57,8 @@ public final class ModuleRegistry {
     }
     public List<Entry> all() { return Collections.unmodifiableList(new ArrayList<Entry>(modules.values())); }
     public static void validateKey(int key) {
-        if (key < 0 || key > 65535) throw new IllegalArgumentException("Invalid keycode: " + key);
+        if (key < 0 || key > 65535 || ReservedKeys.reserved(key))
+            throw new IllegalArgumentException("Invalid or reserved keycode: " + key);
     }
     private boolean isBound(int key) {
         for (Entry e : modules.values()) if (e.keybind == key) return true;

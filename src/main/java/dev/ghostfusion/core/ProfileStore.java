@@ -61,6 +61,8 @@ public final class ProfileStore {
             stage.enabled = Boolean.parseBoolean(enabled);
             try { stage.key = Integer.parseInt(data.getProperty(pre + "key", "0")); }
             catch (NumberFormatException ex) { throw new IllegalArgumentException("Invalid key: " + id, ex); }
+            // Preflight the central reserved-key policy before applying any
+            // enables, settings or keybinds to the live registry.
             ModuleRegistry.validateKey(stage.key);
             for (Setting<?> s : e.settings().values()) {
                 String raw = data.getProperty(pre + "setting." + s.id());

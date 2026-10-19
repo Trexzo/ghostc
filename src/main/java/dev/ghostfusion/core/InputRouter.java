@@ -9,8 +9,12 @@ public final class InputRouter {
     private final Set<Integer> pressed = new HashSet<Integer>();
     public InputRouter(ModuleRegistry registry) { this.registry = registry; }
     public void keyEvent(int key, boolean down, boolean typingOrModal) {
-        registry.assertOwnerThread(); ModuleRegistry.validateKey(key);
-        if (key == 0) return;
+        registry.assertOwnerThread();
+        // A global shortcut is legal as an incoming physical key event but
+        // is NOT valid as an assignable module key. Ignore it without throwing
+        // or changing any module's pressed-key state.
+        if (key == 0 || ReservedKeys.reserved(key)) return;
+        ModuleRegistry.validateKey(key);
         if (down) {
             if (pressed.add(key) && !typingOrModal) registry.toggleKey(key);
         } else pressed.remove(key);

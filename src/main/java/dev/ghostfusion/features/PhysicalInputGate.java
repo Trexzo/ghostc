@@ -1,5 +1,7 @@
 package dev.ghostfusion.features;
 
+import dev.ghostfusion.core.ReservedKeys;
+
 /**
  * Physical attack-hold admission gate. Losing world/focus/GUI lock requires
  * seeing an actual RELEASE in an active game before synthetic pulses resume.
@@ -29,7 +31,7 @@ public final class PhysicalInputGate {
             releaseRequired = false;
             return false;
         }
-        return !releaseRequired && attackCode != 0 && attackCode != 65 &&
+        return !releaseRequired && attackCode != 0 && attackCode != ReservedKeys.CLICK_GUI &&
             attackCode != useCode;
     }
     public void reset() {
