@@ -133,8 +133,28 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("row>=g.visibleRows",model)
         self.assertIn("offset%28>=25",model)
         self.assertIn("(py-top)%22>=19",model)
-        self.assertIn("if (button != 0 || !inside(mx,my,x,y,w,h)) return;",gui)
+        self.assertIn("if (button != 0 || !GuiChrome.interactive(zone) ||",gui)
+        self.assertIn("!inside(mx,my,x,y,w,h)) return;",gui)
         self.assertNotIn("int idx = scroll + (my-listY)/28;",gui)
+
+    def test_clickgui_header_and_sidebar_chrome_are_bounded(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        chrome=content("src/main/java/dev/ghostfusion/ui/GuiChrome.java")
+        self.assertIn("GuiChrome.interactive(",gui)
+        self.assertIn("GuiChrome.headerAt(zone,mx,my)",gui)
+        self.assertIn("GuiChrome.categoryIndex(zone,mx,my)",gui)
+        self.assertIn("GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout()))",gui)
+        self.assertIn("hudDragging=false;",gui)
+        self.assertIn("capture=null;",gui)
+        self.assertIn("g.width >= 445 && g.height >= 250",chrome)
+        self.assertNotIn("inside(mx,my,x+4,y+63,side-8,6*23)",gui)
+
+    def test_core_module_fault_never_retains_private_messages(self):
+        module=content("src/main/java/dev/ghostfusion/core/ModuleRegistry.java")
+        self.assertNotIn("cause.getMessage()",module)
+        self.assertIn('e.lastFault = type.length() > 60',module)
+        ci=content(".github/workflows/core-ci.yml")
+        self.assertIn("dev.ghostfusion.tests.FaultPrivacyTests",ci)
 
     def test_forge_project_version_matches_mod_annotation(self):
         gradle=content("forge189/build.gradle")
