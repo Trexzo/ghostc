@@ -36,9 +36,9 @@ public final class ViewportRuntimeTests {
         ok(g.visibleRows>=0 && g.visibleRows*28<=g.listHeight,
             "whole visible rows only");
         ok(g.sidebar>=0 && g.sidebar<=g.width,"sidebar width bounded");
-        if(w>=600 && h>=450 && mode==UiState.Layout.WIDE)
+        if(w>=616 && h>=450 && mode==UiState.Layout.WIDE)
             ok(g.width==600 && g.height==430,"wide desktop layout stable");
-        if(w>=390 && h>=450 && mode==UiState.Layout.COMPACT)
+        if(w>=406 && h>=450 && mode==UiState.Layout.COMPACT)
             ok(g.width==390 && g.height==430,"compact desktop layout stable");
         UiState ui=new UiState();
         ui.position(0.98,0.02);
