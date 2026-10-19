@@ -121,7 +121,7 @@ class ForgeWiring(unittest.TestCase):
             "if (!worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) return;"),3)
         self.assertIn("features.render3d(event.partialTicks)",self.adapter)
         self.assertIn("features.mouseInput()",self.adapter)
-        self.assertIn("final boolean status = host.render2d();",self.adapter)
+        self.assertRegex(self.adapter,r"final boolean status\\s*=\\s*host\\.render2d\\(\\);")
 
     def test_gui_hitboxes_match_visible_rows(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
