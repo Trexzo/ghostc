@@ -85,6 +85,8 @@ jobs:
           test -n "$VERSION"
           test "$(basename "$JAR")" = "ghostc-forge189-$VERSION.jar"
           unzip -p "$JAR" mcmod.info | grep -Fq "\"version\": \"$VERSION\""
+          python3 tools/verify_forge_jar.py --selftest
+          python3 tools/verify_forge_jar.py --jar "$JAR" --version "$VERSION"
           echo "FORGE189_JAR_STRUCTURE_PASS"
       - name: Checksums
         shell: bash
@@ -97,6 +99,8 @@ jobs:
           path: |
             forge189/build/libs/ghostc-forge189-*.jar
             forge189/build/libs/SHA256SUMS.txt
+            tools/Invoke-GhostCAcceptance.ps1
+            docs/RUNTIME_R10.md
           if-no-files-found: error
 
   windows-forge189:
@@ -112,6 +116,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '4.10.3'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
       - name: Compile, reobfuscate and inspect JAR on Windows
         shell: pwsh
         run: |
@@ -144,7 +151,75 @@ jobs:
           }
           $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  $(Split-Path -Leaf $file)" | Set-Content -LiteralPath 'forge189/build/libs/SHA256SUMS.txt' -Encoding ascii
+          python tools/verify_forge_jar.py --selftest
+          if ($LASTEXITCODE -ne 0) { throw 'JAR verifier self-test failed' }
+          python tools/verify_forge_jar.py --jar $file --version $version
+          if ($LASTEXITCODE -ne 0) { throw 'JAR content verification failed' }
           Write-Output "WINDOWS_FORGE189_SMOKE_PASS version=$version"
+      - name: Transactional install/collect/rollback rehearsal (fake profile, NO game launch)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:RUNNER_TEMP 'ghostc-profile-fixture'
+          $mods = Join-Path $root 'mods'
+          New-Item -ItemType Directory -Path $mods -Force | Out-Null
+          New-Item -ItemType Directory -Path (Join-Path $root 'versions') -Force | Out-Null
+          $previous = Join-Path $mods 'ghostc-forge189-0.9.0.jar'
+          [IO.File]::WriteAllText($previous, 'OLDER OWNED GHOSTC TEST JAR')
+          $priorHash = (Get-FileHash -LiteralPath $previous -Algorithm SHA256).Hash
+          $jar = (Resolve-Path 'forge189/build/libs/ghostc-forge189-1.0.0.jar').Path
+          $hash = (Get-FileHash -LiteralPath $jar -Algorithm SHA256).Hash
+          $tool = (Resolve-Path 'tools/Invoke-GhostCAcceptance.ps1').Path
+          $wrongHash = ('0' * 64)
+          if ($wrongHash -eq $hash) { $wrongHash = ('F' * 64) }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Prepare -GameDir $root -JarPath $jar -ExpectedSha256 $wrongHash *> $null
+          if ($LASTEXITCODE -eq 0 -or !(Test-Path -LiteralPath $previous) -or
+              (Test-Path -LiteralPath (Join-Path $root 'ghostc-acceptance/install-state.json'))) {
+            throw 'Wrong checksum was not safely rejected without changes'
+          }
+          $conflict = Join-Path $mods 'ghostc-unknown.jar'
+          [IO.File]::WriteAllText($conflict, 'UNKNOWN GHOSTC FIXTURE')
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Prepare -GameDir $root -JarPath $jar -ExpectedSha256 $hash *> $null
+          if ($LASTEXITCODE -eq 0 -or !(Test-Path -LiteralPath $previous)) {
+            throw 'Duplicate named GhostC JAR was not safely rejected'
+          }
+          Remove-Item -LiteralPath $conflict
+          Write-Output 'WINDOWS_ACCEPTANCE_NEGATIVE_PREFLIGHT_PASS'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Prepare -GameDir $root -JarPath $jar -ExpectedSha256 $hash
+          if ($LASTEXITCODE -ne 0) { throw 'Prepare transaction failed' }
+          if ((Test-Path -LiteralPath $previous) -or !(Test-Path -LiteralPath (Join-Path $root 'ghostc-acceptance/install-state.json'))) {
+            throw 'Prepare failed to quarantine the old client safely'
+          }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Collect -GameDir $root
+          if ($LASTEXITCODE -ne 0) { throw 'Collect evidence step failed' }
+          $report = Join-Path $root 'ghostc-acceptance/acceptance-report.md'
+          if (!(Test-Path -LiteralPath $report) -or
+              ((Get-Content -LiteralPath $report -Raw) -notmatch 'UNVERIFIED IN-GAME')) {
+            throw 'Acceptance report missing its unverified runtime disclaimer'
+          }
+          $installed = Join-Path $mods 'ghostc-forge189-1.0.0.jar'
+          [IO.File]::AppendAllText($installed, 'TAMPERED FILE')
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Rollback -GameDir $root *> $null
+          if ($LASTEXITCODE -eq 0 -or
+              !(Test-Path -LiteralPath (Join-Path $root 'ghostc-acceptance/install-state.json'))) {
+            throw 'Tampered installation did not block rollback'
+          }
+          Copy-Item -LiteralPath $jar -Destination $installed -Force
+          if ((Get-FileHash -LiteralPath $installed -Algorithm SHA256).Hash -ne $hash) {
+            throw 'Unable to restore test fixture before rollback'
+          }
+          Write-Output 'WINDOWS_ACCEPTANCE_TAMPER_GUARD_PASS'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Rollback -GameDir $root
+          if ($LASTEXITCODE -ne 0) { throw 'Rollback transaction failed' }
+          if (!(Test-Path -LiteralPath $previous) -or
+              (Get-FileHash -LiteralPath $previous -Algorithm SHA256).Hash -ne $priorHash) {
+            throw 'Rollback did not restore the original client byte-for-byte'
+          }
+          if ((Test-Path -LiteralPath (Join-Path $mods 'ghostc-forge189-1.0.0.jar')) -or
+              (Test-Path -LiteralPath (Join-Path $root 'ghostc-acceptance/install-state.json'))) {
+            throw 'Rollback left an active client or transaction state behind'
+          }
+          Write-Output 'WINDOWS_ACCEPTANCE_TRANSACTION_PASS'
       - uses: actions/upload-artifact@v4
         with:
           name: ghostc-forge189-windows-build-unverified-ingame

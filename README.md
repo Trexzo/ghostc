@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R0.9:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R1.0:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,8 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R1.0 Windows acceptance tooling in GitHub: SHA-256-gated install, owned-JAR backups, safe rollback, redacted counter-only evidence checklist and a CI-tested transaction against a fake Windows profile. This does **not** launch Minecraft automatically.
+- Full JAR verification in CI: ZIP CRC, duplicate/unsafe archive entries, every Java class' Java-8 bytecode, required Forge entrypoint and matching mod metadata, tested on Linux and Windows.
 - R0.9 stability: fault containment for Forge visual and Auto Sprint callbacks; failing features are disabled, persisted and reported without retaining exception messages. HUD keystrokes reflect actual Minecraft keybindings, not hardcoded WASD labels.
 - New independent Windows JDK8 ForgeGradle build smoke gate, checks versioned Java 8 mod entrypoint and key classes; Windows GitHub runner is **not** a licensed Minecraft launch.
 - R0.8 runtime safety: physical-release admission before automated combat pulses after GUI/focus/world changes, conflicting/unbound F7 keybind rejection, single-authoritative world readiness at END client tick and scheduled network disconnect callbacks on the Minecraft owner thread.
@@ -57,5 +59,6 @@ See [issues](../../issues) for Forge runtime acceptance (#2), ClickGUI/HUD (#3),
 - [R0.7 action safety/verification](docs/COMBAT_R07.md)
 - [R0.8 runtime admission and diagnostics](docs/RUNTIME_R08.md)
 - [R0.9 Windows build and fault containment](docs/RUNTIME_R09.md)
+- [R1.0 verified Windows acceptance transaction](docs/RUNTIME_R10.md)
 - [Provenance](docs/PROVENANCE.md)
 - [Verification](docs/VERIFICATION.md)
