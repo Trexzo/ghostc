@@ -95,7 +95,7 @@ public final class BackupRotationTests {
         ok(ConfigIntegrity.verify(read(primary)),"saved legacy upgraded to sealed format");
         // A correctly sealed but unloadable module profile is not a backup.
         byte[] typedSafeBackup=bytes(backup);
-        for(String badKey : new String[]{"-1","65536","87","not-an-integer"}) {
+        for(String badKey : new String[]{"-1","65536","65","not-an-integer"}) {
             Properties unusable=read(primary);
             unusable.setProperty("module.test.feature.key",badKey);
             ConfigIntegrity.seal(unusable);
