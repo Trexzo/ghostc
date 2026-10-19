@@ -52,7 +52,11 @@ public final class ForgeCombatController {
         final SessionServices session = host.services();
         final EntityPlayerSP player = mc.thePlayer;
         if (player == null || mc.theWorld == null || !session.connected() ||
-            mc.currentScreen != null || !mc.inGameHasFocus) {
+            mc.currentScreen != null || !mc.inGameHasFocus ||
+            session.snapshot()==null || session.snapshot().tick!=session.tick() ||
+            session.snapshot().generation!=session.generation()) {
+            // Missing/bad local player pose or skipped snapshot: no synthetic
+            // attack, use or camera actions on old-world data.
             reset();
             return;
         }

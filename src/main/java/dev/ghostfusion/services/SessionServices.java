@@ -39,6 +39,9 @@ public final class SessionServices {
         check(); if(!connected) return;
         if(tick==Long.MAX_VALUE) throw new IllegalStateException("tick overflow");
         tick++;
+        // Snapshots belong to one exact client tick. Never expose stale
+        // targets if player pose or world enumeration fails this frame.
+        snapshot=null;
         rotations.prune(tick,generation);
         actions.prune(tick,generation);
     }

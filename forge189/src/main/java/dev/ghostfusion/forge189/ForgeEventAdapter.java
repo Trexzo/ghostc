@@ -2,6 +2,9 @@ package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.services.WorldSnapshot;
+import dev.ghostfusion.services.WorldIdentityTracker;
+import java.util.HashSet;
+import java.util.Set;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import net.minecraft.entity.player.EntityPlayer;
 import java.util.ArrayList;
@@ -27,6 +30,7 @@ public final class ForgeEventAdapter {
     private final HostRuntime host;
     private final ForgeFeatureDriver features;
     private final ForgeCombatController combat;
+    private final WorldIdentityTracker worldIdentity = new WorldIdentityTracker();
 
     public ForgeEventAdapter(Minecraft minecraft, HostRuntime host) {
         if (minecraft == null || host == null) throw new IllegalArgumentException("null dependency");
@@ -39,21 +43,40 @@ public final class ForgeEventAdapter {
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
-        final boolean worldReady = minecraft.theWorld != null && minecraft.thePlayer != null;
+        WorldIdentityTracker.Transition transition =
+            worldIdentity.observe(minecraft.theWorld,minecraft.thePlayer);
+        final boolean worldReady = worldIdentity.ready();
         final boolean focusBlocked = minecraft.currentScreen != null || !minecraft.inGameHasFocus;
         host.inputFocus(focusBlocked);
-        // Make END client tick the sole source of world readiness. A Forge
-        // world-load callback may occur before the local player is available.
+        // A world/dimension swap or player recreation can happen without a
+        // null frame. Explicitly close the old generation before new admission.
+        if (transition == WorldIdentityTracker.Transition.SWITCH ||
+            transition == WorldIdentityTracker.Transition.LEAVE) {
+            host.worldPresence(false);
+            features.reset();
+            combat.reset();
+        }
+        if (transition == WorldIdentityTracker.Transition.ENTER ||
+            transition == WorldIdentityTracker.Transition.SWITCH) {
+            host.worldPresence(true);
+            features.reset();
+            combat.reset();
+        }
+        // Keep the standard presence reconciliation for starting menus.
         host.worldPresence(worldReady);
         host.tick();
         if (!worldReady || focusBlocked) features.reset();
         // Read-only player snapshot published before the single combat intent bridge runs.
-        if (host.services().connected() && minecraft.theWorld != null && minecraft.thePlayer != null) {
+        if (host.services().connected() && minecraft.theWorld != null && minecraft.thePlayer != null &&
+            WorldSnapshot.validPlayerPose(minecraft.thePlayer.posX,minecraft.thePlayer.posY,
+                minecraft.thePlayer.posZ,minecraft.thePlayer.rotationYaw,minecraft.thePlayer.rotationPitch)) {
             List<WorldSnapshot.Entity> players = new ArrayList<WorldSnapshot.Entity>();
+            Set<Integer> seenEntityIds=new HashSet<Integer>();
             for (Object raw : minecraft.theWorld.playerEntities) {
                 if (!(raw instanceof EntityPlayer)) continue;
                 EntityPlayer p = (EntityPlayer) raw;
-                if (p == minecraft.thePlayer) continue;
+                if (p == minecraft.thePlayer || p.isDead) continue;
+                if (!seenEntityIds.add(p.getEntityId())) continue;
                 if (players.size() == 256) break;
                 double health = Math.max(0.0, (double)p.getHealth());
                 if (!WorldSnapshot.finitePublic(p.posX) || !WorldSnapshot.finitePublic(p.posY) ||
@@ -170,6 +193,7 @@ public final class ForgeEventAdapter {
                 // Ignore a stale queued disconnect after joining another world.
                 if (minecraft.theWorld != null && minecraft.thePlayer != null) return;
                 host.disconnect();
+                worldIdentity.reset();
                 features.reset();
                 combat.reset();
             }

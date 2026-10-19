@@ -124,7 +124,7 @@ public final class ForgeFeatureDriver {
         int width=208, height=87;
         int x=Math.max(0,sw-width-4), y=4;
         Gui.drawRect(x,y,Math.min(sw,x+width),y+height,0xC31B2133);
-        mc.fontRendererObj.drawStringWithShadow("GhostC " + GhostCMod.CLIENT_VERSION + " diagnostics",x+5,y+5,0xFFAEAAFF);
+        mc.fontRendererObj.drawStringWithShadow("GhostC R1.1 diagnostics",x+5,y+5,0xFFAEAAFF);
         String epoch="Epoch " + host.services().generation() + " | Tick " + host.services().tick();
         String gui="F7 "+host.diagnostics().count(Counter.GUI_OPEN)+
             " | GUI frames "+host.diagnostics().count(Counter.GUI_FRAME);
