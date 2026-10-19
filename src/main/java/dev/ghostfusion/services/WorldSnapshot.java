@@ -42,6 +42,11 @@ public final class WorldSnapshot {
         this.playerYaw = playerYaw; this.playerPitch = playerPitch;
         this.entities = Collections.unmodifiableList(copy);
     }
+    /** Gate the local pose before constructing or publishing any world snapshot. */
+    public static boolean validPlayerPose(double x,double y,double z,float yaw,float pitch) {
+        return finite(x) && finite(y) && finite(z) &&
+            finite(yaw) && finite(pitch) && pitch>=-90f && pitch<=90f;
+    }
     public static boolean finitePublic(double v) { return finite(v); }
     static boolean finite(double v) { return !Double.isNaN(v) && !Double.isInfinite(v); }
     public List<Entity> entities() { return entities; }

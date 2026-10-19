@@ -31,6 +31,8 @@ final class PlayerEspRenderer {
         if(host.espThroughWalls()) GL11.glDisable(GL11.GL_DEPTH_TEST);
         GL11.glLineWidth(host.espLineWidth());
         final RenderManager rm=mc.getRenderManager();
+        if (rm==null || !Double.isFinite(rm.viewerPosX) ||
+            !Double.isFinite(rm.viewerPosY) || !Double.isFinite(rm.viewerPosZ)) return;
         GL11.glPushMatrix();
         try {
             GL11.glTranslated(-rm.viewerPosX, -rm.viewerPosY, -rm.viewerPosZ);
@@ -50,8 +52,17 @@ final class PlayerEspRenderer {
                 double xx=p.lastTickPosX+(p.posX-p.lastTickPosX)*partialTicks;
                 double yy=p.lastTickPosY+(p.posY-p.lastTickPosY)*partialTicks;
                 double zz=p.lastTickPosZ+(p.posZ-p.lastTickPosZ)*partialTicks;
+                if (!Double.isFinite(xx) || !Double.isFinite(yy) || !Double.isFinite(zz))
+                    continue; // never submit NaN/infinite GL geometry
                 AxisAlignedBB original=p.getEntityBoundingBox();
+                if(original==null || !Double.isFinite(original.minX) ||
+                    !Double.isFinite(original.minY) || !Double.isFinite(original.minZ) ||
+                    !Double.isFinite(original.maxX) || !Double.isFinite(original.maxY) ||
+                    !Double.isFinite(original.maxZ)) continue;
                 AxisAlignedBB box=original.offset(xx-p.posX,yy-p.posY,zz-p.posZ).expand(0.04,0.06,0.04);
+                if (!Double.isFinite(box.minX) || !Double.isFinite(box.minY) ||
+                    !Double.isFinite(box.minZ) || !Double.isFinite(box.maxX) ||
+                    !Double.isFinite(box.maxY) || !Double.isFinite(box.maxZ)) continue;
                 GL11.glColor4f(0.62f,0.56f,1.0f,0.82f);
                 if(boxes) wireBox(box);
                 if(tracers) {

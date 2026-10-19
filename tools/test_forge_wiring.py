@@ -86,6 +86,33 @@ class ForgeWiring(unittest.TestCase):
         self.assertNotIn('attackEntity(',combat)
         self.assertNotIn('sendPacket(',combat)
 
+    def test_exact_world_identity_and_snapshot_fencing(self):
+        from_source=(FORGE/"ForgeEventAdapter.java").read_text(encoding="utf-8")
+        combat=(FORGE/"ForgeCombatController.java").read_text(encoding="utf-8")
+        services=content("src/main/java/dev/ghostfusion/services/SessionServices.java")
+        snap=content("src/main/java/dev/ghostfusion/services/WorldSnapshot.java")
+        self.assertIn("worldIdentity.observe(minecraft.theWorld,minecraft.thePlayer)",from_source)
+        self.assertIn("Transition.SWITCH",from_source)
+        self.assertIn("host.worldPresence(false);",from_source)
+        self.assertIn("host.worldPresence(true);",from_source)
+        self.assertIn("worldIdentity.reset();",from_source)
+        self.assertIn("WorldSnapshot.validPlayerPose(",from_source)
+        self.assertIn("Set<Integer> seenEntityIds",from_source)
+        self.assertIn("snapshot=null;",services)
+        self.assertIn("rotations.prune(tick,generation)",services)
+        self.assertIn("snapshot()==null",combat)
+        self.assertIn("session.snapshot().tick!=session.tick()",combat)
+        self.assertIn("pitch>=-90f && pitch<=90f",snap)
+
+    def test_esp_interpolated_geometry_is_finite(self):
+        esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
+        self.assertIn("Double.isFinite(xx)",esp)
+        self.assertIn("Double.isFinite(yy)",esp)
+        self.assertIn("Double.isFinite(zz)",esp)
+        for field in ("minX","maxX","minY","maxY","minZ","maxZ"):
+            self.assertIn("Double.isFinite(box."+field+")",esp)
+        self.assertIn("Double.isFinite(rm.viewerPosX)",esp)
+
     def test_forge_project_version_matches_mod_annotation(self):
         gradle=content("forge189/build.gradle")
         match=re.search(r"(?m)^version = '([0-9]+\.[0-9]+\.[0-9]+)'",gradle)
