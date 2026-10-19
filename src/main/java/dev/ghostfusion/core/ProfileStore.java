@@ -72,8 +72,16 @@ public final class ProfileStore {
             Path backup=primary.resolveSibling(primary.getFileName()+".bak");
             if(!Files.exists(backup))throw primaryFailure;
             try {
-                loadFile(backup);
-                ConfigIntegrity.restoreBackup(primary);
+                ConfigIntegrity.restoreBackup(primary,
+                    new java.util.function.Predicate<Properties>() {
+                        public boolean test(Properties candidate) {
+                            try { stage(candidate); return true; }
+                            catch (RuntimeException invalid) { return false; }
+                        }
+                    });
+                // Only apply settings after the verified backup bytes have
+                // been promoted; failed restoration leaves live state intact.
+                loadFile(primary);
                 return true;
             } catch(java.io.IOException | RuntimeException backupFailure) {
                 primaryFailure.addSuppressed(backupFailure);
