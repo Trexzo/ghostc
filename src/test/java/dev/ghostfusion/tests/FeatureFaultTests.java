@@ -112,6 +112,45 @@ public final class FeatureFaultTests {
         ok(restart.runFeature("hud.keystrokes",()->counter[0]++),"user opt-in recovers feature");
         restart.close();
     }
+    /** Every first-party Forge visual/movement callback uses the same host gate. */
+    private static void fullFeatureQuarantine() throws Exception {
+        Path dir=Files.createTempDirectory("ghostc-all-render-features");
+        HostRuntime host=new HostRuntime(dir);
+        host.worldPresence(true);
+        String[] ids={"hud.keystrokes","hud.cps","hud.target",
+                      "hud.diagnostics","render.esp","movement.sprint"};
+        for(String id:ids) {
+            host.uiActions().toggle(id);
+            ok(host.featureEnabled(id),"feature enabled before fault "+id);
+        }
+        final int[] executed={0};
+        for(int i=0;i<ids.length;i++) {
+            final String id=ids[i];
+            ok(!host.runFeature(id,()->{throw new IllegalArgumentException("SECRET_NAME");}),
+                "feature quarantined "+id);
+            ok(!host.featureEnabled(id),"fault disabled its module "+id);
+            for(int j=i+1;j<ids.length;j++) {
+                String healthy=ids[j];
+                ok(host.runFeature(healthy,()->executed[0]++),
+                   "unrelated later callback survives "+healthy);
+            }
+            ok(host.diagnostics().count(RuntimeDiagnostics.Counter.FEATURE_FAULT)==i+1,
+               "exactly one fault per feature");
+        }
+        ok(executed[0]==15,"all unaffected callbacks completed during isolation");
+        ok(host.featureFaults().recentFaults().size()==ids.length,"bounded fault snapshot");
+        ok(!host.featureFaults().recentFaults().toString().contains("SECRET_NAME"),
+           "never retains private exception content");
+        host.close();
+        HostRuntime loaded=new HostRuntime(dir);
+        loaded.worldPresence(true);
+        for(String id:ids) {
+            ok(!loaded.featureEnabled(id),"failed module remains disabled after restart "+id);
+            loaded.uiActions().toggle(id);
+            ok(loaded.runFeature(id,()->executed[0]++),"explicit reenable restores "+id);
+        }
+        loaded.close();
+    }
     private static void ownership() throws Exception {
         ModuleRegistry r=new ModuleRegistry();
         TestModule mod=new TestModule("hud.owner");
@@ -127,7 +166,7 @@ public final class FeatureFaultTests {
         r.shutdown();
     }
     public static void main(String[] args) throws Exception {
-        faultContainment();listenerErrors();hostAndPersistence();ownership();
+        faultContainment();listenerErrors();hostAndPersistence();fullFeatureQuarantine();ownership();
         ok(checks>=320,"substantial per-frame quarantine coverage");
         System.out.println("FEATURE_FAULT_PASS assertions="+checks);
     }

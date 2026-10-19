@@ -85,6 +85,7 @@ jobs:
           test -n "$VERSION"
           test "$(basename "$JAR")" = "ghostc-forge189-$VERSION.jar"
           unzip -p "$JAR" mcmod.info | grep -Fq "\"version\": \"$VERSION\""
+          python3 tools/test_forge_wiring.py
           python3 tools/verify_forge_jar.py --selftest
           python3 tools/verify_forge_jar.py --jar "$JAR" --version "$VERSION"
           echo "FORGE189_JAR_STRUCTURE_PASS"
@@ -102,6 +103,7 @@ jobs:
             tools/Invoke-GhostCAcceptance.ps1
             docs/RUNTIME_R10.md
             docs/RUNTIME_R11.md
+            docs/RUNTIME_R12.md
           if-no-files-found: error
 
   windows-forge189:
@@ -152,6 +154,8 @@ jobs:
           }
           $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  $(Split-Path -Leaf $file)" | Set-Content -LiteralPath 'forge189/build/libs/SHA256SUMS.txt' -Encoding ascii
+          python tools/test_forge_wiring.py
+          if ($LASTEXITCODE -ne 0) { throw 'Forge feature integration contract failed' }
           python tools/verify_forge_jar.py --selftest
           if ($LASTEXITCODE -ne 0) { throw 'JAR verifier self-test failed' }
           python tools/verify_forge_jar.py --jar $file --version $version

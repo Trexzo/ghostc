@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R1.1:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R1.2:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,8 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R1.2 Forge feature wiring reconciliation: all HUD features, 3D ESP and Auto Sprint are once again routed through `HostRuntime.runFeature` with per-feature exception quarantine; independently guarded OpenGL state, visible sanitized fault warning and remapped Minecraft key labels.
+- New Java/Python regression gates verify both the pure feature fault behavior and its actual Forge source wiring so later refactors cannot silently bypass the guard. **In-game rendering, input and stability remain unverified.**
 - R1.1 ClickGUI viewport fixes: search hitboxes and focus rebind on scaled-screen changes; HUD editor preview and list geometry cannot exceed the window, and F7 can also close the GUI.
 - Opt-in real-Forge callback evidence counters (GUI open/frame/close, overlay/world render, key/mouse events), saved as aggregates without names, chat or coordinates. In-game behavior remains unverified until a real client session records them.
 - R1.0 Windows acceptance tooling in GitHub: SHA-256-gated install, owned-JAR backups, safe rollback, redacted counter-only evidence checklist and a CI-tested transaction against a fake Windows profile. This does **not** launch Minecraft automatically.
@@ -63,5 +65,6 @@ See [issues](../../issues) for Forge runtime acceptance (#2), ClickGUI/HUD (#3),
 - [R0.9 Windows build and fault containment](docs/RUNTIME_R09.md)
 - [R1.0 verified Windows acceptance transaction](docs/RUNTIME_R10.md)
 - [R1.1 viewport reliability and callback evidence](docs/RUNTIME_R11.md)
+- [R1.2 Forge feature wiring reconciliation](docs/RUNTIME_R12.md)
 - [Provenance](docs/PROVENANCE.md)
 - [Verification](docs/VERIFICATION.md)
