@@ -115,18 +115,21 @@ public final class ForgeEventAdapter {
     @SubscribeEvent
     public void onMouse(InputEvent.MouseInputEvent event) {
         host.diagnostics().record(Counter.MOUSE_CALLBACK);
+        if (!worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) return;
         features.mouseInput();
     }
 
     @SubscribeEvent
     public void onRenderWorld(RenderWorldLastEvent event) {
         host.diagnostics().record(Counter.WORLD_RENDER_FRAME);
+        if (!worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) return;
         features.render3d(event.partialTicks);
     }
 
     @SubscribeEvent
     public void onOverlay(RenderGameOverlayEvent.Text event) {
         host.diagnostics().record(Counter.OVERLAY_FRAME);
+        if (!worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) return;
         final boolean status = host.render2d();
         final boolean metrics = host.metricsFrameRequested();
         if (!status && !metrics) {

@@ -7,6 +7,7 @@ import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.ui.UiState;
 import dev.ghostfusion.ui.GuiLayout;
+import dev.ghostfusion.ui.GuiHitZones;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
 import org.lwjgl.input.Keyboard;
@@ -213,7 +214,8 @@ public final class GhostClickGui extends GuiScreen {
     }
     @Override protected void mouseClicked(int mx, int my, int button) throws IOException {
         super.mouseClicked(mx, my, button);
-        if (button != 0) return;
+        rebuild();
+        if (button != 0 || !inside(mx,my,x,y,w,h)) return;
         if (inside(mx,my,x+w-99,y+6,40,17)) {
             ui.layout(ui.layout() == UiState.Layout.WIDE ? UiState.Layout.COMPACT : UiState.Layout.WIDE);
             rebuild();
@@ -234,7 +236,7 @@ public final class GhostClickGui extends GuiScreen {
             }
             return;
         }
-        search.mouseClicked(mx,my,button);
+        if (search != null) search.mouseClicked(mx,my,button);
         if (inside(mx,my,x+4,y+63,side-8,6*23)) {
             int idx = (my - (y+62)) / 23;
             if (idx >= 0 && idx <= 5) {
@@ -244,10 +246,11 @@ public final class GhostClickGui extends GuiScreen {
             }
             return;
         }
+        GuiLayout zone = GuiLayout.calculate(width,height,ui.layout());
         List<ModuleRegistry.Entry> filtered = entries();
-        if (inside(mx,my,x+side+9,listY,w-side-20,listH)) {
-            int idx = scroll + (my-listY)/28;
-            if (idx < filtered.size()) {
+        if (GuiHitZones.moduleArea(zone,mx,my)) {
+            int idx = GuiHitZones.moduleIndex(zone,mx,my,scroll,filtered.size());
+            if (idx >= 0) {
                 ModuleRegistry.Entry e = filtered.get(idx);
                 if (mx >= x+w-60) {
                     try { host.uiActions().toggle(e.module().id()); message = ""; }
@@ -264,28 +267,24 @@ public final class GhostClickGui extends GuiScreen {
         if (inside(mx,my,x+side+11,settingY,w-side-26,18)) {
             capture = selected; message = ""; return;
         }
-        int yy = settingY + 24;
         List<Map.Entry<String, Setting<?>>> settings = new ArrayList<Map.Entry<String, Setting<?>>>(e.settings().entrySet());
-        int available = Math.max(0, (y + h - 18 - yy) / 22);
-        for (int i = settingScroll; i < settings.size() && i < settingScroll + available; i++) {
-            Map.Entry<String, Setting<?>> it = settings.get(i);
-            if (inside(mx,my,x+side+11,yy,w-side-26,19)) {
-                try {
-                    Setting<?> setting = it.getValue();
-                    if (setting instanceof Setting.Bool) host.uiActions().bool(selected, it.getKey());
-                    else if (setting instanceof Setting.Choice) host.uiActions().cycle(selected, it.getKey());
-                    else if (setting instanceof Setting.Number) {
-                        int right = x+w-17;
-                        int barWidth = Math.max(33,(w-side)/3);
-                        if (inside(mx,my,right-barWidth,yy,barWidth,19))
-                            host.uiActions().fraction(selected,it.getKey(),
-                                (double)(mx-(right-barWidth))/barWidth);
-                    }
-                    message = "";
-                } catch (RuntimeException ex) { message = "Setting rejected"; }
-                return;
-            }
-            yy += 22;
+        int index = GuiHitZones.settingIndex(zone,mx,my,settingScroll,settings.size());
+        if (index >= 0) {
+            Map.Entry<String, Setting<?>> it = settings.get(index);
+            try {
+                Setting<?> setting = it.getValue();
+                if (setting instanceof Setting.Bool) host.uiActions().bool(selected, it.getKey());
+                else if (setting instanceof Setting.Choice) host.uiActions().cycle(selected, it.getKey());
+                else if (setting instanceof Setting.Number) {
+                    int right = x+w-17;
+                    int barWidth = Math.max(33,(w-side)/3);
+                    if (inside(mx,my,right-barWidth,GuiHitZones.settingStartY(zone)+
+                            (index-settingScroll)*22,barWidth,19))
+                        host.uiActions().fraction(selected,it.getKey(),
+                            (double)(mx-(right-barWidth))/barWidth);
+                }
+                message = "";
+            } catch (RuntimeException ex) { message = "Setting rejected"; }
         }
     }
     @Override protected void mouseClickMove(int mx,int my,int button,long timeSinceLastClick) {
@@ -302,17 +301,17 @@ public final class GhostClickGui extends GuiScreen {
         super.handleMouseInput();
         int wheel = Mouse.getEventDWheel();
         if (wheel != 0 && !hudPage) {
+            rebuild();
+            GuiLayout zone=GuiLayout.calculate(width,height,ui.layout());
             int direction = wheel > 0 ? -1 : 1;
             int mx = Mouse.getEventX() * width / Math.max(1, mc.displayWidth);
             int my = height - Mouse.getEventY() * height / Math.max(1, mc.displayHeight) - 1;
-            if (my > listY + listH && inside(mx,my,x+side,y+73,w-side,h-73)) {
+            if (GuiHitZones.settingsArea(zone,mx,my)) {
                 ModuleRegistry.Entry e = host.modules().get(selected);
-                int settingY = listY + listH + 5 + 22 + 24;
-                int available = Math.max(0,(y+h-18-settingY)/22);
-                int max = Math.max(0,e.settings().size()-available);
+                int max = Math.max(0,e.settings().size()-GuiHitZones.visibleSettings(zone));
                 settingScroll = Math.max(0,Math.min(max, settingScroll+direction));
-            } else {
-                int max = Math.max(0,entries().size() - visibleRows);
+            } else if (GuiHitZones.moduleArea(zone,mx,my)) {
+                int max = Math.max(0,entries().size() - zone.visibleRows);
                 scroll = Math.max(0,Math.min(max,scroll + direction));
             }
         }

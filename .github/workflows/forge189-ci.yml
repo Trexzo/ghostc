@@ -104,6 +104,9 @@ jobs:
             docs/RUNTIME_R10.md
             docs/RUNTIME_R11.md
             docs/RUNTIME_R12.md
+            docs/RUNTIME_R13.md
+            docs/RUNTIME_R14.md
+            docs/RUNTIME_R15.md
           if-no-files-found: error
 
   windows-forge189:
@@ -235,4 +238,7 @@ jobs:
           path: |
             forge189/build/libs/ghostc-forge189-*.jar
             forge189/build/libs/SHA256SUMS.txt
+            tools/Invoke-GhostCAcceptance.ps1
+            docs/RUNTIME_R10.md
+            docs/RUNTIME_R15.md
           if-no-files-found: error
