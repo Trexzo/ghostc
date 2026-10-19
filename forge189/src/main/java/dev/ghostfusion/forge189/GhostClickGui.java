@@ -17,6 +17,7 @@ import dev.ghostfusion.ui.HudFootprints;
 import dev.ghostfusion.ui.StatusHudLayout;
 import dev.ghostfusion.ui.HudEditorControls;
 import dev.ghostfusion.ui.HudPreviewGeometry.Rect;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
 import org.lwjgl.input.Keyboard;
