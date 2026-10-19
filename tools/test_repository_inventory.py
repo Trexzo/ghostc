@@ -41,7 +41,7 @@ def verify():
     for name in MUST_EXIST:
         if not (ROOT/name).is_file():
             issues.append(name)
-    for version in range(8,26):
+    for version in range(8,27):
         path=Path("docs")/("RUNTIME_R%02d.md"%version)
         if not (ROOT/path).is_file():
             issues.append(str(path))
@@ -51,7 +51,7 @@ def verify():
             issues.append(path+" (README reference)")
     if issues:
         raise AssertionError("Repository inventory incomplete: "+", ".join(sorted(set(issues))))
-    print("REPOSITORY_INVENTORY_PASS tests=%d milestones=%d"%(len(TESTS),18))
+    print("REPOSITORY_INVENTORY_PASS tests=%d milestones=%d"%(len(TESTS),19))
 
 if __name__=="__main__":
     try:
