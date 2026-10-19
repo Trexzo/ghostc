@@ -35,8 +35,16 @@ public final class UiSettingsStore {
         } catch(IOException | RuntimeException primaryFailure) {
             if(!Files.exists(backup))throw primaryFailure;
             try {
-                loadFile(backup);
-                ConfigIntegrity.restoreBackup(primary);
+                ConfigIntegrity.restoreBackup(primary,
+                    new java.util.function.Predicate<Properties>() {
+                        public boolean test(Properties candidate) {
+                            try { stage(candidate); return true; }
+                            catch (RuntimeException invalid) { return false; }
+                        }
+                    });
+                // Do not change live HUD state until the file promotion
+                // successfully completes from the typed-validated snapshot.
+                loadFile(primary);
                 return true;
             } catch(IOException | RuntimeException backupFailure) {
                 primaryFailure.addSuppressed(backupFailure);

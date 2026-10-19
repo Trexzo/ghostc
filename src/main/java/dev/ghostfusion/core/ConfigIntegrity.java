@@ -2,6 +2,8 @@ package dev.ghostfusion.core;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -67,9 +69,26 @@ public final class ConfigIntegrity {
         return out.toString();
     }
     public static Properties read(Path file) throws IOException {
+        if(file==null)throw new IllegalArgumentException("file");
         if(Files.size(file)>MAX_BYTES)throw new IOException("Config size limit exceeded");
+        // Bound the actual bytes read, not only a pre-read Files.size().
+        // A file can grow while its input stream is open.
+        ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+        try(InputStream in=Files.newInputStream(file)) {
+            byte[] block=new byte[8192];
+            int count;
+            while((count=in.read(block))!=-1) {
+                if(count>MAX_BYTES-bytes.size())
+                    throw new IOException("Config size limit exceeded");
+                bytes.write(block,0,count);
+            }
+        }
         Properties p=new Properties();
-        try(InputStream in=Files.newInputStream(file)) {p.load(in);}
+        try(InputStream snapshot=new ByteArrayInputStream(bytes.toByteArray())) {
+            p.load(snapshot);
+        }
+        // Also apply field limit to legacy files with no modern integrity seal.
+        if(p.size()>MAX_FIELDS)throw new IllegalArgumentException("Too many config fields");
         verify(p);
         return p;
     }
@@ -126,20 +145,36 @@ public final class ConfigIntegrity {
      * Preserve the corrupt original as .corrupt, without rotating .bak.
      */
     public static void restoreBackup(Path primary) throws IOException {
+        restoreBackup(primary, new java.util.function.Predicate<Properties>() {
+            public boolean test(Properties candidate) { return true; }
+        });
+    }
+    /**
+     * Recover from one copied, bounded and typed-validated backup snapshot.
+     * The caller applies the new runtime state only AFTER this succeeds.
+     * Never promote a different backup revision than the one inspected.
+     */
+    public static void restoreBackup(Path primary,
+            java.util.function.Predicate<Properties> typedValidator) throws IOException {
+        if(primary==null || typedValidator==null)
+            throw new IllegalArgumentException("primary/validator");
         Path backup=primary.resolveSibling(primary.getFileName()+".bak");
         Path temp=Files.createTempFile(primary.getParent(),"ghostc-recover-", ".tmp");
         try {
             Files.copy(backup,temp,StandardCopyOption.REPLACE_EXISTING);
-            // Revalidate the staged copy to reject a backup changed in transit.
-            read(temp);
+            Properties staged=read(temp);
+            if(!"1".equals(staged.getProperty("schema")) || !typedValidator.test(staged))
+                throw new IllegalArgumentException("Invalid recovered configuration");
+            // Keep the original bytes available for incident diagnosis.
             if(Files.exists(primary))Files.copy(primary,
                 primary.resolveSibling(primary.getFileName()+".corrupt"),
                 StandardCopyOption.REPLACE_EXISTING);
-            try {Files.move(temp,primary,StandardCopyOption.ATOMIC_MOVE,
-                StandardCopyOption.REPLACE_EXISTING);}
-            catch(AtomicMoveNotSupportedException ex) {
+            try {
+                Files.move(temp,primary,StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING);
+            } catch(AtomicMoveNotSupportedException ex) {
                 Files.move(temp,primary,StandardCopyOption.REPLACE_EXISTING);
             }
-        } finally {Files.deleteIfExists(temp);}
+        } finally { Files.deleteIfExists(temp); }
     }
 }

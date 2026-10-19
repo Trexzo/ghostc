@@ -23,6 +23,21 @@ class ForgeWiring(unittest.TestCase):
         self.gl = (FORGE / "RenderStateGuard.java").read_text(encoding="utf-8")
         self.adapter = (FORGE / "ForgeEventAdapter.java").read_text(encoding="utf-8")
 
+    def test_recovery_promotes_verified_typed_snapshot_before_live_mutation(self):
+        core=content("src/main/java/dev/ghostfusion/core/ConfigIntegrity.java")
+        profiles=content("src/main/java/dev/ghostfusion/core/ProfileStore.java")
+        ui=content("src/main/java/dev/ghostfusion/ui/UiSettingsStore.java")
+        self.assertIn("while((count=in.read(block))!=-1)",core)
+        self.assertIn("count>MAX_BYTES-bytes.size()",core)
+        self.assertIn("if(p.size()>MAX_FIELDS)",core)
+        self.assertIn("typedValidator.test(staged)",core)
+        self.assertIn("restoreBackup(primary,",profiles)
+        self.assertIn("restoreBackup(primary,",ui)
+        self.assertIn("loadFile(primary);",profiles)
+        self.assertIn("loadFile(primary);",ui)
+        self.assertNotIn("loadFile(backup);",profiles)
+        self.assertNotIn("loadFile(backup);",ui)
+
     def test_typed_backup_protection_uses_same_live_load_parser(self):
         integrity=content("src/main/java/dev/ghostfusion/core/ConfigIntegrity.java")
         profiles=content("src/main/java/dev/ghostfusion/core/ProfileStore.java")
@@ -312,8 +327,8 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("ConfigIntegrity.read(file)",ui)
         self.assertIn("public boolean loadRecovering(String name)",profile)
         self.assertIn("public boolean loadRecovering()",ui)
-        self.assertIn("ConfigIntegrity.restoreBackup(primary)",profile)
-        self.assertIn("ConfigIntegrity.restoreBackup(primary)",ui)
+        self.assertIn("ConfigIntegrity.restoreBackup(primary,",profile)
+        self.assertIn("ConfigIntegrity.restoreBackup(primary,",ui)
         self.assertIn("if(uiStore.loadRecovering())",host)
         self.assertIn('if(profiles.loadRecovering("default"))',host)
         self.assertIn("dev.ghostfusion.tests.ConfigRecoveryTests",
