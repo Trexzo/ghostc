@@ -268,6 +268,26 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.HudEditorControlsTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_status_metrics_layout_and_independent_fault_isolation(self):
+        adapter=self.adapter
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        layout=content("src/main/java/dev/ghostfusion/ui/StatusHudLayout.java")
+        self.assertIn("StatusHudLayout.calculate(host.ui(),sw,sh,",adapter)
+        self.assertIn('host.runFeature("hud.status",new Runnable()',adapter)
+        self.assertIn('host.runFeature("hud.metrics",new Runnable()',adapter)
+        self.assertIn("layout.y+layout.fpsY",adapter)
+        self.assertIn("layout.y+layout.coordinatesY",adapter)
+        self.assertIn("trimStringToWidth(statusText,allowed)",adapter)
+        self.assertIn("StatusHudLayout.calculate(ui,width,height",gui)
+        self.assertIn("statusFootprint().measuredWidth",gui)
+        self.assertIn("statusFootprint().measuredHeight",gui)
+        self.assertIn("Math.max(w,(long)fpsWidth+2)",layout)
+        self.assertIn("Math.max(w,(long)coordinatesWidth+2)",layout)
+        self.assertIn("ui.pixelX(viewportWidth,visibleW)",layout)
+        self.assertIn("ui.pixelY(viewportHeight,visibleH)",layout)
+        self.assertIn("dev.ghostfusion.tests.StatusHudLayoutTests",
+                      content(".github/workflows/core-ci.yml"))
+
     def test_forge_project_version_matches_mod_annotation(self):
         gradle=content("forge189/build.gradle")
         match=re.search(r"(?m)^version = '([0-9]+\.[0-9]+\.[0-9]+)'",gradle)
