@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R1.9:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R2.0:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R2.0 viewport-accurate HUD editor: a letterboxed representation of the actual Minecraft scaled screen replaces the stretched editor canvas; preview widget footprints, normalized drag coordinates and rendered anchors now share a pure geometry model, with automatic status size/scale parity. This corrects visual misplacement on widescreen aspect ratios while retaining all R1.9 widget preferences.
 - R1.9 multi-widget HUD editor: Keystrokes, CPS and Target HUD now have separate draggable normalized anchors alongside the original Status HUD. The existing UI profile schema and status position remain backward-compatible; new coordinates are validated and persisted atomically. Forge renderers consume these anchors instead of hardcoded screen offsets.
 - R1.8 reserved shortcut safety: the global F7 ClickGUI key can no longer be assigned to modules through direct binds or imported profiles, while the existing F8 status shortcut remains supported. The capture dialog now lets F7 close the GUI. A deterministic 10k-key replay and negative profile tests verify rejection without partial changes.
 - R1.7 Compact GUI recovery: replaced the impossible 445px minimum (Compact maxes at 390px) with geometry-derived safe boundaries so Compact and Wide both work; reconciles selected module with current search/category results, preventing hidden settings/keybinding edits and handling zero results safely. Automated tests validate resize/toggle behavior and 25k seeded selection transitions.
@@ -80,5 +81,6 @@ See [issues](../../issues) for Forge runtime acceptance (#2), ClickGUI/HUD (#3),
 - [R1.7 compact GUI and filtered module selection](docs/RUNTIME_R17.md)
 - [R1.8 reserved F7 keybind and profile admission](docs/RUNTIME_R18.md)
 - [R1.9 draggable multi-widget HUD and schema-1 migration](docs/RUNTIME_R19.md)
+- [R2.0 screen-aspect accurate HUD preview](docs/RUNTIME_R20.md)
 - [Provenance](docs/PROVENANCE.md)
 - [Verification](docs/VERIFICATION.md)

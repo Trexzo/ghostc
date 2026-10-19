@@ -200,8 +200,8 @@ class ForgeWiring(unittest.TestCase):
         self.assertGreaterEqual(driver.count(".widgets().pixelX("),3)
         self.assertGreaterEqual(driver.count(".widgets().pixelY("),3)
         self.assertIn("draggingWidget=widget;",gui)
-        self.assertIn("widgets().positionPixels(draggingWidget,",gui)
-        self.assertIn("for (Widget widget:Widget.values())",gui)
+        self.assertIn("geometry.moveWidget(ui.widgets(),draggingWidget,",gui)
+        self.assertIn("for(Widget widget:Widget.values())",gui)
         self.assertIn("public HudPositions widgets() { return widgets; }",state)
         self.assertIn('p.setProperty("schema", "1")',store)
         self.assertIn("HudPositions.property(widget,true)",store)
@@ -218,6 +218,25 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('p.setProperty("hud.x"',store)
         self.assertIn('p.setProperty("hud.y"',store)
         self.assertIn("public void position(double x, double y)",state)
+
+    def test_hud_preview_uses_screen_aspect_and_shared_drag_geometry(self):
+        preview=content("src/main/java/dev/ghostfusion/ui/HudPreviewGeometry.java")
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        self.assertIn("Math.min((double)panelWidth/scaledScreenWidth",preview)
+        self.assertIn("Math.floor(scaledScreenWidth*scale)",preview)
+        self.assertIn("Math.floor(scaledScreenHeight*scale)",preview)
+        self.assertIn("canvas.x+anchors.pixelX",preview)
+        self.assertIn("canvas.y+anchors.pixelY",preview)
+        self.assertIn("anchors.positionPixels(widget,mouseX-canvas.x-grabX",preview)
+        self.assertIn("ui.positionPixels(mouseX-canvas.x-grabX",preview)
+        self.assertIn("new HudPreviewGeometry(previewX,previewY,previewW,previewH,width,height)",gui)
+        self.assertIn("Rect canvas=geometry.canvas",gui)
+        self.assertIn("if (!geometry.canvas.contains(mx,my)) return;",gui)
+        self.assertIn("geometry.moveStatus(ui,statusPreviewWidth(),statusPreviewHeight()",gui)
+        self.assertIn("statusPreviewWidth()",gui)
+        self.assertIn("dev.ghostfusion.tests.HudPreviewTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertNotIn("ui.widgets().positionPixels(draggingWidget,",gui)
 
     def test_forge_project_version_matches_mod_annotation(self):
         gradle=content("forge189/build.gradle")

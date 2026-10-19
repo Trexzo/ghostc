@@ -69,6 +69,8 @@ jobs:
           grep -q 'RESERVED_KEY_PASS' .build/reserved-key.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudPlacementTests | tee .build/hud-placement.log
           grep -q 'HUD_PLACEMENT_PASS' .build/hud-placement.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudPreviewTests | tee .build/hud-preview.log
+          grep -q 'HUD_PREVIEW_PASS' .build/hud-preview.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.FaultPrivacyTests | tee .build/fault-privacy.log
           grep -q 'FAULT_PRIVACY_PASS' .build/fault-privacy.log
           java -cp .build/classes dev.ghostfusion.demo.DemoMain | tee .build/demo.log
