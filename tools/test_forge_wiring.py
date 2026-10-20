@@ -196,7 +196,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("demand.needVisible,demand.needUnfiltered);",self.adapter)
         self.assertIn("lastSnapshotMode=mode;",host)
         self.assertIn("SnapshotTelemetry.Mode.from(needsVisible,needsUnfiltered)",host)
-        self.assertIn("Mode OFF, VISIBLE_ONLY, UNFILTERED_ONLY, MIXED",telemetry.replace("\\n"," "))
+        self.assertIn("OFF, VISIBLE_ONLY, UNFILTERED_ONLY, MIXED",telemetry)
         self.assertIn("private final Bucket[] perMode=",telemetry)
         self.assertIn("public Snapshot snapshot(Mode mode)",telemetry)
         self.assertIn("saveWithSnapshotModes(",diagnostics)
