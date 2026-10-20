@@ -58,7 +58,7 @@ public final class EspSkeletonTests {
            "spine extends up");
         ok(crouched.lines[0][4]<straight.lines[0][4],
            "crouch lowers torso");
-        ok(Math.abs(rotated.lines[3][2]-straight.lines[3][0])<.000001,
+        ok(Math.abs(rotated.lines[3][5]-straight.lines[3][3])<.000001,
            "shoulders yaw rotate local X into world Z");
         ok(Math.abs(EspSkeletonGeometry.interpolateYaw(179,-179,.5)-180)<.00001,
            "positive wrapped yaw interpolation");
