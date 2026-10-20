@@ -146,9 +146,9 @@ final class PlayerEspRenderer {
                         .offset(xx-p.posX,yy-p.posY,zz-p.posZ).expand(0.04,0.06,0.04);
                 // One finite, clamped multiplier per admitted player. Keep
                 // hue constant, and do not alter semantic HP bar colors.
-                final float fade=EspDistanceFade.factor(
+                final float fade=fadeEnabled ? EspDistanceFade.factor(
                     mc.thePlayer.getDistanceSqToEntity(p),
-                    maximum,fadeEnabled,fadeStart,fadeMinimum);
+                    maximum,true,fadeStart,fadeMinimum) : 1f;
                 final float lineAlpha=appearance.opacity*fade;
                 if(filled) {
                     // Draw the low-alpha faces first so the crisp RGB wire
