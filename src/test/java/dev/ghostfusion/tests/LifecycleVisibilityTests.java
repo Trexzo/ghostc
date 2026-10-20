@@ -34,9 +34,12 @@ public final class LifecycleVisibilityTests {
         for(int i=0;i<200;i++)h.inputFocus(true);
         h.performanceFrame(101020000000L,2000000,true);
         ok(h.performanceSnapshot().frames==1,
-            "100-second GUI interval is NOT a fake sub-1 FPS sample");
+            "blocked focus rejects stray overlay callback, not a fake FPS sample");
         h.inputFocus(false);
         h.performanceFrame(101040000000L,3000000,true);
+        ok(h.performanceSnapshot().frames==1,
+            "first resumed frame establishes reference, not stale GUI interval");
+        h.performanceFrame(101060000000L,3000000,true);
         ok(h.performanceSnapshot().frames==2 && h.performanceSnapshot().minFps==50,
             "normal cadence resumes after GUI without outlier");
         h.inputFocus(true);

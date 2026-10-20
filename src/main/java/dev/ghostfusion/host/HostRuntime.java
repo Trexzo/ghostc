@@ -142,7 +142,7 @@ public final class HostRuntime {
     /** Only record focused in-world frames with explicit diagnostics opt-in. */
     public void performanceFrame(long nowNanos,long usedHeapBytes,boolean focused) {
         if(!active()) return;
-        if(!focused || !worldPresent || !diagnosticsEnabled()) {
+        if(!focused || inputBlocked || !worldPresent || !diagnosticsEnabled()) {
             framePerformance.suspend();
             return;
         }

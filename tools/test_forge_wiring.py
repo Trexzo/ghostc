@@ -137,6 +137,7 @@ class ForgeWiring(unittest.TestCase):
         diag=content("src/main/java/dev/ghostfusion/host/RuntimeDiagnostics.java")
         placement=content("src/main/java/dev/ghostfusion/ui/HudWarningPlacement.java")
         self.assertIn("if(blocked) framePerformance.suspend();",host)
+        self.assertIn("!focused || inputBlocked || !worldPresent",host)
         self.assertIn("host.performancePause();\n            return;",self.adapter)
         self.assertIn("final int nx=warningStatusX;",self.adapter)
         self.assertIn("HudWarningPlacement.y(",self.adapter)
