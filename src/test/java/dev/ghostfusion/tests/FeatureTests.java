@@ -191,6 +191,14 @@ public final class FeatureTests {
         host.uiActions().fraction("render.esp","range",1.0);
         host.uiActions().bool("render.esp","through_walls");
         ok(!host.espShowHealth(),"legacy/default ESP health bars disabled");
+        ok(host.espHealthSide()==dev.ghostfusion.features.EspHealthBarGeometry.Side.RIGHT &&
+           Math.abs(host.espHealthGap()-.18)<1e-8,
+           "legacy world-space health placement remains right plus 0.18");
+        host.uiActions().cycle("render.esp","health_side");
+        host.uiActions().fraction("render.esp","health_gap",1.0);
+        ok(host.espHealthSide()==dev.ghostfusion.features.EspHealthBarGeometry.Side.LEFT &&
+           Math.abs(host.espHealthGap()-.50)<1e-8,
+           "GUI side/spacing controls update independently");
         host.uiActions().bool("render.esp","show_health");
         ok(host.espShowHealth(),"health bar setting toggles in GUI");
         host.uiActions().cycle("render.esp","style");
@@ -211,6 +219,9 @@ public final class FeatureTests {
         ok(restored.targetRange()==24.0 && !restored.targetVisible(),"target settings persisted");
         ok(restored.espRange()==80.0 && restored.espThroughWalls(),"ESP settings persisted");
         ok(restored.espShowHealth(),"optional ESP health overlay persisted");
+        ok(restored.espHealthSide()==dev.ghostfusion.features.EspHealthBarGeometry.Side.LEFT &&
+           Math.abs(restored.espHealthGap()-.50)<1e-8,
+           "left health placement and spacing persist via existing profile format");
         ok(Math.abs(restored.espCornerLength()-.5)<.000001,
            "corner length persists in the old typed profile store");
         ok(Math.abs(restored.espFillOpacity()-.5f)<.000001,
