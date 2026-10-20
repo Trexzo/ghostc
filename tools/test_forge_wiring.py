@@ -124,12 +124,31 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("host.worldPresence(true);",from_source)
         self.assertIn("worldIdentity.reset();",from_source)
         self.assertIn("WorldSnapshot.validPlayerPose(",from_source)
-        self.assertIn("Set<Integer> seenEntityIds",from_source)
+        self.assertIn("EspNearestBudget<EntityPlayer>(256)",from_source)
+        self.assertIn("nearestSnapshot.offer(p,p.getEntityId(),distanceSq)",from_source)
+        self.assertIn("new ArrayList<WorldSnapshot.Entity>(nearestSnapshot.size())",from_source)
+        self.assertIn("nearestSnapshot.clear();\n            }",from_source)
+        self.assertNotIn("if (players.size() == 256) break;",from_source)
         self.assertIn("snapshot=null;",services)
         self.assertIn("rotations.prune(tick,generation)",services)
         self.assertIn("snapshot()==null",combat)
         self.assertIn("session.snapshot().tick!=session.tick()",combat)
         self.assertIn("pitch>=-90f && pitch<=90f",snap)
+
+    def test_snapshot_admission_is_nearest_first_and_clears_raw_player_refs(self):
+        snapshot=self.adapter
+        budget=content("src/main/java/dev/ghostfusion/features/EspNearestBudget.java")
+        self.assertIn("private final EspNearestBudget<EntityPlayer> nearestSnapshot",snapshot)
+        self.assertIn("p.getHealth()",snapshot)
+        self.assertIn("health<=0",snapshot)
+        self.assertIn("double distanceSq=dx*dx+dy*dy+dz*dz;",snapshot)
+        self.assertLess(snapshot.index("nearestSnapshot.offer(p,p.getEntityId(),distanceSq)"),
+                        snapshot.index("host.services().publish(new WorldSnapshot("))
+        self.assertIn("} finally {\n                nearestSnapshot.clear();",snapshot)
+        self.assertNotIn("Set<Integer> seenEntityIds",snapshot)
+        self.assertIn("capacity>256",budget)
+        self.assertIn("dev.ghostfusion.tests.NearestSnapshotTests",
+                      content(".github/workflows/core-ci.yml"))
 
     def test_r210_warning_not_gated_by_status_and_lifecycle_fps_pause(self):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")

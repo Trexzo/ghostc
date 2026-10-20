@@ -1,7 +1,8 @@
 package dev.ghostfusion.features;
 
 /**
- * Fixed-capacity, deterministic nearest-player priority buffer.
+ * Fixed-capacity, deterministic nearest-entity priority buffer.
+ * ESP uses capacity 80; the shared local world snapshot uses 256.
  * Entries are ordered by distanceSq, then entity ID. A separate reusable
  * array is NOT created on every frame; clear() releases all entity references.
  *
@@ -14,7 +15,7 @@ public final class EspNearestBudget<T> {
     private final double[] distances;
     private int size;
     public EspNearestBudget(int capacity) {
-        if(capacity<1 || capacity>80)throw new IllegalArgumentException("ESP budget capacity");
+        if(capacity<1 || capacity>256)throw new IllegalArgumentException("nearest entity budget capacity");
         players=new Object[capacity];
         ids=new int[capacity];
         distances=new double[capacity];

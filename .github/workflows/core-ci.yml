@@ -58,6 +58,8 @@ jobs:
           grep -q 'COMBAT_REGRESSION_PASS' .build/combat.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.CombatIsolationTests | tee .build/combat-isolation.log
           grep -q 'COMBAT_ISOLATION_PASS' .build/combat-isolation.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.NearestSnapshotTests | tee .build/nearest-snapshot.log
+          grep -q 'NEAREST_SNAPSHOT_PASS' .build/nearest-snapshot.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.WorldLifecycleTests | tee .build/world-lifecycle.log
           grep -q 'WORLD_LIFECYCLE_PASS' .build/world-lifecycle.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.CombatMoreTests | tee .build/combat-more.log
