@@ -1,6 +1,8 @@
 package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.host.HostRuntime;
+import dev.ghostfusion.features.EspRenderMode;
+import dev.ghostfusion.features.EspSkeletonGeometry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.entity.player.EntityPlayer;
@@ -11,6 +13,14 @@ import org.lwjgl.opengl.GL11;
 final class PlayerEspRenderer {
     private final Minecraft mc;
     private final HostRuntime host;
+    private static final EspSkeletonGeometry.Sink SKELETON_LINES =
+        new EspSkeletonGeometry.Sink() {
+            public void line(double x1,double y1,double z1,
+                             double x2,double y2,double z2) {
+                GL11.glVertex3d(x1,y1,z1);
+                GL11.glVertex3d(x2,y2,z2);
+            }
+        };
     PlayerEspRenderer(Minecraft minecraft, HostRuntime host) {
         this.mc=minecraft; this.host=host;
     }
@@ -39,8 +49,10 @@ final class PlayerEspRenderer {
             int count=0;
             double maximum=host.espRange();
             double limitSq=maximum*maximum;
-            boolean boxes=!"tracer".equals(host.espStyle());
-            boolean tracers=!"box".equals(host.espStyle());
+            final EspRenderMode mode=EspRenderMode.of(host.espStyle());
+            boolean boxes=mode.boxes;
+            boolean tracers=mode.tracers;
+            boolean skeleton=mode.skeleton;
             for(Object obj:mc.theWorld.playerEntities) {
                 if(!(obj instanceof EntityPlayer)) continue;
                 EntityPlayer p=(EntityPlayer)obj;
@@ -48,7 +60,6 @@ final class PlayerEspRenderer {
                 if(host.espVisible() && !mc.thePlayer.canEntityBeSeen(p)) continue;
                 double distance=mc.thePlayer.getDistanceSqToEntity(p);
                 if(!Double.isFinite(distance)||distance>limitSq) continue;
-                if(++count>80) break;
                 double xx=p.lastTickPosX+(p.posX-p.lastTickPosX)*partialTicks;
                 double yy=p.lastTickPosY+(p.posY-p.lastTickPosY)*partialTicks;
                 double zz=p.lastTickPosZ+(p.posZ-p.lastTickPosZ)*partialTicks;
@@ -63,8 +74,23 @@ final class PlayerEspRenderer {
                 if (!Double.isFinite(box.minX) || !Double.isFinite(box.minY) ||
                     !Double.isFinite(box.minZ) || !Double.isFinite(box.maxX) ||
                     !Double.isFinite(box.maxY) || !Double.isFinite(box.maxZ)) continue;
+                // Only valid, renderable players use the 80-player GL budget.
+                if(skeleton && !EspSkeletonGeometry.valid(xx,yy,zz,
+                    p.renderYawOffset,p.height,p.limbSwing,p.limbSwingAmount))
+                    continue;
+                if(++count>80) break;
                 GL11.glColor4f(0.62f,0.56f,1.0f,0.82f);
                 if(boxes) wireBox(box);
+                if(skeleton) {
+                    double yaw=EspSkeletonGeometry.interpolateYaw(
+                        p.prevRenderYawOffset,p.renderYawOffset,partialTicks);
+                    GL11.glBegin(GL11.GL_LINES);
+                    try {
+                        EspSkeletonGeometry.emit(xx,yy,zz,yaw,p.height,
+                            p.isSneaking(),p.limbSwing,p.limbSwingAmount,
+                            SKELETON_LINES);
+                    } finally { GL11.glEnd(); }
+                }
                 if(tracers) {
                     GL11.glBegin(GL11.GL_LINES);
                     GL11.glVertex3d(rm.viewerPosX,rm.viewerPosY+mc.thePlayer.getEyeHeight(),rm.viewerPosZ);
