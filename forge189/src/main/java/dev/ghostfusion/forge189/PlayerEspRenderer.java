@@ -9,6 +9,7 @@ import dev.ghostfusion.features.EspHealthBarGeometry;
 import dev.ghostfusion.features.EspLineColor;
 import dev.ghostfusion.features.EspCornerBoxGeometry;
 import dev.ghostfusion.features.EspFilledBoxGeometry;
+import dev.ghostfusion.features.EspDistanceFade;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.entity.player.EntityPlayer;
@@ -111,6 +112,9 @@ final class PlayerEspRenderer {
             boolean filled=mode.fill;
             final double cornerLength=host.espCornerLength();
             final float fillOpacity=host.espFillOpacity();
+            final boolean fadeEnabled=host.espDistanceFade();
+            final double fadeStart=host.espFadeStart();
+            final double fadeMinimum=host.espFadeMinimum();
             boolean health=host.espShowHealth();
             // Resolve once per rendered frame: no per-player configuration
             // reads or transient color-array allocations.
@@ -140,11 +144,17 @@ final class PlayerEspRenderer {
                     double zz=p.lastTickPosZ+(p.posZ-p.lastTickPosZ)*partialTicks;
                     AxisAlignedBB box=p.getEntityBoundingBox()
                         .offset(xx-p.posX,yy-p.posY,zz-p.posZ).expand(0.04,0.06,0.04);
+                // One finite, clamped multiplier per admitted player. Keep
+                // hue constant, and do not alter semantic HP bar colors.
+                final float fade=EspDistanceFade.factor(
+                    mc.thePlayer.getDistanceSqToEntity(p),
+                    maximum,fadeEnabled,fadeStart,fadeMinimum);
+                final float lineAlpha=appearance.opacity*fade;
                 if(filled) {
                     // Draw the low-alpha faces first so the crisp RGB wire
                     // edges and optional skeleton remain legible on top.
                     GL11.glColor4f(appearance.red,appearance.green,
-                        appearance.blue,appearance.opacity*fillOpacity);
+                        appearance.blue,lineAlpha*fillOpacity);
                     GL11.glBegin(GL11.GL_QUADS);
                     try {
                         EspFilledBoxGeometry.emitBackToFront(box.minX,box.minY,box.minZ,
@@ -153,7 +163,7 @@ final class PlayerEspRenderer {
                     } finally { GL11.glEnd(); }
                 }
                 GL11.glColor4f(appearance.red,appearance.green,
-                    appearance.blue,appearance.opacity);
+                    appearance.blue,lineAlpha);
                 if(boxes) wireBox(box);
                 if(corners) {
                     GL11.glBegin(GL11.GL_LINES);

@@ -64,6 +64,12 @@ public final class HostRuntime {
     // Independent translucent surface opacity. Existing line alpha is not changed.
     private final Setting.Number espFillOpacity =
         new Setting.Number("fill_opacity", 0.18, 0.04, 0.50);
+    // Disabled by default: preserve existing pixel opacity for old profiles.
+    private final Setting.Bool espDistanceFade = new Setting.Bool("distance_fade", false);
+    private final Setting.Number espFadeStart =
+        new Setting.Number("fade_start", 0.50, 0.0, 0.90);
+    private final Setting.Number espFadeMinimum =
+        new Setting.Number("fade_min_opacity", 0.25, 0.05, 1.0);
     // Normalized independent RGB and alpha controls, not an asset/theme swap.
     // Preserve the exact default original purple (0.62,0.56,1.0,0.82).
     private final Setting.Number espRed = new Setting.Number("red", 0.62, 0.0, 1.0);
@@ -114,7 +120,8 @@ public final class HostRuntime {
             0, targetRange, targetVisible, targetHealth);
         modules.register(new FeatureModule("render.esp", "Player ESP", GhostModule.Category.RENDER),
             0, espRange, espVisible, espWalls, espWidth, espStyle, espHealth,
-            espRed, espGreen, espBlue, espOpacity, espCornerLength, espFillOpacity);
+            espRed, espGreen, espBlue, espOpacity, espCornerLength, espFillOpacity,
+            espDistanceFade, espFadeStart, espFadeMinimum);
         modules.register(new FeatureModule("movement.sprint", "Auto Sprint", GhostModule.Category.MOVEMENT),
             0);
         modules.register(new FeatureModule("combat.aimassist", "Aim Assist", GhostModule.Category.COMBAT),
@@ -240,6 +247,15 @@ public final class HostRuntime {
     }
     public float espFillOpacity() {
         modules.assertOwnerThread(); return espFillOpacity.get().floatValue();
+    }
+    public boolean espDistanceFade() {
+        modules.assertOwnerThread(); return espDistanceFade.get();
+    }
+    public double espFadeStart() {
+        modules.assertOwnerThread(); return espFadeStart.get();
+    }
+    public double espFadeMinimum() {
+        modules.assertOwnerThread(); return espFadeMinimum.get();
     }
     public dev.ghostfusion.features.EspLineColor espLineColor() {
         modules.assertOwnerThread();
