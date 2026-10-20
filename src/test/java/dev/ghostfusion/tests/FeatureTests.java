@@ -148,6 +148,9 @@ public final class FeatureTests {
         host.uiActions().bool("hud.cps","show_right");
         host.uiActions().fraction("hud.target","range",1.0);
         host.uiActions().bool("hud.target","visible_only");
+        ok("values".equals(host.targetHealthText()),"old Target HUD numeric mode default");
+        host.uiActions().cycle("hud.target","health_text");
+        ok("percent".equals(host.targetHealthText()),"percentage health readout selectable");
         ok(Math.abs(host.espLineColor().red-.62f)<.000001 &&
            Math.abs(host.espLineColor().green-.56f)<.000001 &&
            host.espLineColor().blue==1.0f &&
@@ -217,6 +220,8 @@ public final class FeatureTests {
         HostRuntime restored=new HostRuntime(folder);
         ok(!restored.keysJump() && !restored.cpsRight(),"booleans persisted");
         ok(restored.targetRange()==24.0 && !restored.targetVisible(),"target settings persisted");
+        ok("percent".equals(restored.targetHealthText()),
+           "percentage preference persists through original profile store");
         ok(restored.espRange()==80.0 && restored.espThroughWalls(),"ESP settings persisted");
         ok(restored.espShowHealth(),"optional ESP health overlay persisted");
         ok(restored.espHealthSide()==dev.ghostfusion.features.EspHealthBarGeometry.Side.LEFT &&
