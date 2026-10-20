@@ -217,8 +217,12 @@ class ForgeWiring(unittest.TestCase):
         tracker=content("src/main/java/dev/ghostfusion/services/WorldIdentityTracker.java")
         self.assertIn("public boolean matches(Object currentWorld,Object currentPlayer)",tracker)
         self.assertIn("world==currentWorld && player==currentPlayer",tracker)
+        # Mouse and 3D render still return immediately. The 2D overlay
+        # now suspends timing BEFORE its own early return on identity loss.
         self.assertEqual(self.adapter.count(
-            "if (!worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) return;"),3)
+            "if (!worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) return;"),2)
+        self.assertIn("if (!worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) {",self.adapter)
+        self.assertIn("host.performancePause();\n            return;",self.adapter)
         self.assertIn("features.render3d(event.partialTicks)",self.adapter)
         self.assertIn("features.mouseInput()",self.adapter)
         self.assertRegex(self.adapter,r"final boolean status\s*=\s*host\.render2d\(\);")
