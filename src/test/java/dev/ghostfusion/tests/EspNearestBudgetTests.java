@@ -20,7 +20,9 @@ public final class EspNearestBudgetTests {
     }
     private static void basics() {
         rejects(()->new EspNearestBudget<String>(0),"zero capacity invalid");
-        rejects(()->new EspNearestBudget<String>(81),"unbounded capacity invalid");
+        rejects(()->new EspNearestBudget<String>(257),"unbounded capacity invalid");
+        ok(new EspNearestBudget<String>(256).size()==0,
+            "256 snapshot capacity is legal without changing 80 ESP cap");
         EspNearestBudget<String> budget=new EspNearestBudget<String>(3);
         ok(budget.size()==0,"empty selection");
         ok(!budget.offer(null,1,3),"null player ignored");

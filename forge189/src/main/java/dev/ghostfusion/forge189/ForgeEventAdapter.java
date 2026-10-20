@@ -4,8 +4,7 @@ import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.services.WorldSnapshot;
 import dev.ghostfusion.ui.StatusHudLayout;
 import dev.ghostfusion.services.WorldIdentityTracker;
-import java.util.HashSet;
-import java.util.Set;
+import dev.ghostfusion.features.EspNearestBudget;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import net.minecraft.entity.player.EntityPlayer;
 import java.util.ArrayList;
@@ -32,6 +31,11 @@ public final class ForgeEventAdapter {
     private final ForgeFeatureDriver features;
     private final ForgeCombatController combat;
     private final WorldIdentityTracker worldIdentity = new WorldIdentityTracker();
+    // This capped, owner-thread buffer is reused every tick. Every raw
+    // EntityPlayer reference is released before publishing an immutable
+    // WorldSnapshot, including when snapshot construction fails.
+    private final EspNearestBudget<EntityPlayer> nearestSnapshot =
+        new EspNearestBudget<EntityPlayer>(256);
 
     public ForgeEventAdapter(Minecraft minecraft, HostRuntime host) {
         if (minecraft == null || host == null) throw new IllegalArgumentException("null dependency");
@@ -71,25 +75,43 @@ public final class ForgeEventAdapter {
         if (host.services().connected() && minecraft.theWorld != null && minecraft.thePlayer != null &&
             WorldSnapshot.validPlayerPose(minecraft.thePlayer.posX,minecraft.thePlayer.posY,
                 minecraft.thePlayer.posZ,minecraft.thePlayer.rotationYaw,minecraft.thePlayer.rotationPitch)) {
-            List<WorldSnapshot.Entity> players = new ArrayList<WorldSnapshot.Entity>();
-            Set<Integer> seenEntityIds=new HashSet<Integer>();
-            for (Object raw : minecraft.theWorld.playerEntities) {
-                if (!(raw instanceof EntityPlayer)) continue;
-                EntityPlayer p = (EntityPlayer) raw;
-                if (p == minecraft.thePlayer || p.isDead) continue;
-                if (!seenEntityIds.add(p.getEntityId())) continue;
-                if (players.size() == 256) break;
-                double health = Math.max(0.0, (double)p.getHealth());
-                if (!WorldSnapshot.finitePublic(p.posX) || !WorldSnapshot.finitePublic(p.posY) ||
-                    !WorldSnapshot.finitePublic(p.posZ) || !WorldSnapshot.finitePublic(health)) continue;
-                players.add(new WorldSnapshot.Entity(p.getEntityId(),p.posX,p.posY,p.posZ,
-                    health,!p.isDead,!p.isInvisible() && minecraft.thePlayer.canEntityBeSeen(p),true));
+            nearestSnapshot.clear();
+            try {
+                // Previously the first 256 in loaded-list order won. Only
+                // finite, living players may enter the bounded nearest-first
+                // selection. Even crowded worlds keep close HUD/aim targets.
+                for (Object raw : minecraft.theWorld.playerEntities) {
+                    if (!(raw instanceof EntityPlayer)) continue;
+                    EntityPlayer p = (EntityPlayer)raw;
+                    if (p == minecraft.thePlayer || p.isDead) continue;
+                    double health = p.getHealth();
+                    if (!WorldSnapshot.finitePublic(health) || health<=0 ||
+                        !WorldSnapshot.finitePublic(p.posX) ||
+                        !WorldSnapshot.finitePublic(p.posY) ||
+                        !WorldSnapshot.finitePublic(p.posZ)) continue;
+                    double dx=p.posX-minecraft.thePlayer.posX;
+                    double dy=p.posY-minecraft.thePlayer.posY;
+                    double dz=p.posZ-minecraft.thePlayer.posZ;
+                    double distanceSq=dx*dx+dy*dy+dz*dz;
+                    nearestSnapshot.offer(p,p.getEntityId(),distanceSq);
+                }
+                List<WorldSnapshot.Entity> players =
+                    new ArrayList<WorldSnapshot.Entity>(nearestSnapshot.size());
+                for(int i=0;i<nearestSnapshot.size();i++) {
+                    EntityPlayer p=nearestSnapshot.get(i);
+                    players.add(new WorldSnapshot.Entity(
+                        p.getEntityId(),p.posX,p.posY,p.posZ,p.getHealth(),
+                        !p.isDead,!p.isInvisible() &&
+                        minecraft.thePlayer.canEntityBeSeen(p),true));
+                }
+                host.diagnostics().record(Counter.SNAPSHOT);
+                host.services().publish(new WorldSnapshot(
+                    host.services().generation(),host.services().tick(),
+                    minecraft.thePlayer.posX,minecraft.thePlayer.posY,minecraft.thePlayer.posZ,
+                    minecraft.thePlayer.rotationYaw,minecraft.thePlayer.rotationPitch,players));
+            } finally {
+                nearestSnapshot.clear();
             }
-            host.diagnostics().record(Counter.SNAPSHOT);
-            host.services().publish(new WorldSnapshot(
-                host.services().generation(),host.services().tick(),
-                minecraft.thePlayer.posX,minecraft.thePlayer.posY,minecraft.thePlayer.posZ,
-                minecraft.thePlayer.rotationYaw,minecraft.thePlayer.rotationPitch,players));
         }
         features.tick();
         combat.tick();
