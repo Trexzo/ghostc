@@ -27,6 +27,7 @@ REQUIRED = (
     "dev/ghostfusion/features/EspCornerBoxGeometry.class",
     "dev/ghostfusion/features/EspFilledBoxGeometry.class",
     "dev/ghostfusion/features/EspHealthBarGeometry.class",
+    "dev/ghostfusion/features/TargetHudTextLayout.class",
     "dev/ghostfusion/features/EspHealthBarGeometry$Side.class",
     "dev/ghostfusion/features/EspLineColor.class",
     "dev/ghostfusion/features/EspDistanceFade.class",

@@ -23,6 +23,27 @@ class ForgeWiring(unittest.TestCase):
         self.gl = (FORGE / "RenderStateGuard.java").read_text(encoding="utf-8")
         self.adapter = (FORGE / "ForgeEventAdapter.java").read_text(encoding="utf-8")
 
+    def test_target_hud_pixel_fit_and_health_readout(self):
+        forge=(FORGE/"ForgeFeatureDriver.java").read_text(encoding="utf-8")
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        layout=content("src/main/java/dev/ghostfusion/features/TargetHudTextLayout.java")
+        self.assertIn('new Setting.Choice("health_text","values","values","percent")',host)
+        self.assertIn('0, targetRange, targetVisible, targetHealth, targetHealthText);',host)
+        self.assertIn("TargetHudTextLayout.layout(",forge)
+        self.assertIn("host.targetHealthText(),target.health,",forge)
+        self.assertIn("mc.fontRendererObj.getStringWidth(value)",forge)
+        self.assertIn("labels.name,x+9,y+7",forge)
+        self.assertIn("x+width-9-labels.healthLabelWidth,y+8",forge)
+        self.assertIn("(width-18)*labels.healthFraction",forge)
+        self.assertNotIn("x+width-70,y+8",forge)
+        self.assertIn("cardWidth-18-(showHealth?labelWidth+6:0)",layout)
+        self.assertIn("Character.charCount(cp)",layout)
+        self.assertIn("pixels(font,candidate)>budget",layout)
+        self.assertIn("dev.ghostfusion.tests.TargetHudTextLayoutTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("TargetHudTextLayout.class",
+                      content("tools/verify_forge_jar.py"))
+
     def test_recovery_promotes_verified_typed_snapshot_before_live_mutation(self):
         core=content("src/main/java/dev/ghostfusion/core/ConfigIntegrity.java")
         profiles=content("src/main/java/dev/ghostfusion/core/ProfileStore.java")
