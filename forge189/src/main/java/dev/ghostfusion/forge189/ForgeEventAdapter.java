@@ -4,7 +4,7 @@ import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.services.WorldSnapshot;
 import dev.ghostfusion.ui.StatusHudLayout;
 import dev.ghostfusion.services.WorldIdentityTracker;
-import dev.ghostfusion.features.EspNearestBudget;
+import dev.ghostfusion.services.WorldSnapshotAdmission;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import net.minecraft.entity.player.EntityPlayer;
 import java.util.ArrayList;
@@ -31,11 +31,11 @@ public final class ForgeEventAdapter {
     private final ForgeFeatureDriver features;
     private final ForgeCombatController combat;
     private final WorldIdentityTracker worldIdentity = new WorldIdentityTracker();
-    // This capped, owner-thread buffer is reused every tick. Every raw
+    // Two capped, owner-thread groups are reused every tick. Every raw
     // EntityPlayer reference is released before publishing an immutable
     // WorldSnapshot, including when snapshot construction fails.
-    private final EspNearestBudget<EntityPlayer> nearestSnapshot =
-        new EspNearestBudget<EntityPlayer>(256);
+    private final WorldSnapshotAdmission<EntityPlayer> nearestSnapshot =
+        new WorldSnapshotAdmission<EntityPlayer>();
 
     public ForgeEventAdapter(Minecraft minecraft, HostRuntime host) {
         if (minecraft == null || host == null) throw new IllegalArgumentException("null dependency");
@@ -93,17 +93,28 @@ public final class ForgeEventAdapter {
                     double dy=p.posY-minecraft.thePlayer.posY;
                     double dz=p.posZ-minecraft.thePlayer.posZ;
                     double distanceSq=dx*dx+dy*dy+dz*dz;
-                    nearestSnapshot.offer(p,p.getEntityId(),distanceSq);
+                    // Preserve 256 nearest visible AND 256 nearest occluded.
+                    // Calculate visibility once during admission, not again
+                    // when materializing immutable WorldSnapshot values.
+                    boolean visible=!p.isInvisible() &&
+                        minecraft.thePlayer.canEntityBeSeen(p);
+                    nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible);
                 }
-                List<WorldSnapshot.Entity> players =
+                final List<WorldSnapshot.Entity> players =
                     new ArrayList<WorldSnapshot.Entity>(nearestSnapshot.size());
-                for(int i=0;i<nearestSnapshot.size();i++) {
-                    EntityPlayer p=nearestSnapshot.get(i);
-                    players.add(new WorldSnapshot.Entity(
-                        p.getEntityId(),p.posX,p.posY,p.posZ,p.getHealth(),
-                        !p.isDead,!p.isInvisible() &&
-                        minecraft.thePlayer.canEntityBeSeen(p),true));
-                }
+                nearestSnapshot.forEach(new WorldSnapshotAdmission.Visitor<EntityPlayer>() {
+                    public void visit(EntityPlayer p,boolean visible) {
+                        // Reject a candidate that changed between admission and
+                        // publication, instead of failing the whole client tick.
+                        double health=p.getHealth();
+                        if(p.isDead || !WorldSnapshot.finitePublic(health) || health<=0 ||
+                           !WorldSnapshot.finitePublic(p.posX) ||
+                           !WorldSnapshot.finitePublic(p.posY) ||
+                           !WorldSnapshot.finitePublic(p.posZ))return;
+                        players.add(new WorldSnapshot.Entity(
+                            p.getEntityId(),p.posX,p.posY,p.posZ,health,true,visible,true));
+                    }
+                });
                 host.diagnostics().record(Counter.SNAPSHOT);
                 host.services().publish(new WorldSnapshot(
                     host.services().generation(),host.services().tick(),

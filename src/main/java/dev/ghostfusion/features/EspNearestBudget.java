@@ -28,7 +28,13 @@ public final class EspNearestBudget<T> {
         check();
         if(player==null || !Double.isFinite(distanceSq) || distanceSq<0)
             return false;
-        for(int i=0;i<size;i++)if(ids[i]==id)return false;
+        for(int i=0;i<size;i++) {
+            if(ids[i]!=id)continue;
+            // Prefer the nearer valid duplicate regardless of source order.
+            if(distanceSq>=distances[i])return false;
+            removeAt(i);
+            break;
+        }
         int at=0;
         while(at<size && (distances[at]<distanceSq ||
             (distances[at]==distanceSq && ids[at]<id)))at++;
@@ -44,6 +50,25 @@ public final class EspNearestBudget<T> {
         distances[at]=distanceSq;
         size=next;
         return true;
+    }
+    private void removeAt(int index) {
+        for(int j=index;j<size-1;j++) {
+            players[j]=players[j+1]; ids[j]=ids[j+1];
+            distances[j]=distances[j+1];
+        }
+        players[--size]=null;
+    }
+    public boolean containsId(int id) {
+        check();
+        for(int i=0;i<size;i++)if(ids[i]==id)return true;
+        return false;
+    }
+    public boolean removeId(int id) {
+        check();
+        for(int i=0;i<size;i++) {
+            if(ids[i]==id) {removeAt(i);return true;}
+        }
+        return false;
     }
     public int size(){check();return size;}
     @SuppressWarnings("unchecked")
