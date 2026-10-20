@@ -7,7 +7,7 @@ The original Forge 1.8.9 UI exposes all five modules under **F7**. Existing stat
 | Keystrokes `hud.keystrokes` | Minecraft-native forward/back/left/right indicators and optional SPACE/SHIFT indicator. Rendered in screen-space. | `show_jump`, `show_sneak` |
 | CPS Counter `hud.cps` | Left/right mouse **press edges** counted over sliding 1 second using monotonic nanosecond clock; ignores GUI clicks; clears on world change. | `show_right` |
 | Target HUD `hud.target` | Uses current session's immutable read-only world snapshot and deterministic `TargetSelector`; shows nearby player name and optional health bar. No attack/aim behavior. | `range` 2–24, `visible_only`, `show_health` |
-| Player ESP `render.esp` | World-relative 3D player boxes, tracers or both; schematic skeleton and box+skeleton in R2.7. Rendered after world scene with interpolated positions and GL state restoration. | `range` 2–80, `visible_only`, `through_walls`, `line_width` 1–4, `style` |
+| Player ESP `render.esp` | World-relative 3D player boxes, tracers or both; schematic skeleton and box+skeleton in R2.7. Optional camera-facing `show_health` bar in R2.11 (disabled by default). Rendered after world scene with interpolated positions and GL state restoration. | `range` 2–80, `visible_only`, `through_walls`, `line_width` 1–4, `style` |
 | Auto Sprint `movement.sprint` | At the end of a client tick requests local sprint only if focused, moving forward, grounded, not sneaking/using item/flying/blind or blocked by hunger. Never forces sprint off. | enabled / disabled |
 
 ## Ownership / safety boundaries
