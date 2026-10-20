@@ -124,8 +124,8 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("host.worldPresence(true);",from_source)
         self.assertIn("worldIdentity.reset();",from_source)
         self.assertIn("WorldSnapshot.validPlayerPose(",from_source)
-        self.assertIn("EspNearestBudget<EntityPlayer>(256)",from_source)
-        self.assertIn("nearestSnapshot.offer(p,p.getEntityId(),distanceSq)",from_source)
+        self.assertIn("WorldSnapshotAdmission<EntityPlayer>()",from_source)
+        self.assertIn("nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible)",from_source)
         self.assertIn("new ArrayList<WorldSnapshot.Entity>(nearestSnapshot.size())",from_source)
         self.assertIn("nearestSnapshot.clear();\n            }",from_source)
         self.assertNotIn("if (players.size() == 256) break;",from_source)
@@ -138,16 +138,32 @@ class ForgeWiring(unittest.TestCase):
     def test_snapshot_admission_is_nearest_first_and_clears_raw_player_refs(self):
         snapshot=self.adapter
         budget=content("src/main/java/dev/ghostfusion/features/EspNearestBudget.java")
-        self.assertIn("private final EspNearestBudget<EntityPlayer> nearestSnapshot",snapshot)
+        self.assertIn("private final WorldSnapshotAdmission<EntityPlayer> nearestSnapshot",snapshot)
         self.assertIn("p.getHealth()",snapshot)
         self.assertIn("health<=0",snapshot)
         self.assertIn("double distanceSq=dx*dx+dy*dy+dz*dz;",snapshot)
-        self.assertLess(snapshot.index("nearestSnapshot.offer(p,p.getEntityId(),distanceSq)"),
+        self.assertLess(snapshot.index("nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible)"),
                         snapshot.index("host.services().publish(new WorldSnapshot("))
         self.assertIn("} finally {\n                nearestSnapshot.clear();",snapshot)
         self.assertNotIn("Set<Integer> seenEntityIds",snapshot)
         self.assertIn("capacity>256",budget)
         self.assertIn("dev.ghostfusion.tests.NearestSnapshotTests",
+                      content(".github/workflows/core-ci.yml"))
+
+    def test_visibility_partitioned_snapshots_keep_visible_candidates(self):
+        adapter=self.adapter
+        admission=content("src/main/java/dev/ghostfusion/services/WorldSnapshotAdmission.java")
+        self.assertIn("new WorldSnapshotAdmission<EntityPlayer>()",adapter)
+        self.assertIn("boolean visible=!p.isInvisible() &&",adapter)
+        self.assertIn("nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible)",adapter)
+        self.assertIn("nearestSnapshot.forEach(new WorldSnapshotAdmission.Visitor<EntityPlayer>()",adapter)
+        self.assertIn("p.getEntityId(),p.posX,p.posY,p.posZ,health,true,visible,true",adapter)
+        self.assertIn("new EspNearestBudget<T>(256)",admission)
+        self.assertIn("hidden.removeId(id)",admission)
+        self.assertIn("visible.containsId(id)",admission)
+        self.assertIn("sink.visit(visible.get(a++),true)",admission)
+        self.assertIn("sink.visit(hidden.get(b++),false)",admission)
+        self.assertIn("dev.ghostfusion.tests.VisibilitySnapshotTests",
                       content(".github/workflows/core-ci.yml"))
 
     def test_r210_warning_not_gated_by_status_and_lifecycle_fps_pause(self):

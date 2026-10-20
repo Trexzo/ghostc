@@ -52,6 +52,13 @@ public final class EspNearestBudgetTests {
         budget.offer("id3",3,7);
         ok(budget.idAt(0)==1&&budget.idAt(1)==3&&budget.idAt(2)==5,
            "equal-distance tie-break deterministic by entity ID");
+        ok(budget.containsId(3),"member lookup before removal");
+        ok(budget.removeId(3),"remove stale candidate by ID");
+        ok(!budget.containsId(3)&&budget.size()==2,"remove compacts chosen references");
+        ok(!budget.removeId(3),"repeat remove harmless");
+        ok(budget.offer("closer duplicate",5,1),"closer duplicate displaces older");
+        ok(budget.idAt(0)==5&&budget.distanceAt(0)==1,"updated candidate ordered");
+        ok(!budget.offer("far duplicate",5,8),"far duplicate cannot displace near");
         final AtomicBoolean blocked=new AtomicBoolean(false);
         Thread worker=new Thread(()->{
             try{budget.clear();}
