@@ -38,6 +38,13 @@ class ForgeWiring(unittest.TestCase):
         self.assertNotIn("x+width-70,y+8",forge)
         self.assertIn("cardWidth-18-(showHealth?labelWidth+6:0)",layout)
         self.assertIn("Character.charCount(cp)",layout)
+        self.assertIn("scanned<MAX_SCANNED_CODEPOINTS",layout)
+        self.assertGreaterEqual(layout.count("scanned++;"),2)
+        self.assertIn("cp>=Character.MIN_SURROGATE && cp<=Character.MAX_SURROGATE",layout)
+        self.assertNotIn("Character.isSurrogate((char)cp)",layout)
+        self.assertIn("private final java.util.function.ToIntFunction<String> targetFontWidths;",forge)
+        self.assertEqual(forge.count("new java.util.function.ToIntFunction<String>()"),1)
+        self.assertIn("player.getMaxHealth(),width,targetFontWidths);",forge)
         self.assertIn("pixels(font,candidate)>budget",layout)
         self.assertIn("dev.ghostfusion.tests.TargetHudTextLayoutTests",
                       content(".github/workflows/core-ci.yml"))
