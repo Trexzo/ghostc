@@ -252,7 +252,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("host.performancePause();",self.adapter)
         self.assertIn("framePerformance.suspend();",host)
         self.assertIn("framePerformance.frame(nowNanos,usedHeapBytes)",host)
-        self.assertIn("diagnostics.save(configDirectory,framePerformance.snapshot())",host)
+        self.assertIn("diagnostics.save(configDirectory,framePerformance.snapshot(),snapshotTelemetry.snapshot())",host)
         self.assertIn("new long[MAX_FPS+1]",sample)
         self.assertIn("perf.frame_samples",diag)
         self.assertIn("perf.p99_fps",diag)
