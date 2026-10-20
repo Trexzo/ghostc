@@ -264,22 +264,3 @@ New-Item -ItemType Directory -Path $accept -Force | Out-Null
 $lines | Set-Content -LiteralPath $report -Encoding UTF8
 Write-Output "GHOSTC_COLLECT_PASS sha256=$installedHash"
 Write-Output "Local report: $report"
- } |
-        Sort-Object)
-    if ($safe.Count -gt 0) { $lines += $safe } else { $lines += '(No safe counter fields found)' }
-} else {
-    $lines += '(Enable the optional diagnostics module and disconnect to export counters.)'
-}
-$lines += @(
-    '',
-    'ESP counters count render submissions, NOT confirmed visible pixels or FPS.',
-    'Rounded FPS is a frame-interval estimate, NOT actual GPU time.',
-    'JVM heap measurements exclude system/GPU/process memory.',
-    'Raw latest.log, screenshots and crash reports are intentionally NOT included.',
-    'Review/redact account names, addresses, chat and private details before sharing.',
-    'This report and the build hash are evidence of installation only, not successful in-game play.'
-)
-New-Item -ItemType Directory -Path $accept -Force | Out-Null
-$lines | Set-Content -LiteralPath $report -Encoding UTF8
-Write-Output "GHOSTC_COLLECT_PASS sha256=$installedHash"
-Write-Output "Local report: $report"
