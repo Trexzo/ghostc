@@ -135,6 +135,10 @@ public final class HostRuntime {
     public FramePerformance.Snapshot performanceSnapshot() {
         modules.assertOwnerThread(); return framePerformance.snapshot();
     }
+    /** Remove cadence reference when opt-in metrics are switched off. */
+    public void performancePause() {
+        if(active()) framePerformance.suspend();
+    }
     /** Only record focused in-world frames with explicit diagnostics opt-in. */
     public void performanceFrame(long nowNanos,long usedHeapBytes,boolean focused) {
         if(!active()) return;

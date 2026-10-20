@@ -135,6 +135,8 @@ public final class ForgeEventAdapter {
             final Runtime memory=Runtime.getRuntime();
             host.performanceFrame(System.nanoTime(),memory.totalMemory()-memory.freeMemory(),
                 minecraft.currentScreen==null && minecraft.inGameHasFocus);
+        } else {
+            host.performancePause();
         }
         final boolean status=host.render2d();
         final boolean metrics=host.metricsFrameRequested();

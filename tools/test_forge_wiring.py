@@ -138,6 +138,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("host.performanceFrame(System.nanoTime()",self.adapter)
         self.assertIn("minecraft.currentScreen==null && minecraft.inGameHasFocus",self.adapter)
         self.assertIn("host.diagnosticsEnabled()",self.adapter)
+        self.assertIn("host.performancePause();",self.adapter)
         self.assertIn("framePerformance.suspend();",host)
         self.assertIn("framePerformance.frame(nowNanos,usedHeapBytes)",host)
         self.assertIn("diagnostics.save(configDirectory,framePerformance.snapshot())",host)
