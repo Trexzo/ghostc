@@ -47,7 +47,7 @@ public final class SnapshotTelemetryTests {
             catch(IllegalStateException expected){blocked.set(true);}
         });
         other.start();
-        try{other.join();}catch(InterruptedException e){throw new AssertionError(e);}
+        try{other.join();}catch(InterruptedException interrupted){throw new AssertionError(interrupted);}
         ok(blocked.get(),"snapshot measurements owner-thread bound");
     }
     private static void deterministic(){
