@@ -44,8 +44,8 @@ public final class AimAssistPolicy {
         for (WorldSnapshot.Entity e:world.entities()) {
             double dx=e.x-world.playerX, dz=e.z-world.playerZ;
             double vertical=e.y-world.playerY;
-            double planarSq=dx*dx+dz*dz;
-            double distanceSq=planarSq+vertical*vertical;
+            // Preserve the original selector's x+y+z sum order at range edges.
+            double distanceSq=dx*dx+vertical*vertical+dz*dz;
             if(!TargetSelector.eligible(e,distanceSq,maximumSquare,visibleOnly,true))
                 continue;
             double horizontal=Math.hypot(dx,dz);
