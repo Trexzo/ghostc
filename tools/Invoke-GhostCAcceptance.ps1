@@ -214,6 +214,10 @@ $lines = @(
     '- [ ] F7 ClickGUI opens/closes, and module search/settings work',
     '- [ ] F8 status HUD toggles and remapped Keystrokes labels are correct',
     '- [ ] Rendering and Target HUD behave correctly in an authorized local world',
+    '- [ ] All five ESP modes (box, tracer, both, skeleton, box+skeleton) checked visually',
+    '- [ ] ESP occlusion/through-walls, distance filters and scene switching checked',
+    '- [ ] Diagnostics enabled: ESP frame/player/skeleton counters rise as expected',
+    '- [ ] Invalid geometry counter stays low, with no auto-disabled ESP module',
     '- [ ] Focus/GUI/reconnect do not leave synthetic attack/use held',
     '- [ ] Profile changes survive restart, and Rollback can restore the old JARs',
     '- [ ] Gameplay responsiveness and a representative soak session checked',
@@ -232,6 +236,7 @@ if (Test-Path -LiteralPath $diagPath -PathType Leaf) {
 }
 $lines += @(
     '',
+    'ESP counters count render submissions, NOT confirmed visible pixels or FPS.',
     'Raw latest.log, screenshots and crash reports are intentionally NOT included.',
     'Review/redact account names, addresses, chat and private details before sharing.',
     'This report and the build hash are evidence of installation only, not successful in-game play.'

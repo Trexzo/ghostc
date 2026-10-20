@@ -131,6 +131,25 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("session.snapshot().tick!=session.tick()",combat)
         self.assertIn("pitch>=-90f && pitch<=90f",snap)
 
+    def test_esp_runtime_diagnostics_and_malformed_player_screening(self):
+        esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
+        diagnostics=content("src/main/java/dev/ghostfusion/host/RuntimeDiagnostics.java")
+        ui=(FORGE/"ForgeFeatureDriver.java").read_text(encoding="utf-8")
+        for name in ("ESP_RENDER_FRAME","ESP_DRAWN_PLAYER",
+                     "ESP_DRAWN_SKELETON","ESP_INVALID_GEOMETRY"):
+            self.assertIn("Counter."+name,esp)
+            self.assertIn(name,diagnostics)
+            self.assertIn("Counter."+name,ui)
+        self.assertIn("Double.isFinite(p.prevRenderYawOffset)",esp)
+        self.assertIn("!Double.isFinite(p.height)",esp)
+        self.assertIn("partialTicks < 0f || partialTicks > 1f",esp)
+        self.assertIn("if(count>=80) break;",esp)
+        self.assertIn("if(skeleton) host.diagnostics().record(Counter.ESP_DRAWN_SKELETON)",esp)
+        self.assertIn("finally { GL11.glEnd(); }",esp)
+        self.assertIn("int width=208, height=108;",ui)
+        self.assertIn("dev.ghostfusion.tests.EspTelemetryTests",
+                      content(".github/workflows/core-ci.yml"))
+
     def test_original_skeleton_esp_mode_is_wired_to_forge(self):
         esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
@@ -143,8 +162,8 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("p.prevRenderYawOffset,p.renderYawOffset,partialTicks",esp)
         self.assertIn("GL11.glBegin(GL11.GL_LINES)",esp)
         self.assertIn("finally { GL11.glEnd(); }",esp)
-        self.assertIn("only valid",esp.lower())
-        self.assertLess(esp.index("if(++count>80) break;"),esp.index("GL11.glColor4f"))
+        self.assertIn("Limit successfully admitted players",esp)
+        self.assertLess(esp.index("if(count>=80) break;"),esp.index("GL11.glColor4f"))
         self.assertIn("Double.isFinite(x)",policy)
         self.assertIn('BOX_SKELETON("box_skeleton"',modes)
         self.assertIn("dev.ghostfusion.tests.EspSkeletonTests",content(".github/workflows/core-ci.yml"))

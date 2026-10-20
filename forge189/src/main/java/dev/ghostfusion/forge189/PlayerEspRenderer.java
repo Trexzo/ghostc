@@ -1,6 +1,7 @@
 package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.host.HostRuntime;
+import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.features.EspRenderMode;
 import dev.ghostfusion.features.EspSkeletonGeometry;
 import net.minecraft.client.Minecraft;
@@ -43,6 +44,7 @@ final class PlayerEspRenderer {
         final RenderManager rm=mc.getRenderManager();
         if (rm==null || !Double.isFinite(rm.viewerPosX) ||
             !Double.isFinite(rm.viewerPosY) || !Double.isFinite(rm.viewerPosZ)) return;
+        host.diagnostics().record(Counter.ESP_RENDER_FRAME);
         GL11.glPushMatrix();
         try {
             GL11.glTranslated(-rm.viewerPosX, -rm.viewerPosY, -rm.viewerPosZ);
@@ -74,11 +76,20 @@ final class PlayerEspRenderer {
                 if (!Double.isFinite(box.minX) || !Double.isFinite(box.minY) ||
                     !Double.isFinite(box.minZ) || !Double.isFinite(box.maxX) ||
                     !Double.isFinite(box.maxY) || !Double.isFinite(box.maxZ)) continue;
-                // Only valid, renderable players use the 80-player GL budget.
-                if(skeleton && !EspSkeletonGeometry.valid(xx,yy,zz,
-                    p.renderYawOffset,p.height,p.limbSwing,p.limbSwingAmount))
+                // No GL mode may submit invalid height/eye geometry. Skeleton
+                // interpolation additionally needs BOTH yaw samples and a
+                // legal frame fraction, not only a valid current body yaw.
+                if(!Double.isFinite(p.height) || p.height < 0.5 || p.height > 3.0 ||
+                   (skeleton && (!EspSkeletonGeometry.valid(xx,yy,zz,
+                       p.renderYawOffset,p.height,p.limbSwing,p.limbSwingAmount) ||
+                       !Double.isFinite(p.prevRenderYawOffset) ||
+                       partialTicks < 0f || partialTicks > 1f))) {
+                    host.diagnostics().record(Counter.ESP_INVALID_GEOMETRY);
                     continue;
-                if(++count>80) break;
+                }
+                // Limit successfully admitted players, not corrupt entries.
+                if(count>=80) break;
+                count++;
                 GL11.glColor4f(0.62f,0.56f,1.0f,0.82f);
                 if(boxes) wireBox(box);
                 if(skeleton) {
@@ -93,10 +104,13 @@ final class PlayerEspRenderer {
                 }
                 if(tracers) {
                     GL11.glBegin(GL11.GL_LINES);
-                    GL11.glVertex3d(rm.viewerPosX,rm.viewerPosY+mc.thePlayer.getEyeHeight(),rm.viewerPosZ);
-                    GL11.glVertex3d(xx,yy+p.height*0.5,zz);
-                    GL11.glEnd();
+                    try {
+                        GL11.glVertex3d(rm.viewerPosX,rm.viewerPosY+mc.thePlayer.getEyeHeight(),rm.viewerPosZ);
+                        GL11.glVertex3d(xx,yy+p.height*0.5,zz);
+                    } finally { GL11.glEnd(); }
                 }
+                host.diagnostics().record(Counter.ESP_DRAWN_PLAYER);
+                if(skeleton) host.diagnostics().record(Counter.ESP_DRAWN_SKELETON);
             }
         } finally {
             GL11.glPopMatrix();

@@ -21,7 +21,8 @@ public final class RuntimeDiagnostics {
         FOCUS_LOST, FOCUS_GAINED, SNAPSHOT,
         AIM_APPLIED, EXTRA_ATTACK, EXTRA_USE, INPUT_SUPPRESSED, FEATURE_FAULT,
         GUI_OPEN, GUI_FRAME, GUI_CLOSE, OVERLAY_FRAME, WORLD_RENDER_FRAME,
-        KEY_CALLBACK, MOUSE_CALLBACK
+        KEY_CALLBACK, MOUSE_CALLBACK,
+        ESP_RENDER_FRAME, ESP_DRAWN_PLAYER, ESP_DRAWN_SKELETON, ESP_INVALID_GEOMETRY
     }
     private final Thread owner = Thread.currentThread();
     private final EnumMap<Counter, Long> counters = new EnumMap<Counter,Long>(Counter.class);

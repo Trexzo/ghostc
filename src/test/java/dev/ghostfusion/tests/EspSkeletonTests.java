@@ -65,6 +65,10 @@ public final class EspSkeletonTests {
         ok(Math.abs(EspSkeletonGeometry.interpolateYaw(-179,179,.5)+180)<.00001,
            "negative wrapped yaw interpolation");
         rejects(()->EspSkeletonGeometry.interpolateYaw(0,1,Double.NaN),"bad interpolation refused");
+        rejects(()->EspSkeletonGeometry.interpolateYaw(Double.NaN,1,.5),
+            "previous nonfinite body yaw must be screened");
+        rejects(()->EspSkeletonGeometry.interpolateYaw(0,1,-.5),
+            "negative render fraction must not become GL geometry");
         rejects(()->EspSkeletonGeometry.interpolateYaw(0,1,2),"extrapolation refused");
         rejects(()->EspSkeletonGeometry.emit(0,0,0,0,1.8,false,0,0,null),
            "null sink refused");
