@@ -247,7 +247,7 @@ $lines = @(
 $diagPath = Join-Path $game 'config/ghostc/diagnostics-last.properties'
 if (Test-Path -LiteralPath $diagPath -PathType Leaf) {
     $safe = @(Get-Content -LiteralPath $diagPath |
-        Where-Object { $_ -match '^(?:count\.[a-z_]+|perf\.[a-z_]+|snap\.[a-z_]+)=[0-9]+\z' } |
+        Where-Object { $_ -match '^(?:count\.[a-z0-9_]+|perf\.[a-z0-9_]+|snap\.[a-z0-9_]+)=[0-9]+\z' } |
         Sort-Object)
     if ($safe.Count -gt 0) { $lines += $safe } else { $lines += '(No safe counter fields found)' }
 } else {

@@ -111,7 +111,7 @@ public final class SnapshotModeTests {
         ok("8".equals(props.getProperty("snap.mode_mixed_max_us")),"mixed max");
         for(String key:props.stringPropertyNames()) {
             if(key.startsWith("snap.")){
-                ok(key.matches("snap\\.[a-z_]+"),"safe field whitelist "+key);
+                ok(key.matches("snap\\.[a-z0-9_]+"),"safe field whitelist "+key);
                 ok(props.getProperty(key).matches("[0-9]+"),"numeric-only "+key);
             }
             ok(!key.contains("playername")&&!key.contains("address")&&!key.contains("server"),
