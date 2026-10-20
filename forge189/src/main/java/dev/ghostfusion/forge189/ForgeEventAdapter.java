@@ -79,7 +79,7 @@ public final class ForgeEventAdapter {
             final SnapshotDemand demand=SnapshotDemand.of(
                 host.featureEnabled("hud.target"),host.targetVisible(),host.targetRange(),
                 host.featureEnabled("combat.aimassist"),host.aimVisibleOnly(),host.aimRange());
-            final boolean profileSnapshot=host.diagnosticsEnabled();
+            final boolean profileSnapshot=host.snapshotProfilingEnabled();
             final long snapshotStart=profileSnapshot?System.nanoTime():0L;
             int scanned=0,passed=0,rays=0;
             nearestSnapshot.clear();
@@ -135,7 +135,8 @@ public final class ForgeEventAdapter {
                     minecraft.thePlayer.posX,minecraft.thePlayer.posY,minecraft.thePlayer.posZ,
                     minecraft.thePlayer.rotationYaw,minecraft.thePlayer.rotationPitch,players));
                 if(profileSnapshot)host.recordSnapshotWork(
-                    System.nanoTime()-snapshotStart,scanned,passed,rays,players.size());
+                    System.nanoTime()-snapshotStart,scanned,passed,rays,players.size(),
+                    demand.needVisible,demand.needUnfiltered);
             } finally {
                 nearestSnapshot.clear();
             }

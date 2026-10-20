@@ -170,7 +170,7 @@ class ForgeWiring(unittest.TestCase):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         meter=content("src/main/java/dev/ghostfusion/host/SnapshotTelemetry.java")
         diag=content("src/main/java/dev/ghostfusion/host/RuntimeDiagnostics.java")
-        self.assertIn("final boolean profileSnapshot=host.diagnosticsEnabled();",self.adapter)
+        self.assertIn("final boolean profileSnapshot=host.snapshotProfilingEnabled();",self.adapter)
         self.assertIn("final long snapshotStart=profileSnapshot?System.nanoTime():0L;",self.adapter)
         self.assertIn("if(profileSnapshot)scanned++;",self.adapter)
         self.assertIn("if(profileSnapshot)passed++;",self.adapter)
@@ -178,7 +178,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("host.recordSnapshotWork(",self.adapter)
         self.assertLess(self.adapter.index("host.services().publish(new WorldSnapshot("),
                         self.adapter.index("if(profileSnapshot)host.recordSnapshotWork("))
-        self.assertIn("if(!active() || !worldPresent || !diagnosticsEnabled())return;",host)
+        self.assertIn("if(!snapshotProfilingEnabled())return;",host)
         self.assertIn("snapshotTelemetry.record(elapsedNanos,scanned,inRange,losQueries,published)",host)
         self.assertIn("new long[MAX_US_BIN+1]",meter)
         self.assertIn("snap.p95_us",diag)
@@ -186,6 +186,28 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("Snapshot p50/p95/p99",self.feature)
         self.assertIn("dev.ghostfusion.tests.SnapshotTelemetryTests",
                       content(".github/workflows/core-ci.yml"))
+
+    def test_snapshot_classified_focus_and_numeric_report_wiring(self):
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        telemetry=content("src/main/java/dev/ghostfusion/host/SnapshotTelemetry.java")
+        diagnostics=content("src/main/java/dev/ghostfusion/host/RuntimeDiagnostics.java")
+        self.assertIn("return active() && worldPresent && !inputBlocked && diagnosticsEnabled();",host)
+        self.assertIn("if(!snapshotProfilingEnabled())return;",host)
+        self.assertIn("demand.needVisible,demand.needUnfiltered);",self.adapter)
+        self.assertIn("lastSnapshotMode=mode;",host)
+        self.assertIn("SnapshotTelemetry.Mode.from(needsVisible,needsUnfiltered)",host)
+        self.assertIn("OFF, VISIBLE_ONLY, UNFILTERED_ONLY, MIXED",telemetry)
+        self.assertIn("private final Bucket[] perMode=",telemetry)
+        self.assertIn("public Snapshot snapshot(Mode mode)",telemetry)
+        collector=content("tools/Invoke-GhostCAcceptance.ps1")
+        self.assertIn(r"count\.[a-z0-9_]+",collector)
+        self.assertIn(r"perf\.[a-z0-9_]+",collector)
+        self.assertIn(r"snap\.[a-z0-9_]+",collector)
+        self.assertIn(r"=[0-9]+\z",collector)
+        self.assertIn("saveWithSnapshotModes(",diagnostics)
+        self.assertIn("String prefix=\"snap.mode_\"",diagnostics)
+        self.assertIn("Last mode ",self.feature)
+        self.assertIn("dev.ghostfusion.tests.SnapshotModeTests",content(".github/workflows/core-ci.yml"))
 
     def test_snapshot_work_is_demand_and_range_gated_before_visibility_rays(self):
         source=self.adapter
@@ -252,7 +274,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("host.performancePause();",self.adapter)
         self.assertIn("framePerformance.suspend();",host)
         self.assertIn("framePerformance.frame(nowNanos,usedHeapBytes)",host)
-        self.assertIn("diagnostics.save(configDirectory,framePerformance.snapshot(),snapshotTelemetry.snapshot())",host)
+        self.assertIn("diagnostics.saveWithSnapshotModes(configDirectory,framePerformance.snapshot(),snapshotTelemetry)",host)
         self.assertIn("new long[MAX_FPS+1]",sample)
         self.assertIn("perf.frame_samples",diag)
         self.assertIn("perf.p99_fps",diag)
@@ -296,7 +318,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("nearest.offer(player,player.getEntityId(),distance)",esp)
         self.assertIn("if(skeleton) host.diagnostics().record(Counter.ESP_DRAWN_SKELETON)",esp)
         self.assertIn("finally { GL11.glEnd(); }",esp)
-        self.assertIn("int width=260, height=167;",ui)
+        self.assertIn("int width=286, height=180;",ui)
         self.assertIn("dev.ghostfusion.tests.EspTelemetryTests",
                       content(".github/workflows/core-ci.yml"))
 
