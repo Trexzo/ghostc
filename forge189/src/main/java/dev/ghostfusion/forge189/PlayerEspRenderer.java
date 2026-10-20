@@ -4,6 +4,7 @@ import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.features.EspRenderMode;
 import dev.ghostfusion.features.EspSkeletonGeometry;
+import dev.ghostfusion.features.EspHealthBarGeometry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.entity.player.EntityPlayer;
@@ -20,6 +21,26 @@ final class PlayerEspRenderer {
                              double x2,double y2,double z2) {
                 GL11.glVertex3d(x1,y1,z1);
                 GL11.glVertex3d(x2,y2,z2);
+            }
+        };
+    private static final EspHealthBarGeometry.Sink HEALTH_LINES =
+        new EspHealthBarGeometry.Sink() {
+            public void segment(boolean filled,double fraction,
+                                double x1,double y1,double z1,
+                                double x2,double y2,double z2) {
+                float hp=(float)fraction;
+                if(filled) {
+                    GL11.glLineWidth(3.0f);
+                    GL11.glColor4f(1.0f-hp,hp,0.20f,0.96f);
+                } else {
+                    GL11.glLineWidth(5.0f);
+                    GL11.glColor4f(0.11f,0.12f,0.18f,0.87f);
+                }
+                GL11.glBegin(GL11.GL_LINES);
+                try {
+                    GL11.glVertex3d(x1,y1,z1);
+                    GL11.glVertex3d(x2,y2,z2);
+                } finally { GL11.glEnd(); }
             }
         };
     PlayerEspRenderer(Minecraft minecraft, HostRuntime host) {
@@ -55,6 +76,7 @@ final class PlayerEspRenderer {
             boolean boxes=mode.boxes;
             boolean tracers=mode.tracers;
             boolean skeleton=mode.skeleton;
+            boolean health=host.espShowHealth();
             for(Object obj:mc.theWorld.playerEntities) {
                 if(!(obj instanceof EntityPlayer)) continue;
                 EntityPlayer p=(EntityPlayer)obj;
@@ -108,6 +130,19 @@ final class PlayerEspRenderer {
                         GL11.glVertex3d(rm.viewerPosX,rm.viewerPosY+mc.thePlayer.getEyeHeight(),rm.viewerPosZ);
                         GL11.glVertex3d(xx,yy+p.height*0.5,zz);
                     } finally { GL11.glEnd(); }
+                }
+                if(health) {
+                    // Malformed health or player width must not fault an
+                    // otherwise-valid ESP box, tracer or skeleton draw.
+                    boolean good;
+                    try {
+                        good=EspHealthBarGeometry.emit(xx,yy,zz,p.height,p.width,
+                            rm.viewerPosX,rm.viewerPosZ,p.getHealth(),p.getMaxHealth(),
+                            HEALTH_LINES);
+                    } finally {
+                        GL11.glLineWidth(host.espLineWidth());
+                    }
+                    if(!good) host.diagnostics().record(Counter.ESP_INVALID_GEOMETRY);
                 }
                 host.diagnostics().record(Counter.ESP_DRAWN_PLAYER);
                 if(skeleton) host.diagnostics().record(Counter.ESP_DRAWN_SKELETON);
