@@ -214,6 +214,7 @@ $lines = @(
     '- [ ] F7 ClickGUI opens/closes, and module search/settings work',
     '- [ ] F8 status HUD toggles and remapped Keystrokes labels are correct',
     '- [ ] Rendering and Target HUD behave correctly in an authorized local world',
+    '- [ ] Runtime Diagnostics fits smaller scaled windows, clips long counters and retains FPS/snapshot summary',
     '- [ ] Target HUD long names truncate without overlapping right-aligned HP text',
     '- [ ] Target HUD formatting codes and supplementary Unicode render safely without stalls',
     '- [ ] Target HUD health_text values/percent options display and persist',
