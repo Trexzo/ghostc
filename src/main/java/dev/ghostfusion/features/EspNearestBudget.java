@@ -24,6 +24,27 @@ public final class EspNearestBudget<T> {
         if(Thread.currentThread()!=owner)
             throw new IllegalStateException("ESP budget requires render owner thread");
     }
+    /**
+     * Non-mutating admission hint for expensive renderer checks.
+     * False means offer(id,distanceSq) could not change the selected
+     * nearest-N set, even if the candidate passed visibility/geometry.
+     * True is conservative: offer may still reject null objects.
+     * O(capacity) duplicate detection, no allocations, owner-thread only.
+     */
+    public boolean couldEnter(int id,double distanceSq) {
+        check();
+        if(!Double.isFinite(distanceSq)||distanceSq<0)return false;
+        if(size==players.length) {
+            int last=size-1;
+            if(distanceSq>distances[last] ||
+                (distanceSq==distances[last] && id>=ids[last]))
+                return false;
+        }
+        for(int i=0;i<size;i++) {
+            if(ids[i]==id)return distanceSq<distances[i];
+        }
+        return true;
+    }
     public boolean offer(T player,int id,double distanceSq) {
         check();
         if(player==null || !Double.isFinite(distanceSq) || distanceSq<0)

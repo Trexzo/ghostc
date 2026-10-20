@@ -25,6 +25,9 @@ public final class EspNearestBudgetTests {
             "256 snapshot capacity is legal without changing 80 ESP cap");
         EspNearestBudget<String> budget=new EspNearestBudget<String>(3);
         ok(budget.size()==0,"empty selection");
+        ok(budget.couldEnter(1,1),"empty budget permits finite entry");
+        ok(!budget.couldEnter(1,Double.NaN),"preflight rejects NaN");
+        ok(!budget.couldEnter(1,-1),"preflight rejects negative distance");
         ok(!budget.offer(null,1,3),"null player ignored");
         ok(!budget.offer("nan",2,Double.NaN),"nan distance ignored");
         ok(!budget.offer("negative",3,-1),"negative distance ignored");
@@ -40,6 +43,12 @@ public final class EspNearestBudgetTests {
             "mid".equals(budget.get(2)),"nearest order and eviction");
         ok(budget.distanceAt(0)==0&&budget.distanceAt(1)==1&&
             budget.distanceAt(2)==10,"distance ordering");
+        ok(!budget.couldEnter(20,10),"tie with worse entity ID cannot enter");
+        ok(budget.couldEnter(0,10),"equal-distance better ID can enter");
+        ok(!budget.couldEnter(6,2),"worse duplicate cannot enter");
+        ok(budget.couldEnter(2,9),"closer duplicate can replace");
+        ok(!budget.couldEnter(9,41),"farther-than-worst cannot enter");
+        ok(budget.size()==3,"admission hint is strictly read only");
         rejects(()->budget.get(3),"bounds check");
         budget.clear();
         ok(budget.size()==0,"clear erases all admitted players");
