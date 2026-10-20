@@ -42,6 +42,8 @@ jobs:
           grep -q 'SERVICES_REGRESSION_PASS' .build/services.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.FeatureTests | tee .build/features.log
           grep -q 'FEATURE_REGRESSION_PASS' .build/features.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.EspSkeletonTests | tee .build/esp-skeleton.log
+          grep -q 'ESP_SKELETON_PASS' .build/esp-skeleton.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.CombatTests | tee .build/combat.log
           grep -q 'COMBAT_REGRESSION_PASS' .build/combat.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.CombatIsolationTests | tee .build/combat-isolation.log
