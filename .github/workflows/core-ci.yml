@@ -54,6 +54,8 @@ jobs:
           grep -q 'ESP_LINE_COLOR_PASS' .build/esp-color.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.EspHealthBarTests | tee .build/esp-health-bar.log
           grep -q 'ESP_HEALTH_BAR_PASS' .build/esp-health-bar.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.EspCornerBoxTests | tee .build/esp-corner.log
+          grep -q 'ESP_CORNER_BOX_PASS' .build/esp-corner.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.EspSkeletonTests | tee .build/esp-skeleton.log
           grep -q 'ESP_SKELETON_PASS' .build/esp-skeleton.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.CombatTests | tee .build/combat.log

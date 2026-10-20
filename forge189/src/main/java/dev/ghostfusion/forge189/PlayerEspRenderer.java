@@ -7,6 +7,7 @@ import dev.ghostfusion.features.EspNearestBudget;
 import dev.ghostfusion.features.EspSkeletonGeometry;
 import dev.ghostfusion.features.EspHealthBarGeometry;
 import dev.ghostfusion.features.EspLineColor;
+import dev.ghostfusion.features.EspCornerBoxGeometry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.entity.player.EntityPlayer;
@@ -22,6 +23,16 @@ final class PlayerEspRenderer {
     private final EspNearestBudget<EntityPlayer> nearest=new EspNearestBudget<EntityPlayer>(80);
     private static final EspSkeletonGeometry.Sink SKELETON_LINES =
         new EspSkeletonGeometry.Sink() {
+            public void line(double x1,double y1,double z1,
+                             double x2,double y2,double z2) {
+                GL11.glVertex3d(x1,y1,z1);
+                GL11.glVertex3d(x2,y2,z2);
+            }
+        };
+    // GL emission is batched once for each corner box; never allocates a
+    // temporary coordinate array for an individual player.
+    private static final EspCornerBoxGeometry.Sink CORNER_LINES =
+        new EspCornerBoxGeometry.Sink() {
             public void line(double x1,double y1,double z1,
                              double x2,double y2,double z2) {
                 GL11.glVertex3d(x1,y1,z1);
@@ -81,6 +92,8 @@ final class PlayerEspRenderer {
             boolean boxes=mode.boxes;
             boolean tracers=mode.tracers;
             boolean skeleton=mode.skeleton;
+            boolean corners=mode.corners;
+            final double cornerLength=host.espCornerLength();
             boolean health=host.espShowHealth();
             // Resolve once per rendered frame: no per-player configuration
             // reads or transient color-array allocations.
@@ -97,7 +110,7 @@ final class PlayerEspRenderer {
                     if(host.espVisible() && !mc.thePlayer.canEntityBeSeen(player)) continue;
                     double distance=mc.thePlayer.getDistanceSqToEntity(player);
                     if(!Double.isFinite(distance) || distance<0 || distance>limitSq) continue;
-                    if(!renderable(player,partialTicks,skeleton)) continue;
+                    if(!renderable(player,partialTicks,skeleton,corners,cornerLength)) continue;
                     nearest.offer(player,player.getEntityId(),distance);
                 }
                 for(int index=0;index<nearest.size();index++) {
@@ -110,6 +123,13 @@ final class PlayerEspRenderer {
                 GL11.glColor4f(appearance.red,appearance.green,
                     appearance.blue,appearance.opacity);
                 if(boxes) wireBox(box);
+                if(corners) {
+                    GL11.glBegin(GL11.GL_LINES);
+                    try {
+                        EspCornerBoxGeometry.emit(box.minX,box.minY,box.minZ,
+                            box.maxX,box.maxY,box.maxZ,cornerLength,CORNER_LINES);
+                    } finally { GL11.glEnd(); }
+                }
                 if(skeleton) {
                     double yaw=EspSkeletonGeometry.interpolateYaw(
                         p.prevRenderYawOffset,p.renderYawOffset,partialTicks);
@@ -151,7 +171,8 @@ final class PlayerEspRenderer {
         }
     }
     /** Pure read-only admission; no OpenGL state or entity list mutation. */
-    private boolean renderable(EntityPlayer p,float partialTicks,boolean skeleton) {
+    private boolean renderable(EntityPlayer p,float partialTicks,
+                               boolean skeleton,boolean corners,double cornerLength) {
         double xx=p.lastTickPosX+(p.posX-p.lastTickPosX)*partialTicks;
         double yy=p.lastTickPosY+(p.posY-p.lastTickPosY)*partialTicks;
         double zz=p.lastTickPosZ+(p.posZ-p.lastTickPosZ)*partialTicks;
@@ -164,6 +185,11 @@ final class PlayerEspRenderer {
         AxisAlignedBB box=original.offset(xx-p.posX,yy-p.posY,zz-p.posZ)
             .expand(0.04,0.06,0.04);
         if(!finiteBox(box))return false;
+        if(corners && !EspCornerBoxGeometry.valid(
+            box.minX,box.minY,box.minZ,box.maxX,box.maxY,box.maxZ,cornerLength)) {
+            host.diagnostics().record(Counter.ESP_INVALID_GEOMETRY);
+            return false;
+        }
         if(!Double.isFinite(p.height)||p.height<0.5||p.height>3.0 ||
             (skeleton && (!EspSkeletonGeometry.valid(xx,yy,zz,
                 p.renderYawOffset,p.height,p.limbSwing,p.limbSwingAmount) ||
