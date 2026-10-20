@@ -1,4 +1,4 @@
-package dev.ghostfusion.forge189;
+package dev.ghostfusion.features;
 
 /**
  * Fixed-capacity, deterministic nearest-player priority buffer.

@@ -3,6 +3,7 @@ package dev.ghostfusion.forge189;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.features.EspRenderMode;
+import dev.ghostfusion.features.EspNearestBudget;
 import dev.ghostfusion.features.EspSkeletonGeometry;
 import dev.ghostfusion.features.EspHealthBarGeometry;
 import net.minecraft.client.Minecraft;
