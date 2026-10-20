@@ -30,6 +30,7 @@ REQUIRED = (
     "dev/ghostfusion/features/EspLineColor.class",
     "dev/ghostfusion/features/EspDistanceFade.class",
     "dev/ghostfusion/features/EspNearestBudget.class",
+    "dev/ghostfusion/features/EspDrawLimit.class",
     "dev/ghostfusion/services/WorldSnapshotAdmission.class",
     "dev/ghostfusion/services/SnapshotDemand.class",
 )

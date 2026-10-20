@@ -59,6 +59,10 @@ public final class HostRuntime {
     private final Setting.Bool espWalls = new Setting.Bool("through_walls", false);
     private final Setting.Bool espHealth = new Setting.Bool("show_health", false);
     private final Setting.Number espWidth = new Setting.Number("line_width", 1.5, 1.0, 4.0);
+    // Drawing budget only: detection, visibility, and nearest-80 membership
+    // remain unchanged. Old profiles draw the same maximum of 80 players.
+    private final Setting.Number espDrawLimit =
+        new Setting.Number("max_players", 80.0, 1.0, 80.0);
     private final Setting.Number espCornerLength =
         new Setting.Number("corner_length", 0.26, 0.10, 0.50);
     // Independent translucent surface opacity. Existing line alpha is not changed.
@@ -121,7 +125,7 @@ public final class HostRuntime {
         modules.register(new FeatureModule("render.esp", "Player ESP", GhostModule.Category.RENDER),
             0, espRange, espVisible, espWalls, espWidth, espStyle, espHealth,
             espRed, espGreen, espBlue, espOpacity, espCornerLength, espFillOpacity,
-            espDistanceFade, espFadeStart, espFadeMinimum);
+            espDistanceFade, espFadeStart, espFadeMinimum, espDrawLimit);
         modules.register(new FeatureModule("movement.sprint", "Auto Sprint", GhostModule.Category.MOVEMENT),
             0);
         modules.register(new FeatureModule("combat.aimassist", "Aim Assist", GhostModule.Category.COMBAT),
@@ -242,6 +246,9 @@ public final class HostRuntime {
     public boolean espThroughWalls() { modules.assertOwnerThread(); return espWalls.get(); }
     public boolean espShowHealth() { modules.assertOwnerThread(); return espHealth.get(); }
     public float espLineWidth() { modules.assertOwnerThread(); return espWidth.get().floatValue(); }
+    public int espMaxPlayers() {
+        modules.assertOwnerThread(); return espDrawLimit.get().intValue();
+    }
     public double espCornerLength() {
         modules.assertOwnerThread(); return espCornerLength.get();
     }

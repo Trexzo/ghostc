@@ -170,6 +170,11 @@ public final class FeatureTests {
            Math.abs(host.espFadeStart()-.50)<.000001 &&
            Math.abs(host.espFadeMinimum()-.25)<.000001,
            "legacy ESP profile keeps all line and fill opacity unchanged");
+        ok(host.espMaxPlayers()==80,"old profiles retain all 80 ESP draws");
+        host.uiActions().fraction("render.esp","max_players",0);
+        ok(host.espMaxPlayers()==1,"existing numeric GUI can bound renderer to 1");
+        host.uiActions().fraction("render.esp","max_players",1.0);
+        ok(host.espMaxPlayers()==80,"original 80 draw limit restored");
         host.uiActions().bool("render.esp","distance_fade");
         host.uiActions().fraction("render.esp","fade_start",1.0);
         host.uiActions().fraction("render.esp","fade_min_opacity",0.0);
@@ -214,6 +219,8 @@ public final class FeatureTests {
            Math.abs(restored.espFadeStart()-.90)<.000001 &&
            Math.abs(restored.espFadeMinimum()-.05)<.000001,
            "fade settings survive existing profile serializer");
+        ok(restored.espMaxPlayers()==80,
+           "full default draw limit preserved through original profile serializer");
         ok(restored.espLineColor().red==1f &&
            Math.abs(restored.espLineColor().green-.1f)<.000001 &&
            restored.espLineColor().blue==0f &&

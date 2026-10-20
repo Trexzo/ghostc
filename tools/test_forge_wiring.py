@@ -357,8 +357,8 @@ class ForgeWiring(unittest.TestCase):
     def test_translucent_surface_order_and_legacy_mode_selection(self):
         esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
         policy=content("src/main/java/dev/ghostfusion/features/EspFilledBoxGeometry.java")
-        self.assertIn("for(int index=0;index<nearest.size();index++)",esp)
-        self.assertIn("EntityPlayer p=nearest.get(filled?nearest.size()-1-index:index);",esp)
+        self.assertIn("for(int index=0;index<draws;index++)",esp)
+        self.assertIn("EntityPlayer p=nearest.get(slot);",esp)
         self.assertIn("EspFilledBoxGeometry.emitBackToFront(box.minX,box.minY,box.minZ,",esp)
         self.assertIn("rm.viewerPosX,rm.viewerPosY,rm.viewerPosZ,FILL_FACES);",esp)
         self.assertLess(esp.index("GL11.glBegin(GL11.GL_QUADS);"),
@@ -370,6 +370,29 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.EspBlendOrderTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_range_first_los_and_optional_nearest_draw_budget(self):
+        esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        policy=content("src/main/java/dev/ghostfusion/features/EspDrawLimit.java")
+        self.assertIn('new Setting.Number("max_players", 80.0, 1.0, 80.0)',host)
+        self.assertIn("espDistanceFade, espFadeStart, espFadeMinimum, espDrawLimit);",host)
+        self.assertIn("final int drawBudget=host.espMaxPlayers();",esp)
+        self.assertIn("final boolean visibleOnly=host.espVisible();",esp)
+        self.assertLess(esp.index("double distance=mc.thePlayer.getDistanceSqToEntity(player);"),
+                        esp.index("if(visibleOnly && !mc.thePlayer.canEntityBeSeen(player)) continue;"))
+        self.assertLess(esp.index("if(visibleOnly && !mc.thePlayer.canEntityBeSeen(player)) continue;"),
+                        esp.index("nearest.offer(player,player.getEntityId(),distance);"))
+        self.assertIn("final int draws=EspDrawLimit.count(drawBudget,nearest.size());",esp)
+        self.assertIn("final int slot=EspDrawLimit.slot(index,draws,filled);",esp)
+        self.assertIn("EntityPlayer p=nearest.get(slot);",esp)
+        self.assertIn("nearest.distanceAt(slot)",esp)
+        self.assertNotIn("mc.thePlayer.getDistanceSqToEntity(p)",esp)
+        self.assertIn("return Math.min(configured,available);",policy)
+        self.assertIn("return filled ? drawCount-1-drawIndex : drawIndex;",policy)
+        self.assertIn("dev.ghostfusion.tests.EspDrawLimitTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("EspDrawLimit.class",content("tools/verify_forge_jar.py"))
+
     def test_opt_in_distance_fade_path_preserves_health_and_defaults(self):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
@@ -377,7 +400,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('new Setting.Bool("distance_fade", false)',host)
         self.assertIn('new Setting.Number("fade_start", 0.50, 0.0, 0.90)',host)
         self.assertIn('new Setting.Number("fade_min_opacity", 0.25, 0.05, 1.0)',host)
-        self.assertIn("espDistanceFade, espFadeStart, espFadeMinimum);",host)
+        self.assertIn("espDistanceFade, espFadeStart, espFadeMinimum, espDrawLimit);",host)
         self.assertIn("final float fade=fadeEnabled ? EspDistanceFade.factor(",esp)
         self.assertIn("maximum,true,fadeStart,fadeMinimum) : 1f;",esp)
         self.assertIn("final float lineAlpha=appearance.opacity*fade;",esp)
@@ -472,8 +495,8 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("new EspNearestBudget<EntityPlayer>(80)",esp)
         self.assertIn("double distance=mc.thePlayer.getDistanceSqToEntity(player);",esp)
         self.assertIn("nearest.offer(player,player.getEntityId(),distance)",esp)
-        self.assertIn("for(int index=0;index<nearest.size();index++)",esp)
-        self.assertIn("EntityPlayer p=nearest.get(filled?nearest.size()-1-index:index);",esp)
+        self.assertIn("for(int index=0;index<draws;index++)",esp)
+        self.assertIn("EntityPlayer p=nearest.get(slot);",esp)
         self.assertGreaterEqual(esp.count("nearest.clear();"),2)
         self.assertIn("} finally {\n                nearest.clear();",esp)
         self.assertIn("private boolean renderable(EntityPlayer p,float partialTicks,",esp)
