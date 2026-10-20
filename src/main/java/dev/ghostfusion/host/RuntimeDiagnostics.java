@@ -49,11 +49,11 @@ public final class RuntimeDiagnostics {
     }
     /** Called only on opt-in module enablement during disconnect or host close. */
     public void save(Path directory) throws IOException {
-        save(directory,null,null);
+        saveReport(directory,null,null,null);
     }
     /** Preserve the established frame-only reporting API. */
     public void save(Path directory,FramePerformance.Snapshot perf) throws IOException {
-        save(directory,perf,null);
+        saveReport(directory,perf,null,null);
     }
     /** Optional anonymized frame and snapshot-work acceptance aggregates. */
     public void save(Path directory,FramePerformance.Snapshot perf,
