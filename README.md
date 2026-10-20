@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R2.8:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R2.9:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R2.9 active gameplay performance telemetry: optional diagnostics now samples actual Forge overlay callback intervals into a fixed 1001-bin FPS histogram (min/p50/p95/p99/max, rounded FPS), and tracks sampled JVM heap/peak MiB. GUI/chat/focus/world changes or turning diagnostics off suspend the interval timer. Counts and heap aggregates export as safe numeric fields in the existing Windows acceptance report; no process, player, server or chat data is retained. These measure callback cadence rather than confirmed displayed pixels, GPU timings or a completed gameplay soak.
 - R2.8 in-game ESP diagnostics bridge: counts actual client-thread ESP renderer frames, submitted player draws, submitted skeleton draws, and rejected invalid geometry without retaining player names, locations or server details. The in-game opt-in diagnostics HUD and local counter-only export surface those counts. Validates both current and previous skeleton body yaw, render interpolation fraction and height on **all** ESP modes before GL vertices are issued. Adds a versioned acceptance checklist to cross-check visible results, but no automated test claims a successful Minecraft GUI launch.
 - R2.7 original skeleton ESP: adds selectable `skeleton` and `box_skeleton` modes alongside the existing `box`, `tracer`, `both`. A first-party Java-8-compatible body-oriented schematic 15-bone player overlay supports interpolation, movement swing and crouch. Rendering retains the existing visibility, depth, range, style and OpenGL guards. Only fully validated players count against the per-frame 80-player cap. Deterministic 14,000-pose regression replays and JAR class-inventory checks are included; visual results remain unverified in game.
 - R2.6 recovery transaction and bounded read: the actual input stream is capped at 1 MiB (including concurrent growth); legacy schema-1 files are also limited to 4096 parsed fields. Failed typed validation of a backup can no longer modify live module or UI settings before file recovery succeeds. Restoration promotes the **same exact staged and validated backup bytes** rather than applying one revision and restoring another.
@@ -98,5 +99,6 @@ See [issues](../../issues) for Forge runtime acceptance (#2), ClickGUI/HUD (#3),
 - [R2.6 transactional recovery and bounded config admission](docs/RUNTIME_R26.md)
 - [R2.7 skeleton ESP modes and geometry](docs/RUNTIME_R27.md)
 - [R2.8 ESP runtime observability and geometry admission](docs/RUNTIME_R28.md)
+- [R2.9 focused-frame performance and bounded heap statistics](docs/RUNTIME_R29.md)
 - [Provenance](docs/PROVENANCE.md)
 - [Verification](docs/VERIFICATION.md)

@@ -131,6 +131,13 @@ public final class ForgeEventAdapter {
     public void onOverlay(RenderGameOverlayEvent.Text event) {
         host.diagnostics().record(Counter.OVERLAY_FRAME);
         if (!worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) return;
+        if(host.diagnosticsEnabled()) {
+            final Runtime memory=Runtime.getRuntime();
+            host.performanceFrame(System.nanoTime(),memory.totalMemory()-memory.freeMemory(),
+                minecraft.currentScreen==null && minecraft.inGameHasFocus);
+        } else {
+            host.performancePause();
+        }
         final boolean status=host.render2d();
         final boolean metrics=host.metricsFrameRequested();
         final ScaledResolution resolution=event.resolution;

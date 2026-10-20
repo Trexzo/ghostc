@@ -220,6 +220,9 @@ $lines = @(
     '- [ ] Invalid geometry counter stays low, with no auto-disabled ESP module',
     '- [ ] Focus/GUI/reconnect do not leave synthetic attack/use held',
     '- [ ] Profile changes survive restart, and Rollback can restore the old JARs',
+    '- [ ] FPS min/p50/p95/p99 and JVM heap peak observed during focused gameplay',
+    '- [ ] GUI/focus/world switching does not distort frame-time samples',
+    '- [ ] A representative 60-minute soak checked for crashes, memory/FPS and faults',
     '- [ ] Gameplay responsiveness and a representative soak session checked',
     '',
     '## Local diagnostics (counts only; no raw latest.log is copied)',
@@ -228,7 +231,7 @@ $lines = @(
 $diagPath = Join-Path $game 'config/ghostc/diagnostics-last.properties'
 if (Test-Path -LiteralPath $diagPath -PathType Leaf) {
     $safe = @(Get-Content -LiteralPath $diagPath |
-        Where-Object { $_ -match '^count\.[a-z_]+=[0-9]+$' } |
+        Where-Object { $_ -match '^(?:count\.[a-z_]+|perf\.[a-z_]+)=[0-9]+$' } |
         Sort-Object)
     if ($safe.Count -gt 0) { $lines += $safe } else { $lines += '(No safe counter fields found)' }
 } else {
@@ -237,6 +240,8 @@ if (Test-Path -LiteralPath $diagPath -PathType Leaf) {
 $lines += @(
     '',
     'ESP counters count render submissions, NOT confirmed visible pixels or FPS.',
+    'Rounded FPS is a frame-interval estimate, NOT actual GPU time.',
+    'JVM heap measurements exclude system/GPU/process memory.',
     'Raw latest.log, screenshots and crash reports are intentionally NOT included.',
     'Review/redact account names, addresses, chat and private details before sharing.',
     'This report and the build hash are evidence of installation only, not successful in-game play.'

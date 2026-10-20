@@ -131,6 +131,25 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("session.snapshot().tick!=session.tick()",combat)
         self.assertIn("pitch>=-90f && pitch<=90f",snap)
 
+    def test_forge_frame_performance_is_focused_and_opt_in(self):
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        sample=content("src/main/java/dev/ghostfusion/host/FramePerformance.java")
+        diag=content("src/main/java/dev/ghostfusion/host/RuntimeDiagnostics.java")
+        self.assertIn("host.performanceFrame(System.nanoTime()",self.adapter)
+        self.assertIn("minecraft.currentScreen==null && minecraft.inGameHasFocus",self.adapter)
+        self.assertIn("host.diagnosticsEnabled()",self.adapter)
+        self.assertIn("host.performancePause();",self.adapter)
+        self.assertIn("framePerformance.suspend();",host)
+        self.assertIn("framePerformance.frame(nowNanos,usedHeapBytes)",host)
+        self.assertIn("diagnostics.save(configDirectory,framePerformance.snapshot())",host)
+        self.assertIn("new long[MAX_FPS+1]",sample)
+        self.assertIn("perf.frame_samples",diag)
+        self.assertIn("perf.p99_fps",diag)
+        self.assertIn("perf.peak_heap_mib",diag)
+        self.assertIn("String fps=\"FPS min/p50/p95/p99 \"",self.feature)
+        self.assertIn("dev.ghostfusion.tests.FramePerformanceTests",
+                      content(".github/workflows/core-ci.yml"))
+
     def test_esp_runtime_diagnostics_and_malformed_player_screening(self):
         esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
         diagnostics=content("src/main/java/dev/ghostfusion/host/RuntimeDiagnostics.java")
@@ -146,7 +165,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("if(count>=80) break;",esp)
         self.assertIn("if(skeleton) host.diagnostics().record(Counter.ESP_DRAWN_SKELETON)",esp)
         self.assertIn("finally { GL11.glEnd(); }",esp)
-        self.assertIn("int width=208, height=108;",ui)
+        self.assertIn("int width=236, height=134;",ui)
         self.assertIn("dev.ghostfusion.tests.EspTelemetryTests",
                       content(".github/workflows/core-ci.yml"))
 
