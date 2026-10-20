@@ -162,7 +162,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("p.prevRenderYawOffset,p.renderYawOffset,partialTicks",esp)
         self.assertIn("GL11.glBegin(GL11.GL_LINES)",esp)
         self.assertIn("finally { GL11.glEnd(); }",esp)
-        self.assertIn("only valid",esp.lower())
+        self.assertIn("Limit successfully admitted players",esp)
         self.assertLess(esp.index("if(count>=80) break;"),esp.index("GL11.glColor4f"))
         self.assertIn("Double.isFinite(x)",policy)
         self.assertIn('BOX_SKELETON("box_skeleton"',modes)
