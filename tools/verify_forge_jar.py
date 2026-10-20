@@ -22,6 +22,8 @@ REQUIRED = (
     "dev/ghostfusion/core/ModuleRegistry.class",
     "dev/ghostfusion/services/SessionServices.class",
     "dev/ghostfusion/features/PhysicalInputGate.class",
+    "dev/ghostfusion/features/EspRenderMode.class",
+    "dev/ghostfusion/features/EspSkeletonGeometry.class",
 )
 
 

@@ -131,6 +131,24 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("session.snapshot().tick!=session.tick()",combat)
         self.assertIn("pitch>=-90f && pitch<=90f",snap)
 
+    def test_original_skeleton_esp_mode_is_wired_to_forge(self):
+        esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        policy=content("src/main/java/dev/ghostfusion/features/EspSkeletonGeometry.java")
+        modes=content("src/main/java/dev/ghostfusion/features/EspRenderMode.java")
+        self.assertIn('"skeleton", "box_skeleton"',host)
+        self.assertIn("EspRenderMode.of(host.espStyle())",esp)
+        self.assertIn("mode.skeleton",esp)
+        self.assertIn("EspSkeletonGeometry.emit(xx,yy,zz,yaw",esp)
+        self.assertIn("p.prevRenderYawOffset,p.renderYawOffset,partialTicks",esp)
+        self.assertIn("GL11.glBegin(GL11.GL_LINES)",esp)
+        self.assertIn("finally { GL11.glEnd(); }",esp)
+        self.assertIn("only valid",esp.lower())
+        self.assertLess(esp.index("if(++count>80) break;"),esp.index("GL11.glColor4f"))
+        self.assertIn("Double.isFinite(x)",policy)
+        self.assertIn('BOX_SKELETON("box_skeleton"',modes)
+        self.assertIn("dev.ghostfusion.tests.EspSkeletonTests",content(".github/workflows/core-ci.yml"))
+
     def test_esp_interpolated_geometry_is_finite(self):
         esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
         self.assertIn("Double.isFinite(xx)",esp)

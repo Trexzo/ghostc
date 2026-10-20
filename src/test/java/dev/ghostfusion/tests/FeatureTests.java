@@ -168,6 +168,13 @@ public final class FeatureTests {
         ok(restored.targetRange()==24.0 && !restored.targetVisible(),"target settings persisted");
         ok(restored.espRange()==80.0 && restored.espThroughWalls(),"ESP settings persisted");
         ok("tracer".equals(restored.espStyle()),"ESP style persisted");
+        restored.uiActions().cycle("render.esp","style");
+        ok("both".equals(restored.espStyle()),"legacy combined ESP mode preserved");
+        restored.uiActions().cycle("render.esp","style");
+        ok("skeleton".equals(restored.espStyle()),"new skeleton ESP style selectable");
+        restored.uiActions().cycle("render.esp","style");
+        ok("box_skeleton".equals(restored.espStyle()),"new box skeleton style selectable");
+        restored.persist();
         ok(restored.modules().get("hud.cps").state()==ModuleRegistry.State.DISABLED,
             "non-status module hotkey change persisted");
         restored.worldPresence(true);

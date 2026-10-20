@@ -55,7 +55,7 @@ public final class HostRuntime {
     private final Setting.Bool espVisible = new Setting.Bool("visible_only", true);
     private final Setting.Bool espWalls = new Setting.Bool("through_walls", false);
     private final Setting.Number espWidth = new Setting.Number("line_width", 1.5, 1.0, 4.0);
-    private final Setting.Choice espStyle = new Setting.Choice("style", "box", "box", "tracer", "both");
+    private final Setting.Choice espStyle = new Setting.Choice("style", "box", "box", "tracer", "both", "skeleton", "box_skeleton");
     private final Setting.Number aimRange = new Setting.Number("range", 4.5, 2.0, 6.0);
     private final Setting.Number aimFov = new Setting.Number("fov", 30.0, 5.0, 90.0);
     private final Setting.Number aimSpeed = new Setting.Number("degrees_per_tick", 4.0, 0.5, 15.0);
