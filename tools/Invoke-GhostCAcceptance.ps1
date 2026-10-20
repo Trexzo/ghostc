@@ -219,6 +219,8 @@ $lines = @(
     '- [ ] ESP health bar camera orientation, distance, depth and wall policy verified',
     '- [ ] Crowded 80+ player world prioritizes nearby ESP players regardless of entity-list order',
     '- [ ] Crowded 256+ player world retains nearby Target HUD and Aim Assist candidates',
+    '- [ ] Crowded occluded players cannot crowd out visible-only HUD/aim targets',
+    '- [ ] With visible_only disabled, nearest occluded targets remain selectable',
     '- [ ] ESP and health bars remain correct after many world/dimension switches',
     '- [ ] ESP occlusion/through-walls, distance filters and scene switching checked',
     '- [ ] Diagnostics enabled: ESP frame/player/skeleton counters rise as expected',
