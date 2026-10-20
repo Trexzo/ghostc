@@ -354,6 +354,22 @@ class ForgeWiring(unittest.TestCase):
                       content(".github/workflows/core-ci.yml"))
         self.assertIn("EspLineColor.class",content("tools/verify_forge_jar.py"))
 
+    def test_translucent_surface_order_and_legacy_mode_selection(self):
+        esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
+        policy=content("src/main/java/dev/ghostfusion/features/EspFilledBoxGeometry.java")
+        self.assertIn("for(int index=0;index<nearest.size();index++)",esp)
+        self.assertIn("EntityPlayer p=nearest.get(filled?nearest.size()-1-index:index);",esp)
+        self.assertIn("EspFilledBoxGeometry.emitBackToFront(box.minX,box.minY,box.minZ,",esp)
+        self.assertIn("rm.viewerPosX,rm.viewerPosY,rm.viewerPosZ,FILL_FACES);",esp)
+        self.assertLess(esp.index("GL11.glBegin(GL11.GL_QUADS);"),
+                        esp.index("if(boxes) wireBox(box);"))
+        self.assertIn("while(emitted!=63)",policy)
+        self.assertIn("if(!Double.isFinite(faceDistanceSq(face,",policy)
+        self.assertIn("if(selected<0 || distance>largest)",policy)
+        self.assertIn("for(int i=0;i<6;i++)emitFace(i,",policy)
+        self.assertIn("dev.ghostfusion.tests.EspBlendOrderTests",
+                      content(".github/workflows/core-ci.yml"))
+
     def test_filled_box_surface_mode_and_gl_state_guard(self):
         esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
@@ -373,7 +389,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("GL11.glBegin(GL11.GL_QUADS);",esp)
         self.assertIn("appearance.blue,appearance.opacity*fillOpacity",esp)
         self.assertIn("appearance.blue,appearance.opacity);",esp)
-        self.assertIn("EspFilledBoxGeometry.emit(box.minX,box.minY,box.minZ,",esp)
+        self.assertIn("EspFilledBoxGeometry.emitBackToFront(box.minX,box.minY,box.minZ,",esp)
         self.assertLess(esp.index("GL11.glBegin(GL11.GL_QUADS);"),
                         esp.index("if(boxes) wireBox(box);"))
         self.assertIn("finally { GL11.glEnd(); }",esp)
@@ -438,7 +454,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("double distance=mc.thePlayer.getDistanceSqToEntity(player);",esp)
         self.assertIn("nearest.offer(player,player.getEntityId(),distance)",esp)
         self.assertIn("for(int index=0;index<nearest.size();index++)",esp)
-        self.assertIn("EntityPlayer p=nearest.get(index);",esp)
+        self.assertIn("EntityPlayer p=nearest.get(filled?nearest.size()-1-index:index);",esp)
         self.assertGreaterEqual(esp.count("nearest.clear();"),2)
         self.assertIn("} finally {\n                nearest.clear();",esp)
         self.assertIn("private boolean renderable(EntityPlayer p,float partialTicks,",esp)
