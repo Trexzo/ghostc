@@ -389,6 +389,28 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.EspBlendOrderTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_full_esp_budget_prunes_impossible_candidates_before_visibility(self):
+        esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
+        budget=content("src/main/java/dev/ghostfusion/features/EspNearestBudget.java")
+        self.assertIn("if(!nearest.couldEnter(player.getEntityId(),distance)) continue;",esp)
+        self.assertLess(
+            esp.index("if(!Double.isFinite(distance) || distance<0 || distance>limitSq) continue;"),
+            esp.index("if(!nearest.couldEnter(player.getEntityId(),distance)) continue;"))
+        self.assertLess(
+            esp.index("if(!nearest.couldEnter(player.getEntityId(),distance)) continue;"),
+            esp.index("if(visibleOnly && !mc.thePlayer.canEntityBeSeen(player)) continue;"))
+        self.assertLess(
+            esp.index("if(!nearest.couldEnter(player.getEntityId(),distance)) continue;"),
+            esp.index("if(!renderable(player,partialTicks,skeleton,corners,cornerLength,filled)) continue;"))
+        self.assertLess(
+            esp.index("if(!nearest.couldEnter(player.getEntityId(),distance)) continue;"),
+            esp.index("nearest.offer(player,player.getEntityId(),distance);"))
+        self.assertIn("public boolean couldEnter(int id,double distanceSq)",budget)
+        self.assertIn("if(ids[i]==id)return distanceSq<distances[i];",budget)
+        self.assertIn("(distanceSq==distances[last] && id>=ids[last])",budget)
+        self.assertIn("dev.ghostfusion.tests.EspLosPruningTests",
+                      content(".github/workflows/core-ci.yml"))
+
     def test_range_first_los_and_optional_nearest_draw_budget(self):
         esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
