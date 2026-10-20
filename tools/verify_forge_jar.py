@@ -25,6 +25,7 @@ REQUIRED = (
     "dev/ghostfusion/features/EspRenderMode.class",
     "dev/ghostfusion/features/EspSkeletonGeometry.class",
     "dev/ghostfusion/features/EspHealthBarGeometry.class",
+    "dev/ghostfusion/features/EspNearestBudget.class",
 )
 
 

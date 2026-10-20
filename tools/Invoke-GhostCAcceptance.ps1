@@ -217,6 +217,8 @@ $lines = @(
     '- [ ] All five ESP modes (box, tracer, both, skeleton, box+skeleton) checked visually',
     '- [ ] Optional ESP show_health toggles/persists and fill reflects low/full health',
     '- [ ] ESP health bar camera orientation, distance, depth and wall policy verified',
+    '- [ ] Crowded 80+ player world prioritizes nearby ESP players regardless of entity-list order',
+    '- [ ] ESP and health bars remain correct after many world/dimension switches',
     '- [ ] ESP occlusion/through-walls, distance filters and scene switching checked',
     '- [ ] Diagnostics enabled: ESP frame/player/skeleton counters rise as expected',
     '- [ ] Invalid geometry counter stays low, with no auto-disabled ESP module',
