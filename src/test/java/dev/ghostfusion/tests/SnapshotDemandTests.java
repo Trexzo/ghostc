@@ -34,6 +34,14 @@ public final class SnapshotDemandTests {
             ok(d.needed()==(hud||aim),"only live consumers need entities");
             ok(d.needVisible==visible,"visible requirement across 16 modes");
             ok(d.needUnfiltered==unrestricted,"unrestricted requirement across 16 modes");
+            double v=(hud&&hudVisible)?24:(aim&&aimVisible)?6:0;
+            double u=(hud&&!hudVisible)?24:(aim&&!aimVisible)?6:0;
+            ok(d.visibleDistanceSq==v*v,"per-consumer visible radius "+flags);
+            ok(d.unfilteredDistanceSq==u*u,"per-consumer unfiltered radius "+flags);
+            ok(d.testVisibility(36)==(v>=6),"ray-gate at six blocks "+flags);
+            ok(d.testVisibility(576)==(v>=24),"ray-gate at 24 blocks "+flags);
+            ok(d.admit(false,576)==(u>=24),"hidden demand independently bounded "+flags);
+            ok(d.admit(true,576)==(Math.max(v,u)>=24),"visible candidate cap "+flags);
             ok(d.testVisibility()==visible,"LOS only when visible-only query needs it");
             ok(d.maximumDistanceSq==(hud?576.0:aim?36.0:0.0),
                "range bounded to active feature");
@@ -76,11 +84,11 @@ public final class SnapshotDemandTests {
                 double ds=e.z*e.z;
                 if(!demand.accepts(ds))continue;
                 boolean visible=false;
-                if(demand.testVisibility()){
+                if(demand.testVisibility(ds)){
                     rays++;
                     visible=e.visible;
                 }
-                if(!demand.admit(visible))continue;
+                if(!demand.admit(visible,ds))continue;
                 selection.offer(e,e.id,ds,visible);
             }
             List<WorldSnapshot.Entity> objects=
@@ -119,7 +127,7 @@ public final class SnapshotDemandTests {
            "visible HUD cannot be starved by 450 nearer hidden players");
         SnapshotDemand mixed=SnapshotDemand.of(true,false,24,true,true,6);
         Result both=collect(scene,mixed,4);
-        ok(both.visibilityRays==900,"mixed policy rays only for within-range candidates");
+        ok(both.visibilityRays==900,"mixed policy rays only for visible feature's six-block range");
         ok(both.snapshot.entities().size()==512,
            "mixed policy supports 256 visible and 256 hidden");
         ok(new TargetHudPolicy().select(both.snapshot,24,false).id==0,
@@ -134,6 +142,38 @@ public final class SnapshotDemandTests {
         ok(aimResult.snapshot.entities().size()==256,
            "aim-only visible admission uses one partition");
     }
+    private static void asymmetricRadii(){
+        List<Entity> players=new ArrayList<Entity>();
+        for(int id=0;id<200;id++){
+            players.add(new Entity(id,4.0,true));
+            players.add(new Entity(id+1000,12.0,false));
+            players.add(new Entity(id+2000,18.0,true));
+        }
+        SnapshotDemand distantHud=SnapshotDemand.of(true,false,24,true,true,6);
+        Result r=collect(players,distantHud,10);
+        ok(r.visited==600 && r.visibilityRays==200,
+           "only visible-only aim radius triggers LOS in mixed HUD24/aim6");
+        ok(r.snapshot.entities().size()==456,
+           "200 visible near + 256 unfiltered retained (near and mid)");
+        ok(new TargetHudPolicy().select(r.snapshot,24,false).id==0,
+           "unfiltered HUD still selects closest player");
+        AimAssistPolicy.Suggestion aim=new AimAssistPolicy().suggest(
+            r.snapshot,1.62,1.25,6,75,10,true);
+        ok(aim!=null && aim.entityId<200,
+           "aim only sees visible candidates inside six-block radius");
+        SnapshotDemand distantVisible=SnapshotDemand.of(true,true,24,true,false,6);
+        Result flipped=collect(players,distantVisible,11);
+        ok(flipped.visibilityRays==600,
+           "visible HUD24 requires LOS farther than unfiltered aim6");
+        ok(flipped.snapshot.entities().size()<=512,
+           "independent partition budget preserved after range split");
+        ok(new TargetHudPolicy().select(flipped.snapshot,24,true).id==0,
+           "visible HUD selection unchanged by range split");
+        ok(!distantVisible.admit(false,144),
+           "hidden 12-block player excluded when only unfiltered aim6 needs hidden");
+        ok(distantVisible.admit(true,144),
+           "visible 12-block player remains eligible for visible HUD24");
+    }
     private static void seededRanges(){
         Random random=new Random(2152026L);
         for(int i=0;i<18000;i++){
@@ -144,11 +184,21 @@ public final class SnapshotDemandTests {
             SnapshotDemand d=SnapshotDemand.of(hud,hv,range,aim,av,arange);
             double expected=Math.max(hud?range:0,aim?arange:0);
             ok(d.maximumDistanceSq==expected*expected,"active-range aggregation "+i);
+            double visible=Math.max(hud&&hv?range:0,aim&&av?arange:0);
+            double plain=Math.max(hud&&!hv?range:0,aim&&!av?arange:0);
+            ok(d.visibleDistanceSq==visible*visible,"exact visible range "+i);
+            ok(d.unfilteredDistanceSq==plain*plain,"exact unfiltered range "+i);
             double ds=random.nextDouble()*700;
             ok(d.accepts(ds)==(d.needed()&&ds<=expected*expected),
                "exact admission radius "+i);
             ok(!d.testVisibility()||d.needed(),
                "no visibility work without a consumer "+i);
+            ok(d.testVisibility(ds)==(d.needVisible && ds<=visible*visible),
+               "LOS checks constrained to visible consumer's radius "+i);
+            ok(d.admit(false,ds)==(d.needUnfiltered && ds<=plain*plain),
+               "hidden candidate constrained to unfiltered radius "+i);
+            ok(d.admit(true,ds)==(d.needed() && ds<=expected*expected),
+               "visible candidate eligible in either active radius "+i);
             ok(!d.admit(false)||d.needUnfiltered,
                "hidden admission always requires unfiltered consumer "+i);
             ok(!d.admit(true)||d.needed(),
@@ -156,7 +206,7 @@ public final class SnapshotDemandTests {
         }
     }
     public static void main(String[] args){
-        matrix();crowdedConsumers();seededRanges();
+        matrix();crowdedConsumers();asymmetricRadii();seededRanges();
         ok(assertions>85000,"wide policy and crowded-world regression suite");
         System.out.println("SNAPSHOT_DEMAND_PASS assertions="+assertions);
     }

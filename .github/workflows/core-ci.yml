@@ -58,6 +58,8 @@ jobs:
           grep -q 'COMBAT_REGRESSION_PASS' .build/combat.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.CombatIsolationTests | tee .build/combat-isolation.log
           grep -q 'COMBAT_ISOLATION_PASS' .build/combat-isolation.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHotPathTests | tee .build/target-hot-path.log
+          grep -q 'TARGET_HOT_PATH_PASS' .build/target-hot-path.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.SnapshotDemandTests | tee .build/snapshot-demand.log
           grep -q 'SNAPSHOT_DEMAND_PASS' .build/snapshot-demand.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.VisibilitySnapshotTests | tee .build/visibility-snapshot.log

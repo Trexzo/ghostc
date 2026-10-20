@@ -154,7 +154,7 @@ class ForgeWiring(unittest.TestCase):
         adapter=self.adapter
         admission=content("src/main/java/dev/ghostfusion/services/WorldSnapshotAdmission.java")
         self.assertIn("new WorldSnapshotAdmission<EntityPlayer>()",adapter)
-        self.assertIn("boolean visible=demand.testVisibility() &&",adapter)
+        self.assertIn("boolean visible=demand.testVisibility(distanceSq) &&",adapter)
         self.assertIn("nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible)",adapter)
         self.assertIn("nearestSnapshot.forEach(new WorldSnapshotAdmission.Visitor<EntityPlayer>()",adapter)
         self.assertIn("p.getEntityId(),p.posX,p.posY,p.posZ,health,true,visible,true",adapter)
@@ -175,15 +175,33 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("if(demand.needed()) for (Object raw : minecraft.theWorld.playerEntities)",source)
         self.assertLess(source.index("if(!demand.accepts(distanceSq))continue;"),
                         source.index("minecraft.thePlayer.canEntityBeSeen(p);"))
-        self.assertIn("boolean visible=demand.testVisibility() &&",source)
-        self.assertIn("if(!demand.admit(visible))continue;",source)
+        self.assertIn("boolean visible=demand.testVisibility(distanceSq) &&",source)
+        self.assertIn("if(!demand.admit(visible,distanceSq))continue;",source)
         self.assertIn("nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible)",source)
         self.assertIn("host.services().publish(new WorldSnapshot(",source)
         self.assertIn("} finally {\n                nearestSnapshot.clear();",source)
         self.assertIn("public boolean testVisibility(){return needVisible;}",demand)
+        self.assertIn("public boolean testVisibility(double squaredDistance)",demand)
+        self.assertIn("public boolean admit(boolean visible,double squaredDistance)",demand)
+        self.assertIn("squaredDistance<=visibleDistanceSq",demand)
+        self.assertIn("squaredDistance<=unfilteredDistanceSq",demand)
         self.assertIn("public boolean needed(){return needVisible||needUnfiltered;}",demand)
         self.assertIn("square<=maximumDistanceSq",demand)
         self.assertIn("dev.ghostfusion.tests.SnapshotDemandTests",
+                      content(".github/workflows/core-ci.yml"))
+
+    def test_target_hot_paths_skip_sorting_and_materialized_candidate_lists(self):
+        selector=content("src/main/java/dev/ghostfusion/services/TargetSelector.java")
+        hud=content("src/main/java/dev/ghostfusion/features/TargetHudPolicy.java")
+        aim=content("src/main/java/dev/ghostfusion/features/AimAssistPolicy.java")
+        self.assertIn("public WorldSnapshot.Entity nearest(",selector)
+        self.assertIn("public static boolean eligible(",selector)
+        self.assertIn("return selector.nearest(snapshot,range,visibleOnly,true);",hud)
+        self.assertNotIn("selector.select(snapshot",hud)
+        self.assertIn("for (WorldSnapshot.Entity e:world.entities())",aim)
+        self.assertIn("TargetSelector.eligible(e,distanceSq,maximumSquare,visibleOnly,true)",aim)
+        self.assertNotIn("targets.select(world",aim)
+        self.assertIn("dev.ghostfusion.tests.TargetHotPathTests",
                       content(".github/workflows/core-ci.yml"))
 
     def test_r210_warning_not_gated_by_status_and_lifecycle_fps_pause(self):
