@@ -217,6 +217,8 @@ $lines = @(
     '- [ ] All five ESP modes (box, tracer, both, skeleton, box+skeleton) checked visually',
     '- [ ] Optional ESP show_health toggles/persists and fill reflects low/full health',
     '- [ ] ESP health bar camera orientation, distance, depth and wall policy verified',
+    '- [ ] ESP RGB/opacity sliders visibly update box/tracer/skeleton and survive profile reload',
+    '- [ ] Default ESP purple and independent red-green health gauge look unchanged',
     '- [ ] Crowded 80+ player world prioritizes nearby ESP players regardless of entity-list order',
     '- [ ] Crowded 256+ player world retains nearby Target HUD and Aim Assist candidates',
     '- [ ] Crowded occluded players cannot crowd out visible-only HUD/aim targets',
