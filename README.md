@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R2.13:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R2.14:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R2.14 visibility-aware target snapshot admission: fixes another crowded-world starvation case: an otherwise nearer 256-person group hidden by walls could exclude every visible Target HUD or Aim Assist candidate from the shared snapshot, despite their `visible_only` setting. Forge now retains the nearest 256 visible **and** nearest 256 nonvisible candidates in a reusable owner-thread partition, merging by distance/ID before constructing the immutable snapshot (512 max). Explicit duplicate-ID handling favors admitted visible records and nearer duplicates; raw player references are released after each publication. Target selectors and existing GUI/settings keep their semantics, and ESP still independently renders only its nearest 80. Tests cover 800 crowded players, target visibility, shuffled input, 190-tick churn and privacy boundaries; no in-game behavior is claimed.
 - R2.13 nearest-256 shared world snapshots: Target HUD and Aim Assist previously used only the first 256 valid players encountered in Minecraft's arbitrary loaded-player list. The Forge snapshot publisher now uses the existing nearest-first bounded owner-thread buffer at capacity 256, validating finite pose, positive health and distance before admission. Its output is a newly built immutable snapshot, and raw player references are always cleared in a finally block. ESP retains its independent 80-player render cap. New deterministic regression covers 700 loaded players with near targets at the end, 128 shuffled lists and 250 simulated crowded-world ticks; real Minecraft gameplay acceptance is still outstanding.
 - R2.12 nearest-player ESP priority: the 80-player per-frame cap now uses a deterministic nearest-first selection instead of trusting the arbitrary order of Minecraft's loaded player list. A reusable, owner-thread-only bounded buffer orders candidates by squared distance and entity ID (stable ties), rejects duplicates/invalid distances, and clears entity references after each render. All pre-existing filters and full finite geometry/skeleton validation run before admission, so an invalid or distant candidate cannot consume the available 80 slots. All five ESP styles and the optional health bars share the same closest-player selection. Core tests verify order invariance with 280 shuffled populations and a 1,000-frame replay; in-game visibility remains unverified.
 - R2.11 optional ESP health bars: adds a GUI-toggleable, persisted `render.esp.show_health` option (disabled by default for legacy profile compatibility) alongside all five pre-existing ESP styles. First-party, allocation-free camera-facing vertical health geometry (background plus green-to-red fill) works beside boxes, tracers and skeletons, honors existing depth/through-walls, and skips malformed health/width/view data without disabling valid ESP primitives. Includes seeded 14,000-pose geometry and cross-style wiring tests; actual Minecraft visual fidelity remains unverified.
@@ -108,5 +109,6 @@ See [issues](../../issues) for Forge runtime acceptance (#2), ClickGUI/HUD (#3),
 - [R2.11 optional ESP player health bars](docs/RUNTIME_R31.md)
 - [R2.12 stable nearest-80 ESP admission](docs/RUNTIME_R32.md)
 - [R2.13 nearest-256 world snapshots for Target HUD and Aim Assist](docs/RUNTIME_R33.md)
+- [R2.14 visibility-aware snapshot admission and occlusion starvation prevention](docs/RUNTIME_R34.md)
 - [Provenance](docs/PROVENANCE.md)
 - [Verification](docs/VERIFICATION.md)

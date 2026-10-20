@@ -33,7 +33,7 @@ public final class EspNearestBudgetTests {
         ok(budget.offer("near",6,1),"nearer player inserted ahead");
         ok(budget.offer("mid",2,10),"third player accepted");
         ok(!budget.offer("distant",20,41),"farther candidate rejected");
-        ok(!budget.offer("dupe",6,0),"duplicate player ID rejected");
+        ok(!budget.offer("dupe",6,2),"farther duplicate player ID rejected");
         ok(budget.offer("nearest",1,0),"nearest displaces last");
         ok(budget.size()==3,"bounded capacity");
         ok("nearest".equals(budget.get(0))&&"near".equals(budget.get(1))&&
@@ -52,6 +52,13 @@ public final class EspNearestBudgetTests {
         budget.offer("id3",3,7);
         ok(budget.idAt(0)==1&&budget.idAt(1)==3&&budget.idAt(2)==5,
            "equal-distance tie-break deterministic by entity ID");
+        ok(budget.containsId(3),"member lookup before removal");
+        ok(budget.removeId(3),"remove stale candidate by ID");
+        ok(!budget.containsId(3)&&budget.size()==2,"remove compacts chosen references");
+        ok(!budget.removeId(3),"repeat remove harmless");
+        ok(budget.offer("closer duplicate",5,1),"closer duplicate displaces older");
+        ok(budget.idAt(0)==5&&budget.distanceAt(0)==1,"updated candidate ordered");
+        ok(!budget.offer("far duplicate",5,8),"far duplicate cannot displace near");
         final AtomicBoolean blocked=new AtomicBoolean(false);
         Thread worker=new Thread(()->{
             try{budget.clear();}
