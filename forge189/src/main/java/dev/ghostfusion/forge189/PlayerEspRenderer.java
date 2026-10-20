@@ -8,6 +8,7 @@ import dev.ghostfusion.features.EspSkeletonGeometry;
 import dev.ghostfusion.features.EspHealthBarGeometry;
 import dev.ghostfusion.features.EspLineColor;
 import dev.ghostfusion.features.EspCornerBoxGeometry;
+import dev.ghostfusion.features.EspFilledBoxGeometry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.entity.player.EntityPlayer;
@@ -37,6 +38,20 @@ final class PlayerEspRenderer {
                              double x2,double y2,double z2) {
                 GL11.glVertex3d(x1,y1,z1);
                 GL11.glVertex3d(x2,y2,z2);
+            }
+        };
+    // Six faces, streamed as 24 vertices in one GL_QUADS batch, without
+    // any per-player face arrays or other transient allocations.
+    private static final EspFilledBoxGeometry.Sink FILL_FACES =
+        new EspFilledBoxGeometry.Sink() {
+            public void quad(double ax,double ay,double az,
+                             double bx,double by,double bz,
+                             double cx,double cy,double cz,
+                             double dx,double dy,double dz) {
+                GL11.glVertex3d(ax,ay,az);
+                GL11.glVertex3d(bx,by,bz);
+                GL11.glVertex3d(cx,cy,cz);
+                GL11.glVertex3d(dx,dy,dz);
             }
         };
     private static final EspHealthBarGeometry.Sink HEALTH_LINES =
@@ -93,7 +108,9 @@ final class PlayerEspRenderer {
             boolean tracers=mode.tracers;
             boolean skeleton=mode.skeleton;
             boolean corners=mode.corners;
+            boolean filled=mode.fill;
             final double cornerLength=host.espCornerLength();
+            final float fillOpacity=host.espFillOpacity();
             boolean health=host.espShowHealth();
             // Resolve once per rendered frame: no per-player configuration
             // reads or transient color-array allocations.
@@ -110,7 +127,7 @@ final class PlayerEspRenderer {
                     if(host.espVisible() && !mc.thePlayer.canEntityBeSeen(player)) continue;
                     double distance=mc.thePlayer.getDistanceSqToEntity(player);
                     if(!Double.isFinite(distance) || distance<0 || distance>limitSq) continue;
-                    if(!renderable(player,partialTicks,skeleton,corners,cornerLength)) continue;
+                    if(!renderable(player,partialTicks,skeleton,corners,cornerLength,filled)) continue;
                     nearest.offer(player,player.getEntityId(),distance);
                 }
                 for(int index=0;index<nearest.size();index++) {
@@ -120,6 +137,17 @@ final class PlayerEspRenderer {
                     double zz=p.lastTickPosZ+(p.posZ-p.lastTickPosZ)*partialTicks;
                     AxisAlignedBB box=p.getEntityBoundingBox()
                         .offset(xx-p.posX,yy-p.posY,zz-p.posZ).expand(0.04,0.06,0.04);
+                if(filled) {
+                    // Draw the low-alpha faces first so the crisp RGB wire
+                    // edges and optional skeleton remain legible on top.
+                    GL11.glColor4f(appearance.red,appearance.green,
+                        appearance.blue,appearance.opacity*fillOpacity);
+                    GL11.glBegin(GL11.GL_QUADS);
+                    try {
+                        EspFilledBoxGeometry.emit(box.minX,box.minY,box.minZ,
+                            box.maxX,box.maxY,box.maxZ,FILL_FACES);
+                    } finally { GL11.glEnd(); }
+                }
                 GL11.glColor4f(appearance.red,appearance.green,
                     appearance.blue,appearance.opacity);
                 if(boxes) wireBox(box);
@@ -172,7 +200,8 @@ final class PlayerEspRenderer {
     }
     /** Pure read-only admission; no OpenGL state or entity list mutation. */
     private boolean renderable(EntityPlayer p,float partialTicks,
-                               boolean skeleton,boolean corners,double cornerLength) {
+                               boolean skeleton,boolean corners,double cornerLength,
+                               boolean filled) {
         double xx=p.lastTickPosX+(p.posX-p.lastTickPosX)*partialTicks;
         double yy=p.lastTickPosY+(p.posY-p.lastTickPosY)*partialTicks;
         double zz=p.lastTickPosZ+(p.posZ-p.lastTickPosZ)*partialTicks;
@@ -185,6 +214,11 @@ final class PlayerEspRenderer {
         AxisAlignedBB box=original.offset(xx-p.posX,yy-p.posY,zz-p.posZ)
             .expand(0.04,0.06,0.04);
         if(!finiteBox(box))return false;
+        if(filled && !EspFilledBoxGeometry.valid(
+            box.minX,box.minY,box.minZ,box.maxX,box.maxY,box.maxZ)) {
+            host.diagnostics().record(Counter.ESP_INVALID_GEOMETRY);
+            return false;
+        }
         if(corners && !EspCornerBoxGeometry.valid(
             box.minX,box.minY,box.minZ,box.maxX,box.maxY,box.maxZ,cornerLength)) {
             host.diagnostics().record(Counter.ESP_INVALID_GEOMETRY);
