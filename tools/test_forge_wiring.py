@@ -219,7 +219,8 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("GL11.glBegin(GL11.GL_LINES)",esp)
         self.assertIn("finally { GL11.glEnd(); }",esp)
         self.assertIn("Limit successfully admitted players",esp)
-        self.assertLess(esp.index("if(count>=80) break;"),esp.index("GL11.glColor4f"))
+        self.assertLess(esp.index("if(count>=80) break;"),
+                        esp.index("GL11.glColor4f(0.62f,0.56f,1.0f,0.82f)"))
         self.assertIn("Double.isFinite(x)",policy)
         self.assertIn('BOX_SKELETON("box_skeleton"',modes)
         self.assertIn("dev.ghostfusion.tests.EspSkeletonTests",content(".github/workflows/core-ci.yml"))
