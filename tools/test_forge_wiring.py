@@ -393,7 +393,9 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("nearest.offer(player,player.getEntityId(),distance)",esp)
         self.assertIn("if(skeleton) host.diagnostics().record(Counter.ESP_DRAWN_SKELETON)",esp)
         self.assertIn("finally { GL11.glEnd(); }",esp)
-        self.assertIn("int width=286, height=180;",ui)
+        self.assertIn("DiagnosticsHudLayout.calculate(",ui)
+        self.assertIn("dev.ghostfusion.ui.DiagnosticsHudLayout",
+                      content("src/main/java/dev/ghostfusion/ui/DiagnosticsHudLayout.java"))
         self.assertIn("dev.ghostfusion.tests.EspTelemetryTests",
                       content(".github/workflows/core-ci.yml"))
 
