@@ -354,12 +354,37 @@ class ForgeWiring(unittest.TestCase):
                       content(".github/workflows/core-ci.yml"))
         self.assertIn("EspLineColor.class",content("tools/verify_forge_jar.py"))
 
+    def test_original_corner_box_render_mode_is_wired_to_forge(self):
+        esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        geom=content("src/main/java/dev/ghostfusion/features/EspCornerBoxGeometry.java")
+        modes=content("src/main/java/dev/ghostfusion/features/EspRenderMode.java")
+        self.assertIn('new Setting.Number("corner_length", 0.26, 0.10, 0.50)',host)
+        self.assertIn('"corner_box", "corner_skeleton"',host)
+        self.assertIn('espRed, espGreen, espBlue, espOpacity, espCornerLength);',host)
+        self.assertIn("boolean corners=mode.corners;",esp)
+        self.assertIn("final double cornerLength=host.espCornerLength();",esp)
+        self.assertIn("if(corners && !EspCornerBoxGeometry.valid(",esp)
+        self.assertLess(esp.index("if(!renderable(player,partialTicks,skeleton,corners,cornerLength)) continue;"),
+                        esp.index("nearest.offer(player,player.getEntityId(),distance)"))
+        self.assertIn("if(corners) {",esp)
+        self.assertIn("EspCornerBoxGeometry.emit(box.minX,box.minY,box.minZ,",esp)
+        self.assertIn("GL11.glBegin(GL11.GL_LINES)",esp)
+        self.assertIn("finally { GL11.glEnd(); }",esp)
+        self.assertIn("GL11.glColor4f(appearance.red,appearance.green,",esp)
+        self.assertIn("CORNER_BOX(",modes)
+        self.assertIn("CORNER_SKELETON(",modes)
+        self.assertIn("for(int i=0;i<8;i++)",geom)
+        self.assertIn("dev.ghostfusion.tests.EspCornerBoxTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("EspCornerBoxGeometry.class",content("tools/verify_forge_jar.py"))
+
     def test_original_skeleton_esp_mode_is_wired_to_forge(self):
         esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         policy=content("src/main/java/dev/ghostfusion/features/EspSkeletonGeometry.java")
         modes=content("src/main/java/dev/ghostfusion/features/EspRenderMode.java")
-        self.assertIn('"skeleton", "box_skeleton"',host)
+        self.assertIn('"skeleton", "box_skeleton",',host)
         self.assertIn("EspRenderMode.of(host.espStyle())",esp)
         self.assertIn("mode.skeleton",esp)
         self.assertIn("EspSkeletonGeometry.emit(xx,yy,zz,yaw",esp)
@@ -367,7 +392,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("GL11.glBegin(GL11.GL_LINES)",esp)
         self.assertIn("finally { GL11.glEnd(); }",esp)
         self.assertIn("Validate geometry BEFORE admission",esp)
-        self.assertLess(esp.index("if(!renderable(player,partialTicks,skeleton)) continue;"),
+        self.assertLess(esp.index("if(!renderable(player,partialTicks,skeleton,corners,cornerLength)) continue;"),
                         esp.index("nearest.offer(player,player.getEntityId(),distance)"))
         self.assertLess(esp.index("nearest.offer(player,player.getEntityId(),distance)"),
                         esp.index("GL11.glColor4f(appearance.red,appearance.green,"))
@@ -385,7 +410,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("EntityPlayer p=nearest.get(index);",esp)
         self.assertGreaterEqual(esp.count("nearest.clear();"),2)
         self.assertIn("} finally {\n                nearest.clear();",esp)
-        self.assertIn("private boolean renderable(EntityPlayer p,float partialTicks,boolean skeleton)",esp)
+        self.assertIn("private boolean renderable(EntityPlayer p,float partialTicks,",esp)
         self.assertIn("private static boolean finiteBox(AxisAlignedBB box)",esp)
         self.assertIn("private final Thread owner=Thread.currentThread()",budget)
         self.assertIn("players[i]=null",budget)

@@ -162,6 +162,11 @@ public final class FeatureTests {
            host.espLineColor().blue==0f &&
            Math.abs(host.espLineColor().opacity-.55f)<.000001,
            "existing numeric GUI slider mutation updates all ESP color channels");
+        ok(Math.abs(host.espCornerLength()-.26)<.000001,
+           "corner style does not change existing default config");
+        host.uiActions().fraction("render.esp","corner_length",1.0);
+        ok(Math.abs(host.espCornerLength()-.50)<.000001,
+           "corner-length slider uses the established UI setting gateway");
         host.uiActions().fraction("render.esp","range",1.0);
         host.uiActions().bool("render.esp","through_walls");
         ok(!host.espShowHealth(),"legacy/default ESP health bars disabled");
@@ -185,6 +190,8 @@ public final class FeatureTests {
         ok(restored.targetRange()==24.0 && !restored.targetVisible(),"target settings persisted");
         ok(restored.espRange()==80.0 && restored.espThroughWalls(),"ESP settings persisted");
         ok(restored.espShowHealth(),"optional ESP health overlay persisted");
+        ok(Math.abs(restored.espCornerLength()-.5)<.000001,
+           "corner length persists in the old typed profile store");
         ok(restored.espLineColor().red==1f &&
            Math.abs(restored.espLineColor().green-.1f)<.000001 &&
            restored.espLineColor().blue==0f &&
@@ -197,6 +204,14 @@ public final class FeatureTests {
         ok("skeleton".equals(restored.espStyle()),"new skeleton ESP style selectable");
         restored.uiActions().cycle("render.esp","style");
         ok("box_skeleton".equals(restored.espStyle()),"new box skeleton style selectable");
+        restored.uiActions().cycle("render.esp","style");
+        ok("corner_box".equals(restored.espStyle()),"3D corner box style selectable");
+        restored.uiActions().cycle("render.esp","style");
+        ok("corner_skeleton".equals(restored.espStyle()),
+           "corner box plus schematic skeleton selectable");
+        restored.uiActions().cycle("render.esp","style");
+        ok("box".equals(restored.espStyle()),
+           "cycle wraps to original default mode without reordering old entries");
         restored.persist();
         ok(restored.modules().get("hud.cps").state()==ModuleRegistry.State.DISABLED,
             "non-status module hotkey change persisted");
