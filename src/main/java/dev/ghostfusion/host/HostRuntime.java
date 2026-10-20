@@ -61,6 +61,9 @@ public final class HostRuntime {
     private final Setting.Number espWidth = new Setting.Number("line_width", 1.5, 1.0, 4.0);
     private final Setting.Number espCornerLength =
         new Setting.Number("corner_length", 0.26, 0.10, 0.50);
+    // Independent translucent surface opacity. Existing line alpha is not changed.
+    private final Setting.Number espFillOpacity =
+        new Setting.Number("fill_opacity", 0.18, 0.04, 0.50);
     // Normalized independent RGB and alpha controls, not an asset/theme swap.
     // Preserve the exact default original purple (0.62,0.56,1.0,0.82).
     private final Setting.Number espRed = new Setting.Number("red", 0.62, 0.0, 1.0);
@@ -68,7 +71,7 @@ public final class HostRuntime {
     private final Setting.Number espBlue = new Setting.Number("blue", 1.0, 0.0, 1.0);
     private final Setting.Number espOpacity = new Setting.Number("opacity", 0.82, 0.1, 1.0);
     private final Setting.Choice espStyle = new Setting.Choice("style", "box", "box", "tracer", "both", "skeleton", "box_skeleton",
-        "corner_box", "corner_skeleton");
+        "corner_box", "corner_skeleton", "filled_box", "filled_skeleton");
     private final Setting.Number aimRange = new Setting.Number("range", 4.5, 2.0, 6.0);
     private final Setting.Number aimFov = new Setting.Number("fov", 30.0, 5.0, 90.0);
     private final Setting.Number aimSpeed = new Setting.Number("degrees_per_tick", 4.0, 0.5, 15.0);
@@ -111,7 +114,7 @@ public final class HostRuntime {
             0, targetRange, targetVisible, targetHealth);
         modules.register(new FeatureModule("render.esp", "Player ESP", GhostModule.Category.RENDER),
             0, espRange, espVisible, espWalls, espWidth, espStyle, espHealth,
-            espRed, espGreen, espBlue, espOpacity, espCornerLength);
+            espRed, espGreen, espBlue, espOpacity, espCornerLength, espFillOpacity);
         modules.register(new FeatureModule("movement.sprint", "Auto Sprint", GhostModule.Category.MOVEMENT),
             0);
         modules.register(new FeatureModule("combat.aimassist", "Aim Assist", GhostModule.Category.COMBAT),
@@ -234,6 +237,9 @@ public final class HostRuntime {
     public float espLineWidth() { modules.assertOwnerThread(); return espWidth.get().floatValue(); }
     public double espCornerLength() {
         modules.assertOwnerThread(); return espCornerLength.get();
+    }
+    public float espFillOpacity() {
+        modules.assertOwnerThread(); return espFillOpacity.get().floatValue();
     }
     public dev.ghostfusion.features.EspLineColor espLineColor() {
         modules.assertOwnerThread();

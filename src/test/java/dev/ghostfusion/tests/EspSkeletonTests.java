@@ -38,17 +38,19 @@ public final class EspSkeletonTests {
     }
     private static void modes() {
         String[] expected={"box","tracer","both","skeleton","box_skeleton",
-                           "corner_box","corner_skeleton"};
-        boolean[][] flags={{true,false,false,false},{false,true,false,false},
-                           {true,true,false,false},{false,false,true,false},
-                           {true,false,true,false},{false,false,false,true},
-                           {false,false,true,true}};
+                           "corner_box","corner_skeleton","filled_box","filled_skeleton"};
+        boolean[][] flags={{true,false,false,false,false},{false,true,false,false,false},
+                           {true,true,false,false,false},{false,false,true,false,false},
+                           {true,false,true,false,false},{false,false,false,true,false},
+                           {false,false,true,true,false},{true,false,false,false,true},
+                           {true,false,true,false,true}};
         ok(EspRenderMode.values().length==expected.length,"no hidden or duplicate modes");
         for(int i=0;i<expected.length;i++) {
             EspRenderMode mode=EspRenderMode.of(expected[i]);
             ok(mode.id.equals(expected[i]),"exact roundtrip "+expected[i]);
             ok(mode.boxes==flags[i][0]&&mode.tracers==flags[i][1]&&
-               mode.skeleton==flags[i][2]&&mode.corners==flags[i][3],
+               mode.skeleton==flags[i][2]&&mode.corners==flags[i][3]&&
+               mode.fill==flags[i][4],
                "explicit mode gates "+expected[i]);
         }
         rejects(()->EspRenderMode.of("unknown"),"unknown mode fails closed");

@@ -164,6 +164,11 @@ public final class FeatureTests {
            "existing numeric GUI slider mutation updates all ESP color channels");
         ok(Math.abs(host.espCornerLength()-.26)<.000001,
            "corner style does not change existing default config");
+        ok(Math.abs(host.espFillOpacity()-.18f)<.000001,
+           "legacy profile retains independent translucent fill default");
+        host.uiActions().fraction("render.esp","fill_opacity",1.0);
+        ok(Math.abs(host.espFillOpacity()-.5f)<.000001,
+           "fill opacity slider uses existing GUI/typed-settings gateway");
         host.uiActions().fraction("render.esp","corner_length",1.0);
         ok(Math.abs(host.espCornerLength()-.50)<.000001,
            "corner-length slider uses the established UI setting gateway");
@@ -192,6 +197,8 @@ public final class FeatureTests {
         ok(restored.espShowHealth(),"optional ESP health overlay persisted");
         ok(Math.abs(restored.espCornerLength()-.5)<.000001,
            "corner length persists in the old typed profile store");
+        ok(Math.abs(restored.espFillOpacity()-.5f)<.000001,
+           "filled box opacity persisted through existing profile schema");
         ok(restored.espLineColor().red==1f &&
            Math.abs(restored.espLineColor().green-.1f)<.000001 &&
            restored.espLineColor().blue==0f &&
@@ -209,6 +216,12 @@ public final class FeatureTests {
         restored.uiActions().cycle("render.esp","style");
         ok("corner_skeleton".equals(restored.espStyle()),
            "corner box plus schematic skeleton selectable");
+        restored.uiActions().cycle("render.esp","style");
+        ok("filled_box".equals(restored.espStyle()),
+           "translucent filled box style appended after seven existing modes");
+        restored.uiActions().cycle("render.esp","style");
+        ok("filled_skeleton".equals(restored.espStyle()),
+           "filled box plus skeleton mode selectable");
         restored.uiActions().cycle("render.esp","style");
         ok("box".equals(restored.espStyle()),
            "cycle wraps to original default mode without reordering old entries");

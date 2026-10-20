@@ -301,7 +301,7 @@ class ForgeWiring(unittest.TestCase):
         jar=content("tools/verify_forge_jar.py")
         self.assertIn('new Setting.Bool("show_health", false)',host)
         self.assertIn("espStyle, espHealth,",host)
-        self.assertIn("espRed, espGreen, espBlue, espOpacity, espCornerLength);",host)
+        self.assertIn("espRed, espGreen, espBlue, espOpacity, espCornerLength, espFillOpacity);",host)
         self.assertIn("public boolean espShowHealth()",host)
         self.assertIn("boolean health=host.espShowHealth();",renderer)
         self.assertIn("EspHealthBarGeometry.emit(xx,yy,zz,p.height,p.width,",renderer)
@@ -340,7 +340,7 @@ class ForgeWiring(unittest.TestCase):
         policy=content("src/main/java/dev/ghostfusion/features/EspLineColor.java")
         for channel in ("red","green","blue","opacity"):
             self.assertIn('new Setting.Number("'+channel+'"',host)
-        self.assertIn("espRed, espGreen, espBlue, espOpacity, espCornerLength);",host)
+        self.assertIn("espRed, espGreen, espBlue, espOpacity, espCornerLength, espFillOpacity);",host)
         self.assertIn("EspLineColor.of(",host)
         self.assertIn("final EspLineColor appearance=host.espLineColor();",esp)
         self.assertIn("GL11.glColor4f(appearance.red,appearance.green,",esp)
@@ -354,6 +354,37 @@ class ForgeWiring(unittest.TestCase):
                       content(".github/workflows/core-ci.yml"))
         self.assertIn("EspLineColor.class",content("tools/verify_forge_jar.py"))
 
+    def test_filled_box_surface_mode_and_gl_state_guard(self):
+        esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        mode=content("src/main/java/dev/ghostfusion/features/EspRenderMode.java")
+        surface=content("src/main/java/dev/ghostfusion/features/EspFilledBoxGeometry.java")
+        guard=content("forge189/src/main/java/dev/ghostfusion/forge189/RenderStateGuard.java")
+        self.assertIn('new Setting.Number("fill_opacity", 0.18, 0.04, 0.50)',host)
+        self.assertIn('"corner_skeleton", "filled_box", "filled_skeleton"',host)
+        self.assertIn('espCornerLength, espFillOpacity);',host)
+        self.assertIn("boolean filled=mode.fill;",esp)
+        self.assertIn("final float fillOpacity=host.espFillOpacity();",esp)
+        self.assertIn("if(filled && !EspFilledBoxGeometry.valid(",esp)
+        self.assertLess(
+            esp.index("if(!renderable(player,partialTicks,skeleton,corners,cornerLength,filled)) continue;"),
+            esp.index("nearest.offer(player,player.getEntityId(),distance)"))
+        self.assertIn("if(filled) {",esp)
+        self.assertIn("GL11.glBegin(GL11.GL_QUADS);",esp)
+        self.assertIn("appearance.blue,appearance.opacity*fillOpacity",esp)
+        self.assertIn("appearance.blue,appearance.opacity);",esp)
+        self.assertIn("EspFilledBoxGeometry.emit(box.minX,box.minY,box.minZ,",esp)
+        self.assertLess(esp.index("GL11.glBegin(GL11.GL_QUADS);"),
+                        esp.index("if(boxes) wireBox(box);"))
+        self.assertIn("finally { GL11.glEnd(); }",esp)
+        self.assertIn("GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS)",guard)
+        self.assertIn("if(!valid(minX,minY,minZ,maxX,maxY,maxZ))return false;",surface)
+        self.assertIn('FILLED_BOX("filled_box"',mode)
+        self.assertIn('FILLED_SKELETON("filled_skeleton"',mode)
+        self.assertIn("dev.ghostfusion.tests.EspFilledBoxTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("EspFilledBoxGeometry.class",content("tools/verify_forge_jar.py"))
+
     def test_original_corner_box_render_mode_is_wired_to_forge(self):
         esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
@@ -361,11 +392,11 @@ class ForgeWiring(unittest.TestCase):
         modes=content("src/main/java/dev/ghostfusion/features/EspRenderMode.java")
         self.assertIn('new Setting.Number("corner_length", 0.26, 0.10, 0.50)',host)
         self.assertIn('"corner_box", "corner_skeleton"',host)
-        self.assertIn('espRed, espGreen, espBlue, espOpacity, espCornerLength);',host)
+        self.assertIn('espRed, espGreen, espBlue, espOpacity, espCornerLength, espFillOpacity);',host)
         self.assertIn("boolean corners=mode.corners;",esp)
         self.assertIn("final double cornerLength=host.espCornerLength();",esp)
         self.assertIn("if(corners && !EspCornerBoxGeometry.valid(",esp)
-        self.assertLess(esp.index("if(!renderable(player,partialTicks,skeleton,corners,cornerLength)) continue;"),
+        self.assertLess(esp.index("if(!renderable(player,partialTicks,skeleton,corners,cornerLength,filled)) continue;"),
                         esp.index("nearest.offer(player,player.getEntityId(),distance)"))
         self.assertIn("if(corners) {",esp)
         self.assertIn("EspCornerBoxGeometry.emit(box.minX,box.minY,box.minZ,",esp)
@@ -392,7 +423,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("GL11.glBegin(GL11.GL_LINES)",esp)
         self.assertIn("finally { GL11.glEnd(); }",esp)
         self.assertIn("Validate geometry BEFORE admission",esp)
-        self.assertLess(esp.index("if(!renderable(player,partialTicks,skeleton,corners,cornerLength)) continue;"),
+        self.assertLess(esp.index("if(!renderable(player,partialTicks,skeleton,corners,cornerLength,filled)) continue;"),
                         esp.index("nearest.offer(player,player.getEntityId(),distance)"))
         self.assertLess(esp.index("nearest.offer(player,player.getEntityId(),distance)"),
                         esp.index("GL11.glColor4f(appearance.red,appearance.green,"))
