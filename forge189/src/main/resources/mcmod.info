@@ -3,7 +3,7 @@
     "modid": "ghostc",
     "name": "GhostC",
     "description": "Original modular Minecraft 1.8.9 Forge client (development build).",
-    "version": "2.29.0",
+    "version": "2.30.0",
     "mcversion": "1.8.9",
     "url": "https://github.com/Trexzo/ghostc",
     "authorList": ["Trexzo"],

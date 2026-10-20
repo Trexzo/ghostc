@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R2.29:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R2.30:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R2.30 viewport-safe Runtime Diagnostics HUD: the optional 286x180 panel previously positioned all 14 lines at fixed pixel coordinates and drew arbitrarily long counters without measuring their width. A Java8 pure DiagnosticsHudLayout now clamps background size to the actual scaled screen, clips text to the available width and selects only the rows that fit vertically. The regular full-size view and original row order are unchanged, while smaller screens prioritize FPS, heap, snapshot timings/workload and ESP figures instead of silently drawing below the screen. Existing diagnostics collection and saved reports are unchanged. Tested by seeded geometry and Forge wiring, not by an actual Minecraft screenshot.
 - R2.29 Target HUD input hardening: a 256-source-codepoint scan limit bounds malformed or formatting-only player names, and full-codepoint validation preserves supplementary characters whose low 16 bits look like surrogate units. Forge reuses its font-width callback per driver while still reading the active Minecraft font. Existing card dimensions, settings, readouts and combat behavior are unchanged; actual in-game performance and visuals remain unverified.
 - R2.28 Target HUD label-fit and optional percentage: the old 160px Target HUD positioned the player name at x+9 and numeric health at x+width-70, permitting overlapping text. The new Java8 `TargetHudTextLayout` reserves actual Minecraft-font pixel widths for the health readout and truncates long names with ellipses, stripping control/color formatting and respecting Unicode codepoint boundaries. A persisted `hud.target.health_text` choice offers original numeric values (default) or compact percentage (opt-in). Unusually large values fall back to percentage and malformed health displays unknown safely. All prior target selection, HUD footprints, 43px/29px heights, health bar colors and profile schema remain unchanged. Regressions use 14,000 seeded variable-font cases with nonoverlap guarantees, GUI settings and profile persistence. Onscreen appearance needs real Minecraft acceptance.
 - R2.27 visibility-ray pruning with exact nearest-player parity: in R2.26, visible-only ESP still ray-checked in-range players even when 80 nearer valid players had already filled the candidate buffer. A conservative read-only `EspNearestBudget.couldEnter(id,distanceSq)` gate now tests whether a candidate can improve the selected nearest set before LOS and expensive geometry validation. It preserves distance/ID tie rules and closer-duplicate replacement; the original `offer` remains the authority for insertion. Crowded scenes can skip unnecessary rays and geometric work, with no changed default settings, drawn player membership, health placement or ESP style behavior. New 5,000-scene randomized baseline-vs-optimized tests preserve selected entity IDs, squared distances, configured draw-budget subset and painter order. An all-visible ascending-distance 300-player case avoids 220 redundant rays. No runtime FPS improvement is claimed without a real game benchmark.
@@ -140,5 +141,6 @@ See [issues](../../issues) for Forge runtime acceptance (#2), ClickGUI/HUD (#3),
 - [R2.27 candidate-bound visibility ray pruning for Player ESP](docs/RUNTIME_R47.md)
 - [R2.28 pixel-fitted Target HUD labels and HP percentage](docs/RUNTIME_R48.md)
 - [R2.29 bounded Unicode name handling](docs/RUNTIME_R49.md)
+- [R2.30 screen-safe Runtime Diagnostics HUD](docs/RUNTIME_R50.md)
 - [Provenance](docs/PROVENANCE.md)
 - [Verification](docs/VERIFICATION.md)

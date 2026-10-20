@@ -51,6 +51,22 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("TargetHudTextLayout.class",
                       content("tools/verify_forge_jar.py"))
 
+    def test_diagnostics_panel_is_viewport_safe_and_prioritizes_metrics(self):
+        driver=self.feature
+        policy=content("src/main/java/dev/ghostfusion/ui/DiagnosticsHudLayout.java")
+        self.assertIn("DiagnosticsHudLayout.calculate(",driver)
+        self.assertIn("if(layout.rows==0)return;",driver)
+        self.assertIn("x+layout.width,y+layout.height",driver)
+        self.assertIn("layout.rowY(slot)",driver)
+        self.assertIn("values[layout.sourceRow(slot)]",driver)
+        self.assertIn("trimStringToWidth(value,maxWidth)",driver)
+        self.assertNotIn("int width=286, height=180;",driver)
+        self.assertIn("8,9,10,11,12,13,6,7,0,1,2,3,4,5",policy)
+        self.assertIn("dev.ghostfusion.tests.DiagnosticsHudLayoutTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("DiagnosticsHudLayout.class",
+                      content("tools/verify_forge_jar.py"))
+
     def test_recovery_promotes_verified_typed_snapshot_before_live_mutation(self):
         core=content("src/main/java/dev/ghostfusion/core/ConfigIntegrity.java")
         profiles=content("src/main/java/dev/ghostfusion/core/ProfileStore.java")
@@ -377,7 +393,9 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("nearest.offer(player,player.getEntityId(),distance)",esp)
         self.assertIn("if(skeleton) host.diagnostics().record(Counter.ESP_DRAWN_SKELETON)",esp)
         self.assertIn("finally { GL11.glEnd(); }",esp)
-        self.assertIn("int width=286, height=180;",ui)
+        self.assertIn("DiagnosticsHudLayout.calculate(",ui)
+        self.assertIn("public final class DiagnosticsHudLayout",
+                      content("src/main/java/dev/ghostfusion/ui/DiagnosticsHudLayout.java"))
         self.assertIn("dev.ghostfusion.tests.EspTelemetryTests",
                       content(".github/workflows/core-ci.yml"))
 

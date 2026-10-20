@@ -3,6 +3,7 @@ package dev.ghostfusion.forge189;
 import dev.ghostfusion.features.CpsMeter;
 import dev.ghostfusion.ui.HudPositions.Widget;
 import dev.ghostfusion.ui.HudFootprints;
+import dev.ghostfusion.ui.DiagnosticsHudLayout;
 import dev.ghostfusion.features.SprintPolicy;
 import dev.ghostfusion.features.TargetHudPolicy;
 import dev.ghostfusion.features.TargetHudTextLayout;
@@ -133,11 +134,19 @@ public final class ForgeFeatureDriver {
         Gui.drawRect(x-2,y-2,x+101,y+13,0xBE131927);
         mc.fontRendererObj.drawStringWithShadow(text,x,y+1,0xFFE3E9FF);
     }
+    private void drawDiagnosticText(String value,int x,int y,int maxWidth,int color) {
+        String fitted=mc.fontRendererObj.trimStringToWidth(value,maxWidth);
+        if(!fitted.isEmpty())
+            mc.fontRendererObj.drawStringWithShadow(fitted,x,y,color);
+    }
     private void drawDiagnostics(int sw,int sh) {
-        int width=286, height=180;
-        int x=Math.max(0,sw-width-4), y=4;
-        Gui.drawRect(x,y,Math.min(sw,x+width),y+height,0xC31B2133);
-        mc.fontRendererObj.drawStringWithShadow("GhostC " + GhostCMod.CLIENT_VERSION + " diagnostics",x+5,y+5,0xFFAEAAFF);
+        DiagnosticsHudLayout layout=DiagnosticsHudLayout.calculate(
+            sw,sh,mc.fontRendererObj.FONT_HEIGHT);
+        if(layout.rows==0)return;
+        int x=layout.x, y=layout.y;
+        Gui.drawRect(x,y,x+layout.width,y+layout.height,0xC31B2133);
+        drawDiagnosticText("GhostC " + GhostCMod.CLIENT_VERSION +
+            " diagnostics",x+5,y+5,layout.textWidth,0xFFAEAAFF);
         String epoch="Epoch " + host.services().generation() + " | Tick " + host.services().tick();
         String gui="F7 "+host.diagnostics().count(Counter.GUI_OPEN)+
             " | GUI frames "+host.diagnostics().count(Counter.GUI_FRAME);
@@ -170,20 +179,11 @@ public final class ForgeFeatureDriver {
         dev.ghostfusion.host.SnapshotTelemetry.Snapshot modeStats=host.snapshotTelemetry(mode);
         String snapClass="Last mode "+mode.name()+" p95 "+modeStats.p95Us+
             " us | n "+modeStats.samples;
-        mc.fontRendererObj.drawStringWithShadow(epoch,x+5,y+17,0xFFC9D1DF);
-        mc.fontRendererObj.drawStringWithShadow(gui,x+5,y+28,0xFFC9D1DF);
-        mc.fontRendererObj.drawStringWithShadow(render,x+5,y+39,0xFFC9D1DF);
-        mc.fontRendererObj.drawStringWithShadow(events,x+5,y+50,0xFFC9D1DF);
-        mc.fontRendererObj.drawStringWithShadow(queue,x+5,y+61,0xFFC9D1DF);
-        mc.fontRendererObj.drawStringWithShadow(applied,x+5,y+72,0xFFC9D1DF);
-        mc.fontRendererObj.drawStringWithShadow(esp,x+5,y+83,0xFFC9D1DF);
-        mc.fontRendererObj.drawStringWithShadow(skeleton,x+5,y+94,0xFFC9D1DF);
-        mc.fontRendererObj.drawStringWithShadow(fps,x+5,y+105,0xFFC9D1DF);
-        mc.fontRendererObj.drawStringWithShadow(memory,x+5,y+116,0xFFC9D1DF);
-        mc.fontRendererObj.drawStringWithShadow(snapTiming,x+5,y+127,0xFFC9D1DF);
-        mc.fontRendererObj.drawStringWithShadow(snapVolume,x+5,y+138,0xFFC9D1DF);
-        mc.fontRendererObj.drawStringWithShadow(snapOutput,x+5,y+149,0xFFC9D1DF);
-        mc.fontRendererObj.drawStringWithShadow(snapClass,x+5,y+160,0xFFC9D1DF);
+        String[] values={epoch,gui,render,events,queue,applied,esp,skeleton,
+                         fps,memory,snapTiming,snapVolume,snapOutput,snapClass};
+        for(int slot=0;slot<layout.rows;slot++)
+            drawDiagnosticText(values[layout.sourceRow(slot)],x+5,
+                layout.rowY(slot),layout.textWidth,0xFFC9D1DF);
         // Focus/suppression remains in the saved local report.
     }
     private void drawTarget(int sw,int sh) {

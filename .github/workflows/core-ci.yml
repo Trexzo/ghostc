@@ -123,6 +123,8 @@ jobs:
           grep -q 'BACKUP_ROTATION_PASS' .build/backup-rotation.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.StatusHudLayoutTests | tee .build/status-hud-layout.log
           grep -q 'STATUS_HUD_LAYOUT_PASS' .build/status-hud-layout.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.DiagnosticsHudLayoutTests | tee .build/diagnostics-hud-layout.log
+          grep -q 'DIAGNOSTICS_HUD_LAYOUT_PASS' .build/diagnostics-hud-layout.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.FaultPrivacyTests | tee .build/fault-privacy.log
           grep -q 'FAULT_PRIVACY_PASS' .build/fault-privacy.log
           java -cp .build/classes dev.ghostfusion.demo.DemoMain | tee .build/demo.log
