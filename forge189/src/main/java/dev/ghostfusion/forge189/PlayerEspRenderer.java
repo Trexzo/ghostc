@@ -138,6 +138,10 @@ final class PlayerEspRenderer {
                     // Eligible in-range players retain exactly the old gates.
                     double distance=mc.thePlayer.getDistanceSqToEntity(player);
                     if(!Double.isFinite(distance) || distance<0 || distance>limitSq) continue;
+                    // Once the nearest-80 set is full, a farther candidate
+                    // cannot enter it. Skip LOS and geometry for that
+                    // candidate, preserving stable distance/ID tie breaks.
+                    if(!nearest.couldEnter(player.getEntityId(),distance)) continue;
                     if(visibleOnly && !mc.thePlayer.canEntityBeSeen(player)) continue;
                     if(!renderable(player,partialTicks,skeleton,corners,cornerLength,filled)) continue;
                     nearest.offer(player,player.getEntityId(),distance);
