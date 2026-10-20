@@ -1,7 +1,7 @@
 package dev.ghostfusion.host;
 
 /**
- * Numeric-only snapshot publication timing. Five fixed-size histograms:
+ * Numeric-only snapshot publication timing. Five fixed-size bounded rank indexes:
  * aggregate plus one per active target-demand mode. Nothing stores targets,
  * positions, server identity or raw timing sequences.
  */
@@ -15,32 +15,46 @@ public final class SnapshotTelemetry {
         }
     }
     private static final class Bucket {
-        final long[] bins=new long[MAX_US_BIN+1];
+        // One-based Fenwick order-statistic index, bounded to the same 4097
+        // microsecond buckets as the original linear-scan histogram.
+        // Each successful sample costs <=13 updates; p50/p95/p99 cost <=13
+        // lookups each, regardless of elapsed session length.
+        final long[] counts=new long[MAX_US_BIN+2];
+        private Snapshot cached;
         long samples,scanned,inRange,losQueries,published,peakUs;
         void record(long micros,int players,int range,int rays,int targets){
             int bin=(int)Math.min(MAX_US_BIN,micros);
-            bins[bin]=plus(bins[bin],1);
+            for(int i=bin+1;i<counts.length;i+=i&-i)
+                counts[i]=plus(counts[i],1L);
             samples=plus(samples,1);
             scanned=plus(scanned,players);
             inRange=plus(inRange,range);
             losQueries=plus(losQueries,rays);
             published=plus(published,targets);
             if(micros>peakUs)peakUs=micros;
+            cached=null;
         }
-        long percentile(int fraction){
+        private long percentile(int fraction){
             if(samples==0)return 0;
+            // Identical nearest-rank definition, including partial hundredths,
+            // to R2.17/R2.18. Avoid floating-point rank precision loss.
             long rank=(samples/100)*fraction+
                 (samples%100*fraction+99)/100;
-            long accum=0;
-            for(int i=0;i<bins.length;i++){
-                accum=plus(accum,bins[i]);
-                if(accum>=rank)return i;
+            int index=0;
+            for(int step=Integer.highestOneBit(counts.length-1);step>0;step>>=1){
+                int next=index+step;
+                if(next<counts.length && counts[next]<rank){
+                    index=next;
+                    rank-=counts[next];
+                }
             }
-            return MAX_US_BIN;
+            return Math.min(MAX_US_BIN,index);
         }
         Snapshot snapshot(){
-            return new Snapshot(samples,scanned,inRange,losQueries,published,
+            if(cached==null)cached=new Snapshot(
+                samples,scanned,inRange,losQueries,published,
                 percentile(50),percentile(95),percentile(99),peakUs);
+            return cached;
         }
     }
     private final Thread owner=Thread.currentThread();
