@@ -15,6 +15,9 @@ import org.lwjgl.opengl.GL11;
 final class PlayerEspRenderer {
     private final Minecraft mc;
     private final HostRuntime host;
+    // Reusable, owner-thread-only candidate storage; explicitly cleared after
+    // every world render so no old-world EntityPlayer references can persist.
+    private final EspNearestBudget<EntityPlayer> nearest=new EspNearestBudget<EntityPlayer>(80);
     private static final EspSkeletonGeometry.Sink SKELETON_LINES =
         new EspSkeletonGeometry.Sink() {
             public void line(double x1,double y1,double z1,
@@ -48,7 +51,8 @@ final class PlayerEspRenderer {
     }
     void draw(final float partialTicks) {
         if(!host.featureEnabled("render.esp") || mc.theWorld==null ||
-           mc.thePlayer==null || !Float.isFinite(partialTicks)) return;
+           mc.thePlayer==null || !Float.isFinite(partialTicks) ||
+           partialTicks<0f || partialTicks>1f) return;
         RenderStateGuard.draw(new Runnable() {
             public void run() { render(partialTicks); }
         });
@@ -69,7 +73,6 @@ final class PlayerEspRenderer {
         GL11.glPushMatrix();
         try {
             GL11.glTranslated(-rm.viewerPosX, -rm.viewerPosY, -rm.viewerPosZ);
-            int count=0;
             double maximum=host.espRange();
             double limitSq=maximum*maximum;
             final EspRenderMode mode=EspRenderMode.of(host.espStyle());
@@ -77,41 +80,28 @@ final class PlayerEspRenderer {
             boolean tracers=mode.tracers;
             boolean skeleton=mode.skeleton;
             boolean health=host.espShowHealth();
-            for(Object obj:mc.theWorld.playerEntities) {
-                if(!(obj instanceof EntityPlayer)) continue;
-                EntityPlayer p=(EntityPlayer)obj;
-                if(p==mc.thePlayer || p.isDead || p.getHealth()<=0) continue;
-                if(host.espVisible() && !mc.thePlayer.canEntityBeSeen(p)) continue;
-                double distance=mc.thePlayer.getDistanceSqToEntity(p);
-                if(!Double.isFinite(distance)||distance>limitSq) continue;
-                double xx=p.lastTickPosX+(p.posX-p.lastTickPosX)*partialTicks;
-                double yy=p.lastTickPosY+(p.posY-p.lastTickPosY)*partialTicks;
-                double zz=p.lastTickPosZ+(p.posZ-p.lastTickPosZ)*partialTicks;
-                if (!Double.isFinite(xx) || !Double.isFinite(yy) || !Double.isFinite(zz))
-                    continue; // never submit NaN/infinite GL geometry
-                AxisAlignedBB original=p.getEntityBoundingBox();
-                if(original==null || !Double.isFinite(original.minX) ||
-                    !Double.isFinite(original.minY) || !Double.isFinite(original.minZ) ||
-                    !Double.isFinite(original.maxX) || !Double.isFinite(original.maxY) ||
-                    !Double.isFinite(original.maxZ)) continue;
-                AxisAlignedBB box=original.offset(xx-p.posX,yy-p.posY,zz-p.posZ).expand(0.04,0.06,0.04);
-                if (!Double.isFinite(box.minX) || !Double.isFinite(box.minY) ||
-                    !Double.isFinite(box.minZ) || !Double.isFinite(box.maxX) ||
-                    !Double.isFinite(box.maxY) || !Double.isFinite(box.maxZ)) continue;
-                // No GL mode may submit invalid height/eye geometry. Skeleton
-                // interpolation additionally needs BOTH yaw samples and a
-                // legal frame fraction, not only a valid current body yaw.
-                if(!Double.isFinite(p.height) || p.height < 0.5 || p.height > 3.0 ||
-                   (skeleton && (!EspSkeletonGeometry.valid(xx,yy,zz,
-                       p.renderYawOffset,p.height,p.limbSwing,p.limbSwingAmount) ||
-                       !Double.isFinite(p.prevRenderYawOffset) ||
-                       partialTicks < 0f || partialTicks > 1f))) {
-                    host.diagnostics().record(Counter.ESP_INVALID_GEOMETRY);
-                    continue;
+            // Selection is bounded and stable under playerEntities ordering.
+            // Validate geometry BEFORE admission so invalid players cannot
+            // displace any of the nearest 80 renderable candidates.
+            nearest.clear();
+            try {
+                for(Object obj:mc.theWorld.playerEntities) {
+                    if(!(obj instanceof EntityPlayer)) continue;
+                    EntityPlayer player=(EntityPlayer)obj;
+                    if(player==mc.thePlayer || player.isDead || player.getHealth()<=0) continue;
+                    if(host.espVisible() && !mc.thePlayer.canEntityBeSeen(player)) continue;
+                    double distance=mc.thePlayer.getDistanceSqToEntity(player);
+                    if(!Double.isFinite(distance) || distance<0 || distance>limitSq) continue;
+                    if(!renderable(player,partialTicks,skeleton)) continue;
+                    nearest.offer(player,player.getEntityId(),distance);
                 }
-                // Limit successfully admitted players, not corrupt entries.
-                if(count>=80) break;
-                count++;
+                for(int index=0;index<nearest.size();index++) {
+                    EntityPlayer p=nearest.get(index);
+                    double xx=p.lastTickPosX+(p.posX-p.lastTickPosX)*partialTicks;
+                    double yy=p.lastTickPosY+(p.posY-p.lastTickPosY)*partialTicks;
+                    double zz=p.lastTickPosZ+(p.posZ-p.lastTickPosZ)*partialTicks;
+                    AxisAlignedBB box=p.getEntityBoundingBox()
+                        .offset(xx-p.posX,yy-p.posY,zz-p.posZ).expand(0.04,0.06,0.04);
                 GL11.glColor4f(0.62f,0.56f,1.0f,0.82f);
                 if(boxes) wireBox(box);
                 if(skeleton) {
@@ -146,10 +136,40 @@ final class PlayerEspRenderer {
                 }
                 host.diagnostics().record(Counter.ESP_DRAWN_PLAYER);
                 if(skeleton) host.diagnostics().record(Counter.ESP_DRAWN_SKELETON);
+                }
+            } finally {
+                nearest.clear();
             }
         } finally {
             GL11.glPopMatrix();
         }
+    }
+    /** Pure read-only admission; no OpenGL state or entity list mutation. */
+    private boolean renderable(EntityPlayer p,float partialTicks,boolean skeleton) {
+        double xx=p.lastTickPosX+(p.posX-p.lastTickPosX)*partialTicks;
+        double yy=p.lastTickPosY+(p.posY-p.lastTickPosY)*partialTicks;
+        double zz=p.lastTickPosZ+(p.posZ-p.lastTickPosZ)*partialTicks;
+        if(!Double.isFinite(xx)||!Double.isFinite(yy)||!Double.isFinite(zz))
+            return false;
+        if(!Double.isFinite(p.posX)||!Double.isFinite(p.posY)||!Double.isFinite(p.posZ))
+            return false;
+        AxisAlignedBB original=p.getEntityBoundingBox();
+        if(original==null || !finiteBox(original))return false;
+        AxisAlignedBB box=original.offset(xx-p.posX,yy-p.posY,zz-p.posZ)
+            .expand(0.04,0.06,0.04);
+        if(!finiteBox(box))return false;
+        if(!Double.isFinite(p.height)||p.height<0.5||p.height>3.0 ||
+            (skeleton && (!EspSkeletonGeometry.valid(xx,yy,zz,
+                p.renderYawOffset,p.height,p.limbSwing,p.limbSwingAmount) ||
+                !Double.isFinite(p.prevRenderYawOffset)))) {
+            host.diagnostics().record(Counter.ESP_INVALID_GEOMETRY);
+            return false;
+        }
+        return true;
+    }
+    private static boolean finiteBox(AxisAlignedBB box) {
+        return Double.isFinite(box.minX)&&Double.isFinite(box.minY)&&Double.isFinite(box.minZ) &&
+            Double.isFinite(box.maxX)&&Double.isFinite(box.maxY)&&Double.isFinite(box.maxZ);
     }
     private static void line(double x1,double y1,double z1,double x2,double y2,double z2) {
         GL11.glVertex3d(x1,y1,z1); GL11.glVertex3d(x2,y2,z2);
