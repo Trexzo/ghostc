@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R2.31:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R2.32:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R2.32 complete-widget viewport admission: even after R2.31's text improvements, Keystrokes and Target HUD still rendered their fixed 83px and 160px cards beyond scaled Minecraft screens smaller than the widgets. The new Java8 `HudWidgetViewport` policy checks shared R2.1 widget footprints and R1.9 persisted normalized anchors before paint, suppressing impossible partial cards (and unnecessary target selection on small screens) without modifying normal positions, dimensions or config. Both HUDs reappear automatically once the scaled viewport fits. A 50,000-scene deterministic replay verifies full-bounds admission and existing HUD editor/renderer coordinate parity. Runtime screenshots and FPS remain unverified.
 - R2.31 Unicode-safe Keystrokes and CPS text: remapped key labels previously lost UTF-16 characters through raw last-character truncation and were not sanitized for formatting/control codes. CPS labels could overflow their fixed 103px card at high counts and tiny scaled screens. The first-party Java8 `HudTextFit` measures the live Minecraft font, preserves normal short label appearance, clips only at Unicode codepoint boundaries with an explicit ellipsis, and provides exact-count compact CPS forms before truncation. Forge clamps the CPS card to the visible screen and samples left/right counts at one shared instant. The original ClickGUI/profile options and stable HUD footprints remain unchanged. Source/seeded-regression verified only; actual Minecraft readability and FPS are not claimed.
 - R2.30 viewport-safe Runtime Diagnostics HUD: the optional 286x180 panel previously positioned all 14 lines at fixed pixel coordinates and drew arbitrarily long counters without measuring their width. A Java8 pure DiagnosticsHudLayout now clamps background size to the actual scaled screen, clips text to the available width and selects only the rows that fit vertically. The regular full-size view and original row order are unchanged, while smaller screens prioritize FPS, heap, snapshot timings/workload and ESP figures instead of silently drawing below the screen. Existing diagnostics collection and saved reports are unchanged. Tested by seeded geometry and Forge wiring, not by an actual Minecraft screenshot.
 - R2.29 Target HUD input hardening: a 256-source-codepoint scan limit bounds malformed or formatting-only player names, and full-codepoint validation preserves supplementary characters whose low 16 bits look like surrogate units. Forge reuses its font-width callback per driver while still reading the active Minecraft font. Existing card dimensions, settings, readouts and combat behavior are unchanged; actual in-game performance and visuals remain unverified.
@@ -144,5 +145,6 @@ See [issues](../../issues) for Forge runtime acceptance (#2), ClickGUI/HUD (#3),
 - [R2.29 bounded Unicode name handling](docs/RUNTIME_R49.md)
 - [R2.30 screen-safe Runtime Diagnostics HUD](docs/RUNTIME_R50.md)
 - [R2.31 Unicode-safe Keystrokes/CPS labels](docs/RUNTIME_R51.md)
+- [R2.32 complete Keystrokes and Target viewport admission](docs/RUNTIME_R52.md)
 - [Provenance](docs/PROVENANCE.md)
 - [Verification](docs/VERIFICATION.md)

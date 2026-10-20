@@ -127,6 +127,8 @@ jobs:
           grep -q 'DIAGNOSTICS_HUD_LAYOUT_PASS' .build/diagnostics-hud-layout.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudTextFitTests | tee .build/hud-text-fit.log
           grep -q 'HUD_TEXT_FIT_PASS' .build/hud-text-fit.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudWidgetViewportTests | tee .build/hud-widget-viewport.log
+          grep -q 'HUD_WIDGET_VIEWPORT_PASS' .build/hud-widget-viewport.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.FaultPrivacyTests | tee .build/fault-privacy.log
           grep -q 'FAULT_PRIVACY_PASS' .build/fault-privacy.log
           java -cp .build/classes dev.ghostfusion.demo.DemoMain | tee .build/demo.log
