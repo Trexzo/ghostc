@@ -6,6 +6,7 @@ import dev.ghostfusion.features.EspRenderMode;
 import dev.ghostfusion.features.EspNearestBudget;
 import dev.ghostfusion.features.EspSkeletonGeometry;
 import dev.ghostfusion.features.EspHealthBarGeometry;
+import dev.ghostfusion.features.EspLineColor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.entity.player.EntityPlayer;
@@ -81,6 +82,9 @@ final class PlayerEspRenderer {
             boolean tracers=mode.tracers;
             boolean skeleton=mode.skeleton;
             boolean health=host.espShowHealth();
+            // Resolve once per rendered frame: no per-player configuration
+            // reads or transient color-array allocations.
+            final EspLineColor appearance=host.espLineColor();
             // Selection is bounded and stable under playerEntities ordering.
             // Validate geometry BEFORE admission so invalid players cannot
             // displace any of the nearest 80 renderable candidates.
@@ -103,7 +107,8 @@ final class PlayerEspRenderer {
                     double zz=p.lastTickPosZ+(p.posZ-p.lastTickPosZ)*partialTicks;
                     AxisAlignedBB box=p.getEntityBoundingBox()
                         .offset(xx-p.posX,yy-p.posY,zz-p.posZ).expand(0.04,0.06,0.04);
-                GL11.glColor4f(0.62f,0.56f,1.0f,0.82f);
+                GL11.glColor4f(appearance.red,appearance.green,
+                    appearance.blue,appearance.opacity);
                 if(boxes) wireBox(box);
                 if(skeleton) {
                     double yaw=EspSkeletonGeometry.interpolateYaw(
