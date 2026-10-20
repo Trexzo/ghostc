@@ -30,6 +30,24 @@ public final class EspSkeletonGeometry {
      * A small normalized figure with arms and legs slightly responsive to the
      * native movement cycle; drawing does not allocate a per-joint object.
      */
+    // Reused immutable local-space bones (no allocations per rendered player).
+    // Local Z offsets for moving limbs are injected while emitting.
+    private static final double[][] BONES={
+        {0,.51,0,0,.73,0}, {0,.73,0,0,.84,0}, {0,.84,0,0,.98,0},
+        {0,.77,0,-.23,.77,0}, {0,.77,0,.23,.77,0},
+        {-.23,.77,0,-.33,.63,-.04},
+        {-.33,.63,-.04,-.39,.45,0},
+        {.23,.77,0,.33,.63,.04},
+        {.33,.63,.04,.39,.45,0},
+        {0,.51,0,-.14,.49,0}, {0,.51,0,.14,.49,0},
+        {-.14,.49,0,-.16,.26,0}, {-.16,.26,0,-.16,.02,0},
+        {.14,.49,0,.16,.26,0}, {.16,.26,0,.16,.02,0}
+    };
+
+    /**
+     * Emit 15 world-space bone segments. No per-frame joint arrays, and GL
+     * state/line batches remain entirely owned by the Forge renderer.
+     */
     public static int emit(double x,double y,double z,double yawDegrees,
                            double height,boolean crouching,double limbPhase,
                            double limbWeight,Sink sink) {
@@ -37,33 +55,26 @@ public final class EspSkeletonGeometry {
             throw new IllegalArgumentException("Invalid skeleton geometry");
         final double radians=Math.toRadians(yawDegrees);
         final double cos=Math.cos(radians),sin=Math.sin(radians);
-        final double h=height;
-        final double lowered=crouching?0.10*h:0.0;
-        final double swing=Math.cos(limbPhase*0.6662)*Math.min(1.0,Math.max(0.0,limbWeight))*0.14*h;
-        // Skeleton bones: spine/head; shoulders, elbows/hands; hips/knees/feet.
-        double[][] segments={
-            {0,.51,0,0,.73,0},
-            {0,.73,0,0,.84,0},
-            {0,.84,0,0,.98,0},
-            {0,.77,0,-.23,.77,0},
-            {0,.77,0,.23,.77,0},
-            {-.23,.77,0,-.33,.63,-.04},
-            {-.33,.63,-.04,-.39,.45,-swing/h},
-            {.23,.77,0,.33,.63,.04},
-            {.33,.63,.04,.39,.45,swing/h},
-            {0,.51,0,-.14,.49,0},
-            {0,.51,0,.14,.49,0},
-            {-.14,.49,0,-.16,.26,-swing/h},
-            {-.16,.26,-swing/h,-.16,.02,-swing/h},
-            {.14,.49,0,.16,.26,swing/h},
-            {.16,.26,swing/h,.16,.02,swing/h}
-        };
-        for(double[] bone:segments) {
-            double a=bone[0]*h,b=bone[1]*h-lowered,c=bone[2]*h;
-            double d=bone[3]*h,e=bone[4]*h-lowered,f=bone[5]*h;
-            sink.line(x+a*cos-c*sin,y+b,z+a*sin+c*cos,
-                      x+d*cos-f*sin,y+e,z+d*sin+f*cos);
+        if(!Double.isFinite(cos)||!Double.isFinite(sin))
+            throw new IllegalArgumentException("Unrenderable skeleton yaw");
+        final double swing=Math.cos(limbPhase*0.6662)*
+            Math.min(1.0,Math.max(0.0,limbWeight))*.14;
+        for(int i=0;i<BONES.length;i++) {
+            double[] bone=BONES[i];
+            double z1=bone[2],z2=bone[5];
+            // Alternate front/back swing for opposite arms/legs.
+            if(i==6||i==11||i==12)z2-=swing;
+            else if(i==8||i==13||i==14)z2+=swing;
+            if(i==12)z1-=swing;
+            else if(i==14)z1+=swing;
+            double ax=bone[0]*height, az=z1*height;
+            double bx=bone[3]*height, bz=z2*height;
+            // Crouching lowers the upper joints more than the feet.
+            double ay=height*(bone[1]-(crouching?.12*Math.min(1.0,bone[1]/.5):0));
+            double by=height*(bone[4]-(crouching?.12*Math.min(1.0,bone[4]/.5):0));
+            sink.line(x+ax*cos-az*sin,y+ay,z+ax*sin+az*cos,
+                      x+bx*cos-bz*sin,y+by,z+bx*sin+bz*cos);
         }
-        return segments.length;
+        return BONES.length;
     }
 }
