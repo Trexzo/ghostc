@@ -3,6 +3,7 @@ package dev.ghostfusion.forge189;
 import dev.ghostfusion.features.CpsMeter;
 import dev.ghostfusion.ui.HudPositions.Widget;
 import dev.ghostfusion.ui.HudFootprints;
+import dev.ghostfusion.ui.HudWidgetViewport;
 import dev.ghostfusion.ui.DiagnosticsHudLayout;
 import dev.ghostfusion.ui.HudTextFit;
 import dev.ghostfusion.features.SprintPolicy;
@@ -114,9 +115,12 @@ public final class ForgeFeatureDriver {
             x+(width-textWidth)/2,y+5,pressed ? 0xFF121629 : 0xFFF0F0FF);
     }
     private void drawKeys(int sw,int sh) {
-        int x=host.ui().widgets().pixelX(Widget.KEYSTROKES,sw,Widget.KEYSTROKES.width);
-        int y=host.ui().widgets().pixelY(Widget.KEYSTROKES,sh,
-            HudFootprints.height(Widget.KEYSTROKES,host.keysJump(),host.keysSneak(),host.targetHealth()));
+        // Do not draw a partial Keystrokes grid into a smaller scaled viewport.
+        HudWidgetViewport.Frame frame=HudWidgetViewport.place(
+            host.ui().widgets(),Widget.KEYSTROKES,sw,sh,
+            host.keysJump(),host.keysSneak(),host.targetHealth());
+        if(frame==null)return;
+        int x=frame.x,y=frame.y;
         key(keyName(mc.gameSettings.keyBindForward),x+29,y,25,mc.gameSettings.keyBindForward.isKeyDown());
         key(keyName(mc.gameSettings.keyBindLeft),x,y+20,25,mc.gameSettings.keyBindLeft.isKeyDown());
         key(keyName(mc.gameSettings.keyBindBack),x+29,y+20,25,mc.gameSettings.keyBindBack.isKeyDown());
@@ -194,6 +198,12 @@ public final class ForgeFeatureDriver {
         // Focus/suppression remains in the saved local report.
     }
     private void drawTarget(int sw,int sh) {
+        final boolean health=host.targetHealth();
+        // Skip target selection/world lookup when no full card can be shown.
+        HudWidgetViewport.Frame frame=HudWidgetViewport.place(
+            host.ui().widgets(),Widget.TARGET,sw,sh,
+            host.keysJump(),host.keysSneak(),health);
+        if(frame==null)return;
         WorldSnapshot w=host.services().snapshot();
         WorldSnapshot.Entity target=targets.select(w,host.targetRange(),host.targetVisible());
         if (target==null) return;
@@ -201,12 +211,8 @@ public final class ForgeFeatureDriver {
         if (!(e instanceof EntityPlayer) || e == mc.thePlayer) return;
         EntityPlayer player=(EntityPlayer)e;
         String name=player.getName();
-        int width=HudFootprints.width(Widget.TARGET);
-        int height=HudFootprints.height(Widget.TARGET,host.keysJump(),
-            host.keysSneak(),host.targetHealth());
-        int x=host.ui().widgets().pixelX(Widget.TARGET,sw,width);
-        int y=host.ui().widgets().pixelY(Widget.TARGET,sh,height);
-        final boolean health=host.targetHealth();
+        int width=frame.width,height=frame.height;
+        int x=frame.x,y=frame.y;
         TargetHudTextLayout.Result labels=TargetHudTextLayout.layout(
             name,target.id,health,host.targetHealthText(),target.health,
             player.getMaxHealth(),width,targetFontWidths);

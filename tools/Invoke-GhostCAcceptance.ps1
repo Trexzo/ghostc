@@ -214,6 +214,7 @@ $lines = @(
     '- [ ] F7 ClickGUI opens/closes, and module search/settings work',
     '- [ ] F8 status HUD toggles and remapped Keystrokes labels are correct',
     '- [ ] Long/remapped Unicode keystroke labels stay inside cells with a visible ellipsis',
+    '- [ ] Small scaled-screen Keystrokes/Target HUD cards are hidden when too large and reappear on resize',
     '- [ ] CPS panel counts stay inside their card at high counts and on small scaled windows',
     '- [ ] Rendering and Target HUD behave correctly in an authorized local world',
     '- [ ] Runtime Diagnostics fits smaller scaled windows, clips long counters and retains FPS/snapshot summary',

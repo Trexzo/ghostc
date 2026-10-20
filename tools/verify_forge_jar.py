@@ -30,6 +30,7 @@ REQUIRED = (
     "dev/ghostfusion/features/TargetHudTextLayout.class",
     "dev/ghostfusion/ui/DiagnosticsHudLayout.class",
     "dev/ghostfusion/ui/HudTextFit.class",
+    "dev/ghostfusion/ui/HudWidgetViewport.class",
     "dev/ghostfusion/features/EspHealthBarGeometry$Side.class",
     "dev/ghostfusion/features/EspLineColor.class",
     "dev/ghostfusion/features/EspDistanceFade.class",

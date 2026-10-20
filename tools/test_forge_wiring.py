@@ -119,6 +119,21 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('getStringWidth(fitted)',self.feature)
         self.assertNotIn('label=label.substring(0,label.length()-1)',self.feature)
 
+    def test_keystrokes_and_target_admit_only_fitting_full_widgets(self):
+        driver=self.feature
+        viewport=content("src/main/java/dev/ghostfusion/ui/HudWidgetViewport.java")
+        self.assertIn("HudWidgetViewport.Frame frame=HudWidgetViewport.place(",driver)
+        self.assertEqual(driver.count("if(frame==null)return;"),2)
+        self.assertIn("int x=frame.x,y=frame.y;",driver)
+        self.assertIn("int width=frame.width;",driver)
+        self.assertIn("screenWidth<width||screenHeight<height",viewport)
+        self.assertIn("frame.contained(screenWidth,screenHeight)",viewport)
+        self.assertIn("HudFootprints.width(widget)",viewport)
+        self.assertIn("HudFootprints.height(widget,jump,sneak,targetHealth)",viewport)
+        self.assertIn("dev.ghostfusion.tests.HudWidgetViewportTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("HudWidgetViewport.class",content("tools/verify_forge_jar.py"))
+
     def test_hud_text_fitting_and_bounded_cps_card(self):
         driver=self.feature
         policy=content("src/main/java/dev/ghostfusion/ui/HudTextFit.java")
@@ -709,8 +724,12 @@ class ForgeWiring(unittest.TestCase):
         for widget in ("KEYSTROKES","CPS","TARGET"):
             self.assertIn("Widget."+widget,driver)
             self.assertRegex(positions, r"(?m)^\s*"+widget+r'\("')
-        self.assertGreaterEqual(driver.count(".widgets().pixelX("),3)
-        self.assertGreaterEqual(driver.count(".widgets().pixelY("),3)
+        self.assertIn(".widgets().pixelX(Widget.CPS",driver)
+        self.assertIn(".widgets().pixelY(Widget.CPS",driver)
+        self.assertEqual(driver.count("HudWidgetViewport.place("),2)
+        viewport=content("src/main/java/dev/ghostfusion/ui/HudWidgetViewport.java")
+        self.assertIn("anchors.pixelX(widget,screenWidth,width)",viewport)
+        self.assertIn("anchors.pixelY(widget,screenHeight,height)",viewport)
         self.assertIn("draggingWidget=widget;",gui)
         self.assertIn("geometry.moveWidget(ui.widgets(),draggingWidget,",gui)
         self.assertIn("for(Widget widget:Widget.values())",gui)
@@ -758,8 +777,10 @@ class ForgeWiring(unittest.TestCase):
         sizes=content("src/main/java/dev/ghostfusion/ui/HudFootprints.java")
         for item in ("STATUS","KEYS","CPS","TARGET"):
             self.assertIn(item,editor)
+        viewport=content("src/main/java/dev/ghostfusion/ui/HudWidgetViewport.java")
         for name in ("KEYSTROKES","TARGET"):
-            self.assertIn("HudFootprints.height(Widget."+name,driver)
+            self.assertIn("Widget."+name+",sw,sh",driver)
+        self.assertIn("HudFootprints.height(widget,jump,sneak,targetHealth)",viewport)
         self.assertIn("HudFootprints.height(widget,host.keysJump()",gui)
         self.assertIn("HudEditorControls.tabAt(",gui)
         self.assertIn("hudControls.nudge(ui,",gui)
