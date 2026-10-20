@@ -5,6 +5,7 @@ import dev.ghostfusion.ui.HudPositions.Widget;
 import dev.ghostfusion.ui.HudFootprints;
 import dev.ghostfusion.features.SprintPolicy;
 import dev.ghostfusion.features.TargetHudPolicy;
+import dev.ghostfusion.features.TargetHudTextLayout;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.services.WorldSnapshot;
@@ -186,23 +187,29 @@ public final class ForgeFeatureDriver {
         if (!(e instanceof EntityPlayer) || e == mc.thePlayer) return;
         EntityPlayer player=(EntityPlayer)e;
         String name=player.getName();
-        if (name == null || name.length() > 26) name="Player #"+target.id;
         int width=HudFootprints.width(Widget.TARGET);
         int height=HudFootprints.height(Widget.TARGET,host.keysJump(),
             host.keysSneak(),host.targetHealth());
         int x=host.ui().widgets().pixelX(Widget.TARGET,sw,width);
         int y=host.ui().widgets().pixelY(Widget.TARGET,sh,height);
+        final boolean health=host.targetHealth();
+        TargetHudTextLayout.Result labels=TargetHudTextLayout.layout(
+            name,target.id,health,host.targetHealthText(),target.health,
+            player.getMaxHealth(),width,
+            new java.util.function.ToIntFunction<String>() {
+                public int applyAsInt(String value) {
+                    return mc.fontRendererObj.getStringWidth(value);
+                }
+            });
         Gui.drawRect(x,y,x+width,y+height,0xD0141A2B);
         Gui.drawRect(x,y,x+2,y+height,0xFF9A8CFF);
-        mc.fontRendererObj.drawStringWithShadow(name,x+9,y+7,0xFFF1F2FF);
-        if(host.targetHealth()) {
-            double max=Math.max(1.0,player.getMaxHealth());
-            double fraction=Math.max(0,Math.min(1.0,target.health/max));
+        mc.fontRendererObj.drawStringWithShadow(labels.name,x+9,y+7,0xFFF1F2FF);
+        if(health) {
             Gui.drawRect(x+9,y+25,x+width-9,y+31,0xFF414B60);
-            Gui.drawRect(x+9,y+25,x+9+(int)((width-18)*fraction),y+31,0xFF9A8CFF);
-            mc.fontRendererObj.drawStringWithShadow(
-                String.format(java.util.Locale.ROOT,"%.1f / %.1f",target.health,max),
-                x+width-70,y+8,0xFFB6C2DD);
+            Gui.drawRect(x+9,y+25,x+9+(int)((width-18)*labels.healthFraction),y+31,
+                0xFF9A8CFF);
+            mc.fontRendererObj.drawStringWithShadow(labels.healthLabel,
+                x+width-9-labels.healthLabelWidth,y+8,0xFFB6C2DD);
         }
     }
 }

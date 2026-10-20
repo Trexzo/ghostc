@@ -54,6 +54,9 @@ public final class HostRuntime {
     private final Setting.Number targetRange = new Setting.Number("range", 8.0, 2.0, 24.0);
     private final Setting.Bool targetVisible = new Setting.Bool("visible_only", true);
     private final Setting.Bool targetHealth = new Setting.Bool("show_health", true);
+    // Old profiles preserve values; percent is an optional narrower readout.
+    private final Setting.Choice targetHealthText =
+        new Setting.Choice("health_text","values","values","percent");
     private final Setting.Number espRange = new Setting.Number("range", 32.0, 2.0, 80.0);
     private final Setting.Bool espVisible = new Setting.Bool("visible_only", true);
     private final Setting.Bool espWalls = new Setting.Bool("through_walls", false);
@@ -125,7 +128,7 @@ public final class HostRuntime {
         modules.register(new FeatureModule("hud.cps", "CPS Counter", GhostModule.Category.RENDER),
             0, cpsRight);
         modules.register(new FeatureModule("hud.target", "Target HUD", GhostModule.Category.RENDER),
-            0, targetRange, targetVisible, targetHealth);
+            0, targetRange, targetVisible, targetHealth, targetHealthText);
         modules.register(new FeatureModule("render.esp", "Player ESP", GhostModule.Category.RENDER),
             0, espRange, espVisible, espWalls, espWidth, espStyle, espHealth,
             espHealthSide, espHealthGap,
@@ -246,6 +249,9 @@ public final class HostRuntime {
     public double targetRange() { modules.assertOwnerThread(); return targetRange.get(); }
     public boolean targetVisible() { modules.assertOwnerThread(); return targetVisible.get(); }
     public boolean targetHealth() { modules.assertOwnerThread(); return targetHealth.get(); }
+    public String targetHealthText() {
+        modules.assertOwnerThread(); return targetHealthText.get();
+    }
     public double espRange() { modules.assertOwnerThread(); return espRange.get(); }
     public boolean espVisible() { modules.assertOwnerThread(); return espVisible.get(); }
     public boolean espThroughWalls() { modules.assertOwnerThread(); return espWalls.get(); }
