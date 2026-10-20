@@ -37,6 +37,8 @@ MUST_EXIST=(
     "src/main/java/dev/ghostfusion/services/WorldIdentityTracker.java",
     "tools/test_forge_wiring.py",
     "tools/verify_forge_jar.py",
+    "tools/forge_build_manifest.py",
+    "tools/test_forge_build_manifest.py",
     "tools/Invoke-GhostCAcceptance.ps1",
 )
 def verify():
@@ -51,7 +53,7 @@ def verify():
     for name in MUST_EXIST:
         if not (ROOT/name).is_file():
             issues.append(name)
-    for version in range(8,53):
+    for version in range(8,54):
         path=Path("docs")/("RUNTIME_R%02d.md"%version)
         if not (ROOT/path).is_file():
             issues.append(str(path))
@@ -61,7 +63,7 @@ def verify():
             issues.append(path+" (README reference)")
     if issues:
         raise AssertionError("Repository inventory incomplete: "+", ".join(sorted(set(issues))))
-    print("REPOSITORY_INVENTORY_PASS tests=%d milestones=%d"%(len(TESTS),45))
+    print("REPOSITORY_INVENTORY_PASS tests=%d milestones=%d"%(len(TESTS),46))
 
 if __name__=="__main__":
     try:
