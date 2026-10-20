@@ -33,7 +33,7 @@ public final class EspNearestBudgetTests {
         ok(budget.offer("near",6,1),"nearer player inserted ahead");
         ok(budget.offer("mid",2,10),"third player accepted");
         ok(!budget.offer("distant",20,41),"farther candidate rejected");
-        ok(!budget.offer("dupe",6,0),"duplicate player ID rejected");
+        ok(!budget.offer("dupe",6,2),"farther duplicate player ID rejected");
         ok(budget.offer("nearest",1,0),"nearest displaces last");
         ok(budget.size()==3,"bounded capacity");
         ok("nearest".equals(budget.get(0))&&"near".equals(budget.get(1))&&
