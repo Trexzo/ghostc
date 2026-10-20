@@ -125,7 +125,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("HudWidgetViewport.Frame frame=HudWidgetViewport.place(",driver)
         self.assertEqual(driver.count("if(frame==null)return;"),2)
         self.assertIn("int x=frame.x,y=frame.y;",driver)
-        self.assertIn("int width=frame.width;",driver)
+        self.assertIn("int width=frame.width,height=frame.height;",driver)
         self.assertIn("screenWidth<width||screenHeight<height",viewport)
         self.assertIn("frame.contained(screenWidth,screenHeight)",viewport)
         self.assertIn("HudFootprints.width(widget)",viewport)
