@@ -131,6 +131,23 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("session.snapshot().tick!=session.tick()",combat)
         self.assertIn("pitch>=-90f && pitch<=90f",snap)
 
+    def test_r210_warning_not_gated_by_status_and_lifecycle_fps_pause(self):
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        perf=content("src/main/java/dev/ghostfusion/host/FramePerformance.java")
+        diag=content("src/main/java/dev/ghostfusion/host/RuntimeDiagnostics.java")
+        placement=content("src/main/java/dev/ghostfusion/ui/HudWarningPlacement.java")
+        self.assertIn("if(blocked) framePerformance.suspend();",host)
+        self.assertIn("!focused || inputBlocked || !worldPresent",host)
+        self.assertIn("host.performancePause();\n            return;",self.adapter)
+        self.assertIn("final int nx=warningStatusX;",self.adapter)
+        self.assertIn("HudWarningPlacement.y(",self.adapter)
+        self.assertIn("int warningStatusX=0,warningStatusBottom=2;",self.adapter)
+        self.assertIn("perf.invalid_intervals",diag)
+        self.assertIn("invalidIntervals",perf)
+        self.assertIn("Math.max(0,Math.min(wanted,",placement)
+        self.assertIn("dev.ghostfusion.tests.LifecycleVisibilityTests",
+                      content(".github/workflows/core-ci.yml"))
+
     def test_forge_frame_performance_is_focused_and_opt_in(self):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         sample=content("src/main/java/dev/ghostfusion/host/FramePerformance.java")
@@ -200,8 +217,12 @@ class ForgeWiring(unittest.TestCase):
         tracker=content("src/main/java/dev/ghostfusion/services/WorldIdentityTracker.java")
         self.assertIn("public boolean matches(Object currentWorld,Object currentPlayer)",tracker)
         self.assertIn("world==currentWorld && player==currentPlayer",tracker)
+        # Mouse and 3D render still return immediately. The 2D overlay
+        # now suspends timing BEFORE its own early return on identity loss.
         self.assertEqual(self.adapter.count(
-            "if (!worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) return;"),3)
+            "if (!worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) return;"),2)
+        self.assertIn("if (!worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) {",self.adapter)
+        self.assertIn("host.performancePause();\n            return;",self.adapter)
         self.assertIn("features.render3d(event.partialTicks)",self.adapter)
         self.assertIn("features.mouseInput()",self.adapter)
         self.assertRegex(self.adapter,r"final boolean status\s*=\s*host\.render2d\(\);")

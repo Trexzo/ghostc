@@ -142,7 +142,7 @@ public final class HostRuntime {
     /** Only record focused in-world frames with explicit diagnostics opt-in. */
     public void performanceFrame(long nowNanos,long usedHeapBytes,boolean focused) {
         if(!active()) return;
-        if(!focused || !worldPresent || !diagnosticsEnabled()) {
+        if(!focused || inputBlocked || !worldPresent || !diagnosticsEnabled()) {
             framePerformance.suspend();
             return;
         }
@@ -252,6 +252,8 @@ public final class HostRuntime {
             diagnostics.record(blocked ? Counter.FOCUS_LOST : Counter.FOCUS_GAINED);
             if (blocked) input.clearPressed();
         }
+        // END-tick continues through GUIs even without HUD callbacks.
+        if(blocked) framePerformance.suspend();
         inputBlocked = blocked;
     }
     public void key(int keycode, boolean pressed, boolean textFieldOrMenuFocused) {

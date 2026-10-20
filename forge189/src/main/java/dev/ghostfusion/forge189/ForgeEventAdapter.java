@@ -130,7 +130,10 @@ public final class ForgeEventAdapter {
     @SubscribeEvent
     public void onOverlay(RenderGameOverlayEvent.Text event) {
         host.diagnostics().record(Counter.OVERLAY_FRAME);
-        if (!worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) return;
+        if (!worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) {
+            host.performancePause();
+            return;
+        }
         if(host.diagnosticsEnabled()) {
             final Runtime memory=Runtime.getRuntime();
             host.performanceFrame(System.nanoTime(),memory.totalMemory()-memory.freeMemory(),
@@ -151,6 +154,7 @@ public final class ForgeEventAdapter {
         final String coordsText=metrics && host.showCoordinates() && minecraft.thePlayer!=null
             ? String.format(Locale.ROOT,"XYZ %.1f %.1f %.1f",
                 minecraft.thePlayer.posX,minecraft.thePlayer.posY,minecraft.thePlayer.posZ) : null;
+        int warningStatusX=0,warningStatusBottom=2;
         if(status || fpsText!=null || coordsText!=null) {
             final int statusWidth=status ? Math.max(1,
                 Math.round((minecraft.fontRendererObj.getStringWidth(statusText)+4)*scale)) : 0;
@@ -162,6 +166,8 @@ public final class ForgeEventAdapter {
                 fpsText==null?0:minecraft.fontRendererObj.getStringWidth(fpsText),
                 coordsText==null?0:minecraft.fontRendererObj.getStringWidth(coordsText),
                 fontHeight);
+            warningStatusX=layout.x;
+            warningStatusBottom=layout.y+layout.height+3;
 
             // Independent fault domains: a bad Status draw cannot prevent FPS
             // or coordinates from rendering in the same overlay frame.
@@ -209,23 +215,26 @@ public final class ForgeEventAdapter {
                         });
                     }
                 });
-            String warning=!host.faultWarning().isEmpty() ? host.faultWarning() :
-                !host.uiWarning().isEmpty() ? host.uiWarning() :
-                !host.diagnosticsWarning().isEmpty() ? host.diagnosticsWarning() :
-                host.profileWarning();
-            if(!warning.isEmpty()) {
-                final String notice=warning;
-                final int nx=layout.x,ny=Math.max(0,Math.min(sh-fontHeight-1,
-                    layout.y+layout.height+3));
-                RenderStateGuard.draw(new Runnable() {
-                    public void run() {
-                        minecraft.fontRendererObj.drawStringWithShadow(
-                            minecraft.fontRendererObj.trimStringToWidth(notice,
-                                Math.max(0,sw-nx-2)),
-                            nx+2,ny,0xFFFF9999);
-                    }
-                });
-            }
+        }
+        // Fault and recovery warnings remain visible when Status and Metrics
+        // are disabled, using a screen-safe independent fallback anchor.
+        String warning=!host.faultWarning().isEmpty() ? host.faultWarning() :
+            !host.uiWarning().isEmpty() ? host.uiWarning() :
+            !host.diagnosticsWarning().isEmpty() ? host.diagnosticsWarning() :
+            host.profileWarning();
+        if(!warning.isEmpty()) {
+            final String notice=warning;
+            final int nx=warningStatusX;
+            final int ny=dev.ghostfusion.ui.HudWarningPlacement.y(
+                warningStatusBottom,sh,fontHeight);
+            RenderStateGuard.draw(new Runnable() {
+                public void run() {
+                    minecraft.fontRendererObj.drawStringWithShadow(
+                        minecraft.fontRendererObj.trimStringToWidth(notice,
+                            Math.max(0,sw-nx-2)),
+                        nx+2,ny,0xFFFF9999);
+                }
+            });
         }
         // Other HUD modules retain their own independent fault guards.
         features.render2d(resolution);

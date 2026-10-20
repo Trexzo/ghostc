@@ -42,6 +42,8 @@ jobs:
           grep -q 'SERVICES_REGRESSION_PASS' .build/services.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.FeatureTests | tee .build/features.log
           grep -q 'FEATURE_REGRESSION_PASS' .build/features.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.LifecycleVisibilityTests | tee .build/lifecycle-visibility.log
+          grep -q 'LIFECYCLE_VISIBILITY_PASS' .build/lifecycle-visibility.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.FramePerformanceTests | tee .build/frame-performance.log
           grep -q 'FRAME_PERFORMANCE_PASS' .build/frame-performance.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.EspTelemetryTests | tee .build/esp-telemetry.log
