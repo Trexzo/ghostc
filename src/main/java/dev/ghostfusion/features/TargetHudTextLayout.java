@@ -38,9 +38,10 @@ public final class TargetHudTextLayout {
             scanned++;
             // Minecraft formatting marker takes a following style character.
             if(cp==0xA7) {
-                if(at<raw.length()){
+                if(at<raw.length() && scanned<MAX_SCANNED_CODEPOINTS){
                     int next=raw.codePointAt(at);
                     at+=Character.charCount(next);
+                    scanned++;
                 }
                 continue;
             }

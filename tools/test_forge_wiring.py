@@ -39,6 +39,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("cardWidth-18-(showHealth?labelWidth+6:0)",layout)
         self.assertIn("Character.charCount(cp)",layout)
         self.assertIn("scanned<MAX_SCANNED_CODEPOINTS",layout)
+        self.assertGreaterEqual(layout.count("scanned++;"),2)
         self.assertIn("cp>=Character.MIN_SURROGATE && cp<=Character.MAX_SURROGATE",layout)
         self.assertNotIn("Character.isSurrogate((char)cp)",layout)
         self.assertIn("private final java.util.function.ToIntFunction<String> targetFontWidths;",forge)

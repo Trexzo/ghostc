@@ -83,10 +83,15 @@ public final class TargetHudTextLayoutTests {
         ok("Player #42".equals(layout(hostile.toString(),false,"values",20,20).name),
            "format-only input cannot induce unbounded parsing");
         StringBuilder boundary=new StringBuilder();
-        for(int j=0;j<255;j++)boundary.append("\u00a7a");
-        boundary.append("Z");
-        ok("Z".equals(layout(boundary.toString(),false,"values",20,20).name),
-           "256th source codepoint remains eligible");
+        for(int j=0;j<127;j++)boundary.append("\u00a7a");
+        boundary.append("YZ");
+        ok("YZ".equals(layout(boundary.toString(),false,"values",20,20).name),
+           "255th and 256th source codepoints remain eligible");
+        StringBuilder exactCap=new StringBuilder();
+        for(int j=0;j<128;j++)exactCap.append("\u00a7a");
+        exactCap.append("Invisible");
+        ok("Player #42".equals(layout(exactCap.toString(),false,"values",20,20).name),
+           "formatting pair consumes two raw codepoints under exact 256 budget");
         boolean rejected=false;
         try{TargetHudTextLayout.layout("Hi",42,true,"bad",1,2,160,FONT);}
         catch(IllegalArgumentException expected){rejected=true;}
