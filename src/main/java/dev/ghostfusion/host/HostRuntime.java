@@ -58,6 +58,10 @@ public final class HostRuntime {
     private final Setting.Bool espVisible = new Setting.Bool("visible_only", true);
     private final Setting.Bool espWalls = new Setting.Bool("through_walls", false);
     private final Setting.Bool espHealth = new Setting.Bool("show_health", false);
+    private final Setting.Choice espHealthSide =
+        new Setting.Choice("health_side", "right", "right", "left");
+    private final Setting.Number espHealthGap =
+        new Setting.Number("health_gap", 0.18, 0.05, 0.50);
     private final Setting.Number espWidth = new Setting.Number("line_width", 1.5, 1.0, 4.0);
     // Drawing budget only: detection, visibility, and nearest-80 membership
     // remain unchanged. Old profiles draw the same maximum of 80 players.
@@ -124,6 +128,7 @@ public final class HostRuntime {
             0, targetRange, targetVisible, targetHealth);
         modules.register(new FeatureModule("render.esp", "Player ESP", GhostModule.Category.RENDER),
             0, espRange, espVisible, espWalls, espWidth, espStyle, espHealth,
+            espHealthSide, espHealthGap,
             espRed, espGreen, espBlue, espOpacity, espCornerLength, espFillOpacity,
             espDistanceFade, espFadeStart, espFadeMinimum, espDrawLimit);
         modules.register(new FeatureModule("movement.sprint", "Auto Sprint", GhostModule.Category.MOVEMENT),
@@ -245,6 +250,13 @@ public final class HostRuntime {
     public boolean espVisible() { modules.assertOwnerThread(); return espVisible.get(); }
     public boolean espThroughWalls() { modules.assertOwnerThread(); return espWalls.get(); }
     public boolean espShowHealth() { modules.assertOwnerThread(); return espHealth.get(); }
+    public dev.ghostfusion.features.EspHealthBarGeometry.Side espHealthSide(){
+        modules.assertOwnerThread();
+        return dev.ghostfusion.features.EspHealthBarGeometry.Side.of(espHealthSide.get());
+    }
+    public double espHealthGap(){
+        modules.assertOwnerThread();return espHealthGap.get();
+    }
     public float espLineWidth() { modules.assertOwnerThread(); return espWidth.get().floatValue(); }
     public int espMaxPlayers() {
         modules.assertOwnerThread(); return espDrawLimit.get().intValue();

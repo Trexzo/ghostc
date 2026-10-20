@@ -54,6 +54,8 @@ jobs:
           grep -q 'ESP_NEAREST_BUDGET_PASS' .build/esp-nearest.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.EspLineColorTests | tee .build/esp-color.log
           grep -q 'ESP_LINE_COLOR_PASS' .build/esp-color.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.EspHealthPlacementTests | tee .build/esp-health-placement.log
+          grep -q 'ESP_HEALTH_PLACEMENT_PASS' .build/esp-health-placement.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.EspHealthBarTests | tee .build/esp-health-bar.log
           grep -q 'ESP_HEALTH_BAR_PASS' .build/esp-health-bar.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.EspDistanceFadeTests | tee .build/esp-distance-fade.log

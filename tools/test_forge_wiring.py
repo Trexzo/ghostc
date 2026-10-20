@@ -294,6 +294,25 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.FramePerformanceTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_health_bar_camera_side_gap_and_legacy_api(self):
+        renderer=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        geometry=content("src/main/java/dev/ghostfusion/features/EspHealthBarGeometry.java")
+        self.assertIn('new Setting.Choice("health_side", "right", "right", "left")',host)
+        self.assertIn('new Setting.Number("health_gap", 0.18, 0.05, 0.50)',host)
+        self.assertIn("espHealthSide, espHealthGap,",host)
+        self.assertIn("final EspHealthBarGeometry.Side healthSide=health?",renderer)
+        self.assertIn("final double healthGap=health?host.espHealthGap():0.18;",renderer)
+        self.assertIn("healthSide,healthGap,HEALTH_LINES);",renderer)
+        self.assertIn("public static boolean emitStyled(",geometry)
+        self.assertIn("Side.RIGHT,0.18,sink);",geometry)
+        self.assertIn("double offset=(width*0.5+gap)*side.sign;",geometry)
+        self.assertIn("!Double.isFinite(filledTop)",geometry)
+        self.assertIn("dev.ghostfusion.tests.EspHealthPlacementTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("EspHealthBarGeometry$Side.class",
+                      content("tools/verify_forge_jar.py"))
+
     def test_opt_in_esp_health_bar_geometry_and_persistence_wiring(self):
         renderer=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
@@ -304,7 +323,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("espRed, espGreen, espBlue, espOpacity, espCornerLength, espFillOpacity,",host)
         self.assertIn("public boolean espShowHealth()",host)
         self.assertIn("boolean health=host.espShowHealth();",renderer)
-        self.assertIn("EspHealthBarGeometry.emit(xx,yy,zz,p.height,p.width,",renderer)
+        self.assertIn("EspHealthBarGeometry.emitStyled(xx,yy,zz,p.height,p.width,",renderer)
         self.assertIn("p.getHealth(),p.getMaxHealth()",renderer)
         self.assertIn("if(!good) host.diagnostics().record(Counter.ESP_INVALID_GEOMETRY)",renderer)
         self.assertIn("GL11.glLineWidth(host.espLineWidth());",renderer)
@@ -406,7 +425,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("final float lineAlpha=appearance.opacity*fade;",esp)
         self.assertIn("appearance.blue,lineAlpha*fillOpacity);",esp)
         self.assertIn("appearance.blue,lineAlpha);",esp)
-        self.assertIn("EspHealthBarGeometry.emit(xx,yy,zz,",esp)
+        self.assertIn("EspHealthBarGeometry.emitStyled(xx,yy,zz,",esp)
         self.assertIn("if(!enabled)return 1f;",policy)
         self.assertIn("dev.ghostfusion.tests.EspDistanceFadeTests",
                       content(".github/workflows/core-ci.yml"))
