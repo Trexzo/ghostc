@@ -6,11 +6,15 @@ on:
     paths:
       - "forge189/**"
       - "src/main/**"
+      - "src/test/**"
+      - "tools/**"
       - ".github/workflows/forge189-ci.yml"
   pull_request:
     paths:
       - "forge189/**"
       - "src/main/**"
+      - "src/test/**"
+      - "tools/**"
       - ".github/workflows/forge189-ci.yml"
   workflow_dispatch:
 
@@ -94,12 +98,25 @@ jobs:
         run: |
           cd forge189/build/libs
           sha256sum ghostc-forge189-*.jar > SHA256SUMS.txt
+      - name: Verify release provenance against checked-out commit (NOT gameplay)
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR=$(find forge189/build/libs -maxdepth 1 -name 'ghostc-forge189-*.jar' ! -name '*-sources.jar' -print -quit)
+          VERSION=$(awk -F"'" '/^version = / {print $2; exit}' forge189/build.gradle)
+          REVISION=$(git rev-parse HEAD)
+          python3 tools/test_forge_build_manifest.py
+          python3 tools/forge_build_manifest.py create --jar "$JAR" --version "$VERSION" --sha256sums forge189/build/libs/SHA256SUMS.txt --manifest forge189/build/libs/GHOSTC_BUILD_MANIFEST.json --revision "$REVISION" --platform linux
+          python3 tools/forge_build_manifest.py verify --jar "$JAR" --sha256sums forge189/build/libs/SHA256SUMS.txt --manifest forge189/build/libs/GHOSTC_BUILD_MANIFEST.json --revision "$REVISION" --platform linux
       - uses: actions/upload-artifact@v4
         with:
           name: ghostc-forge189-unverified-ingame
           path: |
             forge189/build/libs/ghostc-forge189-*.jar
             forge189/build/libs/SHA256SUMS.txt
+            forge189/build/libs/GHOSTC_BUILD_MANIFEST.json
+            tools/forge_build_manifest.py
+            tools/verify_forge_jar.py
             tools/Invoke-GhostCAcceptance.ps1
             docs/RUNTIME_R10.md
             docs/RUNTIME_R11.md
@@ -115,7 +132,7 @@ jobs:
             docs/RUNTIME_R21.md
             docs/RUNTIME_R22.md
             docs/RUNTIME_R23.md
-            docs/RUNTIME_R52.md
+            docs/RUNTIME_R53.md
           if-no-files-found: error
 
   windows-forge189:
@@ -173,6 +190,23 @@ jobs:
           python tools/verify_forge_jar.py --jar $file --version $version
           if ($LASTEXITCODE -ne 0) { throw 'JAR content verification failed' }
           Write-Output "WINDOWS_FORGE189_SMOKE_PASS version=$version"
+      - name: Verify Windows build provenance (NOT gameplay)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python tools/test_forge_build_manifest.py
+          if ($LASTEXITCODE -ne 0) { throw 'Provenance self-tests failed' }
+          $config = Get-Content -LiteralPath forge189/build.gradle -Raw
+          $version = ([regex]::Match($config, "(?m)^version = '([^']+)'")).Groups[1].Value
+          if (!$version) { throw 'Missing Forge artifact version' }
+          $file = "forge189/build/libs/ghostc-forge189-$version.jar"
+          $revision = (& git rev-parse HEAD).Trim()
+          $manifest = 'forge189/build/libs/GHOSTC_BUILD_MANIFEST.json'
+          $sums = 'forge189/build/libs/SHA256SUMS.txt'
+          python tools/forge_build_manifest.py create --jar $file --version $version --sha256sums $sums --manifest $manifest --revision $revision --platform windows
+          if ($LASTEXITCODE -ne 0) { throw 'Windows provenance generation failed' }
+          python tools/forge_build_manifest.py verify --jar $file --sha256sums $sums --manifest $manifest --revision $revision --platform windows
+          if ($LASTEXITCODE -ne 0) { throw 'Windows provenance verification failed' }
       - name: Transactional install/collect/rollback rehearsal (fake profile, NO game launch)
         shell: pwsh
         run: |
@@ -218,6 +252,29 @@ jobs:
               ((Get-Content -LiteralPath $report -Raw) -notmatch 'UNVERIFIED IN-GAME')) {
             throw 'Acceptance report missing its unverified runtime disclaimer'
           }
+          # A second Collect must never overwrite the human-owned checklist.
+          $original = Get-Content -LiteralPath $report -Raw
+          $edited = $original.Replace('- [ ] Launcher starts without a Forge loading error',
+                                      '- [x] Launcher starts without a Forge loading error')
+          $edited += "`nCI_FIXTURE_OWNER_NOTE_DO_NOT_ERASE`n"
+          Set-Content -LiteralPath $report -Value $edited -Encoding UTF8
+          $editedHash = (Get-FileHash -LiteralPath $report -Algorithm SHA256).Hash
+          $diagDir = Join-Path $root 'config/ghostc'
+          New-Item -ItemType Directory -Path $diagDir -Force | Out-Null
+          [IO.File]::WriteAllText((Join-Path $diagDir 'diagnostics-last.properties'),
+            "count.gui_open=7`nperf.p95_fps=144`nusername=EXCLUDED_PRIVATE_VALUE`n")
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Collect -GameDir $root
+          if ($LASTEXITCODE -ne 0) { throw 'Repeated Collect failed' }
+          if ((Get-FileHash -LiteralPath $report -Algorithm SHA256).Hash -ne $editedHash) {
+            throw 'Repeated Collect erased the operator checklist or notes'
+          }
+          $telemetry = Get-Content -LiteralPath (Join-Path $root 'ghostc-acceptance/telemetry-latest.txt') -Raw
+          if ($telemetry -notmatch 'count.gui_open=7' -or
+              $telemetry -notmatch 'perf.p95_fps=144' -or
+              $telemetry -match 'EXCLUDED_PRIVATE_VALUE') {
+            throw 'Numeric diagnostics sidecar missing or privacy filtering failed'
+          }
+          Write-Output 'WINDOWS_ACCEPTANCE_PRESERVE_CHECKLIST_AND_TELEMETRY_PASS'
           $installed = Join-Path $mods "ghostc-forge189-$version.jar"
           [IO.File]::AppendAllText($installed, 'TAMPERED FILE')
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Rollback -GameDir $root *> $null
@@ -247,10 +304,13 @@ jobs:
           path: |
             forge189/build/libs/ghostc-forge189-*.jar
             forge189/build/libs/SHA256SUMS.txt
+            forge189/build/libs/GHOSTC_BUILD_MANIFEST.json
+            tools/forge_build_manifest.py
+            tools/verify_forge_jar.py
             tools/Invoke-GhostCAcceptance.ps1
             docs/RUNTIME_R10.md
             docs/RUNTIME_R15.md
             docs/RUNTIME_R16.md
             docs/RUNTIME_R23.md
-            docs/RUNTIME_R52.md
+            docs/RUNTIME_R53.md
           if-no-files-found: error

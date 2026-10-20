@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R2.32:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R2.33:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R2.33 GitHub-first acceptance and artifact provenance: Forge Linux/Windows CI artifacts now include a manifest that cross-checks exact checked-out Git revision, OS build platform, versioned mod filename, SHA-256, byte count, Java 8 bytecode and mcmod metadata. The manifest and CI artifact deliberately say **NOT verified in-game**; passing builds are not a Minecraft launch. The Windows acceptance `Collect` operation now leaves operator-completed checklist items and notes byte-for-byte intact on subsequent runs, refreshing allowlisted numeric counters in `telemetry-latest.txt` instead. Forge CI also runs for relevant `tools/**` and `src/test/**` changes, with deterministic artifact-tamper, privacy-filter and repeated-Collect regressions. See [R2.33 acceptance handoff](docs/RUNTIME_R53.md).
 - R2.32 complete-widget viewport admission: even after R2.31's text improvements, Keystrokes and Target HUD still rendered their fixed 83px and 160px cards beyond scaled Minecraft screens smaller than the widgets. The new Java8 `HudWidgetViewport` policy checks shared R2.1 widget footprints and R1.9 persisted normalized anchors before paint, suppressing impossible partial cards (and unnecessary target selection on small screens) without modifying normal positions, dimensions or config. Both HUDs reappear automatically once the scaled viewport fits. A 50,000-scene deterministic replay verifies full-bounds admission and existing HUD editor/renderer coordinate parity. Runtime screenshots and FPS remain unverified.
 - R2.31 Unicode-safe Keystrokes and CPS text: remapped key labels previously lost UTF-16 characters through raw last-character truncation and were not sanitized for formatting/control codes. CPS labels could overflow their fixed 103px card at high counts and tiny scaled screens. The first-party Java8 `HudTextFit` measures the live Minecraft font, preserves normal short label appearance, clips only at Unicode codepoint boundaries with an explicit ellipsis, and provides exact-count compact CPS forms before truncation. Forge clamps the CPS card to the visible screen and samples left/right counts at one shared instant. The original ClickGUI/profile options and stable HUD footprints remain unchanged. Source/seeded-regression verified only; actual Minecraft readability and FPS are not claimed.
 - R2.30 viewport-safe Runtime Diagnostics HUD: the optional 286x180 panel previously positioned all 14 lines at fixed pixel coordinates and drew arbitrarily long counters without measuring their width. A Java8 pure DiagnosticsHudLayout now clamps background size to the actual scaled screen, clips text to the available width and selects only the rows that fit vertically. The regular full-size view and original row order are unchanged, while smaller screens prioritize FPS, heap, snapshot timings/workload and ESP figures instead of silently drawing below the screen. Existing diagnostics collection and saved reports are unchanged. Tested by seeded geometry and Forge wiring, not by an actual Minecraft screenshot.
@@ -146,5 +147,6 @@ See [issues](../../issues) for Forge runtime acceptance (#2), ClickGUI/HUD (#3),
 - [R2.30 screen-safe Runtime Diagnostics HUD](docs/RUNTIME_R50.md)
 - [R2.31 Unicode-safe Keystrokes/CPS labels](docs/RUNTIME_R51.md)
 - [R2.32 complete Keystrokes and Target viewport admission](docs/RUNTIME_R52.md)
+- [R2.33 CI provenance and Windows live-acceptance handoff](docs/RUNTIME_R53.md)
 - [Provenance](docs/PROVENANCE.md)
 - [Verification](docs/VERIFICATION.md)

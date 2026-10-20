@@ -196,8 +196,12 @@ if ($Mode -eq 'Rollback') {
     exit 0
 }
 
-# Collect only an evidence checklist and safe counters. No raw game logs are copied.
+# Collect keeps owner-confirmed checkboxes/notes across repeated runs.
+# Only safe numeric telemetry is refreshed; no raw game logs are copied.
 $report = Join-Path $accept 'acceptance-report.md'
+$telemetryFile = Join-Path $accept 'telemetry-latest.txt'
+if (Test-Path -LiteralPath $report) { Assert-NoLink $report }
+if (Test-Path -LiteralPath $telemetryFile) { Assert-NoLink $telemetryFile }
 $lines = @(
     '# GhostC Windows acceptance report',
     '',
@@ -278,10 +282,15 @@ $lines = @(
     '- [ ] Confirm menu/chat/alt-tab periods do not enter focused snapshot sample statistics',
     '',
     '## Local diagnostics (counts only; no raw latest.log is copied)',
+    '',
+    'Initial snapshot only. The freshest safe counters are in telemetry-latest.txt.',
+    'Collect preserves this checklist and all owner notes on subsequent runs.',
     ''
 )
 $diagPath = Join-Path $game 'config/ghostc/diagnostics-last.properties'
+$safe = @()
 if (Test-Path -LiteralPath $diagPath -PathType Leaf) {
+    Assert-NoLink $diagPath
     $safe = @(Get-Content -LiteralPath $diagPath |
         Where-Object { $_ -match '^(?:count\.[a-z0-9_]+|perf\.[a-z0-9_]+|snap\.[a-z0-9_]+)=[0-9]+\z' } |
         Sort-Object)
@@ -299,6 +308,24 @@ $lines += @(
     'This report and the build hash are evidence of installation only, not successful in-game play.'
 )
 New-Item -ItemType Directory -Path $accept -Force | Out-Null
-$lines | Set-Content -LiteralPath $report -Encoding UTF8
+# A deliberately separate sidecar avoids erasing checked boxes/owner notes.
+# Only an allowlist of numeric fields can enter the refreshed sidecar.
+$telemetryLines = @(
+    '# GhostC numeric diagnostics snapshot (not proof of in-game success)',
+    "Installed SHA256: $installedHash",
+    'Only allowlisted count.*, perf.*, and snap.* nonnegative integers follow.'
+)
+if ($safe.Count -gt 0) {
+    $telemetryLines += $safe
+} else {
+    $telemetryLines += '(No safe numeric diagnostics exported yet)'
+}
+$telemetryLines | Set-Content -LiteralPath $telemetryFile -Encoding UTF8
+if (!(Test-Path -LiteralPath $report)) {
+    $lines | Set-Content -LiteralPath $report -Encoding UTF8
+} else {
+    Write-Output 'GHOSTC_COLLECT_REPORT_PRESERVED owner checklist/notes not overwritten'
+}
 Write-Output "GHOSTC_COLLECT_PASS sha256=$installedHash"
 Write-Output "Local report: $report"
+Write-Output "Latest numeric telemetry: $telemetryFile"
