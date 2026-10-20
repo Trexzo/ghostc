@@ -4,6 +4,7 @@ import dev.ghostfusion.features.CpsMeter;
 import dev.ghostfusion.ui.HudPositions.Widget;
 import dev.ghostfusion.ui.HudFootprints;
 import dev.ghostfusion.ui.DiagnosticsHudLayout;
+import dev.ghostfusion.ui.HudTextFit;
 import dev.ghostfusion.features.SprintPolicy;
 import dev.ghostfusion.features.TargetHudPolicy;
 import dev.ghostfusion.features.TargetHudTextLayout;
@@ -105,11 +106,11 @@ public final class ForgeFeatureDriver {
     }
     private void key(String label, int x,int y,int width,boolean pressed) {
         Gui.drawRect(x,y,x+width,y+17,pressed ? 0xCBA8A9FF : 0xB3171C30);
-        // Allow remapped mouse/keyboard names without overflowing 25px cells.
-        while(label.length()>1 && mc.fontRendererObj.getStringWidth(label)>width-5)
-            label=label.substring(0,label.length()-1);
-        int textWidth=mc.fontRendererObj.getStringWidth(label);
-        mc.fontRendererObj.drawStringWithShadow(label,
+        // Measure Minecraft's active font and clip on Unicode boundaries.
+        String fitted=HudTextFit.fit(label,Math.max(0,width-5),targetFontWidths);
+        if(fitted.isEmpty())return;
+        int textWidth=mc.fontRendererObj.getStringWidth(fitted);
+        mc.fontRendererObj.drawStringWithShadow(fitted,
             x+(width-textWidth)/2,y+5,pressed ? 0xFF121629 : 0xFFF0F0FF);
     }
     private void drawKeys(int sw,int sh) {
@@ -129,10 +130,16 @@ public final class ForgeFeatureDriver {
     private void drawCps(int sw,int sh) {
         int x=2+host.ui().widgets().pixelX(Widget.CPS,sw,Widget.CPS.width);
         int y=2+host.ui().widgets().pixelY(Widget.CPS,sh,Widget.CPS.height);
-        int l=cps.left(System.nanoTime()), r=cps.right(System.nanoTime());
-        String text=host.cpsRight() ? "L "+l+" | R "+r+" CPS" : "L "+l+" CPS";
-        Gui.drawRect(x-2,y-2,x+101,y+13,0xBE131927);
-        mc.fontRendererObj.drawStringWithShadow(text,x,y+1,0xFFE3E9FF);
+        // Clamp the legacy 103x17 card when scaled windows are unusually small.
+        int right=Math.min(sw,x+101),bottom=Math.min(sh,y+15);
+        int textBudget=right-x-2;
+        if(textBudget<=0 || bottom-y-1<mc.fontRendererObj.FONT_HEIGHT)return;
+        long now=System.nanoTime();
+        int l=cps.left(now),r=cps.right(now);
+        String text=HudTextFit.cps(l,r,host.cpsRight(),textBudget,targetFontWidths);
+        Gui.drawRect(x-2,y-2,right,bottom,0xBE131927);
+        if(!text.isEmpty())
+            mc.fontRendererObj.drawStringWithShadow(text,x,y+1,0xFFE3E9FF);
     }
     private void drawDiagnosticText(String value,int x,int y,int maxWidth,int color) {
         String fitted=mc.fontRendererObj.trimStringToWidth(value,maxWidth);

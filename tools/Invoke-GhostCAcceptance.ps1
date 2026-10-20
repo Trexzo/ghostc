@@ -213,6 +213,8 @@ $lines = @(
     '- [ ] GhostC appears in the Forge Mods list, with the correct version',
     '- [ ] F7 ClickGUI opens/closes, and module search/settings work',
     '- [ ] F8 status HUD toggles and remapped Keystrokes labels are correct',
+    '- [ ] Long/remapped Unicode keystroke labels stay inside cells with a visible ellipsis',
+    '- [ ] CPS panel counts stay inside their card at high counts and on small scaled windows',
     '- [ ] Rendering and Target HUD behave correctly in an authorized local world',
     '- [ ] Runtime Diagnostics fits smaller scaled windows, clips long counters and retains FPS/snapshot summary',
     '- [ ] Target HUD long names truncate without overlapping right-aligned HP text',
