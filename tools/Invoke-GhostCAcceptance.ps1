@@ -224,6 +224,8 @@ $lines = @(
     '- [ ] Disabled Target HUD and Aim Assist do not scan world players or issue LOS checks',
     '- [ ] Unfiltered-only target mode avoids LOS rays while preserving nearest targets',
     '- [ ] Outside target range, loaded entities do not incur LOS checks; mixed mode stays correct',
+    '- [ ] Mixed HUD24/aim6 visibility preferences ray-check only visible-only feature radius',
+    '- [ ] Nearest Target HUD and Aim Assist selections match expected sorted target choices',
     '- [ ] ESP and health bars remain correct after many world/dimension switches',
     '- [ ] ESP occlusion/through-walls, distance filters and scene switching checked',
     '- [ ] Diagnostics enabled: ESP frame/player/skeleton counters rise as expected',

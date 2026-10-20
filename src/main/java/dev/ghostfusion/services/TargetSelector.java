@@ -21,15 +21,43 @@ public final class TargetSelector {
             this.order = order;
         }
     }
+    /**
+     * Allocation-free single nearest result for hot-path HUD consumers.
+     * Same eligibility, distance and entity-ID ordering as select(DISTANCE).
+     */
+    public WorldSnapshot.Entity nearest(WorldSnapshot world,double range,
+                                        boolean visibleOnly,boolean playersOnly) {
+        if(world==null || !WorldSnapshot.finite(range) || range<=0)
+            throw new IllegalArgumentException("world/range");
+        double limit=range*range;
+        WorldSnapshot.Entity best=null;
+        double bestDistance=Double.POSITIVE_INFINITY;
+        for(WorldSnapshot.Entity e:world.entities()) {
+            double squared=squareDistance(world,e);
+            if(!eligible(e,squared,limit,visibleOnly,playersOnly))continue;
+            if(best==null || squared<bestDistance ||
+               (squared==bestDistance && e.id<best.id)) {
+                best=e;
+                bestDistance=squared;
+            }
+        }
+        return best;
+    }
+    /** Shared pure admission gate; no lists, comparator or query object. */
+    public static boolean eligible(WorldSnapshot.Entity e,double squaredDistance,
+                                   double maxDistanceSq,boolean visibleOnly,boolean playersOnly) {
+        return e!=null && e.alive && e.health>0 &&
+            (!visibleOnly || e.visible) && (!playersOnly || e.player) &&
+            WorldSnapshot.finite(squaredDistance) && squaredDistance<=maxDistanceSq;
+    }
     public List<WorldSnapshot.Entity> select(final WorldSnapshot world, final Query query) {
         if (world == null || query == null) throw new IllegalArgumentException("world/query");
         final double maxSquare = query.maxDistance * query.maxDistance;
         ArrayList<WorldSnapshot.Entity> selected = new ArrayList<WorldSnapshot.Entity>();
         for (WorldSnapshot.Entity e : world.entities()) {
-            if (!e.alive || e.health == 0 || (query.visibleOnly && !e.visible) ||
-                (query.playersOnly && !e.player)) continue;
             double distance = squareDistance(world, e);
-            if (WorldSnapshot.finite(distance) && distance <= maxSquare) selected.add(e);
+            if (eligible(e,distance,maxSquare,query.visibleOnly,query.playersOnly))
+                selected.add(e);
         }
         Collections.sort(selected, new Comparator<WorldSnapshot.Entity>() {
             public int compare(WorldSnapshot.Entity a, WorldSnapshot.Entity b) {

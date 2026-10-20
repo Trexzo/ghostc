@@ -101,9 +101,9 @@ public final class ForgeEventAdapter {
                     // With unfiltered-only targeting, avoid every LOS ray and
                     // use the bounded hidden partition as a generic priority
                     // list; consumers explicitly ignore the visible flag.
-                    boolean visible=demand.testVisibility() &&
+                    boolean visible=demand.testVisibility(distanceSq) &&
                         !p.isInvisible() && minecraft.thePlayer.canEntityBeSeen(p);
-                    if(!demand.admit(visible))continue;
+                    if(!demand.admit(visible,distanceSq))continue;
                     nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible);
                 }
                 final List<WorldSnapshot.Entity> players =
