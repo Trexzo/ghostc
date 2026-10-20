@@ -239,6 +239,7 @@ $lines = @(
     '- [ ] Runtime Diagnostics: snapshot p95/p99/max us and LOS count collected during crowded gameplay',
     '- [ ] Profile with HUD/aim off, visible-only and mixed preferences and compare snapshot timing',
     '- [ ] Compare per-mode snap.mode_off_*, snap.mode_visible_only_*, snap.mode_unfiltered_only_* and snap.mode_mixed_* samples',
+    '- [ ] Verify diagnostics profiler itself has no noticeable render stutter with HUD enabled and switching modes',
     '- [ ] Confirm menu/chat/alt-tab periods do not enter focused snapshot sample statistics',
     '',
     '## Local diagnostics (counts only; no raw latest.log is copied)',

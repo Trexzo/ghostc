@@ -180,11 +180,22 @@ class ForgeWiring(unittest.TestCase):
                         self.adapter.index("if(profileSnapshot)host.recordSnapshotWork("))
         self.assertIn("if(!snapshotProfilingEnabled())return;",host)
         self.assertIn("snapshotTelemetry.record(elapsedNanos,scanned,inRange,losQueries,published)",host)
-        self.assertIn("new long[MAX_US_BIN+1]",meter)
+        self.assertIn("new long[MAX_US_BIN+2]",meter)
         self.assertIn("snap.p95_us",diag)
         self.assertIn("snap.los_queries",diag)
         self.assertIn("Snapshot p50/p95/p99",self.feature)
         self.assertIn("dev.ghostfusion.tests.SnapshotTelemetryTests",
+                      content(".github/workflows/core-ci.yml"))
+
+    def test_rank_index_and_cached_snapshot_eliminate_linear_percentile_scan(self):
+        profiler=content("src/main/java/dev/ghostfusion/host/SnapshotTelemetry.java")
+        self.assertIn("int next=index+step;",profiler)
+        self.assertIn("Integer.highestOneBit(counts.length-1)",profiler)
+        self.assertIn("counts[i]=plus(counts[i],1L)",profiler)
+        self.assertIn("cached=null;",profiler)
+        self.assertIn("if(cached==null)cached=new Snapshot(",profiler)
+        self.assertNotIn("for(int i=0;i<bins.length;i++)",profiler)
+        self.assertIn("dev.ghostfusion.tests.SnapshotRankIndexTests",
                       content(".github/workflows/core-ci.yml"))
 
     def test_snapshot_classified_focus_and_numeric_report_wiring(self):
