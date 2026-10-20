@@ -178,7 +178,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("host.recordSnapshotWork(",self.adapter)
         self.assertLess(self.adapter.index("host.services().publish(new WorldSnapshot("),
                         self.adapter.index("if(profileSnapshot)host.recordSnapshotWork("))
-        self.assertIn("if(!active() || !worldPresent || !diagnosticsEnabled())return;",host)
+        self.assertIn("if(!snapshotProfilingEnabled())return;",host)
         self.assertIn("snapshotTelemetry.record(elapsedNanos,scanned,inRange,losQueries,published)",host)
         self.assertIn("new long[MAX_US_BIN+1]",meter)
         self.assertIn("snap.p95_us",diag)
