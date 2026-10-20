@@ -198,8 +198,8 @@ class ForgeWiring(unittest.TestCase):
             self.assertIn("Counter."+name,ui)
         self.assertIn("Double.isFinite(p.prevRenderYawOffset)",esp)
         self.assertIn("!Double.isFinite(p.height)",esp)
-        self.assertIn("partialTicks < 0f || partialTicks > 1f",esp)
-        self.assertIn("if(count>=80) break;",esp)
+        self.assertIn("partialTicks<0f || partialTicks>1f",esp)
+        self.assertIn("nearest.offer(player,player.getEntityId(),distance)",esp)
         self.assertIn("if(skeleton) host.diagnostics().record(Counter.ESP_DRAWN_SKELETON)",esp)
         self.assertIn("finally { GL11.glEnd(); }",esp)
         self.assertIn("int width=236, height=134;",ui)
@@ -218,12 +218,32 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("p.prevRenderYawOffset,p.renderYawOffset,partialTicks",esp)
         self.assertIn("GL11.glBegin(GL11.GL_LINES)",esp)
         self.assertIn("finally { GL11.glEnd(); }",esp)
-        self.assertIn("Limit successfully admitted players",esp)
-        self.assertLess(esp.index("if(count>=80) break;"),
+        self.assertIn("Validate geometry BEFORE admission",esp)
+        self.assertLess(esp.index("if(!renderable(player,partialTicks,skeleton)) continue;"),
+                        esp.index("nearest.offer(player,player.getEntityId(),distance)"))
+        self.assertLess(esp.index("nearest.offer(player,player.getEntityId(),distance)"),
                         esp.index("GL11.glColor4f(0.62f,0.56f,1.0f,0.82f)"))
         self.assertIn("Double.isFinite(x)",policy)
         self.assertIn('BOX_SKELETON("box_skeleton"',modes)
         self.assertIn("dev.ghostfusion.tests.EspSkeletonTests",content(".github/workflows/core-ci.yml"))
+
+    def test_esp_nearest_80_owner_and_cleanup_wired(self):
+        esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
+        budget=content("src/main/java/dev/ghostfusion/features/EspNearestBudget.java")
+        self.assertIn("new EspNearestBudget<EntityPlayer>(80)",esp)
+        self.assertIn("double distance=mc.thePlayer.getDistanceSqToEntity(player);",esp)
+        self.assertIn("nearest.offer(player,player.getEntityId(),distance)",esp)
+        self.assertIn("for(int index=0;index<nearest.size();index++)",esp)
+        self.assertIn("EntityPlayer p=nearest.get(index);",esp)
+        self.assertGreaterEqual(esp.count("nearest.clear();"),2)
+        self.assertIn("} finally {\n                nearest.clear();",esp)
+        self.assertIn("private boolean renderable(EntityPlayer p,float partialTicks,boolean skeleton)",esp)
+        self.assertIn("private static boolean finiteBox(AxisAlignedBB box)",esp)
+        self.assertIn("private final Thread owner=Thread.currentThread()",budget)
+        self.assertIn("players[i]=null",budget)
+        self.assertIn("ids[at]=id",budget)
+        self.assertIn("dev.ghostfusion.tests.EspNearestBudgetTests",
+                      content(".github/workflows/core-ci.yml"))
 
     def test_esp_interpolated_geometry_is_finite(self):
         esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")

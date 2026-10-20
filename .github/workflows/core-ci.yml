@@ -48,6 +48,8 @@ jobs:
           grep -q 'FRAME_PERFORMANCE_PASS' .build/frame-performance.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.EspTelemetryTests | tee .build/esp-telemetry.log
           grep -q 'ESP_TELEMETRY_PASS' .build/esp-telemetry.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.EspNearestBudgetTests | tee .build/esp-nearest.log
+          grep -q 'ESP_NEAREST_BUDGET_PASS' .build/esp-nearest.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.EspHealthBarTests | tee .build/esp-health-bar.log
           grep -q 'ESP_HEALTH_BAR_PASS' .build/esp-health-bar.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.EspSkeletonTests | tee .build/esp-skeleton.log
