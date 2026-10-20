@@ -154,7 +154,7 @@ class ForgeWiring(unittest.TestCase):
         adapter=self.adapter
         admission=content("src/main/java/dev/ghostfusion/services/WorldSnapshotAdmission.java")
         self.assertIn("new WorldSnapshotAdmission<EntityPlayer>()",adapter)
-        self.assertIn("boolean visible=demand.testVisibility(distanceSq) &&",adapter)
+        self.assertIn("if(demand.testVisibility(distanceSq) && !p.isInvisible())",adapter)
         self.assertIn("nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible)",adapter)
         self.assertIn("nearestSnapshot.forEach(new WorldSnapshotAdmission.Visitor<EntityPlayer>()",adapter)
         self.assertIn("p.getEntityId(),p.posX,p.posY,p.posZ,health,true,visible,true",adapter)
@@ -166,6 +166,27 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.VisibilitySnapshotTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_opt_in_snapshot_profiler_tracks_actual_forge_tick_work(self):
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        meter=content("src/main/java/dev/ghostfusion/host/SnapshotTelemetry.java")
+        diag=content("src/main/java/dev/ghostfusion/host/RuntimeDiagnostics.java")
+        self.assertIn("final boolean profileSnapshot=host.diagnosticsEnabled();",self.adapter)
+        self.assertIn("final long snapshotStart=profileSnapshot?System.nanoTime():0L;",self.adapter)
+        self.assertIn("if(profileSnapshot)scanned++;",self.adapter)
+        self.assertIn("if(profileSnapshot)passed++;",self.adapter)
+        self.assertIn("if(profileSnapshot)rays++;",self.adapter)
+        self.assertIn("host.recordSnapshotWork(",self.adapter)
+        self.assertLess(self.adapter.index("host.services().publish(new WorldSnapshot("),
+                        self.adapter.index("if(profileSnapshot)host.recordSnapshotWork("))
+        self.assertIn("if(!active() || !worldPresent || !diagnosticsEnabled())return;",host)
+        self.assertIn("snapshotTelemetry.record(elapsedNanos,scanned,inRange,losQueries,published)",host)
+        self.assertIn("new long[MAX_US_BIN+1]",meter)
+        self.assertIn("snap.p95_us",diag)
+        self.assertIn("snap.los_queries",diag)
+        self.assertIn("Snapshot p50/p95/p99",self.feature)
+        self.assertIn("dev.ghostfusion.tests.SnapshotTelemetryTests",
+                      content(".github/workflows/core-ci.yml"))
+
     def test_snapshot_work_is_demand_and_range_gated_before_visibility_rays(self):
         source=self.adapter
         demand=content("src/main/java/dev/ghostfusion/services/SnapshotDemand.java")
@@ -175,7 +196,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("if(demand.needed()) for (Object raw : minecraft.theWorld.playerEntities)",source)
         self.assertLess(source.index("if(!demand.accepts(distanceSq))continue;"),
                         source.index("minecraft.thePlayer.canEntityBeSeen(p);"))
-        self.assertIn("boolean visible=demand.testVisibility(distanceSq) &&",source)
+        self.assertIn("if(demand.testVisibility(distanceSq) && !p.isInvisible())",source)
         self.assertIn("if(!demand.admit(visible,distanceSq))continue;",source)
         self.assertIn("nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible)",source)
         self.assertIn("host.services().publish(new WorldSnapshot(",source)
@@ -231,7 +252,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("host.performancePause();",self.adapter)
         self.assertIn("framePerformance.suspend();",host)
         self.assertIn("framePerformance.frame(nowNanos,usedHeapBytes)",host)
-        self.assertIn("diagnostics.save(configDirectory,framePerformance.snapshot())",host)
+        self.assertIn("diagnostics.save(configDirectory,framePerformance.snapshot(),snapshotTelemetry.snapshot())",host)
         self.assertIn("new long[MAX_FPS+1]",sample)
         self.assertIn("perf.frame_samples",diag)
         self.assertIn("perf.p99_fps",diag)
@@ -275,7 +296,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("nearest.offer(player,player.getEntityId(),distance)",esp)
         self.assertIn("if(skeleton) host.diagnostics().record(Counter.ESP_DRAWN_SKELETON)",esp)
         self.assertIn("finally { GL11.glEnd(); }",esp)
-        self.assertIn("int width=236, height=134;",ui)
+        self.assertIn("int width=260, height=167;",ui)
         self.assertIn("dev.ghostfusion.tests.EspTelemetryTests",
                       content(".github/workflows/core-ci.yml"))
 

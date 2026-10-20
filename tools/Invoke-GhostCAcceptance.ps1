@@ -236,6 +236,8 @@ $lines = @(
     '- [ ] GUI/focus/world switching does not distort frame-time samples',
     '- [ ] A representative 60-minute soak checked for crashes, memory/FPS and faults',
     '- [ ] Gameplay responsiveness and a representative soak session checked',
+    '- [ ] Runtime Diagnostics: snapshot p95/p99/max us and LOS count collected during crowded gameplay',
+    '- [ ] Profile with HUD/aim off, visible-only and mixed preferences and compare snapshot timing',
     '',
     '## Local diagnostics (counts only; no raw latest.log is copied)',
     ''
@@ -243,7 +245,7 @@ $lines = @(
 $diagPath = Join-Path $game 'config/ghostc/diagnostics-last.properties'
 if (Test-Path -LiteralPath $diagPath -PathType Leaf) {
     $safe = @(Get-Content -LiteralPath $diagPath |
-        Where-Object { $_ -match '^(?:count\.[a-z_]+|perf\.[a-z_]+)=[0-9]+$' } |
+        Where-Object { $_ -match '^(?:count\.[a-z_]+|perf\.[a-z_]+|snap\.[a-z_]+)=[0-9]+\z' } |
         Sort-Object)
     if ($safe.Count -gt 0) { $lines += $safe } else { $lines += '(No safe counter fields found)' }
 } else {

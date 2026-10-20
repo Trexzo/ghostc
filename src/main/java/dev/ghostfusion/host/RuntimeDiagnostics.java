@@ -49,10 +49,15 @@ public final class RuntimeDiagnostics {
     }
     /** Called only on opt-in module enablement during disconnect or host close. */
     public void save(Path directory) throws IOException {
-        save(directory,null);
+        save(directory,null,null);
     }
-    /** Optional anonymized performance aggregates from real client render callbacks. */
+    /** Preserve the established frame-only reporting API. */
     public void save(Path directory,FramePerformance.Snapshot perf) throws IOException {
+        save(directory,perf,null);
+    }
+    /** Optional anonymized frame and snapshot-work acceptance aggregates. */
+    public void save(Path directory,FramePerformance.Snapshot perf,
+                     SnapshotTelemetry.Snapshot snap) throws IOException {
         check();
         if (directory == null) throw new IllegalArgumentException("directory");
         Files.createDirectories(directory);
@@ -74,6 +79,17 @@ public final class RuntimeDiagnostics {
             props.setProperty("perf.memory_samples",Long.toString(perf.memorySamples));
             props.setProperty("perf.suspends",Long.toString(perf.suspends));
             props.setProperty("perf.invalid_intervals",Long.toString(perf.invalidIntervals));
+        }
+        if(snap!=null) {
+            props.setProperty("snap.samples",Long.toString(snap.samples));
+            props.setProperty("snap.scanned",Long.toString(snap.scanned));
+            props.setProperty("snap.in_range",Long.toString(snap.inRange));
+            props.setProperty("snap.los_queries",Long.toString(snap.losQueries));
+            props.setProperty("snap.published",Long.toString(snap.published));
+            props.setProperty("snap.p50_us",Long.toString(snap.p50Us));
+            props.setProperty("snap.p95_us",Long.toString(snap.p95Us));
+            props.setProperty("snap.p99_us",Long.toString(snap.p99Us));
+            props.setProperty("snap.max_us",Long.toString(snap.maxUs));
         }
         Path target = directory.resolve("diagnostics-last.properties");
         Path temp = Files.createTempFile(directory, "ghostc-diag-", ".tmp");

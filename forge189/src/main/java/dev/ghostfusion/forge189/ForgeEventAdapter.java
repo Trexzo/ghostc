@@ -79,6 +79,9 @@ public final class ForgeEventAdapter {
             final SnapshotDemand demand=SnapshotDemand.of(
                 host.featureEnabled("hud.target"),host.targetVisible(),host.targetRange(),
                 host.featureEnabled("combat.aimassist"),host.aimVisibleOnly(),host.aimRange());
+            final boolean profileSnapshot=host.diagnosticsEnabled();
+            final long snapshotStart=profileSnapshot?System.nanoTime():0L;
+            int scanned=0,passed=0,rays=0;
             nearestSnapshot.clear();
             try {
                 // No targets: publish an empty valid tick snapshot so unrelated
@@ -87,6 +90,7 @@ public final class ForgeEventAdapter {
                 if(demand.needed()) for (Object raw : minecraft.theWorld.playerEntities) {
                     if (!(raw instanceof EntityPlayer)) continue;
                     EntityPlayer p = (EntityPlayer)raw;
+                    if(profileSnapshot)scanned++;
                     if (p == minecraft.thePlayer || p.isDead) continue;
                     double health = p.getHealth();
                     if (!WorldSnapshot.finitePublic(health) || health<=0 ||
@@ -98,11 +102,15 @@ public final class ForgeEventAdapter {
                     double dz=p.posZ-minecraft.thePlayer.posZ;
                     double distanceSq=dx*dx+dy*dy+dz*dz;
                     if(!demand.accepts(distanceSq))continue;
+                    if(profileSnapshot)passed++;
                     // With unfiltered-only targeting, avoid every LOS ray and
                     // use the bounded hidden partition as a generic priority
                     // list; consumers explicitly ignore the visible flag.
-                    boolean visible=demand.testVisibility(distanceSq) &&
-                        !p.isInvisible() && minecraft.thePlayer.canEntityBeSeen(p);
+                    boolean visible=false;
+                    if(demand.testVisibility(distanceSq) && !p.isInvisible()) {
+                        if(profileSnapshot)rays++;
+                        visible=minecraft.thePlayer.canEntityBeSeen(p);
+                    }
                     if(!demand.admit(visible,distanceSq))continue;
                     nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible);
                 }
@@ -126,6 +134,8 @@ public final class ForgeEventAdapter {
                     host.services().generation(),host.services().tick(),
                     minecraft.thePlayer.posX,minecraft.thePlayer.posY,minecraft.thePlayer.posZ,
                     minecraft.thePlayer.rotationYaw,minecraft.thePlayer.rotationPitch,players));
+                if(profileSnapshot)host.recordSnapshotWork(
+                    System.nanoTime()-snapshotStart,scanned,passed,rays,players.size());
             } finally {
                 nearestSnapshot.clear();
             }

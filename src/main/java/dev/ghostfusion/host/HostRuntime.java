@@ -32,6 +32,7 @@ public final class HostRuntime {
     private final SessionServices services = new SessionServices();
     private final RuntimeDiagnostics diagnostics = new RuntimeDiagnostics();
     private final FramePerformance framePerformance = new FramePerformance();
+    private final SnapshotTelemetry snapshotTelemetry = new SnapshotTelemetry();
     private final FeatureFaultGuard featureFaults = new FeatureFaultGuard(modules, new FeatureFaultGuard.OnFault() {
         public void report(String stableId, String exceptionType) {
             diagnostics.record(Counter.FEATURE_FAULT);
@@ -136,6 +137,15 @@ public final class HostRuntime {
     public FramePerformance.Snapshot performanceSnapshot() {
         modules.assertOwnerThread(); return framePerformance.snapshot();
     }
+    public SnapshotTelemetry.Snapshot snapshotTelemetry() {
+        modules.assertOwnerThread(); return snapshotTelemetry.snapshot();
+    }
+    /** Accept only focused diagnostics-enabled in-world snapshots. */
+    public void recordSnapshotWork(long elapsedNanos,int scanned,int inRange,
+                                   int losQueries,int published) {
+        if(!active() || !worldPresent || !diagnosticsEnabled())return;
+        snapshotTelemetry.record(elapsedNanos,scanned,inRange,losQueries,published);
+    }
     /** Remove cadence reference when opt-in metrics are switched off. */
     public void performancePause() {
         if(active()) framePerformance.suspend();
@@ -163,7 +173,7 @@ public final class HostRuntime {
     public String diagnosticsWarning() { return diagnosticsWarning; }
     public void exportDiagnostics() {
         if (!active() || !diagnosticsEnabled()) return;
-        try { diagnostics.save(configDirectory,framePerformance.snapshot()); diagnosticsWarning = ""; }
+        try { diagnostics.save(configDirectory,framePerformance.snapshot(),snapshotTelemetry.snapshot()); diagnosticsWarning = ""; }
         catch (IOException e) { diagnosticsWarning = "Diagnostics: " + e.getClass().getSimpleName(); }
     }
     public UiState ui() { modules.assertOwnerThread(); return ui; }
