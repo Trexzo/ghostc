@@ -16,7 +16,6 @@ public final class AimAssistPolicy {
             this.entityId=entityId; this.yaw=yaw; this.pitch=pitch; this.angularError=angularError;
         }
     }
-    private final TargetSelector targets = new TargetSelector();
     private static boolean finite(double number) {
         return !Double.isNaN(number) && !Double.isInfinite(number);
     }
@@ -39,9 +38,16 @@ public final class AimAssistPolicy {
         WorldSnapshot.Entity best=null;
         double bestError=Double.POSITIVE_INFINITY, bestDistance=Double.POSITIVE_INFINITY;
         double bestYaw=0,bestPitch=0;
-        for (WorldSnapshot.Entity e:targets.select(world,
-             new TargetSelector.Query(range,visibleOnly,true,TargetSelector.Order.DISTANCE))) {
+        // Evaluate target policy directly: sorting and materializing a list
+        // of as many as 512 candidates each client tick is unnecessary.
+        final double maximumSquare=range*range;
+        for (WorldSnapshot.Entity e:world.entities()) {
             double dx=e.x-world.playerX, dz=e.z-world.playerZ;
+            double vertical=e.y-world.playerY;
+            double planarSq=dx*dx+dz*dz;
+            double distanceSq=planarSq+vertical*vertical;
+            if(!TargetSelector.eligible(e,distanceSq,maximumSquare,visibleOnly,true))
+                continue;
             double horizontal=Math.hypot(dx,dz);
             if (horizontal<0.0001) continue;
             double dy=e.y+targetHeight - (world.playerY+sourceEyeHeight);

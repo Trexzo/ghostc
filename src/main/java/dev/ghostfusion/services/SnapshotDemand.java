@@ -9,30 +9,46 @@ package dev.ghostfusion.services;
 public final class SnapshotDemand {
     public final boolean needVisible,needUnfiltered;
     public final double maximumDistanceSq;
-    private SnapshotDemand(boolean needVisible,boolean needUnfiltered,double limit) {
-        this.needVisible=needVisible;
-        this.needUnfiltered=needUnfiltered;
-        this.maximumDistanceSq=limit*limit;
+    public final double visibleDistanceSq,unfilteredDistanceSq;
+    private SnapshotDemand(double visibleRange,double unrestrictedRange) {
+        this.needVisible=visibleRange>0;
+        this.needUnfiltered=unrestrictedRange>0;
+        this.visibleDistanceSq=visibleRange*visibleRange;
+        this.unfilteredDistanceSq=unrestrictedRange*unrestrictedRange;
+        double maximum=Math.max(visibleRange,unrestrictedRange);
+        this.maximumDistanceSq=maximum*maximum;
     }
     public static SnapshotDemand of(boolean hudEnabled,boolean hudVisible,double hudRange,
                                     boolean aimEnabled,boolean aimVisible,double aimRange) {
         if((hudEnabled && (!Double.isFinite(hudRange)||hudRange<=0||hudRange>24)) ||
            (aimEnabled && (!Double.isFinite(aimRange)||aimRange<=0||aimRange>6)))
             throw new IllegalArgumentException("snapshot consumer range");
-        boolean visible=(hudEnabled&&hudVisible)||(aimEnabled&&aimVisible);
-        boolean unrestricted=(hudEnabled&&!hudVisible)||(aimEnabled&&!aimVisible);
-        double range=Math.max(hudEnabled?hudRange:0,aimEnabled?aimRange:0);
-        return new SnapshotDemand(visible,unrestricted,range);
+        double visible=Math.max(hudEnabled&&hudVisible?hudRange:0,
+                                aimEnabled&&aimVisible?aimRange:0);
+        double unrestricted=Math.max(hudEnabled&&!hudVisible?hudRange:0,
+                                     aimEnabled&&!aimVisible?aimRange:0);
+        return new SnapshotDemand(visible,unrestricted);
     }
     public boolean needed(){return needVisible||needUnfiltered;}
     public boolean accepts(double square) {
         return needed() && Double.isFinite(square) &&
             square>=0 && square<=maximumDistanceSq;
     }
-    /** When visibility is not requested, do not run any ray/occlusion checks. */
+    /** Coarse compatibility introspection; the per-distance gate is authoritative. */
     public boolean testVisibility(){return needVisible;}
-    /** A hidden target is relevant only if an unfiltered consumer exists. */
     public boolean admit(boolean visible){
         return visible ? needVisible||needUnfiltered : needUnfiltered;
+    }
+    /** Never ray-check entities outside the *visible-only* feature's radius. */
+    public boolean testVisibility(double squaredDistance){
+        return Double.isFinite(squaredDistance) && squaredDistance>=0 &&
+            needVisible && squaredDistance<=visibleDistanceSq;
+    }
+    /** Unfiltered consumers can use either visible or hidden records. */
+    public boolean admit(boolean visible,double squaredDistance){
+        if(!accepts(squaredDistance))return false;
+        return visible ? squaredDistance<=visibleDistanceSq ||
+                         squaredDistance<=unfilteredDistanceSq
+                       : squaredDistance<=unfilteredDistanceSq;
     }
 }
