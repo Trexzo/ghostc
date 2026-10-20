@@ -400,7 +400,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('new Setting.Bool("distance_fade", false)',host)
         self.assertIn('new Setting.Number("fade_start", 0.50, 0.0, 0.90)',host)
         self.assertIn('new Setting.Number("fade_min_opacity", 0.25, 0.05, 1.0)',host)
-        self.assertIn("espDistanceFade, espFadeStart, espFadeMinimum);",host)
+        self.assertIn("espDistanceFade, espFadeStart, espFadeMinimum, espDrawLimit);",host)
         self.assertIn("final float fade=fadeEnabled ? EspDistanceFade.factor(",esp)
         self.assertIn("maximum,true,fadeStart,fadeMinimum) : 1f;",esp)
         self.assertIn("final float lineAlpha=appearance.opacity*fade;",esp)
