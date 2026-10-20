@@ -4,6 +4,7 @@ import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.features.EspRenderMode;
 import dev.ghostfusion.features.EspNearestBudget;
+import dev.ghostfusion.features.EspDrawLimit;
 import dev.ghostfusion.features.EspSkeletonGeometry;
 import dev.ghostfusion.features.EspHealthBarGeometry;
 import dev.ghostfusion.features.EspLineColor;
@@ -115,6 +116,8 @@ final class PlayerEspRenderer {
             final boolean fadeEnabled=host.espDistanceFade();
             final double fadeStart=host.espFadeStart();
             final double fadeMinimum=host.espFadeMinimum();
+            final int drawBudget=host.espMaxPlayers();
+            final boolean visibleOnly=host.espVisible();
             boolean health=host.espShowHealth();
             // Resolve once per rendered frame: no per-player configuration
             // reads or transient color-array allocations.
@@ -128,17 +131,20 @@ final class PlayerEspRenderer {
                     if(!(obj instanceof EntityPlayer)) continue;
                     EntityPlayer player=(EntityPlayer)obj;
                     if(player==mc.thePlayer || player.isDead || player.getHealth()<=0) continue;
-                    if(host.espVisible() && !mc.thePlayer.canEntityBeSeen(player)) continue;
+                    // Reject distant players before expensive line-of-sight rays.
+                    // Eligible in-range players retain exactly the old gates.
                     double distance=mc.thePlayer.getDistanceSqToEntity(player);
                     if(!Double.isFinite(distance) || distance<0 || distance>limitSq) continue;
+                    if(visibleOnly && !mc.thePlayer.canEntityBeSeen(player)) continue;
                     if(!renderable(player,partialTicks,skeleton,corners,cornerLength,filled)) continue;
                     nearest.offer(player,player.getEntityId(),distance);
                 }
-                for(int index=0;index<nearest.size();index++) {
-                    // Filled ESP uses painter order across separate players,
-                    // as well as within each six-face translucent volume.
-                    // Legacy non-filled line modes keep nearest-first order.
-                    EntityPlayer p=nearest.get(filled?nearest.size()-1-index:index);
+                final int draws=EspDrawLimit.count(drawBudget,nearest.size());
+                for(int index=0;index<draws;index++) {
+                    // Filled ESP still paints far-to-near, now only within
+                    // the nearest *draws* subset, never the full 80 buffer.
+                    final int slot=EspDrawLimit.slot(index,draws,filled);
+                    EntityPlayer p=nearest.get(slot);
                     double xx=p.lastTickPosX+(p.posX-p.lastTickPosX)*partialTicks;
                     double yy=p.lastTickPosY+(p.posY-p.lastTickPosY)*partialTicks;
                     double zz=p.lastTickPosZ+(p.posZ-p.lastTickPosZ)*partialTicks;
@@ -146,8 +152,10 @@ final class PlayerEspRenderer {
                         .offset(xx-p.posX,yy-p.posY,zz-p.posZ).expand(0.04,0.06,0.04);
                 // One finite, clamped multiplier per admitted player. Keep
                 // hue constant, and do not alter semantic HP bar colors.
+                // Reuse the same validated squared distance that determined
+                // nearest-80 ordering; do not query player distance again.
                 final float fade=fadeEnabled ? EspDistanceFade.factor(
-                    mc.thePlayer.getDistanceSqToEntity(p),
+                    nearest.distanceAt(slot),
                     maximum,true,fadeStart,fadeMinimum) : 1f;
                 final float lineAlpha=appearance.opacity*fade;
                 if(filled) {
