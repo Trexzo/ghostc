@@ -193,7 +193,7 @@ public final class HostRuntime {
     public String diagnosticsWarning() { return diagnosticsWarning; }
     public void exportDiagnostics() {
         if (!active() || !diagnosticsEnabled()) return;
-        try { diagnostics.save(configDirectory,framePerformance.snapshot(),snapshotTelemetry); diagnosticsWarning = ""; }
+        try { diagnostics.saveWithSnapshotModes(configDirectory,framePerformance.snapshot(),snapshotTelemetry); diagnosticsWarning = ""; }
         catch (IOException e) { diagnosticsWarning = "Diagnostics: " + e.getClass().getSimpleName(); }
     }
     public UiState ui() { modules.assertOwnerThread(); return ui; }

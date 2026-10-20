@@ -61,7 +61,7 @@ public final class RuntimeDiagnostics {
         saveReport(directory,perf,snap,null);
     }
     /** Classified report used by the owner host; same existing aggregate keys. */
-    public void save(Path directory,FramePerformance.Snapshot perf,
+    public void saveWithSnapshotModes(Path directory,FramePerformance.Snapshot perf,
                      SnapshotTelemetry profiling) throws IOException {
         if(profiling==null)throw new IllegalArgumentException("snapshot profiler");
         saveReport(directory,perf,profiling.snapshot(),profiling);
