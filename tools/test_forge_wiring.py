@@ -115,7 +115,25 @@ class ForgeWiring(unittest.TestCase):
                 self.assertRegex(self.feature, pattern)
         for name in ("W","A","S","D","SPACE","SHIFT"):
             self.assertNotIn(f'key("{name}"',self.feature)
-        self.assertIn('getStringWidth(label)>width-5',self.feature)
+        self.assertIn('HudTextFit.fit(label,Math.max(0,width-5),targetFontWidths)',self.feature)
+        self.assertIn('getStringWidth(fitted)',self.feature)
+        self.assertNotIn('label=label.substring(0,label.length()-1)',self.feature)
+
+    def test_hud_text_fitting_and_bounded_cps_card(self):
+        driver=self.feature
+        policy=content("src/main/java/dev/ghostfusion/ui/HudTextFit.java")
+        self.assertIn('import dev.ghostfusion.ui.HudTextFit;',driver)
+        self.assertIn('String text=HudTextFit.cps(l,r,host.cpsRight(),textBudget,targetFontWidths);',driver)
+        self.assertIn('int right=Math.min(sw,x+101),bottom=Math.min(sh,y+15);',driver)
+        self.assertIn('if(textBudget<=0 || bottom-y-1<mc.fontRendererObj.FONT_HEIGHT)return;',driver)
+        self.assertIn('long now=System.nanoTime();',driver)
+        self.assertIn('int l=cps.left(now),r=cps.right(now);',driver)
+        self.assertIn('MAX_SOURCE_CODEPOINTS=128',policy)
+        self.assertIn('Character.charCount(cp)',policy)
+        self.assertIn('public static String cps(',policy)
+        self.assertIn('dev.ghostfusion.tests.HudTextFitTests',
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn('HudTextFit.class',content("tools/verify_forge_jar.py"))
 
     def test_separate_gl_guard_scopes_and_matrix_restoration(self):
         self.assertIn("GL11.GL_ALL_ATTRIB_BITS",self.gl)
