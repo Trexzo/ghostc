@@ -127,9 +127,9 @@ public final class FramePerformanceTests {
             "privacy scope maintained");
         for(String k:file.stringPropertyNames()) {
             ok(k.equals("schema")||k.equals("scope")||
-                k.startsWith("count.")||k.startsWith("perf."),
+                k.startsWith("count.")||k.startsWith("perf.")||k.startsWith("snap."),
                 "no unapproved keys");
-            if(k.startsWith("perf."))
+            if(k.startsWith("perf.")||k.startsWith("snap."))
                 ok(file.getProperty(k).matches("[0-9]+"),"numeric-only telemetry");
         }
         h.close();
