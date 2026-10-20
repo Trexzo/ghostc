@@ -148,6 +148,20 @@ public final class FeatureTests {
         host.uiActions().bool("hud.cps","show_right");
         host.uiActions().fraction("hud.target","range",1.0);
         host.uiActions().bool("hud.target","visible_only");
+        ok(Math.abs(host.espLineColor().red-.62f)<.000001 &&
+           Math.abs(host.espLineColor().green-.56f)<.000001 &&
+           host.espLineColor().blue==1.0f &&
+           Math.abs(host.espLineColor().opacity-.82f)<.000001,
+           "existing purple RGBA preserved as legacy profile defaults");
+        host.uiActions().fraction("render.esp","red",1.0);
+        host.uiActions().fraction("render.esp","green",0.1);
+        host.uiActions().fraction("render.esp","blue",0.0);
+        host.uiActions().fraction("render.esp","opacity",0.5);
+        ok(host.espLineColor().red==1f &&
+           Math.abs(host.espLineColor().green-.1f)<.000001 &&
+           host.espLineColor().blue==0f &&
+           Math.abs(host.espLineColor().opacity-.55f)<.000001,
+           "existing numeric GUI slider mutation updates all ESP color channels");
         host.uiActions().fraction("render.esp","range",1.0);
         host.uiActions().bool("render.esp","through_walls");
         ok(!host.espShowHealth(),"legacy/default ESP health bars disabled");
@@ -171,6 +185,11 @@ public final class FeatureTests {
         ok(restored.targetRange()==24.0 && !restored.targetVisible(),"target settings persisted");
         ok(restored.espRange()==80.0 && restored.espThroughWalls(),"ESP settings persisted");
         ok(restored.espShowHealth(),"optional ESP health overlay persisted");
+        ok(restored.espLineColor().red==1f &&
+           Math.abs(restored.espLineColor().green-.1f)<.000001 &&
+           restored.espLineColor().blue==0f &&
+           Math.abs(restored.espLineColor().opacity-.55f)<.000001,
+           "RGBA ESP appearance survives save/restore without profile version change");
         ok("tracer".equals(restored.espStyle()),"ESP style persisted");
         restored.uiActions().cycle("render.esp","style");
         ok("both".equals(restored.espStyle()),"legacy combined ESP mode preserved");

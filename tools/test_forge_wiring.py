@@ -333,6 +333,26 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.EspTelemetryTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_esp_rgba_appearance_uses_persisted_settings_across_all_line_modes(self):
+        esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        policy=content("src/main/java/dev/ghostfusion/features/EspLineColor.java")
+        for channel in ("red","green","blue","opacity"):
+            self.assertIn('new Setting.Number("'+channel+'"',host)
+        self.assertIn("espRed, espGreen, espBlue, espOpacity);",host)
+        self.assertIn("EspLineColor.of(",host)
+        self.assertIn("final EspLineColor appearance=host.espLineColor();",esp)
+        self.assertIn("GL11.glColor4f(appearance.red,appearance.green,",esp)
+        self.assertNotIn("GL11.glColor4f(0.62f,0.56f,1.0f,0.82f);",esp)
+        self.assertIn("if(boxes) wireBox(box);",esp)
+        self.assertIn("if(skeleton) {",esp)
+        self.assertIn("if(tracers) {",esp)
+        self.assertIn("GL11.glLineWidth(host.espLineWidth());",esp)
+        self.assertIn("Double.isFinite(value)",policy)
+        self.assertIn("dev.ghostfusion.tests.EspLineColorTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("EspLineColor.class",content("tools/verify_forge_jar.py"))
+
     def test_original_skeleton_esp_mode_is_wired_to_forge(self):
         esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
@@ -349,7 +369,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertLess(esp.index("if(!renderable(player,partialTicks,skeleton)) continue;"),
                         esp.index("nearest.offer(player,player.getEntityId(),distance)"))
         self.assertLess(esp.index("nearest.offer(player,player.getEntityId(),distance)"),
-                        esp.index("GL11.glColor4f(0.62f,0.56f,1.0f,0.82f)"))
+                        esp.index("GL11.glColor4f(appearance.red,appearance.green,"))
         self.assertIn("Double.isFinite(x)",policy)
         self.assertIn('BOX_SKELETON("box_skeleton"',modes)
         self.assertIn("dev.ghostfusion.tests.EspSkeletonTests",content(".github/workflows/core-ci.yml"))
