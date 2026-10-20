@@ -394,7 +394,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("if(skeleton) host.diagnostics().record(Counter.ESP_DRAWN_SKELETON)",esp)
         self.assertIn("finally { GL11.glEnd(); }",esp)
         self.assertIn("DiagnosticsHudLayout.calculate(",ui)
-        self.assertIn("dev.ghostfusion.ui.DiagnosticsHudLayout",
+        self.assertIn("public final class DiagnosticsHudLayout",
                       content("src/main/java/dev/ghostfusion/ui/DiagnosticsHudLayout.java"))
         self.assertIn("dev.ghostfusion.tests.EspTelemetryTests",
                       content(".github/workflows/core-ci.yml"))
