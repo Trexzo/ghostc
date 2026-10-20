@@ -301,7 +301,7 @@ class ForgeWiring(unittest.TestCase):
         jar=content("tools/verify_forge_jar.py")
         self.assertIn('new Setting.Bool("show_health", false)',host)
         self.assertIn("espStyle, espHealth,",host)
-        self.assertIn("espRed, espGreen, espBlue, espOpacity);",host)
+        self.assertIn("espRed, espGreen, espBlue, espOpacity, espCornerLength);",host)
         self.assertIn("public boolean espShowHealth()",host)
         self.assertIn("boolean health=host.espShowHealth();",renderer)
         self.assertIn("EspHealthBarGeometry.emit(xx,yy,zz,p.height,p.width,",renderer)
@@ -340,7 +340,7 @@ class ForgeWiring(unittest.TestCase):
         policy=content("src/main/java/dev/ghostfusion/features/EspLineColor.java")
         for channel in ("red","green","blue","opacity"):
             self.assertIn('new Setting.Number("'+channel+'"',host)
-        self.assertIn("espRed, espGreen, espBlue, espOpacity);",host)
+        self.assertIn("espRed, espGreen, espBlue, espOpacity, espCornerLength);",host)
         self.assertIn("EspLineColor.of(",host)
         self.assertIn("final EspLineColor appearance=host.espLineColor();",esp)
         self.assertIn("GL11.glColor4f(appearance.red,appearance.green,",esp)
