@@ -166,6 +166,17 @@ public final class FeatureTests {
            "corner style does not change existing default config");
         ok(Math.abs(host.espFillOpacity()-.18f)<.000001,
            "legacy profile retains independent translucent fill default");
+        ok(!host.espDistanceFade() &&
+           Math.abs(host.espFadeStart()-.50)<.000001 &&
+           Math.abs(host.espFadeMinimum()-.25)<.000001,
+           "legacy ESP profile keeps all line and fill opacity unchanged");
+        host.uiActions().bool("render.esp","distance_fade");
+        host.uiActions().fraction("render.esp","fade_start",1.0);
+        host.uiActions().fraction("render.esp","fade_min_opacity",0.0);
+        ok(host.espDistanceFade()&&
+           Math.abs(host.espFadeStart()-.90)<.000001 &&
+           Math.abs(host.espFadeMinimum()-.05)<.000001,
+           "existing ClickGUI adjusts fade toggle and both sliders");
         host.uiActions().fraction("render.esp","fill_opacity",1.0);
         ok(Math.abs(host.espFillOpacity()-.5f)<.000001,
            "fill opacity slider uses existing GUI/typed-settings gateway");
@@ -199,6 +210,10 @@ public final class FeatureTests {
            "corner length persists in the old typed profile store");
         ok(Math.abs(restored.espFillOpacity()-.5f)<.000001,
            "filled box opacity persisted through existing profile schema");
+        ok(restored.espDistanceFade() &&
+           Math.abs(restored.espFadeStart()-.90)<.000001 &&
+           Math.abs(restored.espFadeMinimum()-.05)<.000001,
+           "fade settings survive existing profile serializer");
         ok(restored.espLineColor().red==1f &&
            Math.abs(restored.espLineColor().green-.1f)<.000001 &&
            restored.espLineColor().blue==0f &&
