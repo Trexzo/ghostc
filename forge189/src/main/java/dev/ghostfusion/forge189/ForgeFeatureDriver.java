@@ -126,7 +126,7 @@ public final class ForgeFeatureDriver {
         mc.fontRendererObj.drawStringWithShadow(text,x,y+1,0xFFE3E9FF);
     }
     private void drawDiagnostics(int sw,int sh) {
-        int width=260, height=167;
+        int width=286, height=180;
         int x=Math.max(0,sw-width-4), y=4;
         Gui.drawRect(x,y,Math.min(sw,x+width),y+height,0xC31B2133);
         mc.fontRendererObj.drawStringWithShadow("GhostC " + GhostCMod.CLIENT_VERSION + " diagnostics",x+5,y+5,0xFFAEAAFF);
@@ -158,6 +158,10 @@ public final class ForgeFeatureDriver {
             " | LOS "+snap.losQueries;
         String snapOutput="Published "+snap.published+" | Ticks "+snap.samples+
             " | Max "+snap.maxUs+" us";
+        dev.ghostfusion.host.SnapshotTelemetry.Mode mode=host.lastSnapshotMode();
+        dev.ghostfusion.host.SnapshotTelemetry.Snapshot modeStats=host.snapshotTelemetry(mode);
+        String snapClass="Last mode "+mode.name()+" p95 "+modeStats.p95Us+
+            " us | n "+modeStats.samples;
         mc.fontRendererObj.drawStringWithShadow(epoch,x+5,y+17,0xFFC9D1DF);
         mc.fontRendererObj.drawStringWithShadow(gui,x+5,y+28,0xFFC9D1DF);
         mc.fontRendererObj.drawStringWithShadow(render,x+5,y+39,0xFFC9D1DF);
@@ -171,6 +175,7 @@ public final class ForgeFeatureDriver {
         mc.fontRendererObj.drawStringWithShadow(snapTiming,x+5,y+127,0xFFC9D1DF);
         mc.fontRendererObj.drawStringWithShadow(snapVolume,x+5,y+138,0xFFC9D1DF);
         mc.fontRendererObj.drawStringWithShadow(snapOutput,x+5,y+149,0xFFC9D1DF);
+        mc.fontRendererObj.drawStringWithShadow(snapClass,x+5,y+160,0xFFC9D1DF);
         // Focus/suppression remains in the saved local report.
     }
     private void drawTarget(int sw,int sh) {

@@ -33,6 +33,7 @@ public final class HostRuntime {
     private final RuntimeDiagnostics diagnostics = new RuntimeDiagnostics();
     private final FramePerformance framePerformance = new FramePerformance();
     private final SnapshotTelemetry snapshotTelemetry = new SnapshotTelemetry();
+    private SnapshotTelemetry.Mode lastSnapshotMode=SnapshotTelemetry.Mode.OFF;
     private final FeatureFaultGuard featureFaults = new FeatureFaultGuard(modules, new FeatureFaultGuard.OnFault() {
         public void report(String stableId, String exceptionType) {
             diagnostics.record(Counter.FEATURE_FAULT);
@@ -140,11 +141,30 @@ public final class HostRuntime {
     public SnapshotTelemetry.Snapshot snapshotTelemetry() {
         modules.assertOwnerThread(); return snapshotTelemetry.snapshot();
     }
-    /** Accept only focused diagnostics-enabled in-world snapshots. */
+    public SnapshotTelemetry.Mode lastSnapshotMode(){
+        modules.assertOwnerThread();return lastSnapshotMode;
+    }
+    public SnapshotTelemetry.Snapshot snapshotTelemetry(SnapshotTelemetry.Mode mode){
+        modules.assertOwnerThread();return snapshotTelemetry.snapshot(mode);
+    }
+    /** Tick-side focus fence avoids collecting menu/alt-tab samples. */
+    public boolean snapshotProfilingEnabled(){
+        return active() && worldPresent && !inputBlocked && diagnosticsEnabled();
+    }
+    /** Legacy aggregate-only API remains available for core consumers. */
     public void recordSnapshotWork(long elapsedNanos,int scanned,int inRange,
                                    int losQueries,int published) {
-        if(!active() || !worldPresent || !diagnosticsEnabled())return;
+        if(!snapshotProfilingEnabled())return;
         snapshotTelemetry.record(elapsedNanos,scanned,inRange,losQueries,published);
+    }
+    /** Record successful Forge snapshot publication in one demand group. */
+    public void recordSnapshotWork(long elapsedNanos,int scanned,int inRange,
+                                   int losQueries,int published,
+                                   boolean needsVisible,boolean needsUnfiltered) {
+        if(!snapshotProfilingEnabled())return;
+        SnapshotTelemetry.Mode mode=SnapshotTelemetry.Mode.from(needsVisible,needsUnfiltered);
+        snapshotTelemetry.record(elapsedNanos,scanned,inRange,losQueries,published,mode);
+        lastSnapshotMode=mode;
     }
     /** Remove cadence reference when opt-in metrics are switched off. */
     public void performancePause() {
@@ -173,7 +193,7 @@ public final class HostRuntime {
     public String diagnosticsWarning() { return diagnosticsWarning; }
     public void exportDiagnostics() {
         if (!active() || !diagnosticsEnabled()) return;
-        try { diagnostics.save(configDirectory,framePerformance.snapshot(),snapshotTelemetry.snapshot()); diagnosticsWarning = ""; }
+        try { diagnostics.save(configDirectory,framePerformance.snapshot(),snapshotTelemetry); diagnosticsWarning = ""; }
         catch (IOException e) { diagnosticsWarning = "Diagnostics: " + e.getClass().getSimpleName(); }
     }
     public UiState ui() { modules.assertOwnerThread(); return ui; }

@@ -58,6 +58,16 @@ public final class RuntimeDiagnostics {
     /** Optional anonymized frame and snapshot-work acceptance aggregates. */
     public void save(Path directory,FramePerformance.Snapshot perf,
                      SnapshotTelemetry.Snapshot snap) throws IOException {
+        saveReport(directory,perf,snap,null);
+    }
+    /** Classified report used by the owner host; same existing aggregate keys. */
+    public void save(Path directory,FramePerformance.Snapshot perf,
+                     SnapshotTelemetry profiling) throws IOException {
+        if(profiling==null)throw new IllegalArgumentException("snapshot profiler");
+        saveReport(directory,perf,profiling.snapshot(),profiling);
+    }
+    private void saveReport(Path directory,FramePerformance.Snapshot perf,
+                     SnapshotTelemetry.Snapshot snap,SnapshotTelemetry profiling) throws IOException {
         check();
         if (directory == null) throw new IllegalArgumentException("directory");
         Files.createDirectories(directory);
@@ -90,6 +100,19 @@ public final class RuntimeDiagnostics {
             props.setProperty("snap.p95_us",Long.toString(snap.p95Us));
             props.setProperty("snap.p99_us",Long.toString(snap.p99Us));
             props.setProperty("snap.max_us",Long.toString(snap.maxUs));
+        }
+        if(profiling!=null)for(SnapshotTelemetry.Mode mode:SnapshotTelemetry.Mode.values()){
+            SnapshotTelemetry.Snapshot group=profiling.snapshot(mode);
+            String prefix="snap.mode_"+mode.name().toLowerCase(java.util.Locale.ROOT)+"_";
+            props.setProperty(prefix+"samples",Long.toString(group.samples));
+            props.setProperty(prefix+"scanned",Long.toString(group.scanned));
+            props.setProperty(prefix+"in_range",Long.toString(group.inRange));
+            props.setProperty(prefix+"los_queries",Long.toString(group.losQueries));
+            props.setProperty(prefix+"published",Long.toString(group.published));
+            props.setProperty(prefix+"p50_us",Long.toString(group.p50Us));
+            props.setProperty(prefix+"p95_us",Long.toString(group.p95Us));
+            props.setProperty(prefix+"p99_us",Long.toString(group.p99Us));
+            props.setProperty(prefix+"max_us",Long.toString(group.maxUs));
         }
         Path target = directory.resolve("diagnostics-last.properties");
         Path temp = Files.createTempFile(directory, "ghostc-diag-", ".tmp");
