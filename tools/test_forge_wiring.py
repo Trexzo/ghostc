@@ -167,6 +167,26 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.FramePerformanceTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_opt_in_esp_health_bar_geometry_and_persistence_wiring(self):
+        renderer=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        geometry=content("src/main/java/dev/ghostfusion/features/EspHealthBarGeometry.java")
+        jar=content("tools/verify_forge_jar.py")
+        self.assertIn('new Setting.Bool("show_health", false)',host)
+        self.assertIn("espStyle, espHealth);",host)
+        self.assertIn("public boolean espShowHealth()",host)
+        self.assertIn("boolean health=host.espShowHealth();",renderer)
+        self.assertIn("EspHealthBarGeometry.emit(xx,yy,zz,p.height,p.width,",renderer)
+        self.assertIn("p.getHealth(),p.getMaxHealth()",renderer)
+        self.assertIn("if(!good) host.diagnostics().record(Counter.ESP_INVALID_GEOMETRY)",renderer)
+        self.assertIn("GL11.glLineWidth(host.espLineWidth());",renderer)
+        self.assertIn("Math.hypot(viewerX-x,viewerZ-z)",geometry)
+        self.assertIn("sink.segment(false,fraction",geometry)
+        self.assertIn("if(fraction>0) sink.segment(true,fraction",geometry)
+        self.assertIn("EspHealthBarGeometry.class",jar)
+        self.assertIn("dev.ghostfusion.tests.EspHealthBarTests",
+                      content(".github/workflows/core-ci.yml"))
+
     def test_esp_runtime_diagnostics_and_malformed_player_screening(self):
         esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
         diagnostics=content("src/main/java/dev/ghostfusion/host/RuntimeDiagnostics.java")
@@ -199,7 +219,8 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("GL11.glBegin(GL11.GL_LINES)",esp)
         self.assertIn("finally { GL11.glEnd(); }",esp)
         self.assertIn("Limit successfully admitted players",esp)
-        self.assertLess(esp.index("if(count>=80) break;"),esp.index("GL11.glColor4f"))
+        self.assertLess(esp.index("if(count>=80) break;"),
+                        esp.index("GL11.glColor4f(0.62f,0.56f,1.0f,0.82f)"))
         self.assertIn("Double.isFinite(x)",policy)
         self.assertIn('BOX_SKELETON("box_skeleton"',modes)
         self.assertIn("dev.ghostfusion.tests.EspSkeletonTests",content(".github/workflows/core-ci.yml"))

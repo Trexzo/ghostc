@@ -55,6 +55,7 @@ public final class HostRuntime {
     private final Setting.Number espRange = new Setting.Number("range", 32.0, 2.0, 80.0);
     private final Setting.Bool espVisible = new Setting.Bool("visible_only", true);
     private final Setting.Bool espWalls = new Setting.Bool("through_walls", false);
+    private final Setting.Bool espHealth = new Setting.Bool("show_health", false);
     private final Setting.Number espWidth = new Setting.Number("line_width", 1.5, 1.0, 4.0);
     private final Setting.Choice espStyle = new Setting.Choice("style", "box", "box", "tracer", "both", "skeleton", "box_skeleton");
     private final Setting.Number aimRange = new Setting.Number("range", 4.5, 2.0, 6.0);
@@ -98,7 +99,7 @@ public final class HostRuntime {
         modules.register(new FeatureModule("hud.target", "Target HUD", GhostModule.Category.RENDER),
             0, targetRange, targetVisible, targetHealth);
         modules.register(new FeatureModule("render.esp", "Player ESP", GhostModule.Category.RENDER),
-            0, espRange, espVisible, espWalls, espWidth, espStyle);
+            0, espRange, espVisible, espWalls, espWidth, espStyle, espHealth);
         modules.register(new FeatureModule("movement.sprint", "Auto Sprint", GhostModule.Category.MOVEMENT),
             0);
         modules.register(new FeatureModule("combat.aimassist", "Aim Assist", GhostModule.Category.COMBAT),
@@ -189,6 +190,7 @@ public final class HostRuntime {
     public double espRange() { modules.assertOwnerThread(); return espRange.get(); }
     public boolean espVisible() { modules.assertOwnerThread(); return espVisible.get(); }
     public boolean espThroughWalls() { modules.assertOwnerThread(); return espWalls.get(); }
+    public boolean espShowHealth() { modules.assertOwnerThread(); return espHealth.get(); }
     public float espLineWidth() { modules.assertOwnerThread(); return espWidth.get().floatValue(); }
     public String espStyle() { modules.assertOwnerThread(); return espStyle.get(); }
     public double aimRange() { modules.assertOwnerThread(); return aimRange.get(); }

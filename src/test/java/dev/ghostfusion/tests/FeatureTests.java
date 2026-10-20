@@ -150,6 +150,9 @@ public final class FeatureTests {
         host.uiActions().bool("hud.target","visible_only");
         host.uiActions().fraction("render.esp","range",1.0);
         host.uiActions().bool("render.esp","through_walls");
+        ok(!host.espShowHealth(),"legacy/default ESP health bars disabled");
+        host.uiActions().bool("render.esp","show_health");
+        ok(host.espShowHealth(),"health bar setting toggles in GUI");
         host.uiActions().cycle("render.esp","style");
         ok(!host.keysJump() && !host.cpsRight(),"UI bool settings applied");
         ok(host.targetRange()==24.0 && !host.targetVisible(),"target settings applied");
@@ -167,6 +170,7 @@ public final class FeatureTests {
         ok(!restored.keysJump() && !restored.cpsRight(),"booleans persisted");
         ok(restored.targetRange()==24.0 && !restored.targetVisible(),"target settings persisted");
         ok(restored.espRange()==80.0 && restored.espThroughWalls(),"ESP settings persisted");
+        ok(restored.espShowHealth(),"optional ESP health overlay persisted");
         ok("tracer".equals(restored.espStyle()),"ESP style persisted");
         restored.uiActions().cycle("render.esp","style");
         ok("both".equals(restored.espStyle()),"legacy combined ESP mode preserved");
