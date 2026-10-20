@@ -131,7 +131,10 @@ final class PlayerEspRenderer {
                     nearest.offer(player,player.getEntityId(),distance);
                 }
                 for(int index=0;index<nearest.size();index++) {
-                    EntityPlayer p=nearest.get(index);
+                    // Filled ESP uses painter order across separate players,
+                    // as well as within each six-face translucent volume.
+                    // Legacy non-filled line modes keep nearest-first order.
+                    EntityPlayer p=nearest.get(filled?nearest.size()-1-index:index);
                     double xx=p.lastTickPosX+(p.posX-p.lastTickPosX)*partialTicks;
                     double yy=p.lastTickPosY+(p.posY-p.lastTickPosY)*partialTicks;
                     double zz=p.lastTickPosZ+(p.posZ-p.lastTickPosZ)*partialTicks;
@@ -144,8 +147,9 @@ final class PlayerEspRenderer {
                         appearance.blue,appearance.opacity*fillOpacity);
                     GL11.glBegin(GL11.GL_QUADS);
                     try {
-                        EspFilledBoxGeometry.emit(box.minX,box.minY,box.minZ,
-                            box.maxX,box.maxY,box.maxZ,FILL_FACES);
+                        EspFilledBoxGeometry.emitBackToFront(box.minX,box.minY,box.minZ,
+                            box.maxX,box.maxY,box.maxZ,
+                            rm.viewerPosX,rm.viewerPosY,rm.viewerPosZ,FILL_FACES);
                     } finally { GL11.glEnd(); }
                 }
                 GL11.glColor4f(appearance.red,appearance.green,
