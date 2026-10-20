@@ -27,6 +27,7 @@ REQUIRED = (
     "dev/ghostfusion/features/EspHealthBarGeometry.class",
     "dev/ghostfusion/features/EspNearestBudget.class",
     "dev/ghostfusion/services/WorldSnapshotAdmission.class",
+    "dev/ghostfusion/services/SnapshotDemand.class",
 )
 
 

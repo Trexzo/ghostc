@@ -154,7 +154,7 @@ class ForgeWiring(unittest.TestCase):
         adapter=self.adapter
         admission=content("src/main/java/dev/ghostfusion/services/WorldSnapshotAdmission.java")
         self.assertIn("new WorldSnapshotAdmission<EntityPlayer>()",adapter)
-        self.assertIn("boolean visible=!p.isInvisible() &&",adapter)
+        self.assertIn("boolean visible=demand.testVisibility() &&",adapter)
         self.assertIn("nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible)",adapter)
         self.assertIn("nearestSnapshot.forEach(new WorldSnapshotAdmission.Visitor<EntityPlayer>()",adapter)
         self.assertIn("p.getEntityId(),p.posX,p.posY,p.posZ,health,true,visible,true",adapter)
@@ -164,6 +164,26 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("sink.visit(visible.get(a++),true)",admission)
         self.assertIn("sink.visit(hidden.get(b++),false)",admission)
         self.assertIn("dev.ghostfusion.tests.VisibilitySnapshotTests",
+                      content(".github/workflows/core-ci.yml"))
+
+    def test_snapshot_work_is_demand_and_range_gated_before_visibility_rays(self):
+        source=self.adapter
+        demand=content("src/main/java/dev/ghostfusion/services/SnapshotDemand.java")
+        self.assertIn("SnapshotDemand.of(",source)
+        self.assertIn('host.featureEnabled("hud.target"),host.targetVisible(),host.targetRange()',source)
+        self.assertIn('host.featureEnabled("combat.aimassist"),host.aimVisibleOnly(),host.aimRange()',source)
+        self.assertIn("if(demand.needed()) for (Object raw : minecraft.theWorld.playerEntities)",source)
+        self.assertLess(source.index("if(!demand.accepts(distanceSq))continue;"),
+                        source.index("minecraft.thePlayer.canEntityBeSeen(p);"))
+        self.assertIn("boolean visible=demand.testVisibility() &&",source)
+        self.assertIn("if(!demand.admit(visible))continue;",source)
+        self.assertIn("nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible)",source)
+        self.assertIn("host.services().publish(new WorldSnapshot(",source)
+        self.assertIn("} finally {\n                nearestSnapshot.clear();",source)
+        self.assertIn("public boolean testVisibility(){return needVisible;}",demand)
+        self.assertIn("public boolean needed(){return needVisible||needUnfiltered;}",demand)
+        self.assertIn("square<=maximumDistanceSq",demand)
+        self.assertIn("dev.ghostfusion.tests.SnapshotDemandTests",
                       content(".github/workflows/core-ci.yml"))
 
     def test_r210_warning_not_gated_by_status_and_lifecycle_fps_pause(self):

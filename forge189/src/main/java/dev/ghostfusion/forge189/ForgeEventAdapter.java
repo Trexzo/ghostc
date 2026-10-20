@@ -5,6 +5,7 @@ import dev.ghostfusion.services.WorldSnapshot;
 import dev.ghostfusion.ui.StatusHudLayout;
 import dev.ghostfusion.services.WorldIdentityTracker;
 import dev.ghostfusion.services.WorldSnapshotAdmission;
+import dev.ghostfusion.services.SnapshotDemand;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import net.minecraft.entity.player.EntityPlayer;
 import java.util.ArrayList;
@@ -75,12 +76,15 @@ public final class ForgeEventAdapter {
         if (host.services().connected() && minecraft.theWorld != null && minecraft.thePlayer != null &&
             WorldSnapshot.validPlayerPose(minecraft.thePlayer.posX,minecraft.thePlayer.posY,
                 minecraft.thePlayer.posZ,minecraft.thePlayer.rotationYaw,minecraft.thePlayer.rotationPitch)) {
+            final SnapshotDemand demand=SnapshotDemand.of(
+                host.featureEnabled("hud.target"),host.targetVisible(),host.targetRange(),
+                host.featureEnabled("combat.aimassist"),host.aimVisibleOnly(),host.aimRange());
             nearestSnapshot.clear();
             try {
-                // Previously the first 256 in loaded-list order won. Only
-                // finite, living players may enter the bounded nearest-first
-                // selection. Even crowded worlds keep close HUD/aim targets.
-                for (Object raw : minecraft.theWorld.playerEntities) {
+                // No targets: publish an empty valid tick snapshot so unrelated
+                // click/hit/block policies keep their exact session admission.
+                // Any active target range is applied BEFORE expensive LOS rays.
+                if(demand.needed()) for (Object raw : minecraft.theWorld.playerEntities) {
                     if (!(raw instanceof EntityPlayer)) continue;
                     EntityPlayer p = (EntityPlayer)raw;
                     if (p == minecraft.thePlayer || p.isDead) continue;
@@ -93,11 +97,13 @@ public final class ForgeEventAdapter {
                     double dy=p.posY-minecraft.thePlayer.posY;
                     double dz=p.posZ-minecraft.thePlayer.posZ;
                     double distanceSq=dx*dx+dy*dy+dz*dz;
-                    // Preserve 256 nearest visible AND 256 nearest occluded.
-                    // Calculate visibility once during admission, not again
-                    // when materializing immutable WorldSnapshot values.
-                    boolean visible=!p.isInvisible() &&
-                        minecraft.thePlayer.canEntityBeSeen(p);
+                    if(!demand.accepts(distanceSq))continue;
+                    // With unfiltered-only targeting, avoid every LOS ray and
+                    // use the bounded hidden partition as a generic priority
+                    // list; consumers explicitly ignore the visible flag.
+                    boolean visible=demand.testVisibility() &&
+                        !p.isInvisible() && minecraft.thePlayer.canEntityBeSeen(p);
+                    if(!demand.admit(visible))continue;
                     nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible);
                 }
                 final List<WorldSnapshot.Entity> players =
