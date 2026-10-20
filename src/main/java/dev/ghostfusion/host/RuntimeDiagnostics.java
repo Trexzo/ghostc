@@ -49,6 +49,10 @@ public final class RuntimeDiagnostics {
     }
     /** Called only on opt-in module enablement during disconnect or host close. */
     public void save(Path directory) throws IOException {
+        save(directory,null);
+    }
+    /** Optional anonymized performance aggregates from real client render callbacks. */
+    public void save(Path directory,FramePerformance.Snapshot perf) throws IOException {
         check();
         if (directory == null) throw new IllegalArgumentException("directory");
         Files.createDirectories(directory);
@@ -58,6 +62,18 @@ public final class RuntimeDiagnostics {
         for (Counter key : Counter.values())
             props.setProperty("count." + key.name().toLowerCase(java.util.Locale.ROOT),
                               Long.toString(counters.get(key)));
+        if(perf!=null) {
+            props.setProperty("perf.frame_samples",Long.toString(perf.frames));
+            props.setProperty("perf.min_fps",Integer.toString(perf.minFps));
+            props.setProperty("perf.median_fps",Integer.toString(perf.medianFps));
+            props.setProperty("perf.p95_fps",Integer.toString(perf.p95Fps));
+            props.setProperty("perf.p99_fps",Integer.toString(perf.p99Fps));
+            props.setProperty("perf.max_fps",Integer.toString(perf.maxFps));
+            props.setProperty("perf.heap_mib",Long.toString(perf.heapMiB));
+            props.setProperty("perf.peak_heap_mib",Long.toString(perf.peakHeapMiB));
+            props.setProperty("perf.memory_samples",Long.toString(perf.memorySamples));
+            props.setProperty("perf.suspends",Long.toString(perf.suspends));
+        }
         Path target = directory.resolve("diagnostics-last.properties");
         Path temp = Files.createTempFile(directory, "ghostc-diag-", ".tmp");
         try {

@@ -126,7 +126,7 @@ public final class ForgeFeatureDriver {
         mc.fontRendererObj.drawStringWithShadow(text,x,y+1,0xFFE3E9FF);
     }
     private void drawDiagnostics(int sw,int sh) {
-        int width=208, height=108;
+        int width=236, height=134;
         int x=Math.max(0,sw-width-4), y=4;
         Gui.drawRect(x,y,Math.min(sw,x+width),y+height,0xC31B2133);
         mc.fontRendererObj.drawStringWithShadow("GhostC " + GhostCMod.CLIENT_VERSION + " diagnostics",x+5,y+5,0xFFAEAAFF);
@@ -146,6 +146,11 @@ public final class ForgeFeatureDriver {
             " | Players "+host.diagnostics().count(Counter.ESP_DRAWN_PLAYER);
         String skeleton="Skeletons "+host.diagnostics().count(Counter.ESP_DRAWN_SKELETON)+
             " | Invalid "+host.diagnostics().count(Counter.ESP_INVALID_GEOMETRY);
+        dev.ghostfusion.host.FramePerformance.Snapshot perf=host.performanceSnapshot();
+        String fps="FPS min/p50/p95/p99 "+perf.minFps+"/"+perf.medianFps+
+            "/"+perf.p95Fps+"/"+perf.p99Fps;
+        String memory="Heap "+perf.heapMiB+"/"+perf.peakHeapMiB+
+            " MiB | Frames "+perf.frames;
         mc.fontRendererObj.drawStringWithShadow(epoch,x+5,y+17,0xFFC9D1DF);
         mc.fontRendererObj.drawStringWithShadow(gui,x+5,y+28,0xFFC9D1DF);
         mc.fontRendererObj.drawStringWithShadow(render,x+5,y+39,0xFFC9D1DF);
@@ -154,6 +159,8 @@ public final class ForgeFeatureDriver {
         mc.fontRendererObj.drawStringWithShadow(applied,x+5,y+72,0xFFC9D1DF);
         mc.fontRendererObj.drawStringWithShadow(esp,x+5,y+83,0xFFC9D1DF);
         mc.fontRendererObj.drawStringWithShadow(skeleton,x+5,y+94,0xFFC9D1DF);
+        mc.fontRendererObj.drawStringWithShadow(fps,x+5,y+105,0xFFC9D1DF);
+        mc.fontRendererObj.drawStringWithShadow(memory,x+5,y+116,0xFFC9D1DF);
         // Focus/suppression remains in the saved local report.
     }
     private void drawTarget(int sw,int sh) {

@@ -31,6 +31,7 @@ public final class HostRuntime {
     private final ModuleRegistry modules = new ModuleRegistry();
     private final SessionServices services = new SessionServices();
     private final RuntimeDiagnostics diagnostics = new RuntimeDiagnostics();
+    private final FramePerformance framePerformance = new FramePerformance();
     private final FeatureFaultGuard featureFaults = new FeatureFaultGuard(modules, new FeatureFaultGuard.OnFault() {
         public void report(String stableId, String exceptionType) {
             diagnostics.record(Counter.FEATURE_FAULT);
@@ -131,6 +132,18 @@ public final class HostRuntime {
     public ModuleRegistry modules() { return modules; }
     public SessionServices services() { modules.assertOwnerThread(); return services; }
     public RuntimeDiagnostics diagnostics() { modules.assertOwnerThread(); return diagnostics; }
+    public FramePerformance.Snapshot performanceSnapshot() {
+        modules.assertOwnerThread(); return framePerformance.snapshot();
+    }
+    /** Only record focused in-world frames with explicit diagnostics opt-in. */
+    public void performanceFrame(long nowNanos,long usedHeapBytes,boolean focused) {
+        if(!active()) return;
+        if(!focused || !worldPresent || !diagnosticsEnabled()) {
+            framePerformance.suspend();
+            return;
+        }
+        framePerformance.frame(nowNanos,usedHeapBytes);
+    }
     public String faultWarning() { modules.assertOwnerThread(); return faultWarning; }
     /** Visual/sprint callbacks are isolated per module; a failing module is disabled and persisted. */
     public boolean runFeature(String id, Runnable callback) {
@@ -145,7 +158,7 @@ public final class HostRuntime {
     public String diagnosticsWarning() { return diagnosticsWarning; }
     public void exportDiagnostics() {
         if (!active() || !diagnosticsEnabled()) return;
-        try { diagnostics.save(configDirectory); diagnosticsWarning = ""; }
+        try { diagnostics.save(configDirectory,framePerformance.snapshot()); diagnosticsWarning = ""; }
         catch (IOException e) { diagnosticsWarning = "Diagnostics: " + e.getClass().getSimpleName(); }
     }
     public UiState ui() { modules.assertOwnerThread(); return ui; }
@@ -221,6 +234,7 @@ public final class HostRuntime {
     public void worldPresence(boolean present) {
         if (!active() || worldPresent == present) return;
         services.world(present);
+        framePerformance.suspend(); // Never include menu/world transition time as a frame.
         diagnostics.record(present ? Counter.WORLD_ENTER : Counter.WORLD_LEAVE);
         if (present) disconnectReported = false;
         worldPresent = present;
