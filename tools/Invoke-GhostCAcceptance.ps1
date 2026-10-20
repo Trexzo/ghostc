@@ -209,6 +209,7 @@ $lines = @(
     '',
     "Installed artifact: $($state.installed.name)",
     "Verified SHA256: $installedHash",
+    "Session transaction: $($state.transaction)",
     "Existing GhostC JARs safely backed up: $($prior.Count)",
     '',
     '## Live Minecraft 1.8.9 + Forge acceptance (complete manually)',
@@ -308,11 +309,42 @@ $lines += @(
     'This report and the build hash are evidence of installation only, not successful in-game play.'
 )
 New-Item -ItemType Directory -Path $accept -Force | Out-Null
-# A deliberately separate sidecar avoids erasing checked boxes/owner notes.
-# Only an allowlist of numeric fields can enter the refreshed sidecar.
+# The visible report belongs to ONE Prepare transaction, not merely a JAR
+# hash. After Rollback another Prepare may use even the identical JAR; never
+# reuse an earlier human-completed checklist as evidence of that new session.
+$reportExists = Test-Path -LiteralPath $report -PathType Leaf
+$telemetryExists = Test-Path -LiteralPath $telemetryFile -PathType Leaf
+$sameSession = $false
+if ($reportExists) {
+    $priorReport = Get-Content -LiteralPath $report -Raw
+    $sameSession = (
+        $priorReport -match "(?m)^Session transaction: $($state.transaction)\r?$" -and
+        $priorReport -match "(?m)^Installed artifact: $([regex]::Escape($state.installed.name))\r?$" -and
+        $priorReport -match "(?m)^Verified SHA256: $installedHash\r?$"
+    )
+}
+if (!$sameSession -and ($reportExists -or $telemetryExists)) {
+    $history = Join-Path $accept 'history'
+    if (Test-Path -LiteralPath $history) { Assert-NoLink $history }
+    $archive = Join-Path $history ([guid]::NewGuid().ToString('N'))
+    if (Test-Path -LiteralPath $archive) {
+        throw 'Acceptance archive collision. Refusing to overwrite historical evidence.'
+    }
+    New-Item -ItemType Directory -Path $archive -Force | Out-Null
+    if ($reportExists) {
+        Move-Item -LiteralPath $report -Destination (Join-Path $archive 'acceptance-report.md') -ErrorAction Stop
+    }
+    if ($telemetryExists) {
+        Move-Item -LiteralPath $telemetryFile -Destination (Join-Path $archive 'telemetry-latest.txt') -ErrorAction Stop
+    }
+    Write-Output "GHOSTC_COLLECT_PREVIOUS_SESSION_ARCHIVED path=$archive"
+}
+# A deliberately separate sidecar avoids erasing checked boxes/owner notes
+# from this transaction. Only allowlisted numeric fields are refreshed.
 $telemetryLines = @(
     '# GhostC numeric diagnostics snapshot (not proof of in-game success)',
     "Installed SHA256: $installedHash",
+    "Session transaction: $($state.transaction)",
     'Only allowlisted count.*, perf.*, and snap.* nonnegative integers follow.'
 )
 if ($safe.Count -gt 0) {

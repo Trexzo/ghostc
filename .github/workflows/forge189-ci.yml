@@ -132,7 +132,7 @@ jobs:
             docs/RUNTIME_R21.md
             docs/RUNTIME_R22.md
             docs/RUNTIME_R23.md
-            docs/RUNTIME_R53.md
+            docs/RUNTIME_R54.md
           if-no-files-found: error
 
   windows-forge189:
@@ -242,6 +242,7 @@ jobs:
           Write-Output 'WINDOWS_ACCEPTANCE_NEGATIVE_PREFLIGHT_PASS'
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Prepare -GameDir $root -JarPath $jar -ExpectedSha256 $hash
           if ($LASTEXITCODE -ne 0) { throw 'Prepare transaction failed' }
+          $firstSession = (Get-Content -LiteralPath (Join-Path $root 'ghostc-acceptance/install-state.json') -Raw | ConvertFrom-Json).transaction
           if ((Test-Path -LiteralPath $previous) -or !(Test-Path -LiteralPath (Join-Path $root 'ghostc-acceptance/install-state.json'))) {
             throw 'Prepare failed to quarantine the old client safely'
           }
@@ -249,8 +250,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Collect evidence step failed' }
           $report = Join-Path $root 'ghostc-acceptance/acceptance-report.md'
           if (!(Test-Path -LiteralPath $report) -or
-              ((Get-Content -LiteralPath $report -Raw) -notmatch 'UNVERIFIED IN-GAME')) {
-            throw 'Acceptance report missing its unverified runtime disclaimer'
+              ((Get-Content -LiteralPath $report -Raw) -notmatch 'UNVERIFIED IN-GAME') -or
+              ((Get-Content -LiteralPath $report -Raw) -notmatch "Session transaction: $firstSession")) {
+            throw 'Acceptance report missing disclaimer or session identity'
           }
           # A second Collect must never overwrite the human-owned checklist.
           $original = Get-Content -LiteralPath $report -Raw
@@ -298,6 +300,46 @@ jobs:
             throw 'Rollback left an active client or transaction state behind'
           }
           Write-Output 'WINDOWS_ACCEPTANCE_TRANSACTION_PASS'
+
+          # Second Prepare with the SAME JAR/hash must still open a clean session.
+          # Previous checked boxes and notes must be archived, not reused/erased.
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Prepare -GameDir $root -JarPath $jar -ExpectedSha256 $hash
+          if ($LASTEXITCODE -ne 0) { throw 'Second Prepare transaction failed' }
+          $secondSession = (Get-Content -LiteralPath (Join-Path $root 'ghostc-acceptance/install-state.json') -Raw | ConvertFrom-Json).transaction
+          if ($secondSession -eq $firstSession) { throw 'New Prepare reused old session identity' }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Collect -GameDir $root
+          if ($LASTEXITCODE -ne 0) { throw 'Second session Collect failed' }
+          $freshReport = Get-Content -LiteralPath $report -Raw
+          if ($freshReport -notmatch "Session transaction: $secondSession" -or
+              $freshReport -notmatch 'UNVERIFIED IN-GAME' -or
+              $freshReport -match 'CI_FIXTURE_OWNER_NOTE_DO_NOT_ERASE' -or
+              $freshReport -match '\- \[x\] Launcher starts without a Forge loading error') {
+            throw 'Old completed checkboxes or notes leaked into the new acceptance session'
+          }
+          $history = Join-Path $root 'ghostc-acceptance/history'
+          $oldReports = @(Get-ChildItem -LiteralPath $history -Recurse -File -Filter 'acceptance-report.md')
+          if ($oldReports.Count -ne 1 -or
+              (Get-FileHash -LiteralPath $oldReports[0].FullName -Algorithm SHA256).Hash -ne $editedHash) {
+            throw 'Previously completed report was not archived byte-for-byte'
+          }
+          $oldSidecars = @(Get-ChildItem -LiteralPath $history -Recurse -File -Filter 'telemetry-latest.txt')
+          if ($oldSidecars.Count -ne 1 -or
+              ((Get-Content -LiteralPath $oldSidecars[0].FullName -Raw) -notmatch "Session transaction: $firstSession")) {
+            throw 'Old session telemetry was not archived with original report'
+          }
+          $freshHash = (Get-FileHash -LiteralPath $report -Algorithm SHA256).Hash
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Collect -GameDir $root
+          if ($LASTEXITCODE -ne 0 -or
+              (Get-FileHash -LiteralPath $report -Algorithm SHA256).Hash -ne $freshHash) {
+            throw 'Repeated Collect mutated the second session checklist'
+          }
+          Write-Output 'WINDOWS_ACCEPTANCE_SESSION_ISOLATION_PASS'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Rollback -GameDir $root
+          if ($LASTEXITCODE -ne 0 -or
+              (Get-FileHash -LiteralPath $previous -Algorithm SHA256).Hash -ne $priorHash) {
+            throw 'Second session rollback did not restore prior client'
+          }
+          Write-Output 'WINDOWS_ACCEPTANCE_REPEATED_ROLLBACK_PASS'
       - uses: actions/upload-artifact@v4
         with:
           name: ghostc-forge189-windows-build-unverified-ingame
@@ -312,5 +354,5 @@ jobs:
             docs/RUNTIME_R15.md
             docs/RUNTIME_R16.md
             docs/RUNTIME_R23.md
-            docs/RUNTIME_R53.md
+            docs/RUNTIME_R54.md
           if-no-files-found: error
