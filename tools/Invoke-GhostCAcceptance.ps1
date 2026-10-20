@@ -215,6 +215,7 @@ $lines = @(
     '- [ ] F8 status HUD toggles and remapped Keystrokes labels are correct',
     '- [ ] Rendering and Target HUD behave correctly in an authorized local world',
     '- [ ] Target HUD long names truncate without overlapping right-aligned HP text',
+    '- [ ] Target HUD formatting codes and supplementary Unicode render safely without stalls',
     '- [ ] Target HUD health_text values/percent options display and persist',
     '- [ ] Hidden HP restores full available name width with same widget footprint',
     '- [ ] Very high/custom HP does not overflow text bounds or corrupt HP fill',

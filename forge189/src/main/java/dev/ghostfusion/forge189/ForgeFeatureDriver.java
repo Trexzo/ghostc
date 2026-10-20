@@ -30,8 +30,15 @@ public final class ForgeFeatureDriver {
     private final CpsMeter cps = new CpsMeter();
     private final TargetHudPolicy targets = new TargetHudPolicy();
     private final PlayerEspRenderer esp;
+    // Reuse callback while measuring with the currently active MC font.
+    private final java.util.function.ToIntFunction<String> targetFontWidths;
     ForgeFeatureDriver(Minecraft mc, HostRuntime host) {
         this.mc = mc; this.host = host;
+        targetFontWidths = new java.util.function.ToIntFunction<String>() {
+            public int applyAsInt(String value) {
+                return ForgeFeatureDriver.this.mc.fontRendererObj.getStringWidth(value);
+            }
+        };
         esp = new PlayerEspRenderer(mc, host);
     }
     void tick() {
@@ -195,12 +202,7 @@ public final class ForgeFeatureDriver {
         final boolean health=host.targetHealth();
         TargetHudTextLayout.Result labels=TargetHudTextLayout.layout(
             name,target.id,health,host.targetHealthText(),target.health,
-            player.getMaxHealth(),width,
-            new java.util.function.ToIntFunction<String>() {
-                public int applyAsInt(String value) {
-                    return mc.fontRendererObj.getStringWidth(value);
-                }
-            });
+            player.getMaxHealth(),width,targetFontWidths);
         Gui.drawRect(x,y,x+width,y+height,0xD0141A2B);
         Gui.drawRect(x,y,x+2,y+height,0xFF9A8CFF);
         mc.fontRendererObj.drawStringWithShadow(labels.name,x+9,y+7,0xFFF1F2FF);

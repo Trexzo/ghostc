@@ -10,6 +10,8 @@ import java.util.function.ToIntFunction;
  */
 public final class TargetHudTextLayout {
     private static final String ELLIPSIS="...";
+    // Independent from the 64 visible-codepoint limit.
+    private static final int MAX_SCANNED_CODEPOINTS=256;
     private TargetHudTextLayout() {}
     public static final class Result {
         public final String name,healthLabel;
@@ -29,10 +31,11 @@ public final class TargetHudTextLayout {
     private static String sanitize(String raw,int fallbackId) {
         if(raw==null || raw.length()==0)return "Player #"+fallbackId;
         StringBuilder clean=new StringBuilder();
-        int at=0,chars=0;
-        while(at<raw.length() && chars<64) {
+        int at=0,chars=0,scanned=0;
+        while(at<raw.length() && chars<64 && scanned<MAX_SCANNED_CODEPOINTS) {
             int cp=raw.codePointAt(at);
             at+=Character.charCount(cp);
+            scanned++;
             // Minecraft formatting marker takes a following style character.
             if(cp==0xA7) {
                 if(at<raw.length()){
@@ -41,7 +44,9 @@ public final class TargetHudTextLayout {
                 }
                 continue;
             }
-            if(Character.isISOControl(cp) || Character.isSurrogate((char)cp))
+            // Never narrow full Unicode scalars to 16-bit chars.
+            if(Character.isISOControl(cp) ||
+               (cp>=Character.MIN_SURROGATE && cp<=Character.MAX_SURROGATE))
                 continue;
             clean.appendCodePoint(cp);
             chars++;

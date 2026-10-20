@@ -70,6 +70,23 @@ public final class TargetHudTextLayoutTests {
             true,"percent",1,20);
         ok(!emoji.name.endsWith("\ud83d")&&!emoji.name.endsWith("\ude80"),
            "font clipping does not split UTF-16 surrogate pairs");
+        String special=new String(Character.toChars(0x1D800));
+        ok(layout(special+"Name",false,"values",20,20).name.startsWith(special),
+           "supplementary scalar with surrogate-valued low bits survives");
+        String malformed=String.valueOf(Character.MIN_HIGH_SURROGATE)+"A"+
+                         String.valueOf(Character.MAX_LOW_SURROGATE);
+        ok("A".equals(layout(malformed,false,"values",20,20).name),
+           "unpaired surrogate code units are stripped");
+        StringBuilder hostile=new StringBuilder();
+        for(int j=0;j<50000;j++)hostile.append("\u00a7a");
+        hostile.append("Tail");
+        ok("Player #42".equals(layout(hostile.toString(),false,"values",20,20).name),
+           "format-only input cannot induce unbounded parsing");
+        StringBuilder boundary=new StringBuilder();
+        for(int j=0;j<255;j++)boundary.append("\u00a7a");
+        boundary.append("Z");
+        ok("Z".equals(layout(boundary.toString(),false,"values",20,20).name),
+           "256th source codepoint remains eligible");
         boolean rejected=false;
         try{TargetHudTextLayout.layout("Hi",42,true,"bad",1,2,160,FONT);}
         catch(IllegalArgumentException expected){rejected=true;}
