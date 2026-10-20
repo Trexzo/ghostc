@@ -11,7 +11,7 @@ public final class FramePerformance {
     private final long[] fpsBins=new long[MAX_FPS+1];
     private long previousNanos;
     private boolean timing;
-    private long frames, memorySamples, peakHeapBytes, lastHeapBytes, suspends;
+    private long frames, memorySamples, peakHeapBytes, lastHeapBytes, suspends, invalidIntervals;
 
     private void check() {
         if(Thread.currentThread()!=owner)
@@ -36,6 +36,9 @@ public final class FramePerformance {
                 int fps=(int)Math.min(MAX_FPS,Math.round(1000000000.0/(double)elapsed));
                 if(fpsBins[fps]<Long.MAX_VALUE)fpsBins[fps]++;
                 if(frames<Long.MAX_VALUE)frames++;
+            } else if(elapsed<0) {
+                // Invalid or overflowing clock intervals never become FPS.
+                if(invalidIntervals<Long.MAX_VALUE)invalidIntervals++;
             }
         }
         previousNanos=nowNanos;
@@ -44,7 +47,7 @@ public final class FramePerformance {
     public Snapshot snapshot() {
         check();
         if(frames==0) return new Snapshot(0,0,0,0,0,0,
-            memorySamples,lastHeapBytes/1048576L,peakHeapBytes/1048576L,suspends);
+            memorySamples,lastHeapBytes/1048576L,peakHeapBytes/1048576L,suspends,invalidIntervals);
         int min=-1,max=0,p50=-1,p95=-1,p99=-1;
         long cumulative=0;
         long rank50=rank(frames,50),rank95=rank(frames,95),rank99=rank(frames,99);
@@ -59,21 +62,22 @@ public final class FramePerformance {
             if(p99<0 && cumulative>=rank99)p99=fps;
         }
         return new Snapshot(frames,min,max,p50,p95,p99,
-            memorySamples,lastHeapBytes/1048576L,peakHeapBytes/1048576L,suspends);
+            memorySamples,lastHeapBytes/1048576L,peakHeapBytes/1048576L,suspends,invalidIntervals);
     }
     private static long rank(long n,long percentile) {
         // ceil(percentile*n / 100) without overflow.
         return (n/100)*percentile+(n%100*percentile+99)/100;
     }
     public static final class Snapshot {
-        public final long frames,memorySamples,heapMiB,peakHeapMiB,suspends;
+        public final long frames,memorySamples,heapMiB,peakHeapMiB,suspends,invalidIntervals;
         public final int minFps,maxFps,medianFps,p95Fps,p99Fps;
         Snapshot(long frames,int min,int max,int median,int p95,int p99,
-                 long memorySamples,long heapMiB,long peakHeapMiB,long suspends) {
+                 long memorySamples,long heapMiB,long peakHeapMiB,long suspends,long invalidIntervals) {
             this.frames=frames;this.minFps=min;this.maxFps=max;
             this.medianFps=median;this.p95Fps=p95;this.p99Fps=p99;
             this.memorySamples=memorySamples;this.heapMiB=heapMiB;
             this.peakHeapMiB=peakHeapMiB;this.suspends=suspends;
+            this.invalidIntervals=invalidIntervals;
         }
     }
 }
