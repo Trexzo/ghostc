@@ -37,6 +37,14 @@ public final class FramePerformanceTests {
         p.frame(90016666667L,1048576);
         ok(p.snapshot().frames==1,"zero elapsed time ignored");
         rejects(()->p.frame(10,-1),"invalid heap rejected");
+        p.frame(89900000000L,1048576);
+        ok(p.snapshot().frames==1 &&
+           p.snapshot().invalidIntervals==1,
+           "reversed timestamp rejected without altering valid FPS bins");
+        p.frame(89920000000L,1048576);
+        ok(p.snapshot().frames==2 &&
+           p.snapshot().minFps==50&&p.snapshot().maxFps==60,
+           "valid rendering resumes from new reference after bad timestamp");
         FramePerformance distribution=new FramePerformance();
         long t=1;
         distribution.frame(t,0);
@@ -113,6 +121,8 @@ public final class FramePerformanceTests {
         ok("2".equals(file.getProperty("perf.frame_samples")),"frame count saved");
         ok("50".equals(file.getProperty("perf.median_fps")),"median saved");
         ok("6".equals(file.getProperty("perf.peak_heap_mib")),"heap peak saved");
+        ok("0".equals(file.getProperty("perf.invalid_intervals")),
+            "safe invalid interval count exported");
         ok("counter-only-no-identity".equals(file.getProperty("scope")),
             "privacy scope maintained");
         for(String k:file.stringPropertyNames()) {

@@ -73,6 +73,7 @@ public final class RuntimeDiagnostics {
             props.setProperty("perf.peak_heap_mib",Long.toString(perf.peakHeapMiB));
             props.setProperty("perf.memory_samples",Long.toString(perf.memorySamples));
             props.setProperty("perf.suspends",Long.toString(perf.suspends));
+            props.setProperty("perf.invalid_intervals",Long.toString(perf.invalidIntervals));
         }
         Path target = directory.resolve("diagnostics-last.properties");
         Path temp = Files.createTempFile(directory, "ghostc-diag-", ".tmp");
