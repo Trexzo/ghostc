@@ -119,6 +119,9 @@ final class PlayerEspRenderer {
             final int drawBudget=host.espMaxPlayers();
             final boolean visibleOnly=host.espVisible();
             boolean health=host.espShowHealth();
+            final EspHealthBarGeometry.Side healthSide=health?
+                host.espHealthSide():EspHealthBarGeometry.Side.RIGHT;
+            final double healthGap=health?host.espHealthGap():0.18;
             // Resolve once per rendered frame: no per-player configuration
             // reads or transient color-array allocations.
             final EspLineColor appearance=host.espLineColor();
@@ -202,9 +205,9 @@ final class PlayerEspRenderer {
                     // otherwise-valid ESP box, tracer or skeleton draw.
                     boolean good;
                     try {
-                        good=EspHealthBarGeometry.emit(xx,yy,zz,p.height,p.width,
+                        good=EspHealthBarGeometry.emitStyled(xx,yy,zz,p.height,p.width,
                             rm.viewerPosX,rm.viewerPosZ,p.getHealth(),p.getMaxHealth(),
-                            HEALTH_LINES);
+                            healthSide,healthGap,HEALTH_LINES);
                     } finally {
                         GL11.glLineWidth(host.espLineWidth());
                     }
