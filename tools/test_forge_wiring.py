@@ -813,6 +813,27 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("!inside(mx,my,x,y,w,h)) return;",gui)
         self.assertNotIn("int idx = scroll + (my-listY)/28;",gui)
 
+    def test_extreme_numeric_ranges_and_constant_slider_safe_mapping(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        policy=content("src/main/java/dev/ghostfusion/ui/NumericSliderScale.java")
+        setting=content("src/main/java/dev/ghostfusion/core/Setting.java")
+        actions=content("src/main/java/dev/ghostfusion/ui/UiActions.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/NumericSliderScaleTests.java")
+        self.assertIn("import dev.ghostfusion.ui.NumericSliderScale;",gui)
+        self.assertIn("double fraction = NumericSliderScale.fraction(",gui)
+        self.assertNotIn("(number.get() - number.min()) / (number.max() - number.min())",gui)
+        self.assertIn("NumericSliderScale.value(n.min(),n.max(),fraction)",actions)
+        self.assertNotIn("(n.max() - n.min()) * bounded",actions)
+        self.assertIn("!Double.isFinite(initial)",setting)
+        self.assertIn("if(min==max || current<=min)return 0.0;",policy)
+        self.assertIn("result=(1.0-t)*min+t*max;",policy)
+        self.assertIn("double scale=Math.max(Math.abs(min),Math.abs(max));",policy)
+        self.assertIn("finite convex mapping under every extreme range",tests)
+        self.assertIn("NUMERIC_SLIDER_SCALE_PASS",tests)
+        self.assertIn("dev.ghostfusion.tests.NumericSliderScaleTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("NumericSliderScale.class",content("tools/verify_forge_jar.py"))
+
     def test_numeric_slider_drag_capture_live_preview_and_single_commit(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         actions=content("src/main/java/dev/ghostfusion/ui/UiActions.java")
@@ -828,7 +849,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("host.uiActions().previewFraction(sliderDrag.moduleId()",gui)
         self.assertIn("public boolean previewFraction(",actions)
         self.assertIn("public void commitSlider()",actions)
-        self.assertIn("double value = n.min() + (n.max() - n.min()) * bounded;",actions)
+        self.assertIn("double value = NumericSliderScale.value(n.min(),n.max(),fraction);",actions)
         self.assertIn("if(Double.compare(n.get(),value)==0)return false;",actions)
         self.assertIn("modules.assertOwnerThread();",actions)
         self.assertIn("public double fraction(int mouseX)",capture)

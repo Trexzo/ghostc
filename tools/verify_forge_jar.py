@@ -32,6 +32,7 @@ REQUIRED = (
     "dev/ghostfusion/ui/DiagnosticsHudLayout.class",
     "dev/ghostfusion/ui/HudTextFit.class",
     "dev/ghostfusion/ui/GuiSliderDrag.class",
+    "dev/ghostfusion/ui/NumericSliderScale.class",
     "dev/ghostfusion/ui/HudWidgetViewport.class",
     "dev/ghostfusion/features/EspHealthBarGeometry$Side.class",
     "dev/ghostfusion/features/EspLineColor.class",

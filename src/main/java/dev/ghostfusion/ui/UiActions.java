@@ -48,8 +48,7 @@ public final class UiActions {
         Setting<?> s = setting(id, settingId);
         if (!(s instanceof Setting.Number)) throw new IllegalArgumentException("Not a number");
         Setting.Number n = (Setting.Number) s;
-        double bounded = UiState.clamp(fraction, 0, 1);
-        double value = n.min() + (n.max() - n.min()) * bounded;
+        double value = NumericSliderScale.value(n.min(),n.max(),fraction);
         if(Double.compare(n.get(),value)==0)return false;
         n.setFromText(Double.toString(value));
         return true;

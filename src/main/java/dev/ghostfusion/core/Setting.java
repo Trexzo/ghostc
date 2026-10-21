@@ -47,7 +47,8 @@ public abstract class Setting<T> {
         private final double min, max;
         public Number(String id, double initial, double min, double max) {
             super(id, initial);
-            if (!Double.isFinite(min) || !Double.isFinite(max) || min > max || initial < min || initial > max)
+            if (!Double.isFinite(min) || !Double.isFinite(max) ||
+                !Double.isFinite(initial) || min > max || initial < min || initial > max)
                 throw new IllegalArgumentException("Invalid range: " + id);
             this.min = min; this.max = max;
         }

@@ -16,6 +16,7 @@ import dev.ghostfusion.ui.HudPreviewGeometry;
 import dev.ghostfusion.ui.HudFootprints;
 import dev.ghostfusion.ui.HudTextFit;
 import dev.ghostfusion.ui.GuiSliderDrag;
+import dev.ghostfusion.ui.NumericSliderScale;
 import dev.ghostfusion.ui.StatusHudLayout;
 import dev.ghostfusion.ui.HudEditorControls;
 import dev.ghostfusion.ui.HudPreviewGeometry.Rect;
@@ -220,7 +221,8 @@ public final class GhostClickGui extends GuiScreen {
             int right = x + w - 17;
             if (setting instanceof Setting.Number) {
                 Setting.Number number = (Setting.Number) setting;
-                double fraction = (number.get() - number.min()) / (number.max() - number.min());
+                double fraction = NumericSliderScale.fraction(
+                    number.get(),number.min(),number.max());
                 int barWidth = Math.max(33, (w - side) / 3);
                 rect(right - barWidth, sY + 7, barWidth, 6, 0xFF525A6C);
                 rect(right - barWidth, sY + 7, (int) (barWidth * fraction), 6, accent());

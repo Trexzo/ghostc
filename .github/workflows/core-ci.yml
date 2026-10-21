@@ -108,6 +108,8 @@ jobs:
           grep -q 'VIEWPORT_RUNTIME_PASS' .build/viewport.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.ViewportHitTests | tee .build/viewport-hit.log
           grep -q 'VIEWPORT_HIT_PASS' .build/viewport-hit.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.NumericSliderScaleTests | tee .build/numeric-slider-scale.log
+          grep -q 'NUMERIC_SLIDER_SCALE_PASS' .build/numeric-slider-scale.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSliderDragTests | tee .build/gui-slider-drag.log
           grep -q 'GUI_SLIDER_DRAG_PASS' .build/gui-slider-drag.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiChromeTests | tee .build/gui-chrome.log
