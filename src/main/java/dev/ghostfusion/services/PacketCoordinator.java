@@ -33,7 +33,7 @@ public final class PacketCoordinator {
     private final int capacity;
     private final LinkedHashMap<Long, Pending> queue=new LinkedHashMap<Long, Pending>();
     private long idSequence, rejected, delivered, cancelled, failed, callbackFailures;
-    private boolean stopped, resetting;
+    private boolean stopped, resetting, flushing;
     public PacketCoordinator(int capacity) {
         if(capacity<1 || capacity>4096) throw new IllegalArgumentException("capacity");
         this.capacity=capacity;
@@ -75,23 +75,32 @@ public final class PacketCoordinator {
         check();
         if(transport==null || generation<0 || budget<1 || budget>capacity)
             throw new IllegalArgumentException("flush");
-        int n=0;
-        for(Pending p:new ArrayList<Pending>(queue.values())) {
-            if(n>=budget) break;
-            if(queue.remove(p.id)==null) continue;
-            n++;
-            if(p.generation!=generation) {
-                cancelled++; callback(p.completion,Result.STALE_SESSION);
-                continue;
+        // A Transport or Completion callback is user code and can synchronously
+        // call flush again. Recursion would bypass the caller's budget and can
+        // exhaust the stack. Other operations (submit/cancel/reset) remain legal.
+        if(flushing) throw new IllegalStateException("packet flush already in progress");
+        flushing=true;
+        try {
+            int n=0;
+            for(Pending p:new ArrayList<Pending>(queue.values())) {
+                if(n>=budget) break;
+                if(queue.remove(p.id)==null) continue;
+                n++;
+                if(p.generation!=generation) {
+                    cancelled++; callback(p.completion,Result.STALE_SESSION);
+                    continue;
+                }
+                try {
+                    transport.deliver(p.direction,p.payload.clone());
+                    delivered++; callback(p.completion,Result.SENT);
+                } catch(Exception e) {
+                    failed++; callback(p.completion,Result.TRANSPORT_FAILED);
+                }
             }
-            try {
-                transport.deliver(p.direction,p.payload.clone());
-                delivered++; callback(p.completion,Result.SENT);
-            } catch(Exception e) {
-                failed++; callback(p.completion,Result.TRANSPORT_FAILED);
-            }
+            return n;
+        } finally {
+            flushing=false;
         }
-        return n;
     }
     public void reset() {
         check();
