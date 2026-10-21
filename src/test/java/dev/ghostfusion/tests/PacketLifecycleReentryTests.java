@@ -136,6 +136,7 @@ public final class PacketLifecycleReentryTests {
     }
     private static void repeatedLifecycles() {
         for(int cycle=0;cycle<4000;cycle++){
+            final int generation=cycle;
             PacketCoordinator coordinator=new PacketCoordinator(3);
             AtomicInteger completed=new AtomicInteger();
             AtomicInteger denied=new AtomicInteger();
@@ -146,7 +147,7 @@ public final class PacketLifecycleReentryTests {
                         ok(r==PacketCoordinator.Result.STALE_SESSION,
                            "repeated reset returns stale session");
                         try {coordinator.submit("nested",PacketCoordinator.Direction.OUTBOUND,
-                            new byte[]{1},cycle,unused->{});}
+                            new byte[]{1},generation,unused->{});}
                         catch(IllegalStateException expected){denied.incrementAndGet();}
                     });
             }
