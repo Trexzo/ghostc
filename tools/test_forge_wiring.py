@@ -95,7 +95,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('new Setting.Choice("health_text","values","values","percent")',host)
         self.assertIn('0, targetRange, targetVisible, targetHealth, targetHealthText);',host)
         self.assertIn("TargetHudTextLayout.layout(",forge)
-        self.assertIn("host.targetHealthText(),target.health,",forge)
+        self.assertIn("host.targetHealthText(),liveHealth,",forge)
         self.assertIn("mc.fontRendererObj.getStringWidth(value)",forge)
         self.assertIn("labels.name,x+9,y+7",forge)
         self.assertIn("x+width-9-labels.healthLabelWidth,y+8",forge)
@@ -281,6 +281,25 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('KeyBinding.onTick(mc.gameSettings.keyBindUseItem.getKeyCode())',combat)
         self.assertNotIn('attackEntity(',combat)
         self.assertNotIn('sendPacket(',combat)
+
+    def test_target_hud_rechecks_live_health_and_invisibility(self):
+        hud=self.feature
+        policy=content("src/main/java/dev/ghostfusion/features/HudLiveTargetGate.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/HudLiveTargetGateTests.java")
+        self.assertIn("import dev.ghostfusion.features.HudLiveTargetGate;",hud)
+        self.assertIn("final double liveHealth=player.getHealth();",hud)
+        self.assertIn("HudLiveTargetGate.eligible(player,mc.thePlayer,player.isDead,",hud)
+        self.assertIn("liveHealth,player.isInvisible(),host.targetVisible()",hud)
+        self.assertIn("name,target.id,health,host.targetHealthText(),liveHealth,",hud)
+        self.assertNotIn("name,target.id,health,host.targetHealthText(),target.health,",hud)
+        self.assertLess(hud.index("HudLiveTargetGate.eligible("),
+                        hud.index("TargetHudTextLayout.Result labels="))
+        self.assertIn("Double.isFinite(liveHealth) && liveHealth>0",policy)
+        self.assertIn("(!visibleOnly || !invisible)",policy)
+        self.assertIn("snapshot=",tests)
+        self.assertIn("dev.ghostfusion.tests.HudLiveTargetGateTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("HudLiveTargetGate.class",content("tools/verify_forge_jar.py"))
 
     def test_exact_world_identity_and_snapshot_fencing(self):
         from_source=(FORGE/"ForgeEventAdapter.java").read_text(encoding="utf-8")
