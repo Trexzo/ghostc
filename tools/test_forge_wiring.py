@@ -682,6 +682,22 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.EspNearestBudgetTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_esp_world_identity_precedes_los_and_rendered_geometry(self):
+        esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
+        tests=content("src/test/java/dev/ghostfusion/tests/LiveCombatTargetGateTests.java")
+        self.assertIn("import dev.ghostfusion.features.LiveCombatTargetGate;",esp)
+        self.assertIn("mc.theWorld.getEntityByID(player.getEntityId())",esp)
+        self.assertIn("mc.theWorld.getEntityByID(p.getEntityId())",esp)
+        admission="LiveCombatTargetGate.eligible(player,"
+        paint="LiveCombatTargetGate.eligible(p,"
+        self.assertLess(esp.index("if(!nearest.couldEnter("),esp.index(admission))
+        self.assertLess(esp.index(admission),esp.index("mc.thePlayer.canEntityBeSeen(player)"))
+        self.assertLess(esp.index(admission),esp.index("nearest.offer(player,player.getEntityId(),distance);"))
+        self.assertLess(esp.index("EntityPlayer p=nearest.get(slot);"),esp.index(paint))
+        self.assertLess(esp.index(paint),esp.index("AxisAlignedBB box=p.getEntityBoundingBox()"))
+        self.assertIn("espMembershipChurn();",tests)
+        self.assertIn("replaced entity ID suppresses cached ESP candidate",tests)
+
     def test_visible_only_esp_rejects_invisibility_and_nonfinite_health(self):
         esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
         snapshot=(FORGE/"ForgeEventAdapter.java").read_text(encoding="utf-8")
