@@ -39,12 +39,24 @@ public final class UiActions {
         persist.run();
     }
     public void fraction(String id, String settingId, double fraction) {
+        previewFraction(id,settingId,fraction);
+        persist.run();
+    }
+    /** Update a captured slider on the owner thread without writing a file
+     * for every pointer movement. The GUI persists once when capture ends. */
+    public boolean previewFraction(String id,String settingId,double fraction) {
         Setting<?> s = setting(id, settingId);
         if (!(s instanceof Setting.Number)) throw new IllegalArgumentException("Not a number");
         Setting.Number n = (Setting.Number) s;
         double bounded = UiState.clamp(fraction, 0, 1);
         double value = n.min() + (n.max() - n.min()) * bounded;
+        if(Double.compare(n.get(),value)==0)return false;
         n.setFromText(Double.toString(value));
+        return true;
+    }
+    /** Persist an already-applied pointer capture exactly once. */
+    public void commitSlider() {
+        modules.assertOwnerThread();
         persist.run();
     }
     private Setting<?> setting(String id, String settingId) {
