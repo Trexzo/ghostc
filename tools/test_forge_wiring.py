@@ -330,7 +330,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertLess(combat.index("suggestion.sameSourcePose("),
                         combat.index("session.rotations().request(AIM_ID, RotationCoordinator.Scope.CAMERA,"))
         self.assertIn("120k source snapshot freshness replay",combat_tests)
-        self.assertIn("return new Suggestion(best,",aim)
+        self.assertIn("return new Suggestion(world,best,sourceEyeHeight,",aim)
         self.assertIn("(!visibleOnly || !invisible)",gate)
         self.assertIn("moving target after snapshot invalidates calculated rotation",combat_tests)
         self.assertIn("newly invisible player blocked even after a visible snapshot",gate_tests)
