@@ -107,6 +107,9 @@ public final class HostRuntime {
     private final InputRouter input = new InputRouter(modules);
     private final BoundedIngress ingress = new BoundedIngress(256);
     private final AtomicLong sequence = new AtomicLong();
+    // Exclusive queue fence: late-published events from an older world are
+    // discarded even if their producer reserved a queue slot before a switch.
+    private long ingressExpiredThroughSequence;
     private final ProfileStore profiles;
     private final Path configDirectory;
     private boolean disconnectReported = true;
@@ -322,7 +325,7 @@ public final class HostRuntime {
         if (!active()) return;
         services.tickAdvance();
         diagnostics.record(Counter.CLIENT_TICK);
-        ingress.drain(modules, MAX_EVENTS_PER_TICK);
+        ingress.drainAfter(modules, MAX_EVENTS_PER_TICK, ingressExpiredThroughSequence);
         modules.dispatch(event(GameEvent.Kind.CLIENT_TICK));
     }
     public boolean render2d() {
@@ -334,6 +337,9 @@ public final class HostRuntime {
     }
     public void worldPresence(boolean present) {
         if (!active() || worldPresent == present) return;
+        // Capture all event sequences assigned before this world transition.
+        // In-flight producers may add them later; the consumer checks stamps.
+        ingressExpiredThroughSequence = sequence.get();
         services.world(present);
         framePerformance.suspend(); // Never include menu/world transition time as a frame.
         diagnostics.record(present ? Counter.WORLD_ENTER : Counter.WORLD_LEAVE);
@@ -368,6 +374,9 @@ public final class HostRuntime {
     public void disconnect() {
         if (!active() || disconnectReported) return;
         worldPresence(false);
+        // A disconnect can arrive after WorldEvent has already marked us
+        // absent. Still invalidate any queued session-scoped producer work.
+        ingressExpiredThroughSequence = sequence.get();
         disconnectReported = true;
         input.clearPressed();
         services.disconnect();

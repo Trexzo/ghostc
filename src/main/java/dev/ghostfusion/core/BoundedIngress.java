@@ -25,16 +25,33 @@ public final class BoundedIngress {
         return true;
     }
     public int drain(ModuleRegistry target, int limit) {
+        return drainAfter(target, limit, -1L);
+    }
+    /**
+     * Drop events stamped at or before the last closed session boundary.
+     * The budget limits DEQUEUED events, including stale ones, so clearing a
+     * full old-world queue can never create an unbounded owner-tick spike.
+     * A producer may reserve a slot before the transition and publish it
+     * afterward; its pre-boundary sequence remains rejected.
+     *
+     * @return number of current-session events dispatched (not stale drops)
+     */
+    public int drainAfter(ModuleRegistry target, int limit, long expiredThroughSequence) {
         target.assertOwnerThread();
-        if (limit < 1) throw new IllegalArgumentException("limit");
-        int n = 0;
-        while (n < limit) {
+        if (limit < 1 || expiredThroughSequence < -1)
+            throw new IllegalArgumentException("drain limit/epoch");
+        int polled = 0, delivered = 0;
+        while (polled < limit) {
             GameEvent event = queue.poll();
             if (event == null) break;
             queued.decrementAndGet();
-            target.dispatch(event); n++;
+            polled++;
+            if (event.sequence() > expiredThroughSequence) {
+                target.dispatch(event);
+                delivered++;
+            }
         }
-        return n;
+        return delivered;
     }
     public int pending() { return queued.get(); }
     public long rejected() { return rejected.get(); }
