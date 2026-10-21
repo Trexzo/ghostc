@@ -176,14 +176,15 @@ public final class PacketLifecycleReentryTests {
         // Reproduce a repeated completion-triggered nested-flush storm
         // without recursion or new work surviving the explicit budget.
         for(int cycle=0;cycle<3000;cycle++){
+            final int generation=cycle;
             PacketCoordinator q=new PacketCoordinator(2);
             AtomicInteger blocked=new AtomicInteger();
-            q.submit("storm",PacketCoordinator.Direction.OUTBOUND,new byte[]{1},cycle,
+            q.submit("storm",PacketCoordinator.Direction.OUTBOUND,new byte[]{1},generation,
                 result->{
-                    try { q.flush((d,b)->{},cycle,2); }
+                    try { q.flush((d,b)->{},generation,2); }
                     catch(IllegalStateException expected){blocked.incrementAndGet();}
                 });
-            ok(q.flush((d,b)->{},cycle,1)==1 && blocked.get()==1 &&
+            ok(q.flush((d,b)->{},generation,1)==1 && blocked.get()==1 &&
                 q.metrics().queued==0,"nested flush storm bounded "+cycle);
             q.shutdown();
         }
