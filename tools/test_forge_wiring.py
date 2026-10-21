@@ -116,6 +116,18 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("TargetHudTextLayout.class",
                       content("tools/verify_forge_jar.py"))
 
+    def test_target_hud_revalidates_live_distance_before_paint(self):
+        driver=self.feature
+        gate=content("src/main/java/dev/ghostfusion/features/HudLiveTargetGate.java")
+        self.assertIn("HudLiveTargetGate.withinRange(",driver)
+        self.assertIn("Double.isFinite(distanceSq)",gate)
+        start=driver.index("private void drawTarget(")
+        self.assertLess(driver.index("HudLiveTargetGate.withinRange(",start),
+                        driver.index("String name=player.getName();",start))
+        self.assertIn("player.posX,player.posY,player.posZ",driver)
+        self.assertIn("mc.thePlayer.posX,mc.thePlayer.posY,mc.thePlayer.posZ",driver)
+        self.assertIn("host.targetRange()))return;",driver)
+
     def test_diagnostics_panel_is_viewport_safe_and_prioritizes_metrics(self):
         driver=self.feature
         policy=content("src/main/java/dev/ghostfusion/ui/DiagnosticsHudLayout.java")
