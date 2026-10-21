@@ -35,6 +35,8 @@ jobs:
           find src/test/java -name '*.java' -print0 | xargs -0 javac --release 8 -cp .build/classes -d .build/tests
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.ModuleLifecycleReentryTests | tee .build/module-lifecycle.log
           grep -q 'MODULE_LIFECYCLE_REENTRY_PASS' .build/module-lifecycle.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiKeyboardNavigationTests | tee .build/gui-keyboard.log
+          grep -q 'GUI_KEYBOARD_NAVIGATION_PASS' .build/gui-keyboard.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.CoreTests | tee .build/test.log
           grep -q 'CORE_REGRESSION_PASS assertions=36' .build/test.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HostRuntimeTests | tee .build/host.log

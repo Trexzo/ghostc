@@ -285,6 +285,24 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('faultWarning = "Module disabled:',host)
         self.assertIn('diagnostics.record(Counter.FEATURE_FAULT)',host)
 
+    def test_keyboard_filter_navigation_keeps_active_module_visible(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        selection=content("src/main/java/dev/ghostfusion/ui/GuiSelection.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/GuiKeyboardNavigationTests.java")
+        workflow=content(".github/workflows/core-ci.yml")
+        self.assertIn("keyCode==Keyboard.KEY_UP || keyCode==Keyboard.KEY_DOWN",gui)
+        self.assertIn("keyCode==Keyboard.KEY_RETURN",gui)
+        self.assertIn("keyCode==Keyboard.KEY_NUMPADENTER",gui)
+        self.assertIn("GuiSelection.step(selected,filtered,",gui)
+        self.assertIn("GuiSelection.reveal(selected,filtered,scroll,",gui)
+        self.assertIn("if (!hudPage && search != null && search.textboxKeyTyped(",gui)
+        self.assertLess(gui.index("if (capture != null)"),gui.index("GuiSelection.step(selected,filtered,"))
+        self.assertLess(gui.index("GuiSelection.step(selected,filtered,"),gui.index("search.textboxKeyTyped(character,keyCode)"))
+        self.assertIn("public static String step(",selection)
+        self.assertIn("public static int reveal(",selection)
+        self.assertIn("filteredReplay();",suite)
+        self.assertIn("dev.ghostfusion.tests.GuiKeyboardNavigationTests",workflow)
+
     def test_gui_viewport_wiring_not_regressed(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         self.assertIn("GuiLayout.calculate(width,height,ui.layout())",gui)
