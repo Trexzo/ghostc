@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R2.55:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R2.56:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R2.56 Target HUD selectable skin: the Forge Target HUD now offers a persisted `hud.target.skin` choice (`classic` by default, opt-in `glass` with jade accent and thin outline). Existing classic pixel colors, HUD footprint, target admission and sanitized health labels remain unchanged; the immutable palette is reusable across frames without per-render allocation. Java8 tests verify original ARGB parity, choice persistence and 100,000 deterministic palette reads. See [R2.56 Target HUD skins](docs/RUNTIME_R76.md).
 - R2.55 ClickGUI keyboard navigation: Up/Down now selects adjacent modules within the active category/search filter; Enter or Numpad Enter toggles that selected module. The selected row automatically scrolls into view without disrupting normal mouse wheel navigation. Module search, HUD arrow nudges and keybind capture keep priority over conflicting shortcuts, and empty filters cannot toggle a hidden module. Pure Java8 tests replay 40,000 filter/navigation transitions. See [R2.55 keyboard-first ClickGUI](docs/RUNTIME_R75.md).
 - R2.54 module lifecycle re-entrancy: self-enabling/disable callbacks could re-enter a module before its state change committed; shutdown remained writable during arbitrary disable callbacks. ModuleRegistry now rejects recursive same-module transitions, seals shutdown before calling modules, and refuses shutdown inside uncommitted transitions. Failed disable callbacks run only once. Java8 tests cover self and cross-module cycles, shutdown mutation attempts, event-fault cleanup and 5,000 toggles. See [R2.54 lifecycle boundary](docs/RUNTIME_R74.md).
 - R2.53 packet flush reentry boundary: the independent PacketCoordinator called untrusted transport and completion code during `flush` without preventing that code from recursively calling `flush` again. Nested calls could bypass the outer budget and recursively exhaust the stack. A scoped `flushing` guard now refuses nested flush calls and releases in `finally`, while normal callback submission, cancellation and session reset remain allowed. Java8 regressions verify budget, callback order, reset cancellation and 3,000 repeated nested attempts. No Minecraft networking/packet interception is added. See [R2.53 packet flush reentry](docs/RUNTIME_R73.md).

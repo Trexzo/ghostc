@@ -10,6 +10,7 @@ import dev.ghostfusion.features.SprintPolicy;
 import dev.ghostfusion.features.TargetHudPolicy;
 import dev.ghostfusion.features.HudLiveTargetGate;
 import dev.ghostfusion.features.TargetHudTextLayout;
+import dev.ghostfusion.features.TargetHudPalette;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.services.WorldSnapshot;
@@ -271,15 +272,21 @@ public final class ForgeFeatureDriver {
         TargetHudTextLayout.Result labels=TargetHudTextLayout.layout(
             name,target.id,health,host.targetHealthText(),liveHealth,
             player.getMaxHealth(),width,targetFontWidths);
-        Gui.drawRect(x,y,x+width,y+height,0xD0141A2B);
-        Gui.drawRect(x,y,x+2,y+height,0xFF9A8CFF);
-        mc.fontRendererObj.drawStringWithShadow(labels.name,x+9,y+7,0xFFF1F2FF);
+        TargetHudPalette palette=TargetHudPalette.of(host.targetSkin());
+        Gui.drawRect(x,y,x+width,y+height,palette.background);
+        if(palette.outline!=0) {
+            Gui.drawRect(x,y,x+width,y+1,palette.outline);
+            Gui.drawRect(x,y+height-1,x+width,y+height,palette.outline);
+            Gui.drawRect(x+width-1,y,x+width,y+height,palette.outline);
+        }
+        Gui.drawRect(x,y,x+2,y+height,palette.accent);
+        mc.fontRendererObj.drawStringWithShadow(labels.name,x+9,y+7,palette.name);
         if(health) {
-            Gui.drawRect(x+9,y+25,x+width-9,y+31,0xFF414B60);
+            Gui.drawRect(x+9,y+25,x+width-9,y+31,palette.track);
             Gui.drawRect(x+9,y+25,x+9+(int)((width-18)*labels.healthFraction),y+31,
-                0xFF9A8CFF);
+                palette.accent);
             mc.fontRendererObj.drawStringWithShadow(labels.healthLabel,
-                x+width-9-labels.healthLabelWidth,y+8,0xFFB6C2DD);
+                x+width-9-labels.healthLabelWidth,y+8,palette.healthText);
         }
     }
 }
