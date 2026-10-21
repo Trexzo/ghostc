@@ -17,6 +17,7 @@ public final class ModuleRegistry {
         private State state = State.DISABLED;
         private int keybind;
         private String lastFault = "";
+        private boolean transitioning;
         private Entry(GhostModule module) { this.module = module; }
         public GhostModule module() { return module; }
         public State state() { return state; }
@@ -27,6 +28,16 @@ public final class ModuleRegistry {
     private final Thread owner = Thread.currentThread();
     private final LinkedHashMap<String, Entry> modules = new LinkedHashMap<String, Entry>();
     private boolean shutdown;
+    private int lifecycleCallbacks;
+    private void beginLifecycle(Entry e) {
+        if (e.transitioning) throw new IllegalStateException("Recursive module lifecycle: " + e.module.id());
+        e.transitioning = true;
+        lifecycleCallbacks++;
+    }
+    private void endLifecycle(Entry e) {
+        e.transitioning = false;
+        lifecycleCallbacks--;
+    }
     public static String validateId(String id) {
         if (id == null || !ID.matcher(id).matches()) throw new IllegalArgumentException("Invalid ID: " + id);
         return id;
@@ -73,15 +84,25 @@ public final class ModuleRegistry {
     }
     public void setEnabled(String id, boolean enabled) {
         assertLive(); Entry e = get(id);
+        // State is not committed until a lifecycle callback returns.
+        // Re-entering it while pending would otherwise recurse indefinitely.
+        if(e.transitioning) throw new IllegalStateException("Recursive module lifecycle: " + id);
         if (enabled) {
             if (e.state == State.ENABLED) return;
             if (e.state == State.FAULTED) throw new IllegalStateException("Reset fault first: " + id);
-            try { e.module.onEnable(); e.state = State.ENABLED; }
-            catch (Throwable ex) { fault(e, ex); }
+            beginLifecycle(e);
+            try {
+                try { e.module.onEnable(); e.state = State.ENABLED; }
+                catch (Throwable ex) { fault(e, ex, true); }
+            } finally { endLifecycle(e); }
         } else {
             if (e.state == State.ENABLED) {
-                try { e.module.onDisable(); e.state = State.DISABLED; }
-                catch (Throwable ex) { fault(e, ex); }
+                beginLifecycle(e);
+                try {
+                    try { e.module.onDisable(); e.state = State.DISABLED; }
+                    // onDisable was already invoked; never invoke it twice.
+                    catch (Throwable ex) { fault(e, ex, false); }
+                } finally { endLifecycle(e); }
             } else if (e.state == State.FAULTED) { e.state = State.DISABLED; e.lastFault = ""; }
         }
     }
@@ -96,23 +117,41 @@ public final class ModuleRegistry {
         if (event == null) throw new IllegalArgumentException("event is null");
         for (Entry e : modules.values()) if (e.state == State.ENABLED) {
             try { e.module.onEvent(event); }
-            catch (Throwable ex) { fault(e, ex); }
+            catch (Throwable ex) { fault(e, ex, true); }
         }
     }
-    private void fault(Entry e, Throwable cause) {
-        try { e.module.onDisable(); } catch (Throwable ignored) { /* isolation */ }
-        e.state = State.FAULTED;
+    private void fault(Entry e, Throwable cause, boolean cleanup) {
+        // Event dispatch can reach this without an active lifecycle scope.
+        // Acquire one so a faulty cleanup cannot recursively disable itself.
+        boolean acquired = !e.transitioning;
+        if(acquired) beginLifecycle(e);
+        try {
+            if(cleanup) {
+                try { e.module.onDisable(); } catch (Throwable ignored) { /* isolation */ }
+            }
+            e.state = State.FAULTED;
         // Exception messages may contain private chat, server info or account
         // data supplied by third-party modules. Retain only the class name.
         String type = cause.getClass().getSimpleName();
         if (type.isEmpty()) type = "Throwable";
-        e.lastFault = type.length() > 60 ? type.substring(0,60) : type;
+            e.lastFault = type.length() > 60 ? type.substring(0,60) : type;
+        } finally {
+            if(acquired) endLifecycle(e);
+        }
     }
     public void shutdown() {
         assertOwnerThread(); if (shutdown) return;
-        for (Entry e : modules.values()) if (e.state == State.ENABLED) {
-            try { e.module.onDisable(); e.state = State.DISABLED; } catch (Throwable ex) { fault(e, ex); }
-        }
+        if(lifecycleCallbacks!=0)
+            throw new IllegalStateException("Cannot shutdown during module lifecycle");
+        // Seal the registry BEFORE invoking arbitrary module callbacks.
+        // They cannot re-enable peers, register modules or change keybinds.
         shutdown = true;
+        for (Entry e : modules.values()) if (e.state == State.ENABLED) {
+            beginLifecycle(e);
+            try {
+                try { e.module.onDisable(); e.state = State.DISABLED; }
+                catch (Throwable ex) { fault(e, ex, false); }
+            } finally { endLifecycle(e); }
+        }
     }
 }
