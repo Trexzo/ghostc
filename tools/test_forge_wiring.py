@@ -849,7 +849,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("host.uiActions().previewFraction(sliderDrag.moduleId()",gui)
         self.assertIn("public boolean previewFraction(",actions)
         self.assertIn("public void commitSlider()",actions)
-        self.assertIn("double value = n.min() + (n.max() - n.min()) * bounded;",actions)
+        self.assertIn("double value = NumericSliderScale.value(n.min(),n.max(),fraction);",actions)
         self.assertIn("if(Double.compare(n.get(),value)==0)return false;",actions)
         self.assertIn("modules.assertOwnerThread();",actions)
         self.assertIn("public double fraction(int mouseX)",capture)
