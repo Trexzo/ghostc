@@ -18,8 +18,15 @@ public final class HudTextFit {
         return width;
     }
 
-    private static String clean(String raw) {
-        if(raw==null || raw.length()==0)return "?";
+    private static final class Cleaned {
+        final String text;
+        final boolean sourceClipped;
+        Cleaned(String text,boolean sourceClipped) {
+            this.text=text;this.sourceClipped=sourceClipped;
+        }
+    }
+    private static Cleaned clean(String raw) {
+        if(raw==null || raw.length()==0)return new Cleaned("?",false);
         StringBuilder out=new StringBuilder();
         int at=0,scanned=0,visible=0;
         while(at<raw.length() && scanned<MAX_SOURCE_CODEPOINTS &&
@@ -41,7 +48,9 @@ public final class HudTextFit {
             out.appendCodePoint(cp);
             visible++;
         }
-        return out.length()==0?"?":out.toString();
+        // A source scan cap is also a *truncation*, even when the 64-scalar
+        // prefix fits the available font width. Never silently omit the tail.
+        return new Cleaned(out.length()==0?"?":out.toString(),at<raw.length());
     }
 
     /**
@@ -53,8 +62,9 @@ public final class HudTextFit {
         if(budget<0 || font==null)
             throw new IllegalArgumentException("HUD font/width");
         if(budget==0)return "";
-        String clean=clean(raw);
-        if(measured(font,clean)<=budget)return clean;
+        Cleaned cleaned=clean(raw);
+        String clean=cleaned.text;
+        if(!cleaned.sourceClipped && measured(font,clean)<=budget)return clean;
         if(measured(font,DOTS)>budget)return "";
         StringBuilder prefix=new StringBuilder();
         String best=DOTS;
