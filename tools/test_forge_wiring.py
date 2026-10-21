@@ -441,7 +441,8 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("perf.frame_samples",diag)
         self.assertIn("perf.p99_fps",diag)
         self.assertIn("perf.peak_heap_mib",diag)
-        self.assertIn("String fps=\"FPS min/p50/p95/p99 \"",self.feature)
+        self.assertIn('return "FPS min/p50/p95/p99 "+perf.minFps',self.feature)
+        self.assertIn("if(performance==null)performance=host.performanceSnapshot();",self.feature)
         self.assertIn("dev.ghostfusion.tests.FramePerformanceTests",
                       content(".github/workflows/core-ci.yml"))
 
