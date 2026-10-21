@@ -40,6 +40,50 @@ public final class CombatTests {
         AimAssistPolicy.Suggestion aimed=policy.suggest(frontal,1.62,1.25,5,25,2,true);
         ok(aimed != null && aimed.entityId==2,"frontal target acquired");
         ok(aimed.sameTargetPosition(0,0,4),"same-tick aim target pose accepted");
+        ok(aimed.sameSourcePose(0,0,0,0f,0f,1.62),
+            "same-tick source player pose and eye height accepted");
+        ok(!aimed.sameSourcePose(0.00001,0,0,0f,0f,1.62),
+            "player horizontal motion after snapshot invalidates absolute aim");
+        ok(!aimed.sameSourcePose(0,-0.00001,0,0f,0f,1.62),
+            "player vertical motion after snapshot invalidates absolute aim");
+        ok(!aimed.sameSourcePose(0,0,0.00001,0f,0f,1.62),
+            "player depth motion after snapshot invalidates absolute aim");
+        ok(!aimed.sameSourcePose(0,0,0,0.00001f,0f,1.62) &&
+           !aimed.sameSourcePose(0,0,0,0f,-0.00001f,1.62),
+            "camera yaw/pitch changes invalidate absolute aim");
+        ok(!aimed.sameSourcePose(0,0,0,0f,0f,1.61),
+            "sneak or other eye-height changes invalidate absolute aim");
+        ok(!aimed.sameSourcePose(Double.NaN,0,0,0f,0f,1.62) &&
+           !aimed.sameSourcePose(0,0,0,Float.NaN,0f,1.62) &&
+           !aimed.sameSourcePose(0,0,0,0f,Float.POSITIVE_INFINITY,1.62) &&
+           !aimed.sameSourcePose(0,0,0,0f,0f,Double.NaN),
+            "nonfinite source coordinates, angles and eye height rejected");
+
+        // Replay source movement/turns with a fixed accepted target.
+        // This strictly verifies snapshot-to-camera freshness without
+        // requiring Minecraft objects or speculative timing sleeps.
+        Random sourceRandom=new Random(2522026L);
+        for(int step=0;step<120000;step++) {
+            int mutation=sourceRandom.nextInt(12);
+            double sx=0,sy=0,sz=0,eye=1.62;
+            float yaw=0,pitch=0;
+            switch(mutation) {
+                case 1:sx=sourceRandom.nextBoolean()?0.00001:-0.00001;break;
+                case 2:sy=sourceRandom.nextBoolean()?0.00001:-0.00001;break;
+                case 3:sz=sourceRandom.nextBoolean()?0.00001:-0.00001;break;
+                case 4:yaw=0.125f;break;
+                case 5:pitch=-0.125f;break;
+                case 6:eye=1.54;break;
+                case 7:sx=Double.NaN;break;
+                case 8:sy=Double.POSITIVE_INFINITY;break;
+                case 9:sz=Double.NEGATIVE_INFINITY;break;
+                case 10:yaw=Float.NaN;break;
+                case 11:eye=Double.POSITIVE_INFINITY;break;
+                default:break;
+            }
+            ok(aimed.sameSourcePose(sx,sy,sz,yaw,pitch,eye)==(mutation==0),
+                "120k source snapshot freshness replay "+step);
+        }
         ok(!aimed.sameTargetPosition(0,0,4.00001),
            "moving target after snapshot invalidates calculated rotation");
         ok(!aimed.sameTargetPosition(0,1,4),
