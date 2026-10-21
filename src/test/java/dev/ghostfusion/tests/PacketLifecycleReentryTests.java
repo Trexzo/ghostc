@@ -110,6 +110,84 @@ public final class PacketLifecycleReentryTests {
         packets.shutdown();
         ok(seen.get()==4,"callback exception does not interrupt shutdown completion");
     }
+    /** Reentrant transport/completion callbacks must not recursively drain
+     * beyond a single flush call's budget or exhaust the Java call stack. */
+    private static void flushReentryBudget() {
+        PacketCoordinator packets=new PacketCoordinator(8);
+        AtomicInteger refused=new AtomicInteger();
+        AtomicInteger sent=new AtomicInteger();
+        List<Integer> bytes=new ArrayList<Integer>();
+        final PacketCoordinator.Transport transport=(direction,payload)->{
+            bytes.add((int)payload[0]);
+            try { packets.flush((d,b)->{},1,8); }
+            catch(IllegalStateException expected) { refused.incrementAndGet(); }
+        };
+        packets.submit("m.first",PacketCoordinator.Direction.OUTBOUND,
+            new byte[]{1},1,result->{
+                ok(result==PacketCoordinator.Result.SENT,"first completion is delivered");
+                sent.incrementAndGet();
+                try { packets.flush(transport,1,8); }
+                catch(IllegalStateException expected) { refused.incrementAndGet(); }
+                // Submission from an ordinary completion is permitted, but it
+                // cannot be recursively flushed in the same outer callback.
+                long added=packets.submit("m.new",PacketCoordinator.Direction.OUTBOUND,
+                    new byte[]{3},1,r->sent.incrementAndGet());
+                ok(added>0,"reentrant completion can queue future work");
+            });
+        packets.submit("m.second",PacketCoordinator.Direction.OUTBOUND,
+            new byte[]{2},1,result->{
+                ok(result==PacketCoordinator.Result.SENT,"second completion still called");
+                sent.incrementAndGet();
+            });
+        ok(packets.flush(transport,1,2)==2,
+            "outer flush respects two-request budget despite nested attempts");
+        ok(refused.get()==3,"transport and completion recursive flushes rejected");
+        ok(bytes.size()==2 && bytes.get(0)==1 && bytes.get(1)==2,
+            "only original two requests reached transport");
+        ok(packets.metrics().queued==1 && sent.get()==2,
+            "new callback-submitted request remains queued for next flush");
+        ok(packets.flush(transport,1,2)==1 && sent.get()==3,
+            "fresh request delivered once on explicit subsequent flush");
+        ok(packets.metrics().queued==0 && packets.metrics().delivered==3 &&
+            packets.metrics().failed==0,"normal metrics preserved");
+        packets.shutdown();
+
+        // A reset invoked by a completion can still cancel the remaining
+        // batch; recursive flush rejection must not block cancellation.
+        PacketCoordinator cancelling=new PacketCoordinator(4);
+        AtomicInteger stale=new AtomicInteger();
+        cancelling.submit("reset.first",PacketCoordinator.Direction.OUTBOUND,
+            new byte[]{4},2,r->{
+                ok(r==PacketCoordinator.Result.SENT,"resetting first packet sent");
+                cancelling.reset();
+            });
+        cancelling.submit("reset.second",PacketCoordinator.Direction.OUTBOUND,
+            new byte[]{5},2,r->{
+                ok(r==PacketCoordinator.Result.STALE_SESSION,
+                    "reset cancels undelivered captured batch");
+                stale.incrementAndGet();
+            });
+        ok(cancelling.flush((direction,payload)->{},2,4)==1,
+            "outer flush skips detached requests after completion reset");
+        ok(stale.get()==1 && cancelling.metrics().queued==0,
+            "reset from completion remains safe and terminal exactly once");
+        cancelling.shutdown();
+
+        // Reproduce a repeated completion-triggered nested-flush storm
+        // without recursion or new work surviving the explicit budget.
+        for(int cycle=0;cycle<3000;cycle++){
+            PacketCoordinator q=new PacketCoordinator(2);
+            AtomicInteger blocked=new AtomicInteger();
+            q.submit("storm",PacketCoordinator.Direction.OUTBOUND,new byte[]{1},cycle,
+                result->{
+                    try { q.flush((d,b)->{},cycle,2); }
+                    catch(IllegalStateException expected){blocked.incrementAndGet();}
+                });
+            ok(q.flush((d,b)->{},cycle,1)==1 && blocked.get()==1 &&
+                q.metrics().queued==0,"nested flush storm bounded "+cycle);
+            q.shutdown();
+        }
+    }
     private static void worldTransitions(){
         SessionServices services=new SessionServices();
         services.world(true);
@@ -159,7 +237,7 @@ public final class PacketLifecycleReentryTests {
     }
     public static void main(String[] args) {
         resetCallbacks();shutdownCallbacks();thrownCallbacksStillDrain();
-        worldTransitions();repeatedLifecycles();
+        flushReentryBudget();worldTransitions();repeatedLifecycles();
         ok(assertions>14000,"substantial packet lifecycle regression coverage");
         System.out.println("PACKET_LIFECYCLE_REENTRY_PASS assertions="+assertions);
     }

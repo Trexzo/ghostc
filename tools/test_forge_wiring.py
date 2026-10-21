@@ -948,7 +948,7 @@ class ForgeWiring(unittest.TestCase):
     def test_packet_reset_shutdown_reentry_fence(self):
         packets=content("src/main/java/dev/ghostfusion/services/PacketCoordinator.java")
         suite=content("src/test/java/dev/ghostfusion/tests/PacketLifecycleReentryTests.java")
-        self.assertIn("private boolean stopped, resetting;",packets)
+        self.assertIn("private boolean stopped, resetting, flushing;",packets)
         self.assertIn("if(resetting) throw new IllegalStateException(",packets)
         self.assertIn("resetting=true;",packets)
         self.assertIn("queue.clear();",packets)
@@ -961,6 +961,18 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("PACKET_LIFECYCLE_REENTRY_PASS",suite)
         self.assertIn("dev.ghostfusion.tests.PacketLifecycleReentryTests",
                       content(".github/workflows/core-ci.yml"))
+
+    def test_packet_flush_callbacks_cannot_recursively_bypass_budget(self):
+        packets=content("src/main/java/dev/ghostfusion/services/PacketCoordinator.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/PacketLifecycleReentryTests.java")
+        self.assertIn('if(flushing) throw new IllegalStateException("packet flush already in progress");',packets)
+        self.assertIn("flushing=true;",packets)
+        self.assertIn("} finally {\n            flushing=false;",packets)
+        self.assertLess(packets.index("if(flushing) throw"),packets.index("flushing=true;"))
+        self.assertLess(packets.index("flushing=true;"),packets.index("for(Pending p:new ArrayList<Pending>(queue.values()))"))
+        self.assertIn("flushReentryBudget();worldTransitions();",suite)
+        self.assertIn("nested flush storm bounded",suite)
+        self.assertIn("reset from completion remains safe",suite)
 
     def test_scoped_rotation_intents_and_bounded_owners(self):
         rotation=content("src/main/java/dev/ghostfusion/services/RotationCoordinator.java")
