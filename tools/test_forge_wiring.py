@@ -153,6 +153,19 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("DiagnosticsHudLayout.class",
                       content("tools/verify_forge_jar.py"))
 
+    def test_async_ingress_is_fenced_across_world_and_disconnect_epochs(self):
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        ingress=content("src/main/java/dev/ghostfusion/core/BoundedIngress.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/HostRuntimeTests.java")
+        self.assertIn("ingressExpiredThroughSequence = sequence.get();",host)
+        self.assertGreaterEqual(host.count("ingressExpiredThroughSequence = sequence.get();"),2)
+        self.assertIn("ingress.drainAfter(modules, MAX_EVENTS_PER_TICK, ingressExpiredThroughSequence)",host)
+        self.assertIn("public int drainAfter(ModuleRegistry target, int limit, long expiredThroughSequence)",ingress)
+        self.assertIn("polled < limit",ingress)
+        self.assertIn("event.sequence() > expiredThroughSequence",ingress)
+        self.assertIn("testIngressSessionFence(dir.resolve(\"epoch\"));",tests)
+        self.assertIn("late-published old event filtered after a newer event",tests)
+
     def test_recovery_promotes_verified_typed_snapshot_before_live_mutation(self):
         core=content("src/main/java/dev/ghostfusion/core/ConfigIntegrity.java")
         profiles=content("src/main/java/dev/ghostfusion/core/ProfileStore.java")

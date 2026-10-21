@@ -1,6 +1,8 @@
 package dev.ghostfusion.tests;
 
 import dev.ghostfusion.core.GameEvent;
+import dev.ghostfusion.core.BoundedIngress;
+import dev.ghostfusion.core.GhostModule;
 import dev.ghostfusion.core.ModuleRegistry;
 import dev.ghostfusion.host.HostRuntime;
 
@@ -87,6 +89,80 @@ public final class HostRuntimeTests {
         ok(wrongThreadRejected.get(), "mutations require owner thread");
         host.close();
     }
+    /** Probe receives only externally submitted render events, not tick,
+     * world transition or disconnect signals dispatched by HostRuntime. */
+    private static final class IngressProbe implements GhostModule {
+        final java.util.List<Long> received = new java.util.ArrayList<Long>();
+        public String id() { return "test.ingressprobe"; }
+        public String displayName() { return "Ingress Probe"; }
+        public Category category() { return Category.UTILITY; }
+        public void onEnable() {}
+        public void onDisable() {}
+        public void onEvent(GameEvent event) {
+            if(event.kind()==GameEvent.Kind.RENDER_2D)received.add(event.sequence());
+        }
+    }
+    private static void testIngressSessionFence(Path config) {
+        HostRuntime host=new HostRuntime(config);
+        IngressProbe probe=new IngressProbe();
+        host.modules().register(probe,0);
+        host.modules().setEnabled(probe.id(),true);
+        ok(host.enqueue(GameEvent.Kind.RENDER_2D),"menu-scope producer event accepted");
+        host.worldPresence(true);
+        host.tick();
+        ok(probe.received.isEmpty(),"pre-join producer event not replayed into world");
+        ok(host.pendingEvents()==0,"stale join event physically released");
+        ok(host.enqueue(GameEvent.Kind.RENDER_2D),"current world producer event accepted");
+        host.tick();
+        ok(probe.received.size()==1,"same-world producer event delivered");
+        host.enqueue(GameEvent.Kind.RENDER_2D);
+        host.worldPresence(false);
+        host.worldPresence(true);
+        host.enqueue(GameEvent.Kind.RENDER_2D);
+        host.tick();
+        ok(probe.received.size()==2,"world replacement filters previous session");
+        host.worldPresence(false);
+        host.enqueue(GameEvent.Kind.RENDER_2D);
+        host.disconnect();
+        host.worldPresence(true);
+        host.enqueue(GameEvent.Kind.RENDER_2D);
+        host.tick();
+        ok(probe.received.size()==3,"disconnect after world leave still fences ingress");
+
+        for(int i=0;i<256;i++)
+            ok(host.enqueue(GameEvent.Kind.RENDER_2D),"bounded old event "+i);
+        host.worldPresence(false);
+        host.worldPresence(true);
+        host.tick();
+        ok(host.pendingEvents()==128,"first owner tick consumes at most 128 stale events");
+        host.tick();
+        ok(host.pendingEvents()==0,"second owner tick clears remaining stale events");
+        ok(probe.received.size()==3,"none of 256 queued old-world events delivered");
+        host.enqueue(GameEvent.Kind.RENDER_2D);
+        host.tick();
+        ok(probe.received.size()==4,"fresh producer works after stale backlog");
+        host.close();
+
+        // Simulate a producer reserving an old sequence, then publishing it
+        // AFTER a new session event: FIFO alone cannot identify the epoch.
+        BoundedIngress queue=new BoundedIngress(4);
+        dev.ghostfusion.core.ModuleRegistry registry=new dev.ghostfusion.core.ModuleRegistry();
+        IngressProbe direct=new IngressProbe();
+        registry.register(direct,0);registry.setEnabled(direct.id(),true);
+        queue.submit(new GameEvent(GameEvent.Kind.RENDER_2D,101));
+        queue.submit(new GameEvent(GameEvent.Kind.RENDER_2D,99));
+        queue.submit(new GameEvent(GameEvent.Kind.RENDER_2D,102));
+        ok(queue.drainAfter(registry,2,100)==1,
+            "bounded drain counts stale and fresh polls against budget");
+        ok(direct.received.size()==1 && direct.received.get(0)==101,
+            "late-published old event filtered after a newer event");
+        ok(queue.pending()==1,"budget preserves the third queued event");
+        ok(queue.drainAfter(registry,2,100)==1 && direct.received.size()==2 &&
+            direct.received.get(1)==102,"new epoch event delivered on next drain");
+        ok(queue.drainAfter(registry,2,100)==0,"empty queue returns zero");
+        ok(queue.drain(registry,2)==0,"legacy unconditional drain preserved");
+        registry.shutdown();
+    }
     private static void testCorruptProfile(Path config) throws Exception {
         Path file = config.resolve("default.properties");
         Files.createDirectories(config);
@@ -101,6 +177,7 @@ public final class HostRuntimeTests {
         checkDefaultsAndWorld(dir.resolve("sessions"));
         testPersistence(dir.resolve("sessions"));
         testQueuedEventsAndThread(dir.resolve("queues"));
+        testIngressSessionFence(dir.resolve("epoch"));
         testCorruptProfile(dir.resolve("corrupt"));
         ok(count > 280, "meaningful regression coverage");
         System.out.println("HOST_REGRESSION_PASS assertions=" + count);
