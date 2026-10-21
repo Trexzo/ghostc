@@ -11,7 +11,14 @@ public final class LiveCombatTargetGate {
     private LiveCombatTargetGate() {}
     public static boolean eligible(Object cached,Object inCurrentWorld,
                                    Object localPlayer,boolean dead,double health) {
+        return eligible(cached,inCurrentWorld,localPlayer,dead,health,false,false);
+    }
+    /** Optional live invisibility gate for visible-only camera selection. */
+    public static boolean eligible(Object cached,Object inCurrentWorld,
+                                   Object localPlayer,boolean dead,double health,
+                                   boolean invisible,boolean visibleOnly) {
         return cached!=null && cached==inCurrentWorld && cached!=localPlayer &&
-            !dead && Double.isFinite(health) && health>0;
+            !dead && Double.isFinite(health) && health>0 &&
+            (!visibleOnly || !invisible);
     }
 }

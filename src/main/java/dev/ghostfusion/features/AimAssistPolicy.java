@@ -12,8 +12,17 @@ public final class AimAssistPolicy {
         public final int entityId;
         public final float yaw, pitch;
         public final double angularError;
-        Suggestion(int entityId, float yaw, float pitch, double angularError) {
-            this.entityId=entityId; this.yaw=yaw; this.pitch=pitch; this.angularError=angularError;
+        private final double targetX,targetY,targetZ;
+        Suggestion(WorldSnapshot.Entity target, float yaw, float pitch, double angularError) {
+            this.entityId=target.id;this.yaw=yaw;this.pitch=pitch;
+            this.angularError=angularError;
+            this.targetX=target.x;this.targetY=target.y;this.targetZ=target.z;
+        }
+        /** The desired angles came from this exact tick's target pose.
+         * A position change before the camera write invalidates them. */
+        public boolean sameTargetPosition(double x,double y,double z) {
+            return Double.isFinite(x) && Double.isFinite(y) && Double.isFinite(z) &&
+                x==targetX && y==targetY && z==targetZ;
         }
     }
     private static boolean finite(double number) {
@@ -69,7 +78,7 @@ public final class AimAssistPolicy {
         if (best==null) return null;
         double factor=bestError<=maximumDegreesPerTick || bestError==0 ? 1.0 :
             maximumDegreesPerTick/bestError;
-        return new Suggestion(best.id, (float)(world.playerYaw+bestYaw*factor),
+        return new Suggestion(best, (float)(world.playerYaw+bestYaw*factor),
             clampPitch(world.playerPitch+bestPitch*factor), bestError);
     }
 }

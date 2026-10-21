@@ -124,9 +124,16 @@ public final class ForgeEventAdapter {
                         if(p.isDead || !WorldSnapshot.finitePublic(health) || health<=0 ||
                            !WorldSnapshot.finitePublic(p.posX) ||
                            !WorldSnapshot.finitePublic(p.posY) ||
-                           !WorldSnapshot.finitePublic(p.posZ))return;
+                           !WorldSnapshot.finitePublic(p.posZ) ||
+                           minecraft.theWorld.getEntityByID(p.getEntityId())!=p)return;
+                        double dx=p.posX-minecraft.thePlayer.posX;
+                        double dy=p.posY-minecraft.thePlayer.posY;
+                        double dz=p.posZ-minecraft.thePlayer.posZ;
+                        double currentDistanceSq=dx*dx+dy*dy+dz*dz;
+                        boolean stillVisible=visible && !p.isInvisible();
+                        if(!demand.admit(stillVisible,currentDistanceSq))return;
                         players.add(new WorldSnapshot.Entity(
-                            p.getEntityId(),p.posX,p.posY,p.posZ,health,true,visible,true));
+                            p.getEntityId(),p.posX,p.posY,p.posZ,health,true,stillVisible,true));
                     }
                 });
                 host.diagnostics().record(Counter.SNAPSHOT);

@@ -39,6 +39,14 @@ public final class CombatTests {
         WorldSnapshot frontal=world(Collections.singletonList(entity(2,0,0,4,true)),0f,0f);
         AimAssistPolicy.Suggestion aimed=policy.suggest(frontal,1.62,1.25,5,25,2,true);
         ok(aimed != null && aimed.entityId==2,"frontal target acquired");
+        ok(aimed.sameTargetPosition(0,0,4),"same-tick aim target pose accepted");
+        ok(!aimed.sameTargetPosition(0,0,4.00001),
+           "moving target after snapshot invalidates calculated rotation");
+        ok(!aimed.sameTargetPosition(0,1,4),
+           "vertical target movement invalidates calculated rotation");
+        ok(!aimed.sameTargetPosition(0,0,Double.NaN) &&
+           !aimed.sameTargetPosition(Double.POSITIVE_INFINITY,0,4),
+           "non-finite current target pose cannot apply camera rotation");
         ok(Math.abs(aimed.yaw)<0.00001,"south-facing camera aligned");
         ok(aimed.pitch>1.95 && aimed.pitch<=2.01,"vertical angular step bounded to two degrees");
         ok(aimed.angularError>5.0 && aimed.angularError<6.0,"angular error reflects player eye offsets");
