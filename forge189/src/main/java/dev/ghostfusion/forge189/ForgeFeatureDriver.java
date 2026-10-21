@@ -8,6 +8,7 @@ import dev.ghostfusion.ui.DiagnosticsHudLayout;
 import dev.ghostfusion.ui.HudTextFit;
 import dev.ghostfusion.features.SprintPolicy;
 import dev.ghostfusion.features.TargetHudPolicy;
+import dev.ghostfusion.features.HudLiveTargetGate;
 import dev.ghostfusion.features.TargetHudTextLayout;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
@@ -253,11 +254,16 @@ public final class ForgeFeatureDriver {
         Entity e=mc.theWorld.getEntityByID(target.id);
         if (!(e instanceof EntityPlayer) || e == mc.thePlayer) return;
         EntityPlayer player=(EntityPlayer)e;
+        // A tick snapshot selects a stable ID, but health/death/invisibility
+        // may change before this overlay callback. Never paint stale state.
+        final double liveHealth=player.getHealth();
+        if(!HudLiveTargetGate.eligible(player,mc.thePlayer,player.isDead,
+            liveHealth,player.isInvisible(),host.targetVisible()))return;
         String name=player.getName();
         int width=frame.width,height=frame.height;
         int x=frame.x,y=frame.y;
         TargetHudTextLayout.Result labels=TargetHudTextLayout.layout(
-            name,target.id,health,host.targetHealthText(),target.health,
+            name,target.id,health,host.targetHealthText(),liveHealth,
             player.getMaxHealth(),width,targetFontWidths);
         Gui.drawRect(x,y,x+width,y+height,0xD0141A2B);
         Gui.drawRect(x,y,x+2,y+height,0xFF9A8CFF);

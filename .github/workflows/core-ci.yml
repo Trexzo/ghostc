@@ -41,6 +41,8 @@ jobs:
           grep -q 'UI_REGRESSION_PASS' .build/ui.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.ServicesTests | tee .build/services.log
           grep -q 'SERVICES_REGRESSION_PASS' .build/services.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudLiveTargetGateTests | tee .build/hud-live-target.log
+          grep -q 'HUD_LIVE_TARGET_GATE_PASS' .build/hud-live-target.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudTextLayoutTests | tee .build/target-hud-text.log
           grep -q 'TARGET_HUD_TEXT_PASS' .build/target-hud-text.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.FeatureTests | tee .build/features.log
