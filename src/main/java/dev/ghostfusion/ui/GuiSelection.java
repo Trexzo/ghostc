@@ -24,7 +24,8 @@ public final class GuiSelection {
     }
     public static String reconcile(String current, List<ModuleRegistry.Entry> visible) {
         if(indexOf(current,visible)>=0)return current;
-        return visible.isEmpty()?null:visible.get(0).module().id();
+        if (visible.isEmpty()) return null;
+        return visible.get(0).module().id();
     }
     /**
      * Move one entry in the currently filtered module list. Direction is
