@@ -119,6 +119,17 @@ if ($Mode -eq 'Prepare') {
         Assert-OriginalJarName $item.Name
         $previous += [pscustomobject]@{ name=$item.Name; sha256=(Get-Sha $item.FullName) }
     }
+    # Record the baseline modification time without deleting earlier diagnostics.
+    $diagPath = Join-Path $game 'config/ghostc/diagnostics-last.properties'
+    $diagBaselineModifiedUtcTicks = [long]0
+    if (Test-Path -LiteralPath $diagPath) {
+        if (!(Test-Path -LiteralPath $diagPath -PathType Leaf)) {
+            throw 'Diagnostics path is not a regular file.'
+        }
+        Assert-NoLink $diagPath
+        $diagBaselineModifiedUtcTicks = (Get-Item -LiteralPath $diagPath).LastWriteTimeUtc.Ticks
+    }
+    $preparedUtcTicks = [DateTime]::UtcNow.Ticks
     # Do not create any backup directories until source, duplicate-name and
     # all existing-JAR hash preflight checks have succeeded.
     New-Item -ItemType Directory -Path $backups -Force | Out-Null
@@ -140,8 +151,10 @@ if ($Mode -eq 'Prepare') {
         Copy-Item -LiteralPath $source -Destination $destination
         if ((Get-Sha $destination) -ne $sha) { throw 'Installed JAR verification failed.' }
         Write-AtomicState $stateFile ([pscustomobject]@{
-            schema=1
+            schema=2
             transaction=$transaction
+            preparedUtcTicks=$preparedUtcTicks
+            diagnosticsBaselineModifiedUtcTicks=$diagBaselineModifiedUtcTicks
             installed=[pscustomobject]@{ name=$name; sha256=$sha }
             previous=@($previous)
         })
@@ -168,9 +181,18 @@ if (!(Test-Path -LiteralPath $stateFile -PathType Leaf)) {
 }
 Assert-NoLink $stateFile
 $state = Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json
-if ($state.schema -ne 1 -or $state.transaction -notmatch '^[0-9a-f]{32}$' -or
+if (($state.schema -ne 1 -and $state.schema -ne 2) -or
+    $state.transaction -notmatch '^[0-9a-f]{32}$' -or
     $state.installed.sha256 -notmatch '^[0-9A-F]{64}$') {
     throw 'Invalid acceptance manifest; refusing to change files.'
+}
+# Legacy schema-1 installs remain recoverable, but their diagnostics
+# cannot be attributed to a Prepare time, so Collect withholds those counters.
+if ($state.schema -eq 2) {
+    if ("$($state.preparedUtcTicks)" -notmatch '^[0-9]{15,19}$' -or
+        "$($state.diagnosticsBaselineModifiedUtcTicks)" -notmatch '^[0-9]{1,19}$') {
+        throw 'Invalid diagnostics timing in acceptance state.'
+    }
 }
 Assert-OriginalJarName $state.installed.name
 $installedJar = Join-Path $mods $state.installed.name
@@ -311,15 +333,29 @@ $lines = @(
 )
 $diagPath = Join-Path $game 'config/ghostc/diagnostics-last.properties'
 $safe = @()
+$diagStatus = '(No fresh numeric diagnostics for this installation; no gameplay inference.)'
 if (Test-Path -LiteralPath $diagPath -PathType Leaf) {
     Assert-NoLink $diagPath
-    $safe = @(Get-Content -LiteralPath $diagPath |
-        Where-Object { $_ -match '^(?:count\.[a-z0-9_]+|perf\.[a-z0-9_]+|snap\.[a-z0-9_]+)=[0-9]+\z' } |
-        Sort-Object)
-    if ($safe.Count -gt 0) { $lines += $safe } else { $lines += '(No safe counter fields found)' }
-} else {
-    $lines += '(Enable the optional diagnostics module and disconnect to export counters.)'
+    $modifiedTicks = (Get-Item -LiteralPath $diagPath).LastWriteTimeUtc.Ticks
+    if ($state.schema -eq 2 -and
+        $modifiedTicks -gt [long]$state.preparedUtcTicks -and
+        $modifiedTicks -gt [long]$state.diagnosticsBaselineModifiedUtcTicks) {
+        $safe = @(Get-Content -LiteralPath $diagPath |
+            Where-Object { $_ -match '^(?:count\.[a-z0-9_]+|perf\.[a-z0-9_]+|snap\.[a-z0-9_]+)=[0-9]+\z' } |
+            Sort-Object)
+        if ($safe.Count -gt 0) {
+            $diagStatus = '(Diagnostics file modified after Prepare; this does not verify a game launch.)'
+        } else {
+            $diagStatus = '(No allowlisted numeric counters in freshly modified diagnostics.)'
+        }
+    } else {
+        $diagStatus = '(Withheld: diagnostics predates Prepare or no supported freshness baseline.)'
+    }
+} elseif (Test-Path -LiteralPath $diagPath) {
+    throw 'Diagnostics path is not a regular file.'
 }
+$lines += $diagStatus
+if ($safe.Count -gt 0) { $lines += $safe }
 $lines += @(
     '',
     'ESP counters count render submissions, NOT confirmed visible pixels or FPS.',
@@ -368,10 +404,9 @@ $telemetryLines = @(
     "Session transaction: $($state.transaction)",
     'Only allowlisted count.*, perf.*, and snap.* nonnegative integers follow.'
 )
+$telemetryLines += $diagStatus
 if ($safe.Count -gt 0) {
     $telemetryLines += $safe
-} else {
-    $telemetryLines += '(No safe numeric diagnostics exported yet)'
 }
 $telemetryLines | Set-Content -LiteralPath $telemetryFile -Encoding UTF8
 if (!(Test-Path -LiteralPath $report)) {

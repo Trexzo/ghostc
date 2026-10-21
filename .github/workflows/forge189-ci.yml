@@ -132,7 +132,7 @@ jobs:
             docs/RUNTIME_R21.md
             docs/RUNTIME_R22.md
             docs/RUNTIME_R23.md
-            docs/RUNTIME_R55.md
+            docs/RUNTIME_R56.md
           if-no-files-found: error
 
   windows-forge189:
@@ -225,6 +225,13 @@ jobs:
           $jar = (Resolve-Path "forge189/build/libs/ghostc-forge189-$version.jar").Path
           $hash = (Get-FileHash -LiteralPath $jar -Algorithm SHA256).Hash
           $tool = (Resolve-Path 'tools/Invoke-GhostCAcceptance.ps1').Path
+          # This prior-session report exists before Prepare. It must never be
+          # attributed to the new install merely because Collect sees it.
+          $diagDir = Join-Path $root 'config/ghostc'
+          New-Item -ItemType Directory -Path $diagDir -Force | Out-Null
+          $diagPath = Join-Path $diagDir 'diagnostics-last.properties'
+          [IO.File]::WriteAllText($diagPath, "count.gui_open=99999`nperf.p95_fps=99999`n")
+          (Get-Item -LiteralPath $diagPath).LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(-5)
           $wrongHash = ('0' * 64)
           if ($wrongHash -eq $hash) { $wrongHash = ('F' * 64) }
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Prepare -GameDir $root -JarPath $jar -ExpectedSha256 $wrongHash *> $null
@@ -274,6 +281,16 @@ jobs:
               ((Get-Content -LiteralPath $report -Raw) -notmatch "Session transaction: $firstSession")) {
             throw 'Acceptance report missing disclaimer or session identity'
           }
+          $stateFirst = Get-Content -LiteralPath (Join-Path $root 'ghostc-acceptance/install-state.json') -Raw | ConvertFrom-Json
+          if ($stateFirst.schema -ne 2 -or $stateFirst.preparedUtcTicks -le 0 -or
+              $stateFirst.diagnosticsBaselineModifiedUtcTicks -le 0) {
+            throw 'Prepare failed to preserve numeric diagnostics freshness baseline'
+          }
+          $freshnessSidecar = Get-Content -LiteralPath (Join-Path $root 'ghostc-acceptance/telemetry-latest.txt') -Raw
+          if ($freshnessSidecar -match '99999' -or $freshnessSidecar -notmatch 'Withheld: diagnostics predates Prepare') {
+            throw 'Collect mislabeled pre-existing diagnostics as a new test session'
+          }
+          Write-Output 'WINDOWS_ACCEPTANCE_STALE_DIAGNOSTICS_WITHHELD_PASS'
           # A second Collect must never overwrite the human-owned checklist.
           $original = Get-Content -LiteralPath $report -Raw
           $edited = $original.Replace('- [ ] Launcher starts without a Forge loading error',
@@ -281,10 +298,10 @@ jobs:
           $edited += "`nCI_FIXTURE_OWNER_NOTE_DO_NOT_ERASE`n"
           Set-Content -LiteralPath $report -Value $edited -Encoding UTF8
           $editedHash = (Get-FileHash -LiteralPath $report -Algorithm SHA256).Hash
-          $diagDir = Join-Path $root 'config/ghostc'
-          New-Item -ItemType Directory -Path $diagDir -Force | Out-Null
-          [IO.File]::WriteAllText((Join-Path $diagDir 'diagnostics-last.properties'),
+          [IO.File]::WriteAllText($diagPath,
             "count.gui_open=7`nperf.p95_fps=144`nusername=EXCLUDED_PRIVATE_VALUE`n")
+          (Get-Item -LiteralPath $diagPath).LastWriteTimeUtc =
+            [DateTime]::new([long]$stateFirst.preparedUtcTicks,[DateTimeKind]::Utc).AddSeconds(2)
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Collect -GameDir $root
           if ($LASTEXITCODE -ne 0) { throw 'Repeated Collect failed' }
           if ((Get-FileHash -LiteralPath $report -Algorithm SHA256).Hash -ne $editedHash) {
@@ -364,6 +381,12 @@ jobs:
               $freshReport -match '\- \[x\] Launcher starts without a Forge loading error') {
             throw 'Old completed checkboxes or notes leaked into the new acceptance session'
           }
+          $secondSidecar = Get-Content -LiteralPath (Join-Path $root 'ghostc-acceptance/telemetry-latest.txt') -Raw
+          if ($secondSidecar -match 'count.gui_open=7' -or
+              $secondSidecar -notmatch 'Withheld: diagnostics predates Prepare') {
+            throw 'Old session numeric counters were reused under the new transaction ID'
+          }
+          Write-Output 'WINDOWS_ACCEPTANCE_NEW_SESSION_STALE_COUNTER_GUARD_PASS'
           $history = Join-Path $root 'ghostc-acceptance/history'
           $oldReports = @(Get-ChildItem -LiteralPath $history -Recurse -File -Filter 'acceptance-report.md')
           if ($oldReports.Count -ne 1 -or
@@ -376,11 +399,44 @@ jobs:
             throw 'Old session telemetry was not archived with original report'
           }
           $freshHash = (Get-FileHash -LiteralPath $report -Algorithm SHA256).Hash
+          # Fresh post-Prepare counters are still accepted, even when the
+          # underlying file existed before this transaction.
+          $stateSecond = Get-Content -LiteralPath (Join-Path $root 'ghostc-acceptance/install-state.json') -Raw | ConvertFrom-Json
+          [IO.File]::WriteAllText($diagPath, "count.gui_open=8`nperf.p95_fps=180`n")
+          $newerTicks = [Math]::Max([long]$stateSecond.preparedUtcTicks,
+                                    [long]$stateSecond.diagnosticsBaselineModifiedUtcTicks) +
+                                    [TimeSpan]::FromSeconds(3).Ticks
+          (Get-Item -LiteralPath $diagPath).LastWriteTimeUtc = [DateTime]::new($newerTicks,[DateTimeKind]::Utc)
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Collect -GameDir $root
           if ($LASTEXITCODE -ne 0 -or
               (Get-FileHash -LiteralPath $report -Algorithm SHA256).Hash -ne $freshHash) {
-            throw 'Repeated Collect mutated the second session checklist'
+            throw 'Fresh numeric collection mutated the second session checklist'
           }
+          $updatedSidecar = Get-Content -LiteralPath (Join-Path $root 'ghostc-acceptance/telemetry-latest.txt') -Raw
+          if ($updatedSidecar -notmatch 'count.gui_open=8' -or
+              $updatedSidecar -notmatch 'perf.p95_fps=180' -or
+              $updatedSidecar -match 'count.gui_open=7') {
+            throw 'Newly modified diagnostics were not refreshed in the sidecar'
+          }
+          Write-Output 'WINDOWS_ACCEPTANCE_FRESH_DIAGNOSTICS_ACCEPTED_PASS'
+
+          # Legacy schema-1 transactions must still be reversible. Without a
+          # Prepare-time baseline, the sidecar must explicitly withhold counts.
+          $stateSecond.schema = 1
+          $stateSecond.PSObject.Properties.Remove('preparedUtcTicks')
+          $stateSecond.PSObject.Properties.Remove('diagnosticsBaselineModifiedUtcTicks')
+          $stateSecond | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $root 'ghostc-acceptance/install-state.json') -Encoding UTF8
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Collect -GameDir $root
+          if ($LASTEXITCODE -ne 0 -or
+              (Get-FileHash -LiteralPath $report -Algorithm SHA256).Hash -ne $freshHash) {
+            throw 'Legacy schema-1 Collect failed or changed the operator report'
+          }
+          $legacySidecar = Get-Content -LiteralPath (Join-Path $root 'ghostc-acceptance/telemetry-latest.txt') -Raw
+          if ($legacySidecar -match 'count.gui_open=8' -or
+              $legacySidecar -notmatch 'Withheld: diagnostics predates Prepare') {
+            throw 'Legacy state allowed un-attributable numeric counters'
+          }
+          Write-Output 'WINDOWS_ACCEPTANCE_LEGACY_SCHEMA1_SAFE_COLLECT_PASS'
           Write-Output 'WINDOWS_ACCEPTANCE_SESSION_ISOLATION_PASS'
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Rollback -GameDir $root
           if ($LASTEXITCODE -ne 0 -or
@@ -402,5 +458,5 @@ jobs:
             docs/RUNTIME_R15.md
             docs/RUNTIME_R16.md
             docs/RUNTIME_R23.md
-            docs/RUNTIME_R55.md
+            docs/RUNTIME_R56.md
           if-no-files-found: error
