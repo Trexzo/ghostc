@@ -35,6 +35,8 @@ jobs:
           find src/test/java -name '*.java' -print0 | xargs -0 javac --release 8 -cp .build/classes -d .build/tests
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.ModuleLifecycleReentryTests | tee .build/module-lifecycle.log
           grep -q 'MODULE_LIFECYCLE_REENTRY_PASS' .build/module-lifecycle.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudSelectionTests | tee .build/target-hud-selection.log
+          grep -q 'TARGET_HUD_SELECTION_PASS' .build/target-hud-selection.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudPaletteTests | tee .build/target-hud-palette.log
           grep -q 'TARGET_HUD_PALETTE_PASS' .build/target-hud-palette.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiKeyboardNavigationTests | tee .build/gui-keyboard.log

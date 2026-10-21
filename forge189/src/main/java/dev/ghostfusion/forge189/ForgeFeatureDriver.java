@@ -20,6 +20,7 @@ import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.settings.GameSettings;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
+import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.potion.Potion;
@@ -250,7 +251,22 @@ public final class ForgeFeatureDriver {
             host.keysJump(),host.keysSneak(),health);
         if(frame==null)return;
         WorldSnapshot w=host.services().snapshot();
-        WorldSnapshot.Entity target=targets.select(w,host.targetRange(),host.targetVisible());
+        final String selection=host.targetSelection();
+        Integer crosshairId=null;
+        if("crosshair".equals(selection)) {
+            // The game hit result can outlive a despawn/world replacement.
+            // Admit only the identical player object still in the live world.
+            MovingObjectPosition hit=mc.objectMouseOver;
+            if(hit!=null && hit.typeOfHit==MovingObjectPosition.MovingObjectType.ENTITY &&
+               hit.entityHit instanceof EntityPlayer &&
+               hit.entityHit!=mc.thePlayer) {
+                EntityPlayer candidate=(EntityPlayer)hit.entityHit;
+                if(mc.theWorld.getEntityByID(candidate.getEntityId())==candidate)
+                    crosshairId=candidate.getEntityId();
+            }
+        }
+        WorldSnapshot.Entity target=targets.select(w,host.targetRange(),host.targetVisible(),
+            selection,crosshairId);
         if (target==null) return;
         Entity e=mc.theWorld.getEntityByID(target.id);
         if (!(e instanceof EntityPlayer) || e == mc.thePlayer) return;

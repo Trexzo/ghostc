@@ -54,6 +54,9 @@ public final class HostRuntime {
     private final Setting.Number targetRange = new Setting.Number("range", 8.0, 2.0, 24.0);
     private final Setting.Bool targetVisible = new Setting.Bool("visible_only", true);
     private final Setting.Bool targetHealth = new Setting.Bool("show_health", true);
+    // Existing profiles keep Nearest; Crosshair draws only the entity under the reticle.
+    private final Setting.Choice targetSelection =
+        new Setting.Choice("selection","nearest","nearest","crosshair");
     // Opt-in alternative palette; old profiles remain pixel-identical classic.
     private final Setting.Choice targetSkin =
         new Setting.Choice("skin","classic","classic","glass");
@@ -134,7 +137,7 @@ public final class HostRuntime {
         modules.register(new FeatureModule("hud.cps", "CPS Counter", GhostModule.Category.RENDER),
             0, cpsRight);
         modules.register(new FeatureModule("hud.target", "Target HUD", GhostModule.Category.RENDER),
-            0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin);
+            0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin, targetSelection);
         modules.register(new FeatureModule("render.esp", "Player ESP", GhostModule.Category.RENDER),
             0, espRange, espVisible, espWalls, espWidth, espStyle, espHealth,
             espHealthSide, espHealthGap,
@@ -260,6 +263,9 @@ public final class HostRuntime {
     }
     public String targetSkin() {
         modules.assertOwnerThread(); return targetSkin.get();
+    }
+    public String targetSelection() {
+        modules.assertOwnerThread(); return targetSelection.get();
     }
     public double espRange() { modules.assertOwnerThread(); return espRange.get(); }
     public boolean espVisible() { modules.assertOwnerThread(); return espVisible.get(); }
