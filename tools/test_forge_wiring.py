@@ -267,6 +267,31 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("resized.setText(previous)",gui)
         self.assertIn("resized.setFocused(focused)",gui)
 
+    def test_snapshot_publication_and_aim_final_live_target_fence(self):
+        combat=(FORGE/"ForgeCombatController.java").read_text(encoding="utf-8")
+        adapter=self.adapter
+        aim=content("src/main/java/dev/ghostfusion/features/AimAssistPolicy.java")
+        gate=content("src/main/java/dev/ghostfusion/features/LiveCombatTargetGate.java")
+        combat_tests=content("src/test/java/dev/ghostfusion/tests/CombatTests.java")
+        gate_tests=content("src/test/java/dev/ghostfusion/tests/LiveCombatTargetGateTests.java")
+        self.assertIn("minecraft.theWorld.getEntityByID(p.getEntityId())!=p",adapter)
+        self.assertIn("boolean stillVisible=visible && !p.isInvisible();",adapter)
+        self.assertIn("demand.admit(stillVisible,currentDistanceSq)",adapter)
+        self.assertIn("p.getEntityId(),p.posX,p.posY,p.posZ,health,true,stillVisible,true",adapter)
+        self.assertIn("Entity live=mc.theWorld.getEntityByID(suggestion.entityId);",combat)
+        self.assertIn("if(!(live instanceof EntityPlayer))return;",combat)
+        self.assertIn("candidate.isInvisible(),host.aimVisibleOnly()",combat)
+        self.assertIn("suggestion.sameTargetPosition(candidate.posX,candidate.posY,candidate.posZ)",combat)
+        self.assertLess(combat.index("suggestion.sameTargetPosition("),
+                        combat.index("session.rotations().request(AIM_ID, RotationCoordinator.Scope.CAMERA,"))
+        self.assertIn("public boolean sameTargetPosition(double x,double y,double z)",aim)
+        self.assertIn("return new Suggestion(best,",aim)
+        self.assertIn("(!visibleOnly || !invisible)",gate)
+        self.assertIn("moving target after snapshot invalidates calculated rotation",combat_tests)
+        self.assertIn("newly invisible player blocked even after a visible snapshot",gate_tests)
+        self.assertIn("dev.ghostfusion.tests.CombatTests",content(".github/workflows/core-ci.yml"))
+        self.assertIn("dev.ghostfusion.tests.LiveCombatTargetGateTests",content(".github/workflows/core-ci.yml"))
+
     def test_live_crosshair_identity_before_combat_target_policies(self):
         combat=(FORGE/"ForgeCombatController.java").read_text(encoding="utf-8")
         gate=content("src/main/java/dev/ghostfusion/features/LiveCombatTargetGate.java")

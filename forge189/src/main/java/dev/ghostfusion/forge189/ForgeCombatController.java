@@ -16,6 +16,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemSword;
 import net.minecraft.util.MovingObjectPosition;
@@ -83,6 +85,18 @@ public final class ForgeCombatController {
                         host.aimRange(), host.aimFov(), host.aimDegreesPerTick(),
                         host.aimVisibleOnly());
                     if (suggestion == null) return;
+                    // A snapshot is immutable, but its player can despawn,
+                    // die, become invisible or move before the camera write.
+                    // Validate the current-world entity and same-tick pose.
+                    Entity live=mc.theWorld.getEntityByID(suggestion.entityId);
+                    if(!(live instanceof EntityPlayer))return;
+                    EntityPlayer candidate=(EntityPlayer)live;
+                    if(!LiveCombatTargetGate.eligible(candidate,
+                            mc.theWorld.getEntityByID(candidate.getEntityId()),player,
+                            candidate.isDead,candidate.getHealth(),
+                            candidate.isInvisible(),host.aimVisibleOnly()) ||
+                        !suggestion.sameTargetPosition(candidate.posX,candidate.posY,candidate.posZ))
+                        return;
                     session.rotations().request(AIM_ID, RotationCoordinator.Scope.CAMERA,
                         suggestion.yaw, suggestion.pitch, 10,
                         session.tick(), 1, session.generation());

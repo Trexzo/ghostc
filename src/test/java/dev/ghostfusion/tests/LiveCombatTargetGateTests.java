@@ -87,6 +87,38 @@ public final class LiveCombatTargetGateTests {
                "new world object accepted "+i);
         }
     }
+    private static void liveAimVisibility() {
+        Object live=new Object(),local=new Object(),stale=new Object();
+        ok(LiveCombatTargetGate.eligible(live,live,local,false,20,false,true),
+           "visible-only aim accepts living current-world target");
+        ok(!LiveCombatTargetGate.eligible(live,live,local,false,20,true,true),
+           "newly invisible player blocked even after a visible snapshot");
+        ok(LiveCombatTargetGate.eligible(live,live,local,false,20,true,false),
+           "unrestricted aim preserves explicitly allowed invisible targets");
+        ok(!LiveCombatTargetGate.eligible(live,stale,local,false,20,false,false),
+           "stale world object never drives an aim rotation");
+        ok(!LiveCombatTargetGate.eligible(live,live,local,false,Double.NaN,false,false),
+           "invalid live health suppresses aim rotation");
+        Random random=new Random(2472026L);
+        for(int i=0;i<125000;i++) {
+            Object selected=random.nextInt(7)==0?null:random.nextBoolean()?live:stale;
+            Object loaded=random.nextInt(7)==0?null:random.nextBoolean()?live:stale;
+            boolean dead=random.nextBoolean(),invisible=random.nextBoolean();
+            boolean only=random.nextBoolean();
+            double health;
+            switch(random.nextInt(7)) {
+                case 0:health=Double.NaN;break;
+                case 1:health=Double.POSITIVE_INFINITY;break;
+                case 2:health=-4;break;
+                case 3:health=0;break;
+                default:health=1+random.nextDouble()*100;
+            }
+            boolean expected=selected!=null && selected==loaded && selected!=local &&
+                !dead && Double.isFinite(health) && health>0 && (!only || !invisible);
+            ok(LiveCombatTargetGate.eligible(selected,loaded,local,dead,health,invisible,only)==expected,
+               "live aim visible-only gate matches reference "+i);
+        }
+    }
     private static void ownership() throws Exception {
         // Gate is pure and read-only: no Minecraft classes, threads or state.
         Object candidate=new Object(),local=new Object();
@@ -96,8 +128,8 @@ public final class LiveCombatTargetGateTests {
         ok(result.get(),"pure admission is deterministic off thread");
     }
     public static void main(String[] args)throws Exception{
-        focused();randomized();ownership();
-        ok(assertions>180000,"substantial crosshair lifecycle coverage");
+        focused();randomized();liveAimVisibility();ownership();
+        ok(assertions>300000,"substantial crosshair and aim lifecycle coverage");
         System.out.println("LIVE_COMBAT_TARGET_GATE_PASS assertions="+assertions);
     }
 }
