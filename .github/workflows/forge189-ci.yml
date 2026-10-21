@@ -132,7 +132,7 @@ jobs:
             docs/RUNTIME_R21.md
             docs/RUNTIME_R22.md
             docs/RUNTIME_R23.md
-            docs/RUNTIME_R56.md
+            docs/RUNTIME_R57.md
           if-no-files-found: error
 
   windows-forge189:
@@ -444,6 +444,61 @@ jobs:
             throw 'Second session rollback did not restore prior client'
           }
           Write-Output 'WINDOWS_ACCEPTANCE_REPEATED_ROLLBACK_PASS'
+
+          # R2.37: test a handled failure MID-RESTORE, not just before any
+          # files move. Two backed-up original JARs force a partial restore.
+          $extraOld = Join-Path $mods 'ghostc-forge189-0.8.0.jar'
+          [IO.File]::WriteAllText($extraOld, 'SECOND PRIOR GHOSTC TEST JAR')
+          $extraHash = (Get-FileHash -LiteralPath $extraOld -Algorithm SHA256).Hash
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Prepare -GameDir $root -JarPath $jar -ExpectedSha256 $hash
+          if ($LASTEXITCODE -ne 0) { throw 'Third Prepare with two old JARs failed' }
+          $thirdState = Get-Content -LiteralPath (Join-Path $acceptDir 'install-state.json') -Raw | ConvertFrom-Json
+          if (@($thirdState.previous).Count -ne 2) { throw 'Two-original rollback fixture incorrectly installed' }
+          $thirdBackup = Join-Path (Join-Path $backupRoot $thirdState.transaction) 'rollback-stage'
+          $thirdActive = Join-Path $mods "ghostc-forge189-$version.jar"
+
+          # Pre-existing stage must never be overwritten.
+          New-Item -ItemType Directory -Path $thirdBackup -Force | Out-Null
+          $stageSentinel = Join-Path $thirdBackup 'DO_NOT_OVERWRITE.txt'
+          [IO.File]::WriteAllText($stageSentinel, 'PREEXISTING RECOVERY EVIDENCE')
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Rollback -GameDir $root *> $null
+          if ($LASTEXITCODE -eq 0 -or !(Test-Path -LiteralPath $thirdActive) -or
+              (Get-FileHash -LiteralPath $thirdActive -Algorithm SHA256).Hash -ne $hash -or
+              !(Test-Path -LiteralPath $stageSentinel) -or
+              (Test-Path -LiteralPath $previous) -or (Test-Path -LiteralPath $extraOld)) {
+            throw 'Rollback overwrote a pre-existing recovery stage or mutated live mods'
+          }
+          Remove-Item -LiteralPath $thirdBackup -Recurse -Force
+          Write-Output 'WINDOWS_ACCEPTANCE_EXISTING_STAGE_GUARD_PASS'
+
+          # Inject failure AFTER one old JAR was placed back in mods. The
+          # active JAR must be restored and both originals stay in backups.
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Rollback -GameDir $root -CiFailRollbackAfterRestoreCount 1 *> $null
+          if ($LASTEXITCODE -eq 0 -or !(Test-Path -LiteralPath $thirdActive) -or
+              (Get-FileHash -LiteralPath $thirdActive -Algorithm SHA256).Hash -ne $hash -or
+              !(Test-Path -LiteralPath (Join-Path $acceptDir 'install-state.json')) -or
+              (Test-Path -LiteralPath $previous) -or (Test-Path -LiteralPath $extraOld) -or
+              (Test-Path -LiteralPath $thirdBackup)) {
+            throw 'Mid-restore injected failure did not compensate the live installation'
+          }
+          foreach ($entry in @($thirdState.previous)) {
+            $saved = Join-Path (Join-Path $backupRoot $thirdState.transaction) $entry.name
+            if (!(Test-Path -LiteralPath $saved) -or
+                (Get-FileHash -LiteralPath $saved -Algorithm SHA256).Hash -ne $entry.sha256) {
+              throw 'Mid-restore compensation damaged original backup evidence'
+            }
+          }
+          Write-Output 'WINDOWS_ACCEPTANCE_MID_RESTORE_COMPENSATION_PASS'
+
+          # A non-faulted retry must install both originals byte-for-byte.
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Rollback -GameDir $root
+          if ($LASTEXITCODE -ne 0 -or (Test-Path -LiteralPath $thirdActive) -or
+              (Test-Path -LiteralPath (Join-Path $acceptDir 'install-state.json')) -or
+              (Get-FileHash -LiteralPath $previous -Algorithm SHA256).Hash -ne $priorHash -or
+              (Get-FileHash -LiteralPath $extraOld -Algorithm SHA256).Hash -ne $extraHash) {
+            throw 'Retry after compensated restore did not return both original JARs'
+          }
+          Write-Output 'WINDOWS_ACCEPTANCE_PARTIAL_RESTORE_RETRY_PASS'
       - uses: actions/upload-artifact@v4
         with:
           name: ghostc-forge189-windows-build-unverified-ingame
@@ -458,5 +513,5 @@ jobs:
             docs/RUNTIME_R15.md
             docs/RUNTIME_R16.md
             docs/RUNTIME_R23.md
-            docs/RUNTIME_R56.md
+            docs/RUNTIME_R57.md
           if-no-files-found: error
