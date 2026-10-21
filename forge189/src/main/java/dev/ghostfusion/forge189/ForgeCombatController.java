@@ -95,7 +95,9 @@ public final class ForgeCombatController {
                             mc.theWorld.getEntityByID(candidate.getEntityId()),player,
                             candidate.isDead,candidate.getHealth(),
                             candidate.isInvisible(),host.aimVisibleOnly()) ||
-                        !suggestion.sameTargetPosition(candidate.posX,candidate.posY,candidate.posZ))
+                        !suggestion.sameTargetPosition(candidate.posX,candidate.posY,candidate.posZ) ||
+                        !suggestion.sameSourcePose(player.posX,player.posY,player.posZ,
+                            player.rotationYaw,player.rotationPitch,player.getEyeHeight()))
                         return;
                     session.rotations().request(AIM_ID, RotationCoordinator.Scope.CAMERA,
                         suggestion.yaw, suggestion.pitch, 10,

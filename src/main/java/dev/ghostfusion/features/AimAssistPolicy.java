@@ -13,16 +13,35 @@ public final class AimAssistPolicy {
         public final float yaw, pitch;
         public final double angularError;
         private final double targetX,targetY,targetZ;
-        Suggestion(WorldSnapshot.Entity target, float yaw, float pitch, double angularError) {
+        private final double sourceX,sourceY,sourceZ,sourceEyeHeight;
+        private final float sourceYaw,sourcePitch;
+        Suggestion(WorldSnapshot world,WorldSnapshot.Entity target,
+                   double eyeHeight,float yaw,float pitch,double angularError) {
             this.entityId=target.id;this.yaw=yaw;this.pitch=pitch;
             this.angularError=angularError;
             this.targetX=target.x;this.targetY=target.y;this.targetZ=target.z;
+            this.sourceX=world.playerX;this.sourceY=world.playerY;
+            this.sourceZ=world.playerZ;
+            this.sourceYaw=world.playerYaw;this.sourcePitch=world.playerPitch;
+            this.sourceEyeHeight=eyeHeight;
         }
         /** The desired angles came from this exact tick's target pose.
          * A position change before the camera write invalidates them. */
         public boolean sameTargetPosition(double x,double y,double z) {
             return Double.isFinite(x) && Double.isFinite(y) && Double.isFinite(z) &&
                 x==targetX && y==targetY && z==targetZ;
+        }
+        /** A local move, camera turn, or eye-height change after the tick
+         * snapshot makes this absolute yaw/pitch suggestion stale. A strict
+         * same-pose fence prevents overwriting a newer camera viewpoint. */
+        public boolean sameSourcePose(double x,double y,double z,
+                                      float yaw,float pitch,double eyeHeight) {
+            return Double.isFinite(x) && Double.isFinite(y) &&
+                Double.isFinite(z) && Float.isFinite(yaw) &&
+                Float.isFinite(pitch) && Double.isFinite(eyeHeight) &&
+                x==sourceX && y==sourceY && z==sourceZ &&
+                yaw==sourceYaw && pitch==sourcePitch &&
+                eyeHeight==sourceEyeHeight;
         }
     }
     private static boolean finite(double number) {
@@ -78,7 +97,8 @@ public final class AimAssistPolicy {
         if (best==null) return null;
         double factor=bestError<=maximumDegreesPerTick || bestError==0 ? 1.0 :
             maximumDegreesPerTick/bestError;
-        return new Suggestion(best, (float)(world.playerYaw+bestYaw*factor),
+        return new Suggestion(world,best,sourceEyeHeight,
+            (float)(world.playerYaw+bestYaw*factor),
             clampPitch(world.playerPitch+bestPitch*factor), bestError);
     }
 }
