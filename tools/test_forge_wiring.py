@@ -824,7 +824,7 @@ class ForgeWiring(unittest.TestCase):
                         gui.index("sliderDrag.begin(selected,it.getKey()"))
         self.assertLess(gui.index("if(sliderDrag.active()) {",gui.index("mouseClickMove")),
                         gui.index("if (hudDragging && button==0",gui.index("mouseClickMove")))
-        self.assertIn("if(wheel != 0 && !hudPage)",gui)
+        self.assertIn("if (wheel != 0 && !hudPage)",gui)
 
     def test_clickgui_header_and_sidebar_chrome_are_bounded(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
