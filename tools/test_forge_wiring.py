@@ -95,7 +95,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('new Setting.Choice("health_text","values","values","percent")',host)
         self.assertIn('0, targetRange, targetVisible, targetHealth, targetHealthText);',host)
         self.assertIn("TargetHudTextLayout.layout(",forge)
-        self.assertIn("host.targetHealthText(),target.health,",forge)
+        self.assertIn("host.targetHealthText(),liveHealth,",forge)
         self.assertIn("mc.fontRendererObj.getStringWidth(value)",forge)
         self.assertIn("labels.name,x+9,y+7",forge)
         self.assertIn("x+width-9-labels.healthLabelWidth,y+8",forge)
