@@ -25,7 +25,13 @@ public final class RotationCoordinator {
             this.generation=generation; this.ordinal=ordinal;
         }
     }
+    private static final int MAX_PENDING=256;
+    // Identity is (module, rotation scope), never module alone. The same
+    // feature may independently own CAMERA and OUTBOUND intentions.
     private final LinkedHashMap<String, Request> requests = new LinkedHashMap<String, Request>();
+    private static String key(String owner,Scope scope) {
+        return owner+"#"+scope.name();
+    }
     private final Thread ownerThread = Thread.currentThread();
     private long nextOrdinal;
     private boolean stopped;
@@ -38,11 +44,15 @@ public final class RotationCoordinator {
         assertOwner(); ServiceValidation.request(owner, now, lifetimeTicks, generation);
         if (scope == null || !WorldSnapshot.finite(yaw) || !WorldSnapshot.finite(pitch) ||
             pitch < -90 || pitch > 90 || lifetimeTicks > 200) throw new IllegalArgumentException("rotation");
-        requests.put(owner, new Request(owner, scope, yaw, pitch, priority,
+        String key=key(owner,scope);
+        if(requests.size()>=MAX_PENDING && !requests.containsKey(key))
+            throw new IllegalStateException("rotation capacity exceeded");
+        requests.put(key, new Request(owner, scope, yaw, pitch, priority,
             now, now + lifetimeTicks, generation, ++nextOrdinal));
     }
     public void cancel(String owner) {
-        assertOwner(); ServiceValidation.owner(owner); requests.remove(owner);
+        assertOwner(); ServiceValidation.owner(owner);
+        for(Scope scope:Scope.values())requests.remove(key(owner,scope));
     }
     public Decision decide(Scope scope, long tick, long generation, float actualYaw, float actualPitch) {
         assertOwner();
