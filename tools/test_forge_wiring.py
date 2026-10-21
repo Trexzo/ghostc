@@ -395,7 +395,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("if(demand.testVisibility(distanceSq) && !p.isInvisible())",adapter)
         self.assertIn("nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible)",adapter)
         self.assertIn("nearestSnapshot.forEach(new WorldSnapshotAdmission.Visitor<EntityPlayer>()",adapter)
-        self.assertIn("p.getEntityId(),p.posX,p.posY,p.posZ,health,true,visible,true",adapter)
+        self.assertIn("p.getEntityId(),p.posX,p.posY,p.posZ,health,true,stillVisible,true",adapter)
         self.assertIn("new EspNearestBudget<T>(256)",admission)
         self.assertIn("hidden.removeId(id)",admission)
         self.assertIn("visible.containsId(id)",admission)
