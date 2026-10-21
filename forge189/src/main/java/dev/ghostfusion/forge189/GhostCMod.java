@@ -17,7 +17,7 @@ import java.io.File;
      acceptedMinecraftVersions = "[1.8.9]", clientSideOnly = true)
 public final class GhostCMod {
     /** A single Forge-side display/version source for the status and diagnostics HUDs. */
-    public static final String CLIENT_VERSION = "2.45.0";
+    public static final String CLIENT_VERSION = "2.46.0";
     private ForgeEventAdapter adapter;
 
     @Mod.EventHandler

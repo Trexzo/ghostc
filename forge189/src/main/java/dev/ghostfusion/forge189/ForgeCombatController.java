@@ -5,6 +5,7 @@ import dev.ghostfusion.features.FixedClickScheduler;
 import dev.ghostfusion.features.HitSelectPolicy;
 import dev.ghostfusion.features.BlockHitPolicy;
 import dev.ghostfusion.features.PhysicalInputGate;
+import dev.ghostfusion.features.LiveCombatTargetGate;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.services.ActionCoordinator;
@@ -52,6 +53,8 @@ public final class ForgeCombatController {
         final SessionServices session = host.services();
         final EntityPlayerSP player = mc.thePlayer;
         if (player == null || mc.theWorld == null || !session.connected() ||
+            player.isDead || !Double.isFinite(player.getHealth()) ||
+            player.getHealth()<=0 ||
             mc.currentScreen != null || !mc.inGameHasFocus ||
             session.snapshot()==null || session.snapshot().tick!=session.tick() ||
             session.snapshot().generation!=session.generation()) {
@@ -100,10 +103,15 @@ public final class ForgeCombatController {
         EntityLivingBase found = null;
         if (mc.objectMouseOver != null &&
             mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY &&
-            mc.objectMouseOver.entityHit instanceof EntityLivingBase &&
-            mc.objectMouseOver.entityHit != player &&
-            !mc.objectMouseOver.entityHit.isDead) {
-            found = (EntityLivingBase)mc.objectMouseOver.entityHit;
+            mc.objectMouseOver.entityHit instanceof EntityLivingBase) {
+            EntityLivingBase candidate=(EntityLivingBase)mc.objectMouseOver.entityHit;
+            // objectMouseOver is produced during rendering and may still
+            // reference a despawned entity. Require exact current-world
+            // object identity, not merely matching entity IDs.
+            if(LiveCombatTargetGate.eligible(candidate,
+                    mc.theWorld.getEntityByID(candidate.getEntityId()),player,
+                    candidate.isDead,candidate.getHealth()))
+                found=candidate;
         }
         final EntityLivingBase target = found;
         final boolean validTarget = target != null;
