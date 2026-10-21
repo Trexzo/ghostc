@@ -794,6 +794,38 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("!inside(mx,my,x,y,w,h)) return;",gui)
         self.assertNotIn("int idx = scroll + (my-listY)/28;",gui)
 
+    def test_numeric_slider_drag_capture_live_preview_and_single_commit(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        actions=content("src/main/java/dev/ghostfusion/ui/UiActions.java")
+        capture=content("src/main/java/dev/ghostfusion/ui/GuiSliderDrag.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/GuiSliderDragTests.java")
+        self.assertIn("private final GuiSliderDrag sliderDrag = new GuiSliderDrag();",gui)
+        self.assertIn("sliderDrag.begin(selected,it.getKey(),right-barWidth,barWidth,width,height);",gui)
+        self.assertIn("adjustSliderDrag(mx);",gui)
+        self.assertIn("if(sliderDrag.active()) {",gui)
+        self.assertIn("sliderDrag.sameViewport(width,height)",gui)
+        self.assertIn("finishSliderDrag();",gui)
+        self.assertIn("if(sliderDrag.finish())host.uiActions().commitSlider();",gui)
+        self.assertIn("host.uiActions().previewFraction(sliderDrag.moduleId()",gui)
+        self.assertIn("public boolean previewFraction(",actions)
+        self.assertIn("public void commitSlider()",actions)
+        self.assertIn("double value = n.min() + (n.max() - n.min()) * bounded;",actions)
+        self.assertIn("if(Double.compare(n.get(),value)==0)return false;",actions)
+        self.assertIn("modules.assertOwnerThread();",actions)
+        self.assertIn("public double fraction(int mouseX)",capture)
+        self.assertIn("((long)mouseX-(long)trackLeft)/(double)trackWidth",capture)
+        self.assertIn("public boolean finish()",capture)
+        self.assertIn("mouse movement cannot write profile",tests)
+        self.assertIn("save signal fired exactly once",tests)
+        self.assertIn("dev.ghostfusion.tests.GuiSliderDragTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("GuiSliderDrag.class",content("tools/verify_forge_jar.py"))
+        self.assertLess(gui.index("finishSliderDrag();\n        super.mouseClicked("),
+                        gui.index("sliderDrag.begin(selected,it.getKey()"))
+        self.assertLess(gui.index("if(sliderDrag.active()) {",gui.index("mouseClickMove")),
+                        gui.index("if (hudDragging && button==0",gui.index("mouseClickMove")))
+        self.assertIn("if(wheel != 0 && !hudPage)",gui)
+
     def test_clickgui_header_and_sidebar_chrome_are_bounded(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         chrome=content("src/main/java/dev/ghostfusion/ui/GuiChrome.java")
