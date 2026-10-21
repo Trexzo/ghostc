@@ -128,6 +128,105 @@ public final class CoordinatorHygieneTests {
         yes(replay.pending()==0,"dual-scope replay releases all intents");
         replay.shutdown();
     }
+    private static void actionPhaseIsolationAndCapacity() {
+        ActionCoordinator a=new ActionCoordinator();
+        a.request("dual.action",ActionCoordinator.Type.ATTACK,
+            ActionCoordinator.Phase.PRE_INPUT,10,1,25,4,7);
+        a.request("dual.action",ActionCoordinator.Type.ATTACK,
+            ActionCoordinator.Phase.OUTPUT,20,5,25,6,7);
+        yes(a.pending()==2,"same owner retains independent action phases");
+        ActionCoordinator.Decision pre=a.consume(
+            ActionCoordinator.Type.ATTACK,ActionCoordinator.Phase.PRE_INPUT,25,7);
+        yes(pre!=null && pre.argument==10 && pre.phase==ActionCoordinator.Phase.PRE_INPUT,
+            "early phase survives later phase request");
+        yes(a.consume(ActionCoordinator.Type.ATTACK,
+            ActionCoordinator.Phase.OUTPUT,25,7)==null,
+            "at most one action per TYPE per tick despite two phases");
+        yes(a.pending()==1,"unconsumed other phase preserved");
+        ActionCoordinator.Decision output=a.consume(
+            ActionCoordinator.Type.ATTACK,ActionCoordinator.Phase.OUTPUT,26,7);
+        yes(output!=null && output.argument==20,
+            "other phase eligible on later tick within its TTL");
+        yes(a.pending()==0,"consumed phases release both entries");
+
+        a.request("dual.action",ActionCoordinator.Type.USE,
+            ActionCoordinator.Phase.PRE_INPUT,1,1,40,3,7);
+        a.request("dual.action",ActionCoordinator.Type.USE,
+            ActionCoordinator.Phase.OUTPUT,2,1,40,6,7);
+        a.request("dual.action",ActionCoordinator.Type.USE,
+            ActionCoordinator.Phase.PRE_INPUT,3,2,40,2,7);
+        yes(a.pending()==2,"same phase update replaces only its own request");
+        ActionCoordinator.Decision first=a.consume(
+            ActionCoordinator.Type.USE,ActionCoordinator.Phase.PRE_INPUT,40,7);
+        yes(first!=null && first.argument==3,"same-phase replacement value is authoritative");
+        yes(a.consume(ActionCoordinator.Type.USE,
+            ActionCoordinator.Phase.OUTPUT,41,7).argument==2,
+            "other phase survives replacement and later consumption");
+        a.request("dual.action",ActionCoordinator.Type.ATTACK,
+            ActionCoordinator.Phase.PRE_INPUT,0,1,50,2,7);
+        a.request("dual.action",ActionCoordinator.Type.ATTACK,
+            ActionCoordinator.Phase.OUTPUT,0,1,50,2,7);
+        a.cancelOwner("dual.action");
+        yes(a.pending()==0,"owner cancellation revokes all types and phases");
+
+        for(int i=0;i<128;i++){
+            String owner="feature."+i;
+            a.request(owner,ActionCoordinator.Type.ATTACK,
+                ActionCoordinator.Phase.PRE_INPUT,i,1,100,100,8);
+            a.request(owner,ActionCoordinator.Type.ATTACK,
+                ActionCoordinator.Phase.OUTPUT,i,1,100,100,8);
+        }
+        yes(a.pending()==256,"256 owner/type/phase slots bounded");
+        rejected(()->a.request("extra",ActionCoordinator.Type.ATTACK,
+            ActionCoordinator.Phase.PRE_INPUT,0,1,100,1,8),
+            "257th distinct action intent refused without eviction");
+        yes(a.pending()==256,"capacity refusal keeps existing requests");
+        a.request("feature.64",ActionCoordinator.Type.ATTACK,
+            ActionCoordinator.Phase.OUTPUT,999,3,100,100,8);
+        yes(a.pending()==256,"same owner/type/phase replacement allowed at capacity");
+        yes(a.consume(ActionCoordinator.Type.ATTACK,
+            ActionCoordinator.Phase.OUTPUT,100,8).argument==999,
+            "priority replacement visible at full capacity");
+        a.cancelOwner("feature.64");
+        yes(a.pending()==254,"cancel paired phase intents after consume");
+        // One 'feature.64' request was consumed, so cancelOwner removes
+        // its remaining PRE_INPUT entry; another independent slot remains.
+        a.cancelOwner("feature.0");
+        yes(a.pending()==252,"owner cancellation removes every remaining phase");
+        a.request("extra",ActionCoordinator.Type.ATTACK,
+            ActionCoordinator.Phase.PRE_INPUT,0,1,101,1,8);
+        a.request("extra",ActionCoordinator.Type.ATTACK,
+            ActionCoordinator.Phase.OUTPUT,0,1,101,1,8);
+        yes(a.pending()==254,"vacant phase slots can be reused");
+        yes(a.prune(102,8)==2,"short-lived added phases expire together");
+        yes(a.prune(200,8)==252 && a.pending()==0,
+            "long-lived owner phases fully expire");
+        a.shutdown();
+
+        // 4,000 owner-tick cycles stress composite keys, phase selection,
+        // generation changes, cancel and expiration without retained intents.
+        ActionCoordinator replay=new ActionCoordinator();
+        for(int tick=1;tick<=4000;tick++){
+            long gen=tick/800+1;
+            if(tick%800==0)replay.reset();
+            String owner="module."+tick%40;
+            replay.request(owner,ActionCoordinator.Type.ATTACK,
+                ActionCoordinator.Phase.PRE_INPUT,1,2,tick,2,gen);
+            replay.request(owner,ActionCoordinator.Type.ATTACK,
+                ActionCoordinator.Phase.OUTPUT,2,4,tick,2,gen);
+            yes(replay.pending()<=80,"long action phase replay bounded");
+            yes(replay.consume(ActionCoordinator.Type.ATTACK,
+                ActionCoordinator.Phase.PRE_INPUT,tick,gen)!=null,
+                "early phase proposed on current tick");
+            yes(replay.consume(ActionCoordinator.Type.ATTACK,
+                ActionCoordinator.Phase.OUTPUT,tick,gen)==null,
+                "one type only across phases at same tick");
+            replay.cancelOwner(owner);
+            replay.prune(tick+1,gen);
+            yes(replay.pending()==0,"phase replay leaves no uncancelled work");
+        }
+        replay.shutdown();
+    }
     private static void longSession() {
         SessionServices s=new SessionServices();
         s.world(true);
@@ -176,7 +275,8 @@ public final class CoordinatorHygieneTests {
         rejected(()->r.prune(10,1),"stopped rotation cannot be reused");
     }
     public static void main(String[] args) throws Exception {
-        futureIntents();rotationScopeIsolationAndCapacity();longSession();ownership();
+        futureIntents();rotationScopeIsolationAndCapacity();
+        actionPhaseIsolationAndCapacity();longSession();ownership();
         yes(checks>3500,"substantial coordinator hygiene assertions");
         System.out.println("COORDINATOR_HYGIENE_PASS assertions="+checks);
     }

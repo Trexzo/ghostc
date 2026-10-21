@@ -292,6 +292,18 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("resized.setText(previous)",gui)
         self.assertIn("resized.setFocused(focused)",gui)
 
+    def test_action_intents_keep_distinct_phases_per_owner_and_type(self):
+        coord=content("src/main/java/dev/ghostfusion/services/ActionCoordinator.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/CoordinatorHygieneTests.java")
+        self.assertIn('return owner+"#"+type.name()+"#"+phase.name();',coord)
+        self.assertIn('String key=key(owner,type,phase);',coord)
+        self.assertIn('requests.remove(key(best.owner,best.type,best.phase));',coord)
+        self.assertIn('for(Phase phase:Phase.values())',coord)
+        self.assertIn('consumedTicks.get(type)',coord)
+        self.assertIn('if(requests.size()>=256 && !requests.containsKey(key))',coord)
+        self.assertIn('actionPhaseIsolationAndCapacity();',tests)
+        self.assertIn('at most one action per TYPE per tick despite two phases',tests)
+
     def test_snapshot_publication_and_aim_final_live_target_fence(self):
         combat=(FORGE/"ForgeCombatController.java").read_text(encoding="utf-8")
         adapter=self.adapter
