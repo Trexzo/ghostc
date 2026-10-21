@@ -123,7 +123,16 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("if(layout.rows==0)return;",driver)
         self.assertIn("x+layout.width,y+layout.height",driver)
         self.assertIn("layout.rowY(slot)",driver)
-        self.assertIn("values[layout.sourceRow(slot)]",driver)
+        self.assertIn("lines.row(layout.sourceRow(slot))",driver)
+        self.assertNotIn("String[] values=",driver)
+        for index in range(14):
+            self.assertIn("case "+str(index)+":",driver)
+        self.assertIn("if(performance==null)performance=host.performanceSnapshot();",driver)
+        self.assertIn("if(snapshot==null)snapshot=host.snapshotTelemetry();",driver)
+        self.assertLess(driver.index("if(layout.rows==0)return;"),
+                        driver.index("DiagnosticLines lines=new DiagnosticLines();"))
+        self.assertLess(driver.index("DiagnosticLines lines=new DiagnosticLines();"),
+                        driver.index("lines.row(layout.sourceRow(slot))"))
         self.assertIn("trimStringToWidth(value,maxWidth)",driver)
         self.assertNotIn("int width=286, height=180;",driver)
         self.assertIn("8,9,10,11,12,13,6,7,0,1,2,3,4,5",policy)
@@ -553,6 +562,24 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("if(ids[i]==id)return distanceSq<distances[i];",budget)
         self.assertIn("(distanceSq==distances[last] && id>=ids[last])",budget)
         self.assertIn("dev.ghostfusion.tests.EspLosPruningTests",
+                      content(".github/workflows/core-ci.yml"))
+
+    def test_configured_esp_limit_applies_before_visibility_and_geometry(self):
+        esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
+        budget=content("src/main/java/dev/ghostfusion/features/EspNearestBudget.java")
+        self.assertIn("public void setLimit(int desired)",budget)
+        self.assertIn("if(size==selectionLimit)",budget)
+        self.assertIn("if(at==selectionLimit)return false;",budget)
+        self.assertIn("int next=Math.min(size+1,selectionLimit);",budget)
+        self.assertIn("nearest.setLimit(drawBudget);",esp)
+        self.assertLess(esp.index("nearest.clear();"),
+                        esp.index("nearest.setLimit(drawBudget);"))
+        self.assertLess(esp.index("nearest.setLimit(drawBudget);"),
+                        esp.index("for(Object obj:mc.theWorld.playerEntities)"))
+        self.assertLess(esp.index("nearest.setLimit(drawBudget);"),
+                        esp.index("if(!nearest.couldEnter(player.getEntityId(),distance)) continue;"))
+        self.assertIn("final int draws=EspDrawLimit.count(drawBudget,nearest.size());",esp)
+        self.assertIn("dev.ghostfusion.tests.EspNearestBudgetTests",
                       content(".github/workflows/core-ci.yml"))
 
     def test_range_first_los_and_optional_nearest_draw_budget(self):

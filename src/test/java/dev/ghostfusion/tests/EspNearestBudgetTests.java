@@ -106,6 +106,69 @@ public final class EspNearestBudgetTests {
             ok(b.size()==0,"clear after each frame "+seed);
         }
     }
+    private static void dynamicLimitParity() {
+        EspNearestBudget<Integer> adaptive=new EspNearestBudget<Integer>(80);
+        ok(adaptive.limit()==80,"default selection capacity remains 80");
+        rejects(()->adaptive.setLimit(0),"zero limit rejected");
+        rejects(()->adaptive.setLimit(81),"over-cap limit rejected");
+        adaptive.setLimit(4);
+        ok(adaptive.limit()==4,"active cap is configured independently of storage");
+        for(int i=0;i<10;i++)adaptive.offer(i,i,i);
+        ok(adaptive.size()==4,"admission prunes at configured cap");
+        adaptive.setLimit(2);
+        ok(adaptive.size()==2&&adaptive.idAt(0)==0&&adaptive.idAt(1)==1,
+           "shrink retains only the nearest selected candidates");
+        ok(!adaptive.containsId(2),"evicted farthest reference no longer reachable");
+        adaptive.setLimit(80);
+        ok(adaptive.size()==2,"expand does not fabricate discarded candidates");
+        adaptive.clear();
+
+        // Repeated frames: compare every configured cap to the legacy top-80
+        // algorithm, including shuffled iteration order and tied distances.
+        // This also checks the active early-culling admission hint.
+        Random r=new Random(2382026L);
+        for(int frame=0;frame<420;frame++) {
+            int selected=1+r.nextInt(80);
+            EspNearestBudget<Integer> original=new EspNearestBudget<Integer>(80);
+            adaptive.clear();
+            adaptive.setLimit(selected);
+            List<Integer> input=new ArrayList<Integer>();
+            for(int i=0;i<240;i++)input.add(i);
+            Collections.shuffle(input,new Random(r.nextLong()));
+            double[] distance=new double[240];
+            for(int id=0;id<distance.length;id++)
+                distance[id]=((id*17+frame*31)%91)+(id%4==0?0.5:0);
+            for(int id:input) {
+                // Model prior visibility/geometry exclusion independently of
+                // the nearest-N cutoff; only admitted eligible IDs are compared.
+                if((id*13+frame)%11==0)continue;
+                original.offer(id,id,distance[id]);
+                if(adaptive.couldEnter(id,distance[id]))
+                    adaptive.offer(id,id,distance[id]);
+                ok(adaptive.size()<=selected,"bounded current ESP draw budget "+frame);
+            }
+            ok(original.size()>=selected&&adaptive.size()==selected,
+               "crowded scene fills both nearest budgets "+frame);
+            for(int i=0;i<selected;i++) {
+                ok(adaptive.idAt(i)==original.idAt(i),
+                   "nearest ID parity across capacity and source permutations "+frame);
+                ok(adaptive.distanceAt(i)==original.distanceAt(i),
+                   "nearest distance parity "+frame);
+            }
+            for(int i=selected;i<original.size();i++) {
+                ok(!adaptive.containsId(original.idAt(i)),
+                   "discarded farther old-budget player not retained "+frame);
+            }
+        }
+        adaptive.clear();
+        adaptive.setLimit(1);
+        ok(adaptive.size()==0 && adaptive.limit()==1,
+           "cross-frame budget change releases previous world references");
+        EspNearestBudget<Integer> world=new EspNearestBudget<Integer>(256);
+        ok(world.limit()==256,"snapshot collector remains at full 256 budget");
+        for(int i=0;i<270;i++)world.offer(i,i,(double)i);
+        ok(world.size()==256,"unrelated target snapshot cap unchanged");
+    }
     private static void stress() {
         EspNearestBudget<Integer> b=new EspNearestBudget<Integer>(80);
         Random random=new Random(801212L);
@@ -125,7 +188,7 @@ public final class EspNearestBudgetTests {
         ok(b.size()==0,"no retained candidate after soak");
     }
     public static void main(String[] args){
-        basics();orderIndependence();stress();
+        basics();orderIndependence();dynamicLimitParity();stress();
         ok(checks>220000,"substantial nearest player replay");
         System.out.println("ESP_NEAREST_BUDGET_PASS assertions="+checks);
     }
