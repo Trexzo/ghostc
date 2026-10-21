@@ -33,7 +33,7 @@ public final class PacketCoordinator {
     private final int capacity;
     private final LinkedHashMap<Long, Pending> queue=new LinkedHashMap<Long, Pending>();
     private long idSequence, rejected, delivered, cancelled, failed, callbackFailures;
-    private boolean stopped;
+    private boolean stopped, resetting;
     public PacketCoordinator(int capacity) {
         if(capacity<1 || capacity>4096) throw new IllegalArgumentException("capacity");
         this.capacity=capacity;
@@ -41,6 +41,7 @@ public final class PacketCoordinator {
     private void check() {
         if(Thread.currentThread()!=thread) throw new IllegalStateException("packet owner thread");
         if(stopped) throw new IllegalStateException("packet stopped");
+        if(resetting) throw new IllegalStateException("packet session reset in progress");
     }
     private void callback(Completion completion,Result result) {
         try { completion.complete(result); }
@@ -94,10 +95,19 @@ public final class PacketCoordinator {
     }
     public void reset() {
         check();
-        for(Pending p:new ArrayList<Pending>(queue.values())) {
-            if(queue.remove(p.id)!=null) {
-                cancelled++; callback(p.completion,Result.STALE_SESSION);
+        // Detach every old-generation request BEFORE invoking any untrusted
+        // completion. Re-entrant submissions from a stale-session callback
+        // must not create work which survives into the next world.
+        resetting=true;
+        try {
+            ArrayList<Pending> stale=new ArrayList<Pending>(queue.values());
+            queue.clear();
+            for(Pending p:stale) {
+                cancelled++;
+                callback(p.completion,Result.STALE_SESSION);
             }
+        } finally {
+            resetting=false;
         }
     }
     public Metrics metrics() {
@@ -106,11 +116,15 @@ public final class PacketCoordinator {
     public void shutdown() {
         if(Thread.currentThread()!=thread) throw new IllegalStateException("packet owner thread");
         if(stopped) return;
-        for(Pending p:new ArrayList<Pending>(queue.values())) {
-            if(queue.remove(p.id)!=null) {
-                cancelled++; callback(p.completion,Result.SHUTDOWN);
-            }
-        }
+        if(resetting) throw new IllegalStateException("packet session reset in progress");
+        // Mark stopped before callbacks: they are user code and can try to
+        // submit new work. No accepted request may survive shutdown.
         stopped=true;
+        ArrayList<Pending> remaining=new ArrayList<Pending>(queue.values());
+        queue.clear();
+        for(Pending p:remaining) {
+            cancelled++;
+            callback(p.completion,Result.SHUTDOWN);
+        }
     }
 }

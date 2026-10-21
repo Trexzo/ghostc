@@ -834,6 +834,23 @@ class ForgeWiring(unittest.TestCase):
                       content(".github/workflows/core-ci.yml"))
         self.assertIn("NumericSliderScale.class",content("tools/verify_forge_jar.py"))
 
+    def test_packet_reset_shutdown_reentry_fence(self):
+        packets=content("src/main/java/dev/ghostfusion/services/PacketCoordinator.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/PacketLifecycleReentryTests.java")
+        self.assertIn("private boolean stopped, resetting;",packets)
+        self.assertIn("if(resetting) throw new IllegalStateException(",packets)
+        self.assertIn("resetting=true;",packets)
+        self.assertIn("queue.clear();",packets)
+        self.assertIn("resetting=false;",packets)
+        self.assertIn("stopped=true;",packets)
+        self.assertLess(packets.index("stopped=true;"),
+                        packets.index("callback(p.completion,Result.SHUTDOWN);"))
+        self.assertIn("resetCallbacks();shutdownCallbacks();thrownCallbacksStillDrain();",suite)
+        self.assertIn("worldTransitions();repeatedLifecycles();",suite)
+        self.assertIn("PACKET_LIFECYCLE_REENTRY_PASS",suite)
+        self.assertIn("dev.ghostfusion.tests.PacketLifecycleReentryTests",
+                      content(".github/workflows/core-ci.yml"))
+
     def test_scoped_rotation_intents_and_bounded_owners(self):
         rotation=content("src/main/java/dev/ghostfusion/services/RotationCoordinator.java")
         suite=content("src/test/java/dev/ghostfusion/tests/CoordinatorHygieneTests.java")
