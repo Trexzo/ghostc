@@ -161,6 +161,7 @@ public final class GhostClickGui extends GuiScreen {
                 active ? accent() : 0xFFD4D7E0);
             yy += 23;
         }
+        label("UP/DOWN", x + 10, y + h - 48, 0xFF929BAC);
         label("F7: CLOSE", x + 10, y + h - 35, 0xFF929BAC);
         label("ESC: CLOSE", x + 10, y + h - 23, 0xFF929BAC);
     }
@@ -172,6 +173,7 @@ public final class GhostClickGui extends GuiScreen {
             selected=next;
             settingScroll=0;
             capture=null;
+            scroll=GuiSelection.reveal(selected,filtered,scroll,Math.max(1,visibleRows));
         }
         return filtered;
     }
@@ -530,6 +532,29 @@ public final class GhostClickGui extends GuiScreen {
                 host.persistUi();
                 return;
             }
+        }
+        if (!hudPage && (keyCode==Keyboard.KEY_UP || keyCode==Keyboard.KEY_DOWN)) {
+            finishSliderDrag();
+            List<ModuleRegistry.Entry> filtered=entries();
+            String next=GuiSelection.step(selected,filtered,
+                keyCode==Keyboard.KEY_DOWN?1:-1);
+            if(selected==null ? next!=null : !selected.equals(next)) {
+                selected=next;
+                settingScroll=0;
+                capture=null;
+            }
+            scroll=GuiSelection.reveal(selected,filtered,scroll,Math.max(1,visibleRows));
+            return;
+        }
+        if (!hudPage && (keyCode==Keyboard.KEY_RETURN ||
+                         keyCode==Keyboard.KEY_NUMPADENTER)) {
+            List<ModuleRegistry.Entry> filtered=entries();
+            if(selected!=null) {
+                scroll=GuiSelection.reveal(selected,filtered,scroll,Math.max(1,visibleRows));
+                try { host.uiActions().toggle(selected); message=""; }
+                catch(RuntimeException ex) { message="Unable to toggle: "+selected; }
+            }
+            return;
         }
         if (!hudPage && search != null && search.textboxKeyTyped(character,keyCode)) {
             ui.query(search.getText());
