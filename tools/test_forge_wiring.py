@@ -1049,6 +1049,21 @@ class ForgeWiring(unittest.TestCase):
         ci=content(".github/workflows/core-ci.yml")
         self.assertIn("dev.ghostfusion.tests.CompactGuiTests",ci)
 
+    def test_module_lifecycle_reentry_and_sealed_shutdown(self):
+        registry=content("src/main/java/dev/ghostfusion/core/ModuleRegistry.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/ModuleLifecycleReentryTests.java")
+        workflow=content(".github/workflows/core-ci.yml")
+        self.assertIn("private boolean transitioning;",registry)
+        self.assertIn("if(e.transitioning) throw new IllegalStateException",registry)
+        self.assertIn("if(lifecycleCallbacks!=0)",registry)
+        self.assertLess(registry.index("shutdown = true;",registry.index("public void shutdown()")),
+                        registry.index("for (Entry e : modules.values()) if (e.state == State.ENABLED)",registry.index("public void shutdown()")))
+        self.assertIn("fault(e, ex, false);",registry)
+        self.assertIn("ModuleLifecycleReentryTests",workflow)
+        self.assertIn("shutdownSealedAndNested();",suite)
+        self.assertIn("eventFailureCleanupReentry();",suite)
+        self.assertIn("longSession();",suite)
+
     def test_core_module_fault_never_retains_private_messages(self):
         module=content("src/main/java/dev/ghostfusion/core/ModuleRegistry.java")
         self.assertNotIn("cause.getMessage()",module)
