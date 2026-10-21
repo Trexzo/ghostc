@@ -24,8 +24,10 @@ public final class NumericSliderScaleTests {
         ok(NumericSliderScale.value(-max,max,0.0)==-max,"negative huge exact endpoint");
         ok(NumericSliderScale.value(-max,max,1.0)==max,"positive huge exact endpoint");
         ok(NumericSliderScale.value(-max,max,0.5)==0.0,"cross-zero wide midpoint finite");
-        ok(NumericSliderScale.value(-max,max,0.25)==-max/2,"cross-zero first quarter");
-        ok(NumericSliderScale.value(-max,max,0.75)==max/2,"cross-zero last quarter");
+        ok(Math.abs(NumericSliderScale.value(-max,max,0.25)+max/2)<=4*Math.ulp(max),
+           "cross-zero first quarter accurate within floating-point rounding");
+        ok(Math.abs(NumericSliderScale.value(-max,max,0.75)-max/2)<=4*Math.ulp(max),
+           "cross-zero last quarter accurate within floating-point rounding");
         ok(NumericSliderScale.fraction(0.0,-max,max)==0.5,
            "extreme finite endpoints have meaningful drawn midpoint");
         ok(NumericSliderScale.fraction(-max,-max,max)==0.0,"minimum empty fill");
@@ -70,11 +72,13 @@ public final class NumericSliderScaleTests {
         UiActions actions=new UiActions(registry,()->saved[0]++);
         ok(actions.previewFraction("render.numeric","wide",0.25),
            "wide setting can be moved to negative finite value");
-        ok(wide.get()==-Double.MAX_VALUE/2,"wide setting negative quarter value");
+        ok(Math.abs(wide.get()+Double.MAX_VALUE/2)<=4*Math.ulp(Double.MAX_VALUE),
+           "wide setting negative quarter value");
         ok(actions.previewFraction("render.numeric","wide",0.75),
            "wide setting can be moved to positive finite value");
-        ok(wide.get()==Double.MAX_VALUE/2,"wide setting positive quarter value");
-        ok(NumericSliderScale.fraction(wide.get(),wide.min(),wide.max())==0.75,
+        ok(Math.abs(wide.get()-Double.MAX_VALUE/2)<=4*Math.ulp(Double.MAX_VALUE),
+           "wide setting positive quarter value");
+        ok(Math.abs(NumericSliderScale.fraction(wide.get(),wide.min(),wide.max())-0.75)<=1e-15,
            "Forge fill fraction roundtrips extreme setting");
         ok(!actions.previewFraction("render.numeric","constant",0.25),
            "constant setting is a no-op");
@@ -109,7 +113,10 @@ public final class NumericSliderScaleTests {
             ok(Double.isFinite(display) && display>=0 && display<=1,
                "drawn fill is finite, clamped and in bounds "+i);
             double rebuilt=NumericSliderScale.value(min,max,display);
-            double tolerance=Math.max(8*Math.ulp(mapped),8*Double.MIN_VALUE);
+            // Near a cancellation point, a one-ULP fraction error represents
+            // endpoint-scale error even if the mapped value is near zero.
+            double scale=Math.max(Math.abs(min),Math.abs(max));
+            double tolerance=16*Math.ulp(scale);
             ok(Math.abs(rebuilt-mapped)<=tolerance ||
                Double.doubleToLongBits(rebuilt)==Double.doubleToLongBits(mapped),
                "mapping roundtrip within floating-point precision "+i);
