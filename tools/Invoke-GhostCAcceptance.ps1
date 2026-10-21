@@ -68,6 +68,15 @@ if (Test-Path -LiteralPath $mods) { Assert-NoLink $mods }
 $accept = Join-Path $game 'ghostc-acceptance'
 if (Test-Path -LiteralPath $accept) { Assert-NoLink $accept }
 $backups = Join-Path $accept 'backups'
+# Validate the ENTIRE owned backup path, not only a transaction child.
+# A junction at backups/ can redirect Move-Item outside the game profile
+# while every individual ghostc-forge189 JAR passes its file hash check.
+if (Test-Path -LiteralPath $backups) {
+    Assert-NoLink $backups
+    if (!(Test-Path -LiteralPath $backups -PathType Container)) {
+        throw 'Acceptance backup path is not a directory.'
+    }
+}
 $stateFile = Join-Path $accept 'install-state.json'
 
 if ($Mode -eq 'Prepare') {
@@ -90,7 +99,6 @@ if ($Mode -eq 'Prepare') {
     if (!(Test-Path -LiteralPath $mods)) {
         New-Item -ItemType Directory -Path $mods | Out-Null
     }
-    New-Item -ItemType Directory -Path $backups -Force | Out-Null
     $sourceDir = [IO.Path]::GetDirectoryName($source)
     if ([string]::Equals($sourceDir.TrimEnd('\'),$mods.TrimEnd('\'),
                          [StringComparison]::OrdinalIgnoreCase)) {
@@ -111,9 +119,17 @@ if ($Mode -eq 'Prepare') {
         Assert-OriginalJarName $item.Name
         $previous += [pscustomobject]@{ name=$item.Name; sha256=(Get-Sha $item.FullName) }
     }
+    # Do not create any backup directories until source, duplicate-name and
+    # all existing-JAR hash preflight checks have succeeded.
+    New-Item -ItemType Directory -Path $backups -Force | Out-Null
+    Assert-NoLink $backups
     $transaction = [guid]::NewGuid().ToString('N')
     $backupDir = Join-Path $backups $transaction
-    New-Item -ItemType Directory -Path $backupDir | Out-Null
+    if (Test-Path -LiteralPath $backupDir) {
+        throw 'Acceptance transaction backup directory unexpectedly exists.'
+    }
+    New-Item -ItemType Directory -Path $backupDir -ErrorAction Stop | Out-Null
+    Assert-NoLink $backupDir
     $destination = Join-Path $mods $name
     $installed = $false
     try {
@@ -159,6 +175,11 @@ if ($state.schema -ne 1 -or $state.transaction -notmatch '^[0-9a-f]{32}$' -or
 Assert-OriginalJarName $state.installed.name
 $installedJar = Join-Path $mods $state.installed.name
 $backupDir = Join-Path $backups $state.transaction
+# Checking only this child would miss a redirect at backups/ itself.
+if (!(Test-Path -LiteralPath $backups -PathType Container)) {
+    throw 'Acceptance backup root missing; refusing Collect or Rollback.'
+}
+Assert-NoLink $backups
 if (!(Test-Path -LiteralPath $backupDir -PathType Container)) {
     throw 'Backup directory missing; refusing any rollback.'
 }

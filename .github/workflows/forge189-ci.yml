@@ -132,7 +132,7 @@ jobs:
             docs/RUNTIME_R21.md
             docs/RUNTIME_R22.md
             docs/RUNTIME_R23.md
-            docs/RUNTIME_R54.md
+            docs/RUNTIME_R55.md
           if-no-files-found: error
 
   windows-forge189:
@@ -239,6 +239,26 @@ jobs:
             throw 'Duplicate named GhostC JAR was not safely rejected'
           }
           Remove-Item -LiteralPath $conflict
+
+          # A junction at the *parent* backups directory is unsafe even when
+          # its eventual transaction child is a normal directory.
+          $outside = Join-Path $env:RUNNER_TEMP ('ghostc-external-backup-target-' + [guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Path $outside -Force | Out-Null
+          $sentinel = Join-Path $outside 'DO_NOT_TOUCH.txt'
+          [IO.File]::WriteAllText($sentinel, 'external owner data')
+          $acceptDir = Join-Path $root 'ghostc-acceptance'
+          New-Item -ItemType Directory -Path $acceptDir -Force | Out-Null
+          $backupRoot = Join-Path $acceptDir 'backups'
+          New-Item -ItemType Junction -Path $backupRoot -Target $outside | Out-Null
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Prepare -GameDir $root -JarPath $jar -ExpectedSha256 $hash *> $null
+          if ($LASTEXITCODE -eq 0 -or !(Test-Path -LiteralPath $previous) -or
+              (Test-Path -LiteralPath (Join-Path $acceptDir 'install-state.json')) -or
+              !([IO.File]::ReadAllText($sentinel) -eq 'external owner data')) {
+            throw 'Prepare followed an untrusted junction in acceptance backups'
+          }
+          [IO.Directory]::Delete($backupRoot, $false)
+          if (!(Test-Path -LiteralPath $sentinel)) { throw 'Backup link cleanup altered external files' }
+          Write-Output 'WINDOWS_ACCEPTANCE_BACKUP_JUNCTION_PREPARE_GUARD_PASS'
           Write-Output 'WINDOWS_ACCEPTANCE_NEGATIVE_PREFLIGHT_PASS'
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Prepare -GameDir $root -JarPath $jar -ExpectedSha256 $hash
           if ($LASTEXITCODE -ne 0) { throw 'Prepare transaction failed' }
@@ -278,6 +298,34 @@ jobs:
           }
           Write-Output 'WINDOWS_ACCEPTANCE_PRESERVE_CHECKLIST_AND_TELEMETRY_PASS'
           $installed = Join-Path $mods "ghostc-forge189-$version.jar"
+
+          # Simulate malicious backup-parent replacement after Prepare.
+          # Rollback must refuse BEFORE removing any installed JAR.
+          $heldBackups = Join-Path $acceptDir 'backups-held-safe'
+          Move-Item -LiteralPath $backupRoot -Destination $heldBackups
+          New-Item -ItemType Junction -Path $backupRoot -Target $outside | Out-Null
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Rollback -GameDir $root *> $null
+          if ($LASTEXITCODE -eq 0 -or
+              !(Test-Path -LiteralPath $installed) -or
+              (Get-FileHash -LiteralPath $installed -Algorithm SHA256).Hash -ne $hash -or
+              !(Test-Path -LiteralPath (Join-Path $acceptDir 'install-state.json')) -or
+              !([IO.File]::ReadAllText($sentinel) -eq 'external owner data')) {
+            throw 'Rollback crossed a backup-root junction or mutated installed client'
+          }
+          $reportBefore = (Get-FileHash -LiteralPath $report -Algorithm SHA256).Hash
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Collect -GameDir $root *> $null
+          if ($LASTEXITCODE -eq 0 -or
+              (Get-FileHash -LiteralPath $report -Algorithm SHA256).Hash -ne $reportBefore) {
+            throw 'Collect followed a backup-root junction or changed acceptance evidence'
+          }
+          Write-Output 'WINDOWS_ACCEPTANCE_BACKUP_JUNCTION_COLLECT_GUARD_PASS'
+          [IO.Directory]::Delete($backupRoot, $false)
+          Move-Item -LiteralPath $heldBackups -Destination $backupRoot
+          if (!(Test-Path -LiteralPath (Join-Path $backupRoot $firstSession 'ghostc-forge189-0.9.0.jar'))) {
+            throw 'Unable to recover original backups after malicious junction fixture'
+          }
+          Write-Output 'WINDOWS_ACCEPTANCE_BACKUP_JUNCTION_ROLLBACK_GUARD_PASS'
+
           [IO.File]::AppendAllText($installed, 'TAMPERED FILE')
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Rollback -GameDir $root *> $null
           if ($LASTEXITCODE -eq 0 -or
@@ -354,5 +402,5 @@ jobs:
             docs/RUNTIME_R15.md
             docs/RUNTIME_R16.md
             docs/RUNTIME_R23.md
-            docs/RUNTIME_R54.md
+            docs/RUNTIME_R55.md
           if-no-files-found: error
