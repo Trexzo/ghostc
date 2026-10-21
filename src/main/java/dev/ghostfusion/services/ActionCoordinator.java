@@ -26,7 +26,14 @@ public final class ActionCoordinator {
         }
     }
     private final Thread thread=Thread.currentThread();
+    // Request identity includes phase: one feature can propose the same
+    // action for distinct processing phases without overwriting either.
+    // The consumedTicks fence below still allows at most one execution
+    // per action TYPE per session tick, regardless of request phase.
     private final Map<String,Request> requests=new LinkedHashMap<String,Request>();
+    private static String key(String owner,Type type,Phase phase) {
+        return owner+"#"+type.name()+"#"+phase.name();
+    }
     private final EnumMap<Type,Long> consumedTicks=new EnumMap<Type,Long>(Type.class);
     private final EnumMap<Type,Long> consumedGenerations=new EnumMap<Type,Long>(Type.class);
     private long ordinal;
@@ -40,9 +47,10 @@ public final class ActionCoordinator {
         check(); ServiceValidation.request(owner,tick,ttl,generation);
         if(type==null || phase==null || (type==Type.HOTBAR_SELECT && (argument<0 || argument>8)))
             throw new IllegalArgumentException("action");
-        if(requests.size()>=256 && !requests.containsKey(owner+"#"+type))
+        String key=key(owner,type,phase);
+        if(requests.size()>=256 && !requests.containsKey(key))
             throw new IllegalStateException("action capacity exceeded");
-        requests.put(owner+"#"+type, new Request(owner,type,phase,argument,
+        requests.put(key, new Request(owner,type,phase,argument,
             priority,tick,tick+ttl,generation,++ordinal));
     }
     public Decision consume(Type type,Phase phase,long tick,long generation) {
@@ -58,12 +66,14 @@ public final class ActionCoordinator {
         }
         if(best==null) return null;
         consumedTicks.put(type,tick); consumedGenerations.put(type,generation);
-        requests.remove(best.owner+"#"+type);
+        requests.remove(key(best.owner,best.type,best.phase));
         return new Decision(best.owner,best.type,best.phase,best.argument,tick,generation);
     }
     public void cancelOwner(String owner) {
         check(); ServiceValidation.owner(owner);
-        for(Type type:Type.values()) requests.remove(owner+"#"+type);
+        for(Type type:Type.values())
+            for(Phase phase:Phase.values())
+                requests.remove(key(owner,type,phase));
     }
     /** Remove stale or expired intents each owner tick; no unbounded backlog. */
     public int prune(long tick, long generation) {
