@@ -77,7 +77,7 @@ public final class HudLiveTargetGateTests {
             "exact edge remains admitted");
         ok(!HudLiveTargetGate.withinRange(3,4,0,0,0,0,4.999),
             "target outside the selected range is suppressed");
-        ok(!HudLiveTargetGate.withinRange(3,4,0,0,0.1,0,5),
+        ok(!HudLiveTargetGate.withinRange(3,4,0,0,-0.1,0,5),
             "movement of local player can invalidate previous selection");
         ok(HudLiveTargetGate.withinRange(3,4,0,0,0.1,0,5.1),
             "live range is re-evaluated without an arbitrary displacement cutoff");
