@@ -88,6 +88,25 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("EXCLUDED_PRIVATE_VALUE",workflow)
         self.assertNotIn("$lines | Set-Content -LiteralPath $report -Encoding UTF8\\nWrite-Output",accept)
 
+    def test_target_hud_crosshair_selection_is_snapshot_and_identity_fenced(self):
+        forge=(FORGE/"ForgeFeatureDriver.java").read_text(encoding="utf-8")
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        policy=content("src/main/java/dev/ghostfusion/features/TargetHudPolicy.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/TargetHudSelectionTests.java")
+        self.assertIn('new Setting.Choice("selection","nearest","nearest","crosshair")',host)
+        self.assertIn("public String targetSelection()",host)
+        self.assertIn("host.targetSelection()",forge)
+        self.assertIn("hit.typeOfHit==MovingObjectPosition.MovingObjectType.ENTITY",forge)
+        self.assertIn("hit.entityHit instanceof EntityPlayer",forge)
+        self.assertIn("mc.theWorld.getEntityByID(candidate.getEntityId())==candidate",forge)
+        self.assertLess(forge.index("mc.theWorld.getEntityByID(candidate.getEntityId())==candidate"),
+                        forge.index("targets.select(w,host.targetRange(),host.targetVisible(),"))
+        self.assertIn("TargetSelector.eligible(entity,sq,limit,visibleOnly,true)",policy)
+        self.assertIn('if("nearest".equals(mode))return select(snapshot,range,visibleOnly);',policy)
+        self.assertIn("crosshair policy matches independent gate",tests)
+        self.assertIn("dev.ghostfusion.tests.TargetHudSelectionTests",
+                      content(".github/workflows/core-ci.yml"))
+
     def test_target_hud_skin_is_persisted_and_legacy_pixels_are_preserved(self):
         forge=(FORGE/"ForgeFeatureDriver.java").read_text(encoding="utf-8")
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
@@ -110,7 +129,7 @@ class ForgeWiring(unittest.TestCase):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         layout=content("src/main/java/dev/ghostfusion/features/TargetHudTextLayout.java")
         self.assertIn('new Setting.Choice("health_text","values","values","percent")',host)
-        self.assertIn('0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin);',host)
+        self.assertIn('0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin, targetSelection);',host)
         self.assertIn("TargetHudTextLayout.layout(",forge)
         self.assertIn("host.targetHealthText(),liveHealth,",forge)
         self.assertIn("mc.fontRendererObj.getStringWidth(value)",forge)
