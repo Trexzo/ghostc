@@ -129,7 +129,7 @@ class ForgeWiring(unittest.TestCase):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         layout=content("src/main/java/dev/ghostfusion/features/TargetHudTextLayout.java")
         self.assertIn('new Setting.Choice("health_text","values","values","percent")',host)
-        self.assertIn('0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin);',host)
+        self.assertIn('0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin, targetSelection);',host)
         self.assertIn("TargetHudTextLayout.layout(",forge)
         self.assertIn("host.targetHealthText(),liveHealth,",forge)
         self.assertIn("mc.fontRendererObj.getStringWidth(value)",forge)
