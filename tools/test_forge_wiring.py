@@ -583,6 +583,25 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.EspNearestBudgetTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_visible_only_esp_rejects_invisibility_and_nonfinite_health(self):
+        esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
+        snapshot=(FORGE/"ForgeEventAdapter.java").read_text(encoding="utf-8")
+        health="if(!Double.isFinite(healthValue) || healthValue<=0) continue;"
+        invis="if(visibleOnly && player.isInvisible()) continue;"
+        ray="if(visibleOnly && !mc.thePlayer.canEntityBeSeen(player)) continue;"
+        admission="if(!nearest.couldEnter(player.getEntityId(),distance)) continue;"
+        self.assertIn(health,esp)
+        self.assertIn(invis,esp)
+        self.assertIn(ray,esp)
+        self.assertIn("if(demand.testVisibility(distanceSq) && !p.isInvisible())",snapshot)
+        self.assertLess(esp.index(health),esp.index(admission))
+        self.assertLess(esp.index(admission),esp.index(invis))
+        self.assertLess(esp.index(invis),esp.index(ray))
+        self.assertIn("dev.ghostfusion.tests.EspLosPruningTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("invisibleAndMalformedHealth()",content(
+            "src/test/java/dev/ghostfusion/tests/EspLosPruningTests.java"))
+
     def test_range_first_los_and_optional_nearest_draw_budget(self):
         esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")

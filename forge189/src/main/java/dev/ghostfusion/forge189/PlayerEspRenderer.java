@@ -137,7 +137,11 @@ final class PlayerEspRenderer {
                 for(Object obj:mc.theWorld.playerEntities) {
                     if(!(obj instanceof EntityPlayer)) continue;
                     EntityPlayer player=(EntityPlayer)obj;
-                    if(player==mc.thePlayer || player.isDead || player.getHealth()<=0) continue;
+                    if(player==mc.thePlayer || player.isDead) continue;
+                    // Match the shared targeting snapshot: malformed health
+                    // is not evidence of a living, renderable player.
+                    double healthValue=player.getHealth();
+                    if(!Double.isFinite(healthValue) || healthValue<=0) continue;
                     // Reject distant players before expensive line-of-sight rays.
                     // Eligible in-range players retain exactly the old gates.
                     double distance=mc.thePlayer.getDistanceSqToEntity(player);
@@ -146,6 +150,11 @@ final class PlayerEspRenderer {
                     // cannot enter it. Skip LOS and geometry for that
                     // candidate, preserving stable distance/ID tie breaks.
                     if(!nearest.couldEnter(player.getEntityId(),distance)) continue;
+                    // A line-of-sight ray can be clear even for an entity with
+                    // Minecraft's invisibility flag. "Visible only" requires
+                    // BOTH not-invisible and a clear LOS, like target snapshots.
+                    // Test invisibility before the expensive LOS ray.
+                    if(visibleOnly && player.isInvisible()) continue;
                     if(visibleOnly && !mc.thePlayer.canEntityBeSeen(player)) continue;
                     if(!renderable(player,partialTicks,skeleton,corners,cornerLength,filled)) continue;
                     nearest.offer(player,player.getEntityId(),distance);

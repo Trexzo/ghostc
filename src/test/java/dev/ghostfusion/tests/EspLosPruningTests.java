@@ -18,9 +18,15 @@ public final class EspLosPruningTests {
     private static final class Player {
         final int id;
         final double distance;
-        final boolean visible,geometry;
+        final boolean visible,geometry,invisible;
+        final double health;
         Player(int id,double distance,boolean visible,boolean geometry){
-            this.id=id;this.distance=distance;this.visible=visible;this.geometry=geometry;
+            this(id,distance,visible,geometry,false,20.0);
+        }
+        Player(int id,double distance,boolean visible,boolean geometry,
+               boolean invisible,double health){
+            this.id=id;this.distance=distance;this.visible=visible;
+            this.geometry=geometry;this.invisible=invisible;this.health=health;
         }
     }
     private static final class Trial {
@@ -28,10 +34,14 @@ public final class EspLosPruningTests {
         int rays,geometryTests;
         void offer(Player p,boolean pruning,double maxSq){
             // Mirrors the real Forge pre-LOS and geometry admission contracts.
+            if(!Double.isFinite(p.health)||p.health<=0)return;
             if(!Double.isFinite(p.distance)||p.distance<0||p.distance>maxSq)return;
             if(pruning && !accepted.couldEnter(p.id,p.distance))return;
+            // Reference algorithm checks invisibility only after the ray,
+            // optimized renderer skips it before ray; membership is identical.
+            if(pruning && p.invisible)return;
             rays++;
-            if(!p.visible)return;
+            if(p.invisible || !p.visible)return;
             geometryTests++;
             if(!p.geometry)return;
             accepted.offer(p,p.id,p.distance);
@@ -93,7 +103,10 @@ public final class EspLosPruningTests {
                 if(i%137==0)dist=-1;
                 boolean visible=i%7!=0;
                 boolean geometry=i%11!=0;
-                scene.add(new Player(id,dist,visible,geometry));
+                boolean invisible=i%13==0;
+                double health=i%97==0?Double.NaN:i%89==0?Double.POSITIVE_INFINITY:
+                    i%83==0?0.0:(i%3==0?1.0:20.0);
+                scene.add(new Player(id,dist,visible,geometry,invisible,health));
             }
             Collections.shuffle(scene,new Random(rng.nextLong()));
             Trial old=new Trial(),filtered=new Trial();
@@ -109,6 +122,34 @@ public final class EspLosPruningTests {
         ok(totalPrunedRays<=totalOriginalRays,
            "realistic crowded LOS count never increases");
     }
+    private static void invisibleAndMalformedHealth() {
+        Trial ordinary=new Trial(),optimized=new Trial();
+        // First valid visible target remains selected, and truly invisible
+        // targets are never considered visible even with clear LOS.
+        Player visible=new Player(1,1,true,true,false,20);
+        Player invisible=new Player(2,0.25,true,true,true,20);
+        Player nan=new Player(3,0.10,true,true,false,Double.NaN);
+        Player infinite=new Player(4,0.10,true,true,false,Double.POSITIVE_INFINITY);
+        Player zero=new Player(5,0.10,true,true,false,0.0);
+        Player negative=new Player(6,0.10,true,true,false,-2.0);
+        for(Player p:new Player[]{visible,invisible,nan,infinite,zero,negative}) {
+            ordinary.offer(p,false,36);
+            optimized.offer(p,true,36);
+        }
+        equal(ordinary,optimized,"invisibility and non-finite health");
+        ok(optimized.accepted.size()==1 && optimized.accepted.idAt(0)==1,
+           "invisible, dead, nonfinite players never displace valid visible");
+        ok(optimized.rays==1 && ordinary.rays==2,
+           "invisibility filtered before LOS while baseline wastes one ray");
+
+        // Unfiltered ESP may deliberately show invisible players when the
+        // owner has disabled visible-only mode. That policy is independent
+        // of the visible-only renderer studied above.
+        ok(invisible.invisible && invisible.visible,
+           "clear line of sight does not imply Minecraft player is visible");
+        ordinary.accepted.clear();
+        optimized.accepted.clear();
+    }
     private static void owner(){
         final EspNearestBudget<String> b=new EspNearestBudget<String>(80);
         b.offer("existing",2,4);
@@ -123,7 +164,7 @@ public final class EspLosPruningTests {
         ok(b.size()==1,"blocked cross-thread read has no side effects");
     }
     public static void main(String[] args) {
-        guaranteedBenefit();randomized();owner();
+        guaranteedBenefit();invisibleAndMalformedHealth();randomized();owner();
         ok(checks>400000,"seeded original-vs-pruned selection coverage");
         System.out.println("ESP_LOS_PRUNING_PASS assertions="+checks);
     }
