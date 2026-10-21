@@ -14,16 +14,35 @@ public final class EspNearestBudget<T> {
     private final int[] ids;
     private final double[] distances;
     private int size;
+    private int selectionLimit;
     public EspNearestBudget(int capacity) {
         if(capacity<1 || capacity>256)throw new IllegalArgumentException("nearest entity budget capacity");
         players=new Object[capacity];
         ids=new int[capacity];
         distances=new double[capacity];
+        selectionLimit=capacity;
     }
     private void check() {
         if(Thread.currentThread()!=owner)
             throw new IllegalStateException("ESP budget requires render owner thread");
     }
+    /**
+     * Reconfigure the nearest-N policy without allocating another buffer.
+     * Shrinking discards farthest references immediately. To expand and still
+     * consider all candidates for the current frame, clear() and rescan.
+     * World snapshots retain their original 256 capacity unless configured.
+     */
+    public void setLimit(int desired) {
+        check();
+        if(desired<1 || desired>players.length)
+            throw new IllegalArgumentException("nearest budget active limit");
+        if(desired<size) {
+            for(int i=desired;i<size;i++) players[i]=null;
+            size=desired;
+        }
+        selectionLimit=desired;
+    }
+    public int limit(){check();return selectionLimit;}
     /**
      * Non-mutating admission hint for expensive renderer checks.
      * False means offer(id,distanceSq) could not change the selected
@@ -34,7 +53,7 @@ public final class EspNearestBudget<T> {
     public boolean couldEnter(int id,double distanceSq) {
         check();
         if(!Double.isFinite(distanceSq)||distanceSq<0)return false;
-        if(size==players.length) {
+        if(size==selectionLimit) {
             int last=size-1;
             if(distanceSq>distances[last] ||
                 (distanceSq==distances[last] && id>=ids[last]))
@@ -59,8 +78,8 @@ public final class EspNearestBudget<T> {
         int at=0;
         while(at<size && (distances[at]<distanceSq ||
             (distances[at]==distanceSq && ids[at]<id)))at++;
-        if(at==players.length)return false;
-        int next=Math.min(size+1,players.length);
+        if(at==selectionLimit)return false;
+        int next=Math.min(size+1,selectionLimit);
         for(int j=next-1;j>at;j--) {
             players[j]=players[j-1];
             distances[j]=distances[j-1];

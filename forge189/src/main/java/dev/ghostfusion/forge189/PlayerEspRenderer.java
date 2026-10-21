@@ -129,6 +129,10 @@ final class PlayerEspRenderer {
             // Validate geometry BEFORE admission so invalid players cannot
             // displace any of the nearest 80 renderable candidates.
             nearest.clear();
+            // Admission should match the *configured* draw budget, not always
+            // select 80 and discard 79. This advances the cutoff for LOS and
+            // geometry early on crowded servers with small ESP limits.
+            nearest.setLimit(drawBudget);
             try {
                 for(Object obj:mc.theWorld.playerEntities) {
                     if(!(obj instanceof EntityPlayer)) continue;

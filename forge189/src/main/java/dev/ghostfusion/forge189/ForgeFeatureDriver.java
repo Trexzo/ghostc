@@ -150,6 +150,80 @@ public final class ForgeFeatureDriver {
         if(!fitted.isEmpty())
             mc.fontRendererObj.drawStringWithShadow(fitted,x,y,color);
     }
+    /** Rendered-row-only metric acquisition. Snapshot distributions are read
+     * once per visible panel rather than once per string or invisible row. */
+    private final class DiagnosticLines {
+        private dev.ghostfusion.host.FramePerformance.Snapshot performance;
+        private dev.ghostfusion.host.SnapshotTelemetry.Snapshot snapshot;
+        private dev.ghostfusion.host.FramePerformance.Snapshot performance(){
+            if(performance==null)performance=host.performanceSnapshot();
+            return performance;
+        }
+        private dev.ghostfusion.host.SnapshotTelemetry.Snapshot snapshot(){
+            if(snapshot==null)snapshot=host.snapshotTelemetry();
+            return snapshot;
+        }
+        String row(int index) {
+            switch(index) {
+                case 0:
+                    return "Epoch " + host.services().generation() + " | Tick " + host.services().tick();
+                case 1:
+                    return "F7 "+host.diagnostics().count(Counter.GUI_OPEN)+
+                        " | GUI frames "+host.diagnostics().count(Counter.GUI_FRAME);
+                case 2:
+                    return "2D "+host.diagnostics().count(Counter.OVERLAY_FRAME)+
+                        " | World "+host.diagnostics().count(Counter.WORLD_RENDER_FRAME);
+                case 3:
+                    return "Keys "+host.diagnostics().count(Counter.KEY_CALLBACK)+
+                        " | Mouse "+host.diagnostics().count(Counter.MOUSE_CALLBACK);
+                case 4:
+                    return "Action "+host.services().actions().pending()+
+                        " | Rotation "+host.services().rotations().pending();
+                case 5:
+                    return "Aim "+host.diagnostics().count(Counter.AIM_APPLIED)+
+                        " | Attack "+host.diagnostics().count(Counter.EXTRA_ATTACK)+
+                        " | Use "+host.diagnostics().count(Counter.EXTRA_USE);
+                case 6:
+                    return "ESP frames "+host.diagnostics().count(Counter.ESP_RENDER_FRAME)+
+                        " | Players "+host.diagnostics().count(Counter.ESP_DRAWN_PLAYER);
+                case 7:
+                    return "Skeletons "+host.diagnostics().count(Counter.ESP_DRAWN_SKELETON)+
+                        " | Invalid "+host.diagnostics().count(Counter.ESP_INVALID_GEOMETRY);
+                case 8: {
+                    dev.ghostfusion.host.FramePerformance.Snapshot perf=performance();
+                    return "FPS min/p50/p95/p99 "+perf.minFps+"/"+perf.medianFps+
+                        "/"+perf.p95Fps+"/"+perf.p99Fps;
+                }
+                case 9: {
+                    dev.ghostfusion.host.FramePerformance.Snapshot perf=performance();
+                    return "Heap "+perf.heapMiB+"/"+perf.peakHeapMiB+
+                        " MiB | Frames "+perf.frames;
+                }
+                case 10: {
+                    dev.ghostfusion.host.SnapshotTelemetry.Snapshot snap=snapshot();
+                    return "Snapshot p50/p95/p99 "+snap.p50Us+"/"+snap.p95Us+
+                        "/"+snap.p99Us+" us";
+                }
+                case 11: {
+                    dev.ghostfusion.host.SnapshotTelemetry.Snapshot snap=snapshot();
+                    return "Scanned "+snap.scanned+" | Range "+snap.inRange+
+                        " | LOS "+snap.losQueries;
+                }
+                case 12: {
+                    dev.ghostfusion.host.SnapshotTelemetry.Snapshot snap=snapshot();
+                    return "Published "+snap.published+" | Ticks "+snap.samples+
+                        " | Max "+snap.maxUs+" us";
+                }
+                case 13: {
+                    dev.ghostfusion.host.SnapshotTelemetry.Mode mode=host.lastSnapshotMode();
+                    dev.ghostfusion.host.SnapshotTelemetry.Snapshot modeStats=host.snapshotTelemetry(mode);
+                    return "Last mode "+mode.name()+" p95 "+modeStats.p95Us+
+                        " us | n "+modeStats.samples;
+                }
+                default: throw new IllegalArgumentException("Invalid diagnostics row");
+            }
+        }
+    }
     private void drawDiagnostics(int sw,int sh) {
         DiagnosticsHudLayout layout=DiagnosticsHudLayout.calculate(
             sw,sh,mc.fontRendererObj.FONT_HEIGHT);
@@ -158,42 +232,11 @@ public final class ForgeFeatureDriver {
         Gui.drawRect(x,y,x+layout.width,y+layout.height,0xC31B2133);
         drawDiagnosticText("GhostC " + GhostCMod.CLIENT_VERSION +
             " diagnostics",x+5,y+5,layout.textWidth,0xFFAEAAFF);
-        String epoch="Epoch " + host.services().generation() + " | Tick " + host.services().tick();
-        String gui="F7 "+host.diagnostics().count(Counter.GUI_OPEN)+
-            " | GUI frames "+host.diagnostics().count(Counter.GUI_FRAME);
-        String render="2D "+host.diagnostics().count(Counter.OVERLAY_FRAME)+
-            " | World "+host.diagnostics().count(Counter.WORLD_RENDER_FRAME);
-        String events="Keys "+host.diagnostics().count(Counter.KEY_CALLBACK)+
-            " | Mouse "+host.diagnostics().count(Counter.MOUSE_CALLBACK);
-        String queue="Action "+host.services().actions().pending()+
-            " | Rotation "+host.services().rotations().pending();
-        String applied="Aim "+host.diagnostics().count(Counter.AIM_APPLIED)+
-            " | Attack "+host.diagnostics().count(Counter.EXTRA_ATTACK)+
-            " | Use "+host.diagnostics().count(Counter.EXTRA_USE);
-        String esp="ESP frames "+host.diagnostics().count(Counter.ESP_RENDER_FRAME)+
-            " | Players "+host.diagnostics().count(Counter.ESP_DRAWN_PLAYER);
-        String skeleton="Skeletons "+host.diagnostics().count(Counter.ESP_DRAWN_SKELETON)+
-            " | Invalid "+host.diagnostics().count(Counter.ESP_INVALID_GEOMETRY);
-        dev.ghostfusion.host.FramePerformance.Snapshot perf=host.performanceSnapshot();
-        String fps="FPS min/p50/p95/p99 "+perf.minFps+"/"+perf.medianFps+
-            "/"+perf.p95Fps+"/"+perf.p99Fps;
-        String memory="Heap "+perf.heapMiB+"/"+perf.peakHeapMiB+
-            " MiB | Frames "+perf.frames;
-        dev.ghostfusion.host.SnapshotTelemetry.Snapshot snap=host.snapshotTelemetry();
-        String snapTiming="Snapshot p50/p95/p99 "+snap.p50Us+"/"+snap.p95Us+
-            "/"+snap.p99Us+" us";
-        String snapVolume="Scanned "+snap.scanned+" | Range "+snap.inRange+
-            " | LOS "+snap.losQueries;
-        String snapOutput="Published "+snap.published+" | Ticks "+snap.samples+
-            " | Max "+snap.maxUs+" us";
-        dev.ghostfusion.host.SnapshotTelemetry.Mode mode=host.lastSnapshotMode();
-        dev.ghostfusion.host.SnapshotTelemetry.Snapshot modeStats=host.snapshotTelemetry(mode);
-        String snapClass="Last mode "+mode.name()+" p95 "+modeStats.p95Us+
-            " us | n "+modeStats.samples;
-        String[] values={epoch,gui,render,events,queue,applied,esp,skeleton,
-                         fps,memory,snapTiming,snapVolume,snapOutput,snapClass};
+        // Compact panels evaluate ONLY the rows the layout can actually paint.
+        // Full panels retain exactly the original fourteen labels and order.
+        DiagnosticLines lines=new DiagnosticLines();
         for(int slot=0;slot<layout.rows;slot++)
-            drawDiagnosticText(values[layout.sourceRow(slot)],x+5,
+            drawDiagnosticText(lines.row(layout.sourceRow(slot)),x+5,
                 layout.rowY(slot),layout.textWidth,0xFFC9D1DF);
         // Focus/suppression remains in the saved local report.
     }
