@@ -11,6 +11,7 @@ import dev.ghostfusion.features.EspLineColor;
 import dev.ghostfusion.features.EspCornerBoxGeometry;
 import dev.ghostfusion.features.EspFilledBoxGeometry;
 import dev.ghostfusion.features.EspDistanceFade;
+import dev.ghostfusion.features.LiveCombatTargetGate;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.entity.player.EntityPlayer;
@@ -155,6 +156,11 @@ final class PlayerEspRenderer {
                     // BOTH not-invisible and a clear LOS, like target snapshots.
                     // Test invisibility before the expensive LOS ray.
                     if(visibleOnly && player.isInvisible()) continue;
+                    // The active-world ID map is authoritative even if the
+                    // player list still holds a stale/replaced object.
+                    if(!LiveCombatTargetGate.eligible(player,
+                        mc.theWorld.getEntityByID(player.getEntityId()),
+                        mc.thePlayer,player.isDead,healthValue)) continue;
                     if(visibleOnly && !mc.thePlayer.canEntityBeSeen(player)) continue;
                     if(!renderable(player,partialTicks,skeleton,corners,cornerLength,filled)) continue;
                     nearest.offer(player,player.getEntityId(),distance);
@@ -165,6 +171,11 @@ final class PlayerEspRenderer {
                     // the nearest *draws* subset, never the full 80 buffer.
                     final int slot=EspDrawLimit.slot(index,draws,filled);
                     EntityPlayer p=nearest.get(slot);
+                    // Validate again before GL emission, never draw a stale
+                    // player or a replacement sharing the previous ID.
+                    if(!LiveCombatTargetGate.eligible(p,
+                        mc.theWorld.getEntityByID(p.getEntityId()),mc.thePlayer,
+                        p.isDead,p.getHealth(),p.isInvisible(),visibleOnly)) continue;
                     double xx=p.lastTickPosX+(p.posX-p.lastTickPosX)*partialTicks;
                     double yy=p.lastTickPosY+(p.posY-p.lastTickPosY)*partialTicks;
                     double zz=p.lastTickPosZ+(p.posZ-p.lastTickPosZ)*partialTicks;

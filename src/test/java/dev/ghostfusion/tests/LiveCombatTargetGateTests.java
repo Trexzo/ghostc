@@ -119,6 +119,39 @@ public final class LiveCombatTargetGateTests {
                "live aim visible-only gate matches reference "+i);
         }
     }
+    private static void espMembershipChurn() {
+        final Object local=new Object(),a=new Object(),b=new Object();
+        ok(LiveCombatTargetGate.eligible(a,a,local,false,20,false,true),
+            "in-world ESP candidate admitted");
+        ok(!LiveCombatTargetGate.eligible(a,b,local,false,20,false,true),
+            "replaced entity ID suppresses cached ESP candidate");
+        ok(!LiveCombatTargetGate.eligible(a,null,local,false,20,false,false),
+            "despawn suppresses ESP even through walls");
+        Random random=new Random(2492026L);
+        for(int i=0;i<50000;i++) {
+            Object selected=random.nextBoolean()?a:b;
+            Object loaded;
+            switch(random.nextInt(5)){
+                case 0:loaded=null;break;
+                case 1:loaded=local;break;
+                case 2:loaded=a;break;
+                default:loaded=b;break;
+            }
+            boolean dead=random.nextBoolean(),invisible=random.nextBoolean();
+            boolean only=random.nextBoolean();
+            double hp;
+            switch(random.nextInt(7)){
+                case 0:hp=Double.NaN;break;
+                case 1:hp=Double.POSITIVE_INFINITY;break;
+                case 2:hp=0;break;
+                default:hp=1+random.nextDouble()*200;break;
+            }
+            boolean expected=selected==loaded && selected!=local && !dead &&
+                Double.isFinite(hp) && hp>0 && (!only || !invisible);
+            ok(LiveCombatTargetGate.eligible(selected,loaded,local,dead,hp,
+                invisible,only)==expected,"ESP current-world gate "+i);
+        }
+    }
     private static void ownership() throws Exception {
         // Gate is pure and read-only: no Minecraft classes, threads or state.
         Object candidate=new Object(),local=new Object();
@@ -128,7 +161,7 @@ public final class LiveCombatTargetGateTests {
         ok(result.get(),"pure admission is deterministic off thread");
     }
     public static void main(String[] args)throws Exception{
-        focused();randomized();liveAimVisibility();ownership();
+        focused();randomized();liveAimVisibility();espMembershipChurn();ownership();
         ok(assertions>300000,"substantial crosshair and aim lifecycle coverage");
         System.out.println("LIVE_COMBAT_TARGET_GATE_PASS assertions="+assertions);
     }
