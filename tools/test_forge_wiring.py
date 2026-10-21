@@ -267,6 +267,31 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("resized.setText(previous)",gui)
         self.assertIn("resized.setFocused(focused)",gui)
 
+    def test_live_crosshair_identity_before_combat_target_policies(self):
+        combat=(FORGE/"ForgeCombatController.java").read_text(encoding="utf-8")
+        gate=content("src/main/java/dev/ghostfusion/features/LiveCombatTargetGate.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/LiveCombatTargetGateTests.java")
+        self.assertIn("import dev.ghostfusion.features.LiveCombatTargetGate;",combat)
+        self.assertIn("mc.theWorld.getEntityByID(candidate.getEntityId())",combat)
+        self.assertIn("LiveCombatTargetGate.eligible(candidate,",combat)
+        self.assertIn("candidate.isDead,candidate.getHealth()",combat)
+        self.assertIn("player.isDead || !Double.isFinite(player.getHealth())",combat)
+        self.assertIn("player.getHealth()<=0",combat)
+        self.assertIn("cached==inCurrentWorld && cached!=localPlayer",gate)
+        self.assertIn("Double.isFinite(health) && health>0",gate)
+        self.assertLess(combat.index("LiveCombatTargetGate.eligible(candidate,"),
+                        combat.index("final boolean validTarget = target != null;"))
+        self.assertLess(combat.index("player.isDead || !Double.isFinite(player.getHealth())"),
+                        combat.index("boolean physicalDown ="))
+        self.assertIn("!host.clickEntityOnly() || validTarget",combat)
+        self.assertIn("!host.hitRequireTarget() || validTarget",combat)
+        self.assertIn("host.blockRequireTarget()",combat)
+        self.assertIn("stale respawn blocked",tests)
+        self.assertIn("LIVE_COMBAT_TARGET_GATE_PASS",tests)
+        self.assertIn("dev.ghostfusion.tests.LiveCombatTargetGateTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("LiveCombatTargetGate.class",content("tools/verify_forge_jar.py"))
+
     def test_combat_fault_boundaries_and_intent_cancellation(self):
         combat=(FORGE/"ForgeCombatController.java").read_text(encoding="utf-8")
         for id in ("combat.aimassist","combat.clicker","combat.hitselect","combat.blockhit"):
