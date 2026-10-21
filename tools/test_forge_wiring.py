@@ -834,6 +834,22 @@ class ForgeWiring(unittest.TestCase):
                       content(".github/workflows/core-ci.yml"))
         self.assertIn("NumericSliderScale.class",content("tools/verify_forge_jar.py"))
 
+    def test_scoped_rotation_intents_and_bounded_owners(self):
+        rotation=content("src/main/java/dev/ghostfusion/services/RotationCoordinator.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/CoordinatorHygieneTests.java")
+        self.assertIn("private static final int MAX_PENDING=256;",rotation)
+        self.assertIn('return owner+"#"+scope.name();',rotation)
+        self.assertIn("!requests.containsKey(key)",rotation)
+        self.assertIn("requests.put(key, new Request(owner, scope",rotation)
+        self.assertIn("for(Scope scope:Scope.values())requests.remove(key(owner,scope));",rotation)
+        self.assertNotIn("requests.put(owner, new Request(",rotation)
+        self.assertIn("rotationScopeIsolationAndCapacity()",suite)
+        self.assertIn("one owner retains independent camera and outbound intents",suite)
+        self.assertIn("257th distinct scoped intent rejected",suite)
+        self.assertIn("long session remains bounded with two scope keys",suite)
+        self.assertIn("dev.ghostfusion.tests.CoordinatorHygieneTests",
+                      content(".github/workflows/core-ci.yml"))
+
     def test_numeric_slider_drag_capture_live_preview_and_single_commit(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         actions=content("src/main/java/dev/ghostfusion/ui/UiActions.java")
