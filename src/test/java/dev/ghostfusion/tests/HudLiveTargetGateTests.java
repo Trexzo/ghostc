@@ -72,8 +72,49 @@ public final class HudLiveTargetGateTests {
                "snapshot="+cached+" must not override current health "+i);
         }
     }
+    private static void liveRange(){
+        ok(HudLiveTargetGate.withinRange(3,4,0,0,0,0,5),
+            "exact edge remains admitted");
+        ok(!HudLiveTargetGate.withinRange(3,4,0,0,0,0,4.999),
+            "target outside the selected range is suppressed");
+        ok(!HudLiveTargetGate.withinRange(3,4,0,0,0.1,0,5),
+            "movement of local player can invalidate previous selection");
+        ok(HudLiveTargetGate.withinRange(3,4,0,0,0.1,0,5.1),
+            "live range is re-evaluated without an arbitrary displacement cutoff");
+        ok(HudLiveTargetGate.withinRange(0,0,0,0,0,0,Double.MIN_VALUE),
+            "coincident entities remain in any positive range");
+        for(double bad:new double[]{Double.NaN,Double.POSITIVE_INFINITY,
+                                    Double.NEGATIVE_INFINITY}){
+            ok(!HudLiveTargetGate.withinRange(bad,0,0,0,0,0,5),
+                "invalid target position refused");
+            ok(!HudLiveTargetGate.withinRange(0,0,0,bad,0,0,5),
+                "invalid local position refused");
+            ok(!HudLiveTargetGate.withinRange(0,0,0,0,0,0,bad),
+                "invalid range refused");
+        }
+        ok(!HudLiveTargetGate.withinRange(0,0,0,0,0,0,0),"zero range refused");
+        ok(!HudLiveTargetGate.withinRange(0,0,0,0,0,0,-1),"negative range refused");
+        ok(!HudLiveTargetGate.withinRange(Double.MAX_VALUE,0,0,
+            -Double.MAX_VALUE,0,0,24),"overflowed distance refused");
+        Random rnd=new Random(2482026L);
+        for(int i=0;i<120000;i++){
+            double localX=rnd.nextDouble()*200-100;
+            double localY=rnd.nextDouble()*200-100;
+            double localZ=rnd.nextDouble()*200-100;
+            double dx=rnd.nextDouble()*60-30;
+            double dy=rnd.nextDouble()*60-30;
+            double dz=rnd.nextDouble()*60-30;
+            double maxRange=1+rnd.nextDouble()*24;
+            double distanceSq=dx*dx+dy*dy+dz*dz;
+            boolean expected=distanceSq<=maxRange*maxRange;
+            boolean actual=HudLiveTargetGate.withinRange(
+                localX+dx,localY+dy,localZ+dz,
+                localX,localY,localZ,maxRange);
+            ok(actual==expected,"live range randomized replay "+i);
+        }
+    }
     public static void main(String[] args){
-        basics();randomized();
+        basics();randomized();liveRange();
         ok(assertions>138000,"substantial HUD redraw admission replay");
         System.out.println("HUD_LIVE_TARGET_GATE_PASS assertions="+assertions);
     }

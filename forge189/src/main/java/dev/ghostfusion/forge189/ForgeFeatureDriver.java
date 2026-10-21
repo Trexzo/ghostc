@@ -259,6 +259,12 @@ public final class ForgeFeatureDriver {
         final double liveHealth=player.getHealth();
         if(!HudLiveTargetGate.eligible(player,mc.thePlayer,player.isDead,
             liveHealth,player.isInvisible(),host.targetVisible()))return;
+        // The owner-tick snapshot is only a selection hint; a player or
+        // local camera may have left the selected range before this frame.
+        if(!HudLiveTargetGate.withinRange(
+            player.posX,player.posY,player.posZ,
+            mc.thePlayer.posX,mc.thePlayer.posY,mc.thePlayer.posZ,
+            host.targetRange()))return;
         String name=player.getName();
         int width=frame.width,height=frame.height;
         int x=frame.x,y=frame.y;

@@ -14,4 +14,20 @@ public final class HudLiveTargetGate {
             Double.isFinite(liveHealth) && liveHealth>0 &&
             (!visibleOnly || !invisible);
     }
+    /**
+     * A tick-snapshot target can leave range before the overlay is drawn.
+     * Re-evaluate against both entities' current coordinates without
+     * mutating the target or the saved selection policy.
+     */
+    public static boolean withinRange(double targetX,double targetY,double targetZ,
+                                      double localX,double localY,double localZ,
+                                      double maximumRange) {
+        if (!Double.isFinite(maximumRange) || maximumRange<=0 ||
+            !Double.isFinite(targetX) || !Double.isFinite(targetY) ||
+            !Double.isFinite(targetZ) || !Double.isFinite(localX) ||
+            !Double.isFinite(localY) || !Double.isFinite(localZ)) return false;
+        double dx=targetX-localX,dy=targetY-localY,dz=targetZ-localZ;
+        double distanceSq=dx*dx+dy*dy+dz*dz;
+        return Double.isFinite(distanceSq) && distanceSq<=maximumRange*maximumRange;
+    }
 }
