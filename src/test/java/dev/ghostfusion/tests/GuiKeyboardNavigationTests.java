@@ -78,7 +78,7 @@ public final class GuiKeyboardNavigationTests {
         invalid(()->GuiSelection.reveal(first,list,0,0),"no visible rows rejected");
         invalid(()->GuiSelection.step(first,null,1),"null filtered list rejected");
         invalid(()->GuiSelection.reveal(first,null,0,5),"null reveal list rejected");
-        ui.query("Feature 17");
+        ui.query("gui.module.17");
         List<ModuleRegistry.Entry> one=ui.filtered(registry);
         ok(one.size()==1,"typed filter has one result");
         String only=one.get(0).module().id();
