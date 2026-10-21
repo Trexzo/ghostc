@@ -61,6 +61,28 @@ public final class HudTextFitTests {
         };
         rejects(()->HudTextFit.fit("X",20,corrupt),"invalid font width rejected");
         rejects(()->HudTextFit.cps(1,1,false,30,corrupt),"CPS rejects invalid font");
+        String sixtyFour=new String(new char[64]).replace((char)0,'X');
+        ok(sixtyFour.equals(HudTextFit.fit(sixtyFour,1000,FONT)),
+           "exact 64-scalar label preserves full text");
+        ok((sixtyFour+"...").equals(HudTextFit.fit(sixtyFour+"EXTRA",1000,FONT)),
+           "bounded source truncation is always visibly marked");
+        String rocket=new String(Character.toChars(0x1F680));
+        StringBuilder longUnicode=new StringBuilder();
+        for(int i=0;i<65;i++)longUnicode.append(rocket);
+        String clipped=HudTextFit.fit(longUnicode.toString(),1000,FONT);
+        ok(clipped.endsWith("...") && clipped.codePointCount(0,clipped.length())==67,
+           "long Unicode label fits by scalar without silently losing a tail");
+        ok(clipped.charAt(clipped.length()-4)==rocket.charAt(1),
+           "last retained Unicode scalar includes its trailing surrogate");
+        final int[] widths={0};
+        ToIntFunction<String> measured=new ToIntFunction<String>() {
+            public int applyAsInt(String txt) {widths[0]++;return FONT.applyAsInt(txt);}
+        };
+        StringBuilder huge=new StringBuilder();
+        for(int i=0;i<10000;i++)huge.append("VeryLongClickGUIName");
+        String bounded=HudTextFit.fit(huge.toString(),1000,measured);
+        ok(bounded.endsWith("...") && widths[0]<=70,
+           "giant untrusted GUI label gets explicit ellipsis in bounded font measurements");
     }
     private static void seeded() {
         Random r=new Random(2312026L);
@@ -78,6 +100,33 @@ public final class HudTextFitTests {
             ok(fitted.length()<200,"bounded output "+i);
             ok(!fitted.endsWith("\uD800")&&!fitted.endsWith("\uDC00"),
                "no split surrogate "+i);
+        }
+        // GUI names and configuration strings can exceed the 64-scalar
+        // sanitization cap; every silently clipped tail must get an ellipsis.
+        String emoji=new String(Character.toChars(0x1F30D));
+        for(int i=0;i<5000;i++) {
+            StringBuilder longName=new StringBuilder();
+            int size=65+r.nextInt(450);
+            for(int j=0;j<size;j++) {
+                if(j%17==0)longName.append(emoji);
+                else longName.append(chars.charAt(r.nextInt(chars.length())));
+            }
+            int width=9+r.nextInt(450);
+            String fitted=HudTextFit.fit(longName.toString(),width,FONT);
+            ok(FONT.applyAsInt(fitted)<=width,"long GUI label within actual width "+i);
+            ok(fitted.endsWith("..."),"long GUI label always marks truncation "+i);
+            ok(fitted.codePointCount(0,fitted.length())<=67,
+               "long GUI label bounded to 64 scalars + ellipsis "+i);
+            ok(!fitted.contains("\u00a7"),"no Minecraft formatting in GUI label "+i);
+            for(int j=0;j<fitted.length();j++) {
+                char ch=fitted.charAt(j);
+                if(Character.isHighSurrogate(ch))
+                    ok(j+1<fitted.length() && Character.isLowSurrogate(fitted.charAt(j+1)),
+                       "GUI name high surrogate always paired "+i);
+                if(Character.isLowSurrogate(ch))
+                    ok(j>0 && Character.isHighSurrogate(fitted.charAt(j-1)),
+                       "GUI name low surrogate always paired "+i);
+            }
         }
         for(int i=0;i<15000;i++) {
             int l=r.nextInt(10000000),rt=r.nextInt(10000000);

@@ -14,6 +14,7 @@ import dev.ghostfusion.ui.GuiSelection;
 import dev.ghostfusion.ui.HudPositions.Widget;
 import dev.ghostfusion.ui.HudPreviewGeometry;
 import dev.ghostfusion.ui.HudFootprints;
+import dev.ghostfusion.ui.HudTextFit;
 import dev.ghostfusion.ui.StatusHudLayout;
 import dev.ghostfusion.ui.HudEditorControls;
 import dev.ghostfusion.ui.HudPreviewGeometry.Rect;
@@ -50,6 +51,14 @@ public final class GhostClickGui extends GuiScreen {
     private int previewX, previewY, previewW, previewH;
     private static final int HUD_WIDTH = 124;
     private static final int HUD_HEIGHT = 22;
+    // Reuse the active Minecraft font when measuring GUI labels, without
+    // allocating a new callback on each rendered row or each frame.
+    private final java.util.function.ToIntFunction<String> guiFontWidths =
+        new java.util.function.ToIntFunction<String>() {
+            public int applyAsInt(String text) {
+                return fontRendererObj.getStringWidth(text);
+            }
+        };
 
     public GhostClickGui(HostRuntime host) {
         if (host == null) throw new IllegalArgumentException("host");
@@ -221,12 +230,11 @@ public final class GhostClickGui extends GuiScreen {
             "/" + settings.size() + "  scroll", x + side + 13, bindY + 6, 0xFFE7E8F5);
     }
     private String trim(String text, int maxPixels) {
-        if (maxPixels < 12) return "";
-        if (fontRendererObj.getStringWidth(text) <= maxPixels) return text;
-        String out = text;
-        while (out.length() > 0 && fontRendererObj.getStringWidth(out + "..") > maxPixels)
-            out = out.substring(0, out.length() - 1);
-        return out + "..";
+        // The legacy substring loop could split a supplementary Unicode
+        // scalar and repeatedly scan large labels on each ClickGUI frame.
+        // R2.31's shared sanitizer/fit policy bounds scans and measures the
+        // current Minecraft font without splitting surrogate pairs.
+        return HudTextFit.fit(text,Math.max(0,maxPixels),guiFontWidths);
     }
     private HudPreviewGeometry previewGeometry() {
         return new HudPreviewGeometry(previewX,previewY,previewW,previewH,width,height);

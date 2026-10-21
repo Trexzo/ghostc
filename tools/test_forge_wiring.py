@@ -224,6 +224,24 @@ class ForgeWiring(unittest.TestCase):
                       content(".github/workflows/core-ci.yml"))
         self.assertIn('HudTextFit.class',content("tools/verify_forge_jar.py"))
 
+    def test_clickgui_uses_unicode_safe_bounded_font_fit(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        policy=content("src/main/java/dev/ghostfusion/ui/HudTextFit.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/HudTextFitTests.java")
+        self.assertIn("import dev.ghostfusion.ui.HudTextFit;",gui)
+        self.assertIn("HudTextFit.fit(text,Math.max(0,maxPixels),guiFontWidths)",gui)
+        self.assertIn("return fontRendererObj.getStringWidth(text);",gui)
+        self.assertIn("private final java.util.function.ToIntFunction<String> guiFontWidths",gui)
+        self.assertNotIn("out.substring(0, out.length() - 1)",gui)
+        self.assertIn("sourceClipped",policy)
+        self.assertIn("at<raw.length()",policy)
+        self.assertIn("!cleaned.sourceClipped && measured(font,clean)<=budget",policy)
+        self.assertIn("long GUI label always marks truncation",tests)
+        self.assertIn("giant untrusted GUI label gets explicit ellipsis",tests)
+        self.assertIn("valid supplementary scalar survives",tests)
+        self.assertIn("dev.ghostfusion.tests.HudTextFitTests",
+                      content(".github/workflows/core-ci.yml"))
+
     def test_separate_gl_guard_scopes_and_matrix_restoration(self):
         self.assertIn("GL11.GL_ALL_ATTRIB_BITS",self.gl)
         self.assertIn("GL11.GL_PROJECTION",self.gl)
