@@ -17,7 +17,11 @@ param(
     [string]$GameDir,
 
     [string]$JarPath,
-    [string]$ExpectedSha256
+    [string]$ExpectedSha256,
+
+    # Internal, CI-fixture-only handled-failure test hook. Not an owner option.
+    [ValidateRange(-1,10)]
+    [int]$CiFailRollbackAfterRestoreCount = -1
 )
 
 Set-StrictMode -Version Latest
@@ -57,6 +61,17 @@ if (!(Test-Path -LiteralPath $game -PathType Container)) {
     throw "The Minecraft profile directory does not exist."
 }
 Assert-NoLink $game
+if ($CiFailRollbackAfterRestoreCount -ge 0) {
+    if ($Mode -ne 'Rollback' -or $env:GITHUB_ACTIONS -ne 'true' -or
+        [string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) {
+        throw 'Rollback fault injection is restricted to GitHub Actions fixtures.'
+    }
+    $runnerRoot = [IO.Path]::GetFullPath($env:RUNNER_TEMP).TrimEnd('\','/')
+    $runnerPrefix = $runnerRoot + [IO.Path]::DirectorySeparatorChar
+    if (!$game.StartsWith($runnerPrefix,[StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Rollback fault injection requires a temporary CI fixture profile.'
+    }
+}
 $mods = Join-Path $game 'mods'
 $versionFolder = Join-Path $game 'versions'
 if (!(Test-Path -LiteralPath $mods -PathType Container) -and
@@ -227,14 +242,91 @@ if ($Mode -eq 'Rollback') {
             throw "Rollback would overwrite a changed file: $($entry.name)"
         }
     }
-    Remove-Item -LiteralPath $installedJar -Force
-    foreach ($entry in $prior) {
-        Move-Item -LiteralPath (Join-Path $backupDir $entry.name) -Destination $mods
-        if ((Get-Sha (Join-Path $mods $entry.name)) -ne $entry.sha256) {
-            throw "Restoration checksum mismatch: $($entry.name)"
-        }
+
+    # Stage and verify all restore copies before touching the current client.
+    # Original backups stay intact, allowing retry after a handled failure.
+    $stage = Join-Path $backupDir 'rollback-stage'
+    if (Test-Path -LiteralPath $stage) {
+        throw 'A prior rollback stage exists. Refusing to overwrite recovery files.'
     }
-    Remove-Item -LiteralPath $stateFile -Force
+    $stageCopies = Join-Path $stage 'copies'
+    $heldPath = Join-Path $stage 'active-client.jar'
+    $heldInstalled = $false
+    $restored = @()
+    try {
+        New-Item -ItemType Directory -Path $stageCopies -Force -ErrorAction Stop | Out-Null
+        Assert-NoLink $stage
+        Assert-NoLink $stageCopies
+        foreach ($entry in $prior) {
+            $copy = Join-Path $stageCopies $entry.name
+            Copy-Item -LiteralPath (Join-Path $backupDir $entry.name) -Destination $copy -ErrorAction Stop
+            if ((Get-Sha $copy) -ne $entry.sha256) {
+                throw "Rollback staged-copy hash mismatch: $($entry.name)"
+            }
+        }
+        Move-Item -LiteralPath $installedJar -Destination $heldPath -ErrorAction Stop
+        $heldInstalled = $true
+        if ((Get-Sha $heldPath) -ne $state.installed.sha256) {
+            throw 'Quarantined active-client SHA256 mismatch.'
+        }
+        foreach ($entry in $prior) {
+            $copy = Join-Path $stageCopies $entry.name
+            $destination = Join-Path $mods $entry.name
+            Move-Item -LiteralPath $copy -Destination $destination -ErrorAction Stop
+            $restored += $entry
+            if ((Get-Sha $destination) -ne $entry.sha256) {
+                throw "Restoration checksum mismatch: $($entry.name)"
+            }
+            if ($CiFailRollbackAfterRestoreCount -eq $restored.Count) {
+                throw 'CI_INJECTED_ROLLBACK_RESTORE_FAILURE'
+            }
+        }
+        # Commit only after every original is restored and hash-verified.
+        Remove-Item -LiteralPath $stateFile -Force -ErrorAction Stop
+    }
+    catch {
+        $cause = $_.Exception.Message
+        $recoveryErrors = @()
+        for ($i = $restored.Count - 1; $i -ge 0; $i--) {
+            $entry = $restored[$i]
+            $destination = Join-Path $mods $entry.name
+            try {
+                if ((Get-Sha $destination) -ne $entry.sha256) {
+                    throw 'A restored JAR changed while rollback was running.'
+                }
+                Remove-Item -LiteralPath $destination -Force -ErrorAction Stop
+            }
+            catch {
+                $recoveryErrors += "Cannot reclaim restored $($entry.name): $($_.Exception.Message)"
+            }
+        }
+        if ($heldInstalled) {
+            try {
+                if (Test-Path -LiteralPath $installedJar) {
+                    throw 'Active client destination was unexpectedly occupied.'
+                }
+                if ((Get-Sha $heldPath) -ne $state.installed.sha256) {
+                    throw 'Held active client changed during recovery.'
+                }
+                Move-Item -LiteralPath $heldPath -Destination $installedJar -ErrorAction Stop
+                if ((Get-Sha $installedJar) -ne $state.installed.sha256) {
+                    throw 'Recovered active client SHA256 mismatch.'
+                }
+            }
+            catch {
+                $recoveryErrors += "Cannot restore active client: $($_.Exception.Message)"
+            }
+        }
+        if ($recoveryErrors.Count -gt 0) {
+            throw "ROLLBACK_RECOVERY_INCOMPLETE: $cause. Recovery files preserved at $stage. $($recoveryErrors -join '; ')"
+        }
+        try { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction Stop }
+        catch { Write-Warning 'Rollback stage cleanup failed; review before retrying.' }
+        throw "GHOSTC_ROLLBACK_REVERTED: $cause. Active client and transaction retained."
+    }
+    # After commit, cleanup is best-effort; original backup copies are retained.
+    try { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction Stop }
+    catch { Write-Warning 'Rollback succeeded but a backup stage requires manual review.' }
     Write-Output "GHOSTC_ROLLBACK_PASS restored=$($prior.Count)"
     exit 0
 }
