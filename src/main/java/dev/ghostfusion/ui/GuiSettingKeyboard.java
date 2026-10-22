@@ -1,5 +1,7 @@
 package dev.ghostfusion.ui;
 
+import dev.ghostfusion.core.Setting;
+
 /**
  * Pure keyboard traversal of the selected module's typed settings.
  * No Minecraft or persistence dependency. All focus positions use the same
@@ -24,6 +26,14 @@ public final class GuiSettingKeyboard {
         if(focus<start)return focus;
         if(focus>=start+rows)return Math.min(count-rows,focus-rows+1);
         return start;
+    }
+    /** Contextual hints are pure policy: only controls valid for the focused type. */
+    public static String hint(Setting<?> focused) {
+        if(focused==null)throw new IllegalArgumentException("focused setting");
+        if(focused instanceof Setting.Bool)return "ENTER/SPACE TOGGLE  R RESET";
+        if(focused instanceof Setting.Choice)return "LEFT/RIGHT  HOME/END  ENTER  R";
+        if(focused instanceof Setting.Number)return "LEFT/RIGHT  SHIFT+ARROWS  HOME/END  R";
+        throw new IllegalArgumentException("unknown setting type");
     }
     /** Existing 5% step remains the unmodified keyboard behavior. */
     public static double nudgeFraction(double value,double min,double max,int direction) {
