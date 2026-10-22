@@ -592,7 +592,7 @@ public final class GhostClickGui extends GuiScreen {
                             double next=GuiSettingKeyboard.nudgeFraction(
                                 n.get(),n.min(),n.max(),
                                 keyCode==Keyboard.KEY_RIGHT?1:-1);
-                            if(Double.compare(oldFraction,next)!=0)
+                            if(n.min()!=n.max() && Double.compare(oldFraction,next)!=0)
                                 host.uiActions().fraction(selected,item.getKey(),next);
                         }
                         message="";
