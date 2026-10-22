@@ -831,6 +831,27 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("espMembershipChurn();",tests)
         self.assertIn("replaced entity ID suppresses cached ESP candidate",tests)
 
+    def test_esp_final_live_range_geometry_and_fade_revalidation(self):
+        esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
+        gate=content("src/main/java/dev/ghostfusion/features/EspLivePaintGate.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/EspLivePaintGateTests.java")
+        self.assertIn("EspLivePaintGate.distanceSquared(",esp)
+        self.assertIn("p.posX,p.posY,p.posZ,mc.thePlayer.posX,mc.thePlayer.posY,",esp)
+        self.assertIn("if(!Double.isFinite(liveDistanceSq))continue;",esp)
+        self.assertIn("if(!renderable(p,partialTicks,skeleton,corners,cornerLength,filled))",esp)
+        self.assertIn("liveDistanceSq,\n                    maximum,true,fadeStart,fadeMinimum",esp)
+        self.assertLess(esp.index("if(!LiveCombatTargetGate.eligible(p,"),
+                        esp.index("EspLivePaintGate.distanceSquared("))
+        self.assertLess(esp.index("if(!Double.isFinite(liveDistanceSq))continue;"),
+                        esp.index("AxisAlignedBB box=p.getEntityBoundingBox()"))
+        self.assertLess(esp.index("if(!renderable(p,partialTicks,skeleton,corners,cornerLength,filled))"),
+                        esp.index("AxisAlignedBB box=p.getEntityBoundingBox()"))
+        self.assertIn("Double.isFinite(squared)",gate)
+        self.assertIn("120000;i++",tests)
+        self.assertIn("dev.ghostfusion.tests.EspLivePaintGateTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("EspLivePaintGate.class",content("tools/verify_forge_jar.py"))
+
     def test_visible_only_esp_rejects_invisibility_and_nonfinite_health(self):
         esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
         snapshot=(FORGE/"ForgeEventAdapter.java").read_text(encoding="utf-8")
@@ -865,7 +886,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("final int draws=EspDrawLimit.count(drawBudget,nearest.size());",esp)
         self.assertIn("final int slot=EspDrawLimit.slot(index,draws,filled);",esp)
         self.assertIn("EntityPlayer p=nearest.get(slot);",esp)
-        self.assertIn("nearest.distanceAt(slot)",esp)
+        self.assertIn("final double liveDistanceSq=EspLivePaintGate.distanceSquared(",esp)
         self.assertNotIn("mc.thePlayer.getDistanceSqToEntity(p)",esp)
         self.assertIn("return Math.min(configured,available);",policy)
         self.assertIn("return filled ? drawCount-1-drawIndex : drawIndex;",policy)

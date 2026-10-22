@@ -11,6 +11,7 @@ import dev.ghostfusion.features.EspLineColor;
 import dev.ghostfusion.features.EspCornerBoxGeometry;
 import dev.ghostfusion.features.EspFilledBoxGeometry;
 import dev.ghostfusion.features.EspDistanceFade;
+import dev.ghostfusion.features.EspLivePaintGate;
 import dev.ghostfusion.features.LiveCombatTargetGate;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.RenderManager;
@@ -176,6 +177,16 @@ final class PlayerEspRenderer {
                     if(!LiveCombatTargetGate.eligible(p,
                         mc.theWorld.getEntityByID(p.getEntityId()),mc.thePlayer,
                         p.isDead,p.getHealth(),p.isInvisible(),visibleOnly)) continue;
+                    // The original nearest-distance admission is a candidate
+                    // hint, not authorization to paint an old-world position.
+                    final double liveDistanceSq=EspLivePaintGate.distanceSquared(
+                        p.posX,p.posY,p.posZ,mc.thePlayer.posX,mc.thePlayer.posY,
+                        mc.thePlayer.posZ,maximum);
+                    if(!Double.isFinite(liveDistanceSq))continue;
+                    // Mutable player pose/bounding boxes can be invalidated
+                    // after admission by other client-side render listeners.
+                    if(!renderable(p,partialTicks,skeleton,corners,cornerLength,filled))
+                        continue;
                     double xx=p.lastTickPosX+(p.posX-p.lastTickPosX)*partialTicks;
                     double yy=p.lastTickPosY+(p.posY-p.lastTickPosY)*partialTicks;
                     double zz=p.lastTickPosZ+(p.posZ-p.lastTickPosZ)*partialTicks;
@@ -183,10 +194,10 @@ final class PlayerEspRenderer {
                         .offset(xx-p.posX,yy-p.posY,zz-p.posZ).expand(0.04,0.06,0.04);
                 // One finite, clamped multiplier per admitted player. Keep
                 // hue constant, and do not alter semantic HP bar colors.
-                // Reuse the same validated squared distance that determined
-                // nearest-80 ordering; do not query player distance again.
+                // Fade reads the same live distance that passed the final
+                // range fence, not the potentially stale admission distance.
                 final float fade=fadeEnabled ? EspDistanceFade.factor(
-                    nearest.distanceAt(slot),
+                    liveDistanceSq,
                     maximum,true,fadeStart,fadeMinimum) : 1f;
                 final float lineAlpha=appearance.opacity*fade;
                 if(filled) {
