@@ -56,6 +56,9 @@ public final class HostRuntime {
     private final Setting.Bool targetHealth = new Setting.Bool("show_health", true);
     // Off by default: old HUD visuals and profiles are unchanged.
     private final Setting.Bool targetDistance = new Setting.Bool("show_distance", false);
+    // Opt-in independent HUD policy; ESP and combat targeting remain unchanged.
+    private final Setting.Bool targetIgnoreTeammates =
+        new Setting.Bool("ignore_teammates", false);
     // Existing profiles keep Nearest; Crosshair draws only the entity under the reticle.
     private final Setting.Choice targetSelection =
         new Setting.Choice("selection","nearest","nearest","crosshair");
@@ -141,7 +144,7 @@ public final class HostRuntime {
         modules.register(new FeatureModule("hud.cps", "CPS Counter", GhostModule.Category.RENDER),
             0, cpsRight);
         modules.register(new FeatureModule("hud.target", "Target HUD", GhostModule.Category.RENDER),
-            0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin, targetSelection, targetDistance);
+            0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin, targetSelection, targetDistance, targetIgnoreTeammates);
         modules.register(new FeatureModule("render.esp", "Player ESP", GhostModule.Category.RENDER),
             0, espRange, espVisible, espIgnoreTeammates, espWalls, espWidth, espStyle, espHealth,
             espHealthSide, espHealthGap,
@@ -263,6 +266,9 @@ public final class HostRuntime {
     public boolean targetVisible() { modules.assertOwnerThread(); return targetVisible.get(); }
     public boolean targetHealth() { modules.assertOwnerThread(); return targetHealth.get(); }
     public boolean targetDistance() { modules.assertOwnerThread(); return targetDistance.get(); }
+    public boolean targetIgnoreTeammates() {
+        modules.assertOwnerThread(); return targetIgnoreTeammates.get();
+    }
     public String targetHealthText() {
         modules.assertOwnerThread(); return targetHealthText.get();
     }

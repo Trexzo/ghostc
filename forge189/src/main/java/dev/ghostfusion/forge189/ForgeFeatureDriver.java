@@ -11,6 +11,7 @@ import dev.ghostfusion.features.TargetHudPolicy;
 import dev.ghostfusion.features.HudLiveTargetGate;
 import dev.ghostfusion.features.TargetHudTextLayout;
 import dev.ghostfusion.features.TargetHudDistanceText;
+import dev.ghostfusion.features.EspTeamPolicy;
 import dev.ghostfusion.features.TargetHudPalette;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
@@ -36,6 +37,18 @@ public final class ForgeFeatureDriver {
     private final HostRuntime host;
     private final CpsMeter cps = new CpsMeter();
     private final TargetHudPolicy targets = new TargetHudPolicy();
+    // Reused, client-thread-only admission for snapshot IDs. No per-frame
+    // predicate allocations; no extra LOS rays or snapshot construction.
+    private final java.util.function.IntPredicate nonTeammate =
+        new java.util.function.IntPredicate() {
+            public boolean test(int id) {
+                if(mc.theWorld==null || mc.thePlayer==null)return false;
+                Entity candidate=mc.theWorld.getEntityByID(id);
+                return candidate instanceof EntityPlayer && candidate!=mc.thePlayer &&
+                    !EspTeamPolicy.exclude(mc.thePlayer.getTeam(),
+                        ((EntityPlayer)candidate).getTeam());
+            }
+        };
     private final PlayerEspRenderer esp;
     // Reuse callback while measuring with the currently active MC font.
     private final java.util.function.ToIntFunction<String> targetFontWidths;
@@ -266,8 +279,12 @@ public final class ForgeFeatureDriver {
                     crosshairId=candidate.getEntityId();
             }
         }
-        WorldSnapshot.Entity target=targets.select(w,host.targetRange(),host.targetVisible(),
-            selection,crosshairId);
+        final boolean ignoreTeammates=host.targetIgnoreTeammates();
+        WorldSnapshot.Entity target=ignoreTeammates
+            ?targets.select(w,host.targetRange(),host.targetVisible(),
+                selection,crosshairId,nonTeammate)
+            :targets.select(w,host.targetRange(),host.targetVisible(),
+                selection,crosshairId);
         if (target==null) return;
         Entity e=mc.theWorld.getEntityByID(target.id);
         if (!(e instanceof EntityPlayer) || e == mc.thePlayer) return;
@@ -277,6 +294,9 @@ public final class ForgeFeatureDriver {
         final double liveHealth=player.getHealth();
         if(!HudLiveTargetGate.eligible(player,mc.thePlayer,player.isDead,
             liveHealth,player.isInvisible(),host.targetVisible()))return;
+        // Team membership can change between candidate selection and paint.
+        if(ignoreTeammates && EspTeamPolicy.exclude(
+            mc.thePlayer.getTeam(),player.getTeam()))return;
         // The owner-tick snapshot is only a selection hint; a player or
         // local camera may have left the selected range before this frame.
         if(!HudLiveTargetGate.withinRange(

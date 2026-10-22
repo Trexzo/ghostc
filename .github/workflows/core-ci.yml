@@ -41,6 +41,8 @@ jobs:
           grep -q 'PINNED_SNAPSHOT_PASS' .build/pinned-snapshot.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudDistanceTextTests | tee .build/target-hud-distance.log
           grep -q 'TARGET_HUD_DISTANCE_PASS' .build/target-hud-distance.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudTeamFilterTests | tee .build/target-hud-team.log
+          grep -q 'TARGET_HUD_TEAM_FILTER_PASS' .build/target-hud-team.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudSelectionTests | tee .build/target-hud-selection.log
           grep -q 'TARGET_HUD_SELECTION_PASS' .build/target-hud-selection.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudPaletteTests | tee .build/target-hud-palette.log
