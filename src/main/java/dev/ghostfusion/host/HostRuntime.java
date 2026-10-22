@@ -67,6 +67,8 @@ public final class HostRuntime {
         new Setting.Choice("health_text","values","values","percent");
     private final Setting.Number espRange = new Setting.Number("range", 32.0, 2.0, 80.0);
     private final Setting.Bool espVisible = new Setting.Bool("visible_only", true);
+    // Default false preserves old-world player ESP colors, LOS and membership.
+    private final Setting.Bool espIgnoreTeammates = new Setting.Bool("ignore_teammates", false);
     private final Setting.Bool espWalls = new Setting.Bool("through_walls", false);
     private final Setting.Bool espHealth = new Setting.Bool("show_health", false);
     private final Setting.Choice espHealthSide =
@@ -141,7 +143,7 @@ public final class HostRuntime {
         modules.register(new FeatureModule("hud.target", "Target HUD", GhostModule.Category.RENDER),
             0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin, targetSelection, targetDistance);
         modules.register(new FeatureModule("render.esp", "Player ESP", GhostModule.Category.RENDER),
-            0, espRange, espVisible, espWalls, espWidth, espStyle, espHealth,
+            0, espRange, espVisible, espIgnoreTeammates, espWalls, espWidth, espStyle, espHealth,
             espHealthSide, espHealthGap,
             espRed, espGreen, espBlue, espOpacity, espCornerLength, espFillOpacity,
             espDistanceFade, espFadeStart, espFadeMinimum, espDrawLimit);
@@ -272,6 +274,9 @@ public final class HostRuntime {
     }
     public double espRange() { modules.assertOwnerThread(); return espRange.get(); }
     public boolean espVisible() { modules.assertOwnerThread(); return espVisible.get(); }
+    public boolean espIgnoreTeammates() {
+        modules.assertOwnerThread(); return espIgnoreTeammates.get();
+    }
     public boolean espThroughWalls() { modules.assertOwnerThread(); return espWalls.get(); }
     public boolean espShowHealth() { modules.assertOwnerThread(); return espHealth.get(); }
     public dev.ghostfusion.features.EspHealthBarGeometry.Side espHealthSide(){
