@@ -31,6 +31,8 @@ REQUIRED = (
     "dev/ghostfusion/features/TargetHudTextLayout.class",
     "dev/ghostfusion/features/TargetHudDistanceText.class",
     "dev/ghostfusion/features/HudLiveTargetGate.class",
+    "dev/ghostfusion/features/PingHudText.class",
+    "dev/ghostfusion/forge189/ForgePingReadout.class",
     "dev/ghostfusion/ui/DiagnosticsHudLayout.class",
     "dev/ghostfusion/ui/HudTextFit.class",
     "dev/ghostfusion/ui/GuiSliderDrag.class",

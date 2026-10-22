@@ -162,6 +162,8 @@ jobs:
           grep -q 'CONFIG_RECOVERY_PASS' .build/config-recovery.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.BackupRotationTests | tee .build/backup-rotation.log
           grep -q 'BACKUP_ROTATION_PASS' .build/backup-rotation.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.PingHudTests | tee .build/ping-hud.log
+          grep -q 'PING_HUD_PASS' .build/ping-hud.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.StatusHudLayoutTests | tee .build/status-hud-layout.log
           grep -q 'STATUS_HUD_LAYOUT_PASS' .build/status-hud-layout.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.DiagnosticsHudLayoutTests | tee .build/diagnostics-hud-layout.log

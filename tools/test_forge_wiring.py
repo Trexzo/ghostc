@@ -1508,6 +1508,35 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.HudEditorControlsTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_optional_metrics_ping_layout_and_editor_match(self):
+        adapter=self.adapter
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        layout=content("src/main/java/dev/ghostfusion/ui/StatusHudLayout.java")
+        bridge=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgePingReadout.java")
+        policy=content("src/main/java/dev/ghostfusion/features/PingHudText.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/PingHudTests.java")
+        self.assertIn('new Setting.Bool("show_ping", false)',host)
+        self.assertIn("modules.register(metrics, 0, showFps, showCoordinates, showPing);",host)
+        self.assertIn("public boolean showPing()",host)
+        self.assertIn("metrics && host.showPing()",adapter)
+        self.assertIn("ForgePingReadout.read(minecraft)",adapter)
+        self.assertIn("ForgePingReadout.read(mc)",gui)
+        self.assertIn("status,fpsText!=null,coordsText!=null,pingText!=null,",adapter)
+        self.assertIn("status,fps,coordinates,ping,",gui)
+        self.assertIn("layout.y+layout.pingY",adapter)
+        self.assertIn("if(showPing)w=Math.max(w,(long)pingWidth+2);",layout)
+        self.assertIn("public final int statusY, fpsY, coordinatesY, pingY;",layout)
+        self.assertIn("handler.getPlayerInfo(mc.thePlayer.getUniqueID())",bridge)
+        self.assertIn("player.getResponseTime()",bridge)
+        self.assertIn("if(millis<0)return \"\";",policy)
+        self.assertIn("120000;i++",tests)
+        self.assertIn("85000;i++",tests)
+        self.assertIn("dev.ghostfusion.tests.PingHudTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("PingHudText.class",content("tools/verify_forge_jar.py"))
+        self.assertIn("ForgePingReadout.class",content("tools/verify_forge_jar.py"))
+
     def test_status_metrics_layout_and_independent_fault_isolation(self):
         adapter=self.adapter
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")

@@ -8,6 +8,7 @@ import dev.ghostfusion.services.WorldSnapshotAdmission;
 import dev.ghostfusion.services.SnapshotDemand;
 import dev.ghostfusion.features.EspTeamPolicy;
 import dev.ghostfusion.features.TargetHudTeamPin;
+import dev.ghostfusion.forge189.ForgePingReadout;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.MovingObjectPosition;
@@ -256,17 +257,21 @@ public final class ForgeEventAdapter {
         final String coordsText=metrics && host.showCoordinates() && minecraft.thePlayer!=null
             ? String.format(Locale.ROOT,"XYZ %.1f %.1f %.1f",
                 minecraft.thePlayer.posX,minecraft.thePlayer.posY,minecraft.thePlayer.posZ) : null;
+        // Read the existing local tab-list response time only if opted in.
+        final String pingText=metrics && host.showPing()
+            ? ForgePingReadout.read(minecraft) : null;
         int warningStatusX=0,warningStatusBottom=2;
-        if(status || fpsText!=null || coordsText!=null) {
+        if(status || fpsText!=null || coordsText!=null || pingText!=null) {
             final int statusWidth=status ? Math.max(1,
                 Math.round((minecraft.fontRendererObj.getStringWidth(statusText)+4)*scale)) : 0;
             final int statusHeight=status ? Math.max(1,
                 Math.round((fontHeight+5)*scale)) : 0;
             final StatusHudLayout layout=StatusHudLayout.calculate(host.ui(),sw,sh,
-                status,fpsText!=null,coordsText!=null,
+                status,fpsText!=null,coordsText!=null,pingText!=null,
                 statusWidth,statusHeight,
                 fpsText==null?0:minecraft.fontRendererObj.getStringWidth(fpsText),
                 coordsText==null?0:minecraft.fontRendererObj.getStringWidth(coordsText),
+                pingText==null?0:minecraft.fontRendererObj.getStringWidth(pingText),
                 fontHeight);
             warningStatusX=layout.x;
             warningStatusBottom=layout.y+layout.height+3;
@@ -289,7 +294,7 @@ public final class ForgeEventAdapter {
                     });
                 }
             });
-            if(metrics && (fpsText!=null || coordsText!=null))
+            if(metrics && (fpsText!=null || coordsText!=null || pingText!=null))
                 host.runFeature("hud.metrics",new Runnable() {
                     public void run() {
                         RenderStateGuard.draw(new Runnable() {
@@ -311,6 +316,16 @@ public final class ForgeEventAdapter {
                                             coordsText,available);
                                         minecraft.fontRendererObj.drawStringWithShadow(
                                             shown,layout.x+2,py,0xFFB2CBFF);
+                                    }
+                                }
+                                if(pingText!=null) {
+                                    int py=layout.y+layout.pingY;
+                                    if(py>=0 && py+fontHeight<=sh) {
+                                        String shown=minecraft.fontRendererObj.trimStringToWidth(
+                                            pingText,available);
+                                        if(!shown.isEmpty())
+                                            minecraft.fontRendererObj.drawStringWithShadow(
+                                                shown,layout.x+2,py,0xFFB2CBFF);
                                     }
                                 }
                             }
