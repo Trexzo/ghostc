@@ -29,6 +29,19 @@ public final class GuiSettingKeyboardTests {
         public void onDisable(){}
         public void onEvent(GameEvent event){}
     }
+    private static void hintPolicy() {
+        ok("ENTER/SPACE TOGGLE  R RESET".equals(
+            GuiSettingKeyboard.hint(new Setting.Bool("bool",false))),
+            "boolean help displays only valid activation and reset keys");
+        ok("LEFT/RIGHT  HOME/END  ENTER  R".equals(
+            GuiSettingKeyboard.hint(new Setting.Choice("choice","a","a","b"))),
+            "choice help displays arrows, endpoints, cycling and reset");
+        ok("LEFT/RIGHT  SHIFT+ARROWS  HOME/END  R".equals(
+            GuiSettingKeyboard.hint(new Setting.Number("value",5,0,10))),
+            "numeric help displays coarse/fine and endpoints");
+        rejects(()->GuiSettingKeyboard.hint(null),
+            "keyboard help rejects null focus");
+    }
     private static void boundaries() {
         ok(GuiSettingKeyboard.next(-1,0,1)==-1,"no settings means no focus");
         ok(GuiSettingKeyboard.next(-1,6,1)==0,"tab starts on first setting");
@@ -207,7 +220,7 @@ public final class GuiSettingKeyboardTests {
         }
     }
     public static void main(String[] args) {
-        boundaries();precisionAndEndpoints();typedActions();choiceDirections();replay();
+        hintPolicy();boundaries();precisionAndEndpoints();typedActions();choiceDirections();replay();
         ok(checks>300000,"large keyboard settings regression replay");
         System.out.println("GUI_SETTING_KEYBOARD_PASS assertions="+checks);
     }

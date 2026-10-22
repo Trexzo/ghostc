@@ -426,7 +426,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("keyCode==Keyboard.KEY_RIGHT || keyCode==Keyboard.KEY_R",gui)
         self.assertIn("if(keyCode==Keyboard.KEY_R)",gui)
         self.assertIn("if(!Keyboard.isRepeatEvent())",gui)
-        self.assertIn('"TAB  SHIFT+ARROWS  HOME/END  R"',gui)
+        self.assertIn("GuiSettingKeyboard.hint(settings.get(keyboardSetting).getValue())",gui)
         key=gui.index("@Override protected void keyTyped")
         self.assertLess(gui.index("if (capture != null)",key),
                         gui.index("host.uiActions().reset(selected,item.getKey())",key))
@@ -456,6 +456,21 @@ class ForgeWiring(unittest.TestCase):
                         gui.index("host.uiActions().choiceEdge(",key))
         self.assertLess(gui.index("if (capture != null)",key),
                         gui.index("host.uiActions().choiceEdge(",key))
+
+    def test_keyboard_help_is_contextual_and_not_overlaid_on_keybind_row(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        policy=content("src/main/java/dev/ghostfusion/ui/GuiSettingKeyboard.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/GuiSettingKeyboardTests.java")
+        self.assertIn("GuiSettingKeyboard.hint(settings.get(keyboardSetting).getValue())",gui)
+        self.assertIn("if (footer!=null && message.isEmpty() && host.uiWarning().isEmpty())",gui)
+        self.assertIn("x+side+13,y+h-13,0xFFE7E8F5",gui)
+        self.assertNotIn("bindY+6,0xFFE7E8F5",gui)
+        self.assertIn("Math.max(0,w-side-32)",gui)
+        self.assertIn("public static String hint(Setting<?> focused)",policy)
+        self.assertIn("ENTER/SPACE TOGGLE  R RESET",policy)
+        self.assertIn("LEFT/RIGHT  HOME/END  ENTER  R",policy)
+        self.assertIn("LEFT/RIGHT  SHIFT+ARROWS  HOME/END  R",policy)
+        self.assertIn("hintPolicy();",suite)
 
     def test_numeric_settings_fine_adjustment_and_endpoints(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")

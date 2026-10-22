@@ -253,11 +253,18 @@ public final class GhostClickGui extends GuiScreen {
             }
             sY += 22;
         }
-        if (keyboardSetting>=0 && available>0) label(
-            "TAB  SHIFT+ARROWS  HOME/END  R",x+side+13,bindY+6,0xFFE7E8F5);
-        else if (settings.size() > available) label(
-            (settingScroll + 1) + "-" + Math.min(settings.size(), settingScroll + available) +
-            "/" + settings.size() + "  scroll", x + side + 13, bindY + 6, 0xFFE7E8F5);
+        // Footer has an 18px reserved strip below visible settings; never
+        // paint keyboard help over the keybind row. Warnings own this footer.
+        String footer = null;
+        if (keyboardSetting>=0 && available>0 && keyboardSetting<settings.size())
+            footer = GuiSettingKeyboard.hint(settings.get(keyboardSetting).getValue());
+        else if (settings.size() > available)
+            footer = (settingScroll + 1) + "-" +
+                Math.min(settings.size(), settingScroll + available) +
+                "/" + settings.size() + "  scroll";
+        if (footer!=null && message.isEmpty() && host.uiWarning().isEmpty())
+            label(trim(footer,Math.max(0,w-side-32)),
+                x+side+13,y+h-13,0xFFE7E8F5);
     }
     private String trim(String text, int maxPixels) {
         // The legacy substring loop could split a supplementary Unicode
