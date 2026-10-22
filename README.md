@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R2.72:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R2.73:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R2.73 idempotent keybind persistence: recapturing an existing key or repeating an unbind now preserves validated registry behavior without rewriting profiles. Duplicate/reserved bindings, owner-thread and shutdown guards still reject. Deterministic Java8 tests cover 60,000 randomized bind/save scenarios. See [R2.73 keybind persistence guard](docs/RUNTIME_R93.md).
 - R2.72 numeric persistence no-op guard: `UiActions.fraction` now saves profiles only when its already-validated `previewFraction` actually changes the stored numeric setting. Repeated keyboard endpoints, clamped values and constant ranges no longer write redundant profiles; invalid values still reject. Java8 headless coverage checks 65,000 randomized fraction/write-count scenarios. See [R2.72 numeric persistence guard](docs/RUNTIME_R92.md).
 - R2.71 keyboard-only Choice navigation: when a typed Choice row is focused, Left/Right selects previous/next with wraparound and Home/End jumps to first/last. Enter and Space still cycle forward, all changes use the existing owner-thread UiActions gateway, and unchanged single-option or endpoint selections no longer trigger needless profile saves. Deterministic Java8 tests cover 75,000 arrow operations and action persistence. See [R2.71 Choice keyboard editing](docs/RUNTIME_R91.md).
 - R2.70 precision keyboard editing for numeric ClickGUI settings: Shift+Left/Right makes 1%-range adjustments while unmodified arrows keep the existing 5% steps, and Home/End snap exactly to minimum/maximum. These keys operate only when a typed Number setting row owns focus, preserving the search field, bind editor, module navigation and HUD editor. Java8 seeded tests cover 90,000 value/bound combinations. See [R2.70 numeric keyboard editing](docs/RUNTIME_R90.md).

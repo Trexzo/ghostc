@@ -21,10 +21,13 @@ public final class UiActions {
         modules.setEnabled(id, e.state() == ModuleRegistry.State.DISABLED);
         persist.run();
     }
+    /** Retain registry validation even for an unchanged key. Only real
+     * assignment changes require rewriting the profile. */
     public void bind(String id, int key) {
         modules.assertOwnerThread();
+        int previous = modules.get(id).keybind();
         modules.bind(id, key);
-        persist.run();
+        if(previous != key)persist.run();
     }
     public void bool(String id, String settingId) {
         Setting<?> s = setting(id, settingId);

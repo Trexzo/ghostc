@@ -372,6 +372,17 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('faultWarning = "Module disabled:',host)
         self.assertIn('diagnostics.record(Counter.FEATURE_FAULT)',host)
 
+    def test_repeated_keybind_persists_only_after_valid_change(self):
+        actions=content("src/main/java/dev/ghostfusion/ui/UiActions.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/GuiKeybindCaptureTests.java")
+        self.assertIn("int previous = modules.get(id).keybind();",actions)
+        self.assertIn("modules.bind(id, key);",actions)
+        self.assertIn("if(previous != key)persist.run();",actions)
+        self.assertLess(actions.index("modules.bind(id, key);"),
+                        actions.index("if(previous != key)persist.run();"))
+        self.assertIn("60000;i++",suite)
+        self.assertIn("unchangedBindings();",suite)
+
     def test_keyboard_module_keybind_capture_and_repeat_safety(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         policy=content("src/main/java/dev/ghostfusion/ui/GuiKeybindCapture.java")
