@@ -280,8 +280,11 @@ public final class GhostClickGui extends GuiScreen {
         boolean metrics=host.featureEnabled("hud.metrics");
         boolean fps=metrics && host.showFps();
         boolean coordinates=metrics && host.showCoordinates() && mc.thePlayer!=null;
+        String pingText=metrics && host.showPing()
+            ? ForgePingReadout.read(mc) : null;
+        boolean ping=pingText!=null;
         // The Status anchor remains selectable even when both modules are off.
-        if(!status && !fps && !coordinates) status=true;
+        if(!status && !fps && !coordinates && !ping) status=true;
         String title=host.detailedStatus()
             ? "GhostC "+GhostCMod.CLIENT_VERSION+" | F7 ClickGUI" : "GhostC";
         float scale=host.statusScale();
@@ -291,9 +294,10 @@ public final class GhostClickGui extends GuiScreen {
         String coordsText=coordinates
             ? String.format(java.util.Locale.ROOT,"XYZ %.1f %.1f %.1f",
                 mc.thePlayer.posX,mc.thePlayer.posY,mc.thePlayer.posZ) : "";
-        return StatusHudLayout.calculate(ui,width,height,status,fps,coordinates,
+        return StatusHudLayout.calculate(ui,width,height,status,fps,coordinates,ping,
             statusW,statusH,fontRendererObj.getStringWidth(fpsText),
-            fontRendererObj.getStringWidth(coordsText),fontRendererObj.FONT_HEIGHT);
+            fontRendererObj.getStringWidth(coordsText),
+            ping?fontRendererObj.getStringWidth(pingText):0,fontRendererObj.FONT_HEIGHT);
     }
     private int statusPreviewWidth() { return statusFootprint().measuredWidth; }
     private int statusPreviewHeight() { return statusFootprint().measuredHeight; }

@@ -48,6 +48,7 @@ public final class HostRuntime {
     private final Setting.Bool statusShadow = new Setting.Bool("shadow", true);
     private final Setting.Bool showFps = new Setting.Bool("show_fps", true);
     private final Setting.Bool showCoordinates = new Setting.Bool("show_coordinates", false);
+    private final Setting.Bool showPing = new Setting.Bool("show_ping", false);
     private final Setting.Bool keysJump = new Setting.Bool("show_jump", true);
     private final Setting.Bool keysSneak = new Setting.Bool("show_sneak", true);
     private final Setting.Bool cpsRight = new Setting.Bool("show_right", true);
@@ -138,7 +139,7 @@ public final class HostRuntime {
         if (configDirectory == null) throw new IllegalArgumentException("configDirectory");
         this.configDirectory = configDirectory;
         modules.register(overlay, DEFAULT_STATUS_KEY, statusScale, statusStyle, statusShadow);
-        modules.register(metrics, 0, showFps, showCoordinates);
+        modules.register(metrics, 0, showFps, showCoordinates, showPing);
         modules.register(new FeatureModule("hud.keystrokes", "Keystrokes", GhostModule.Category.RENDER),
             0, keysJump, keysSneak);
         modules.register(new FeatureModule("hud.cps", "CPS Counter", GhostModule.Category.RENDER),
@@ -253,6 +254,7 @@ public final class HostRuntime {
     public boolean metricsFrameRequested() { return worldPresent && metrics.frameRequested(); }
     public boolean showFps() { return showFps.get(); }
     public boolean showCoordinates() { return showCoordinates.get(); }
+    public boolean showPing() { modules.assertOwnerThread(); return showPing.get(); }
     /** Owner-thread read-only settings bridge for Forge features. */
     public boolean featureEnabled(String id) {
         modules.assertOwnerThread();
