@@ -11,6 +11,7 @@ import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiHitZones;
 import dev.ghostfusion.ui.GuiChrome;
 import dev.ghostfusion.ui.GuiSelection;
+import dev.ghostfusion.ui.GuiSettingKeyboard;
 import dev.ghostfusion.ui.HudPositions.Widget;
 import dev.ghostfusion.ui.HudPreviewGeometry;
 import dev.ghostfusion.ui.HudFootprints;
@@ -49,6 +50,8 @@ public final class GhostClickGui extends GuiScreen {
     private final HudEditorControls hudControls = new HudEditorControls();
     private final GuiSliderDrag sliderDrag = new GuiSliderDrag();
     private int dragX, dragY, scroll, settingScroll;
+    // -1 = keyboard focus on module list; >=0 selects a setting row.
+    private int keyboardSetting=-1;
     private int x, y, w, h, side;
     private int listY, listH, visibleRows;
     private int previewX, previewY, previewW, previewH;
@@ -172,6 +175,7 @@ public final class GhostClickGui extends GuiScreen {
             finishSliderDrag();
             selected=next;
             settingScroll=0;
+            keyboardSetting=-1;
             capture=null;
             scroll=GuiSelection.reveal(selected,filtered,scroll,Math.max(1,visibleRows));
         }
@@ -199,6 +203,7 @@ public final class GhostClickGui extends GuiScreen {
         int sy = listY + listH + 5;
         rect(x + side + 9, sy - 4, w - side - 20, 1, 0x557E879D);
         if (selected == null) {
+            keyboardSetting=-1;
             label("No matching modules", x + side + 13, sy + 5, 0xFFBAC1D3);
             return;
         }
@@ -214,11 +219,13 @@ public final class GhostClickGui extends GuiScreen {
         int sY = bindY + 24;
         List<Map.Entry<String, Setting<?>>> settings = new ArrayList<Map.Entry<String, Setting<?>>>(e.settings().entrySet());
         int available = Math.max(0, (y + h - 18 - sY) / 22);
+        if(keyboardSetting>=settings.size())keyboardSetting=-1;
         settingScroll = Math.max(0, Math.min(settingScroll, Math.max(0, settings.size() - available)));
         for (int i = settingScroll; i < settings.size() && i < settingScroll + available; i++) {
             Map.Entry<String, Setting<?>> kv = settings.get(i);
             Setting<?> setting = kv.getValue();
-            rect(x + side + 11, sY, w - side - 26, 19, 0x443B465C);
+            rect(x + side + 11, sY, w - side - 26, 19,
+                i==keyboardSetting ? 0x886A588D : 0x443B465C);
             label(trim(setting.id(), Math.max(30, (w - side) / 2 - 14)), x + side + 15, sY + 5, 0xFFE0E4EF);
             int right = x + w - 17;
             if (setting instanceof Setting.Number) {
@@ -235,7 +242,9 @@ public final class GhostClickGui extends GuiScreen {
             }
             sY += 22;
         }
-        if (settings.size() > available) label(
+        if (keyboardSetting>=0 && available>0) label(
+            "TAB  SPACE/ENTER  LEFT/RIGHT",x+side+13,bindY+6,0xFFE7E8F5);
+        else if (settings.size() > available) label(
             (settingScroll + 1) + "-" + Math.min(settings.size(), settingScroll + available) +
             "/" + settings.size() + "  scroll", x + side + 13, bindY + 6, 0xFFE7E8F5);
     }
@@ -349,7 +358,9 @@ public final class GhostClickGui extends GuiScreen {
             host.persistUi(); return;
         }
         if (header==GuiChrome.Header.MODULES) { hudPage = false; return; }
-        if (header==GuiChrome.Header.HUD) { hudPage = true; capture = null; return; }
+        if (header==GuiChrome.Header.HUD) {
+            hudPage = true; capture = null; keyboardSetting=-1; return;
+        }
         if (hudPage) {
             if (previewW<1 || previewH<1) return;
             HudEditorControls.Item picked=HudEditorControls.tabAt(
@@ -382,12 +393,16 @@ public final class GhostClickGui extends GuiScreen {
             }
             return;
         }
-        if (search != null) search.mouseClicked(mx,my,button);
+        if (search != null) {
+            search.mouseClicked(mx,my,button);
+            if(search.isFocused())keyboardSetting=-1;
+        }
         int category=GuiChrome.categoryIndex(zone,mx,my);
         if (category>=0) {
             ui.category(category==0 ? null : GhostModule.Category.valueOf(
                 new String[]{"ALL","COMBAT","MOVEMENT","WORLD","RENDER","UTILITY"}[category]));
             scroll=0;
+            keyboardSetting=-1;
             entries(); // immediately invalidate settings/key capture from the old filter
             return;
         }
@@ -402,6 +417,7 @@ public final class GhostClickGui extends GuiScreen {
                 } else {
                     selected = e.module().id();
                     settingScroll = 0;
+                    keyboardSetting=-1;
                 }
             }
             return;
@@ -410,11 +426,12 @@ public final class GhostClickGui extends GuiScreen {
         ModuleRegistry.Entry e = host.modules().get(selected);
         int settingY = listY + listH + 5 + 22;
         if (inside(mx,my,x+side+11,settingY,w-side-26,18)) {
-            capture = selected; message = ""; return;
+            capture = selected; keyboardSetting=-1; message = ""; return;
         }
         List<Map.Entry<String, Setting<?>>> settings = new ArrayList<Map.Entry<String, Setting<?>>>(e.settings().entrySet());
         int index = GuiHitZones.settingIndex(zone,mx,my,settingScroll,settings.size());
         if (index >= 0) {
+            keyboardSetting=index;
             Map.Entry<String, Setting<?>> it = settings.get(index);
             try {
                 Setting<?> setting = it.getValue();
@@ -533,8 +550,60 @@ public final class GhostClickGui extends GuiScreen {
                 return;
             }
         }
+        if (!hudPage && keyCode==Keyboard.KEY_TAB) {
+            finishSliderDrag();
+            if(search!=null)search.setFocused(false);
+            entries(); // remove stale module focus before setting traversal
+            if(selected==null) {keyboardSetting=-1; return;}
+            int count=host.modules().get(selected).settings().size();
+            int rows=GuiHitZones.visibleSettings(
+                GuiLayout.calculate(width,height,ui.layout()));
+            keyboardSetting=rows>0?GuiSettingKeyboard.next(
+                keyboardSetting,count,(Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) ||
+                Keyboard.isKeyDown(Keyboard.KEY_RSHIFT))?-1:1):-1;
+            settingScroll=GuiSettingKeyboard.reveal(
+                keyboardSetting,settingScroll,count,rows);
+            return;
+        }
+        if (!hudPage && keyboardSetting>=0 &&
+            (search==null || !search.isFocused()) &&
+            (keyCode==Keyboard.KEY_RETURN || keyCode==Keyboard.KEY_NUMPADENTER ||
+             keyCode==Keyboard.KEY_SPACE || keyCode==Keyboard.KEY_LEFT ||
+             keyCode==Keyboard.KEY_RIGHT)) {
+            entries();
+            if(selected!=null && keyboardSetting>=0) {
+                List<Map.Entry<String, Setting<?>>> settings=
+                    new ArrayList<Map.Entry<String, Setting<?>>>(host.modules().get(selected)
+                        .settings().entrySet());
+                if(keyboardSetting<settings.size()) {
+                    Map.Entry<String, Setting<?>> item=settings.get(keyboardSetting);
+                    Setting<?> s=item.getValue();
+                    try {
+                        if(keyCode==Keyboard.KEY_SPACE || keyCode==Keyboard.KEY_RETURN ||
+                           keyCode==Keyboard.KEY_NUMPADENTER) {
+                            if(s instanceof Setting.Bool)
+                                host.uiActions().bool(selected,item.getKey());
+                            else if(s instanceof Setting.Choice)
+                                host.uiActions().cycle(selected,item.getKey());
+                        } else if(s instanceof Setting.Number) {
+                            Setting.Number n=(Setting.Number)s;
+                            double oldFraction=NumericSliderScale.fraction(
+                                n.get(),n.min(),n.max());
+                            double next=GuiSettingKeyboard.nudgeFraction(
+                                n.get(),n.min(),n.max(),
+                                keyCode==Keyboard.KEY_RIGHT?1:-1);
+                            if(Double.compare(oldFraction,next)!=0)
+                                host.uiActions().fraction(selected,item.getKey(),next);
+                        }
+                        message="";
+                    } catch(RuntimeException ex) {message="Setting rejected";}
+                }
+            }
+            return;
+        }
         if (!hudPage && (keyCode==Keyboard.KEY_UP || keyCode==Keyboard.KEY_DOWN)) {
             finishSliderDrag();
+            keyboardSetting=-1;
             List<ModuleRegistry.Entry> filtered=entries();
             String next=GuiSelection.step(selected,filtered,
                 keyCode==Keyboard.KEY_DOWN?1:-1);
@@ -559,6 +628,7 @@ public final class GhostClickGui extends GuiScreen {
         if (!hudPage && search != null && search.textboxKeyTyped(character,keyCode)) {
             ui.query(search.getText());
             scroll=0;
+            keyboardSetting=-1;
             entries(); // reject stale selected settings as the search changes
             return;
         }
@@ -571,6 +641,7 @@ public final class GhostClickGui extends GuiScreen {
         hudDragging = false;
         draggingWidget = null;
         capture = null;
+        keyboardSetting=-1;
         host.persistUi();
         host.inputFocus(true);
         super.onGuiClosed();
