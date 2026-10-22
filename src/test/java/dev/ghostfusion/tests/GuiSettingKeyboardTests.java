@@ -57,6 +57,41 @@ public final class GuiSettingKeyboardTests {
         ok(GuiSettingKeyboard.nudgeFraction(5,5,5,1)==.05,
             "constant numeric range returns harmless fraction");
     }
+    private static void precisionAndEndpoints(){
+        ok(Math.abs(GuiSettingKeyboard.nudgeFraction(50,0,100,1,true)-.51)<1e-12,
+            "Shift+Right uses one percent");
+        ok(Math.abs(GuiSettingKeyboard.nudgeFraction(50,0,100,-1,true)-.49)<1e-12,
+            "Shift+Left uses one percent");
+        ok(Math.abs(GuiSettingKeyboard.nudgeFraction(50,0,100,1,false)-.55)<1e-12,
+            "plain Right retains five percent");
+        ok(GuiSettingKeyboard.endpointFraction(0,100,false)==0,
+            "Home selects the exact minimum fraction");
+        ok(GuiSettingKeyboard.endpointFraction(0,100,true)==1,
+            "End selects the exact maximum fraction");
+        ok(GuiSettingKeyboard.nudgeFraction(0,0,100,-1,true)==0,
+            "fine adjustment cannot underflow");
+        ok(GuiSettingKeyboard.nudgeFraction(100,0,100,1,true)==1,
+            "fine adjustment cannot overflow");
+        rejects(()->GuiSettingKeyboard.endpointFraction(Double.NaN,1,false),
+            "invalid endpoint bound refused");
+        Random random=new Random(2702026L);
+        for(int i=0;i<90000;i++){
+            double min=random.nextDouble()*200-100;
+            double max=min+random.nextDouble()*300+.01;
+            double fraction=random.nextDouble();
+            double value=NumericSliderScale.value(min,max,fraction);
+            int direction=random.nextBoolean()?1:-1;
+            boolean fine=random.nextBoolean();
+            double actual=GuiSettingKeyboard.nudgeFraction(value,min,max,direction,fine);
+            double expected=Math.max(0,Math.min(1,
+                NumericSliderScale.fraction(value,min,max)+direction*(fine?.01:.05)));
+            ok(Double.isFinite(actual)&&Math.abs(actual-expected)<1e-12,
+                "seeded fine/coarse step matches independent clamp "+i);
+            ok(GuiSettingKeyboard.endpointFraction(min,max,false)==0 &&
+               GuiSettingKeyboard.endpointFraction(min,max,true)==1,
+                "seeded Home/End matches bounds "+i);
+        }
+    }
     private static void typedActions() {
         ModuleRegistry modules=new ModuleRegistry();
         Setting.Bool enabled=new Setting.Bool("enabled",false);
@@ -118,7 +153,7 @@ public final class GuiSettingKeyboardTests {
         }
     }
     public static void main(String[] args) {
-        boundaries();typedActions();replay();
+        boundaries();precisionAndEndpoints();typedActions();replay();
         ok(checks>300000,"large keyboard settings regression replay");
         System.out.println("GUI_SETTING_KEYBOARD_PASS assertions="+checks);
     }

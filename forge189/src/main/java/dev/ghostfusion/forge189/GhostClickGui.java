@@ -254,7 +254,7 @@ public final class GhostClickGui extends GuiScreen {
             sY += 22;
         }
         if (keyboardSetting>=0 && available>0) label(
-            "TAB  ENTER  LEFT/RIGHT  R: RESET",x+side+13,bindY+6,0xFFE7E8F5);
+            "TAB  SHIFT+ARROWS  HOME/END  R",x+side+13,bindY+6,0xFFE7E8F5);
         else if (settings.size() > available) label(
             (settingScroll + 1) + "-" + Math.min(settings.size(), settingScroll + available) +
             "/" + settings.size() + "  scroll", x + side + 13, bindY + 6, 0xFFE7E8F5);
@@ -633,7 +633,8 @@ public final class GhostClickGui extends GuiScreen {
             (search==null || !search.isFocused()) &&
             (keyCode==Keyboard.KEY_RETURN || keyCode==Keyboard.KEY_NUMPADENTER ||
              keyCode==Keyboard.KEY_SPACE || keyCode==Keyboard.KEY_LEFT ||
-             keyCode==Keyboard.KEY_RIGHT || keyCode==Keyboard.KEY_R)) {
+             keyCode==Keyboard.KEY_RIGHT || keyCode==Keyboard.KEY_R ||
+             keyCode==Keyboard.KEY_HOME || keyCode==Keyboard.KEY_END)) {
             entries();
             if(selected!=null && keyboardSetting>=0) {
                 List<Map.Entry<String, Setting<?>>> settings=
@@ -658,9 +659,15 @@ public final class GhostClickGui extends GuiScreen {
                             Setting.Number n=(Setting.Number)s;
                             double oldFraction=NumericSliderScale.fraction(
                                 n.get(),n.min(),n.max());
-                            double next=GuiSettingKeyboard.nudgeFraction(
-                                n.get(),n.min(),n.max(),
-                                keyCode==Keyboard.KEY_RIGHT?1:-1);
+                            double next=(keyCode==Keyboard.KEY_HOME ||
+                                         keyCode==Keyboard.KEY_END)
+                                ?GuiSettingKeyboard.endpointFraction(n.min(),n.max(),
+                                    keyCode==Keyboard.KEY_END)
+                                :GuiSettingKeyboard.nudgeFraction(
+                                    n.get(),n.min(),n.max(),
+                                    keyCode==Keyboard.KEY_RIGHT?1:-1,
+                                    Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) ||
+                                    Keyboard.isKeyDown(Keyboard.KEY_RSHIFT));
                             if(n.min()!=n.max() && Double.compare(oldFraction,next)!=0)
                                 host.uiActions().fraction(selected,item.getKey(),next);
                         }
