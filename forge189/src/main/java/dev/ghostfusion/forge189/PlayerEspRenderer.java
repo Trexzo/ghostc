@@ -12,6 +12,7 @@ import dev.ghostfusion.features.EspCornerBoxGeometry;
 import dev.ghostfusion.features.EspFilledBoxGeometry;
 import dev.ghostfusion.features.EspDistanceFade;
 import dev.ghostfusion.features.EspLivePaintGate;
+import dev.ghostfusion.features.EspTeamPolicy;
 import dev.ghostfusion.features.LiveCombatTargetGate;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.RenderManager;
@@ -120,6 +121,7 @@ final class PlayerEspRenderer {
             final double fadeMinimum=host.espFadeMinimum();
             final int drawBudget=host.espMaxPlayers();
             final boolean visibleOnly=host.espVisible();
+            final boolean ignoreTeammates=host.espIgnoreTeammates();
             boolean health=host.espShowHealth();
             final EspHealthBarGeometry.Side healthSide=health?
                 host.espHealthSide():EspHealthBarGeometry.Side.RIGHT;
@@ -148,6 +150,11 @@ final class PlayerEspRenderer {
                     // Eligible in-range players retain exactly the old gates.
                     double distance=mc.thePlayer.getDistanceSqToEntity(player);
                     if(!Double.isFinite(distance) || distance<0 || distance>limitSq) continue;
+                    // The optional team exclusion runs BEFORE LOS rays and
+                    // before claiming a nearest-N budget slot. With the
+                    // toggle off, even scoreboard reads are skipped.
+                    if(ignoreTeammates && EspTeamPolicy.exclude(
+                        mc.thePlayer.getTeam(),player.getTeam())) continue;
                     // Once the nearest-80 set is full, a farther candidate
                     // cannot enter it. Skip LOS and geometry for that
                     // candidate, preserving stable distance/ID tie breaks.
@@ -177,6 +184,10 @@ final class PlayerEspRenderer {
                     if(!LiveCombatTargetGate.eligible(p,
                         mc.theWorld.getEntityByID(p.getEntityId()),mc.thePlayer,
                         p.isDead,p.getHealth(),p.isInvisible(),visibleOnly)) continue;
+                    // Teams can change between candidate collection and GL
+                    // paint: re-read both live scoreboards before drawing.
+                    if(ignoreTeammates && EspTeamPolicy.exclude(
+                        mc.thePlayer.getTeam(),p.getTeam())) continue;
                     // The original nearest-distance admission is a candidate
                     // hint, not authorization to paint an old-world position.
                     final double liveDistanceSq=EspLivePaintGate.distanceSquared(

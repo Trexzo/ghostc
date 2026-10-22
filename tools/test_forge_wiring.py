@@ -941,6 +941,36 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("espMembershipChurn();",tests)
         self.assertIn("replaced entity ID suppresses cached ESP candidate",tests)
 
+    def test_esp_optional_teammate_filter_and_live_team_revalidation(self):
+        esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        policy=content("src/main/java/dev/ghostfusion/features/EspTeamPolicy.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/EspTeamPolicyTests.java")
+        self.assertIn('new Setting.Bool("ignore_teammates", false)',host)
+        self.assertIn("espVisible, espIgnoreTeammates, espWalls",host)
+        self.assertIn("public boolean espIgnoreTeammates()",host)
+        self.assertIn("final boolean ignoreTeammates=host.espIgnoreTeammates();",esp)
+        first="if(ignoreTeammates && EspTeamPolicy.exclude(\\n                        mc.thePlayer.getTeam(),player.getTeam())) continue;"
+        last="if(ignoreTeammates && EspTeamPolicy.exclude(\\n                        mc.thePlayer.getTeam(),p.getTeam())) continue;"
+        self.assertIn(first.replace("\\\\n","\\n"),esp)
+        self.assertIn(last.replace("\\\\n","\\n"),esp)
+        self.assertLess(esp.index("double distance=mc.thePlayer.getDistanceSqToEntity(player);"),
+                        esp.index("mc.thePlayer.getTeam(),player.getTeam()"))
+        self.assertLess(esp.index("mc.thePlayer.getTeam(),player.getTeam()"),
+                        esp.index("if(!nearest.couldEnter(player.getEntityId(),distance)) continue;"))
+        self.assertLess(esp.index("mc.thePlayer.getTeam(),player.getTeam()"),
+                        esp.index("if(visibleOnly && !mc.thePlayer.canEntityBeSeen(player)) continue;"))
+        self.assertLess(esp.index("if(!LiveCombatTargetGate.eligible(p,"),
+                        esp.index("mc.thePlayer.getTeam(),p.getTeam()"))
+        self.assertLess(esp.index("mc.thePlayer.getTeam(),p.getTeam()"),
+                        esp.index("final double liveDistanceSq=EspLivePaintGate.distanceSquared("))
+        self.assertIn("localTeam!=null && localTeam==targetTeam",policy)
+        self.assertIn("200000;i++",suite)
+        self.assertIn("loaded.espIgnoreTeammates()",suite)
+        self.assertIn("dev.ghostfusion.tests.EspTeamPolicyTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("EspTeamPolicy.class",content("tools/verify_forge_jar.py"))
+
     def test_esp_final_live_range_geometry_and_fade_revalidation(self):
         esp=(FORGE/"PlayerEspRenderer.java").read_text(encoding="utf-8")
         gate=content("src/main/java/dev/ghostfusion/features/EspLivePaintGate.java")
