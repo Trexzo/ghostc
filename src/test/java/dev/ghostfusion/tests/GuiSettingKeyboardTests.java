@@ -121,6 +121,60 @@ public final class GuiSettingKeyboardTests {
         ok(saved[0]==4,"all mutations use one persistence action per press");
         modules.shutdown();
     }
+    /** Choice arrows and endpoints share UiActions validation/persistence. */
+    private static void choiceDirections() {
+        ModuleRegistry modules=new ModuleRegistry();
+        Setting.Choice style=new Setting.Choice("style","two","one","two","three");
+        modules.register(new Dummy(),0,style);
+        final int[] saves={0};
+        UiActions actions=new UiActions(modules,()->saves[0]++);
+        ok(actions.cycle("gui.keyboard","style",-1) && "one".equals(style.get()),
+            "Left chooses previous option");
+        ok(actions.cycle("gui.keyboard","style",-1) && "three".equals(style.get()),
+            "Left wraps to final option");
+        ok(actions.cycle("gui.keyboard","style",1) && "one".equals(style.get()),
+            "Right wraps to first option");
+        ok(!actions.choiceEdge("gui.keyboard","style",false) && saves[0]==3,
+            "Home on first choice skips redundant save");
+        ok(actions.choiceEdge("gui.keyboard","style",true) && "three".equals(style.get()),
+            "End chooses final option");
+        ok(!actions.choiceEdge("gui.keyboard","style",true) && saves[0]==4,
+            "End on last choice does not write profile");
+        rejects(()->actions.cycle("gui.keyboard","style",0),
+            "invalid direction rejected");
+        rejects(()->actions.cycle("gui.keyboard","style",2),
+            "multi-step direction rejected");
+        final String[] ordered={"one","two","three"};
+        int expected=2;
+        Random random=new Random(2712026L);
+        for(int i=0;i<75000;i++) {
+            int direction=random.nextBoolean()?1:-1;
+            int priorSaves=saves[0];
+            expected=(expected+direction+ordered.length)%ordered.length;
+            ok(actions.cycle("gui.keyboard","style",direction),
+                "multi-choice arrow must change the option "+i);
+            ok(ordered[expected].equals(style.get()),
+                "choice arrow order/wrap matches oracle "+i);
+            ok(saves[0]==priorSaves+1,
+                "one persistence event per changed choice "+i);
+        }
+        modules.shutdown();
+
+        ModuleRegistry singleton=new ModuleRegistry();
+        Setting.Choice only=new Setting.Choice("only","single","single");
+        singleton.register(new Dummy(),0,only);
+        final int[] writes={0};
+        UiActions oneAction=new UiActions(singleton,()->writes[0]++);
+        oneAction.cycle("gui.keyboard","only");
+        ok(!oneAction.cycle("gui.keyboard","only",-1),
+            "single-option Left is unchanged");
+        ok(!oneAction.choiceEdge("gui.keyboard","only",true),
+            "single-option End is unchanged");
+        ok(writes[0]==0,"single-option edits never save");
+        rejects(()->oneAction.choiceEdge("gui.keyboard","missing",true),
+            "invalid choice setting rejected");
+        singleton.shutdown();
+    }
     private static void replay() {
         Random r=new Random(2592026L);
         for(int round=0;round<45000;round++) {
@@ -153,7 +207,7 @@ public final class GuiSettingKeyboardTests {
         }
     }
     public static void main(String[] args) {
-        boundaries();precisionAndEndpoints();typedActions();replay();
+        boundaries();precisionAndEndpoints();typedActions();choiceDirections();replay();
         ok(checks>300000,"large keyboard settings regression replay");
         System.out.println("GUI_SETTING_KEYBOARD_PASS assertions="+checks);
     }
