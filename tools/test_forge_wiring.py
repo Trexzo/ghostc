@@ -626,7 +626,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("WorldSnapshotAdmission<EntityPlayer>()",from_source)
         self.assertIn("nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible)",from_source)
         self.assertIn("new ArrayList<WorldSnapshot.Entity>(nearestSnapshot.sizeWithPinned())",from_source)
-        self.assertIn("nearestSnapshot.clear();\n            }",from_source)
+        self.assertIn("nearestSnapshot.clear();\n                teamHudPin.clear();\n            }",from_source)
         self.assertNotIn("if (players.size() == 256) break;",from_source)
         self.assertIn("snapshot=null;",services)
         self.assertIn("rotations.prune(tick,generation)",services)
@@ -648,6 +648,32 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("capacity>256",budget)
         self.assertIn("dev.ghostfusion.tests.NearestSnapshotTests",
                       content(".github/workflows/core-ci.yml"))
+
+    def test_crowded_team_filtered_nearest_hud_pin_uses_existing_bounded_slot(self):
+        adapter=self.adapter
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        helper=content("src/main/java/dev/ghostfusion/features/TargetHudTeamPin.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/TargetHudCrowdedTeamPinTests.java")
+        self.assertIn('host.targetIgnoreTeammates() && "nearest".equals(host.targetSelection())',adapter)
+        self.assertIn("final boolean pinVisibleOnly=pinNearestEnemy && host.targetVisible();",adapter)
+        self.assertIn("final double pinRangeSq=pinNearestEnemy ?",adapter)
+        self.assertIn("teamHudPin.clear();",adapter)
+        self.assertIn("minecraft.theWorld.getEntityByID(p.getEntityId())==p &&",adapter)
+        self.assertIn("!EspTeamPolicy.exclude(minecraft.thePlayer.getTeam(),p.getTeam())",adapter)
+        self.assertIn("teamHudPin.offer(p.getEntityId(),distanceSq,visible,",adapter)
+        self.assertIn("nearestSnapshot.pin(p,p.getEntityId(),distanceSq,visible);",adapter)
+        self.assertIn("nearestSnapshot.forEachWithPinned(",adapter)
+        self.assertIn("squared==bestSquared && entityId>=bestId",helper)
+        self.assertLess(adapter.index("if(!demand.admit(visible,distanceSq))continue;"),
+                        adapter.index("teamHudPin.offer(p.getEntityId(),distanceSq,visible,"))
+        self.assertLess(adapter.index("teamHudPin.offer(p.getEntityId(),distanceSq,visible,"),
+                        adapter.index("nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible);"))
+        self.assertIn("60000;frame++",suite)
+        self.assertIn("target.select(snapshot(admission,false",suite)
+        self.assertIn("target.select(withPin,24,true",suite)
+        self.assertIn("dev.ghostfusion.tests.TargetHudCrowdedTeamPinTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("TargetHudTeamPin.class",content("tools/verify_forge_jar.py"))
 
     def test_crosshair_snapshot_pin_keeps_one_over_budget_player(self):
         adapter=self.adapter

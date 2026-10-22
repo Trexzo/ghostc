@@ -6,6 +6,8 @@ import dev.ghostfusion.ui.StatusHudLayout;
 import dev.ghostfusion.services.WorldIdentityTracker;
 import dev.ghostfusion.services.WorldSnapshotAdmission;
 import dev.ghostfusion.services.SnapshotDemand;
+import dev.ghostfusion.features.EspTeamPolicy;
+import dev.ghostfusion.features.TargetHudTeamPin;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.MovingObjectPosition;
@@ -38,6 +40,9 @@ public final class ForgeEventAdapter {
     // WorldSnapshot, including when snapshot construction fails.
     private final WorldSnapshotAdmission<EntityPlayer> nearestSnapshot =
         new WorldSnapshotAdmission<EntityPlayer>();
+    // Holds only a primitive distance/ID: no game entity references survive
+    // snapshot admission, even on early exit or exception.
+    private final TargetHudTeamPin teamHudPin = new TargetHudTeamPin();
 
     public ForgeEventAdapter(Minecraft minecraft, HostRuntime host) {
         if (minecraft == null || host == null) throw new IllegalArgumentException("null dependency");
@@ -96,10 +101,18 @@ public final class ForgeEventAdapter {
                 }
             }
             final EntityPlayer pinnedCrosshair=crosshairPlayer;
+            // Crosshair and filtered-nearest are mutually exclusive modes.
+            // Reuse the one existing optional snapshot pin, never a 514th slot.
+            final boolean pinNearestEnemy=host.featureEnabled("hud.target") &&
+                host.targetIgnoreTeammates() && "nearest".equals(host.targetSelection());
+            final boolean pinVisibleOnly=pinNearestEnemy && host.targetVisible();
+            final double pinRangeSq=pinNearestEnemy ?
+                host.targetRange()*host.targetRange() : 0.0;
             final boolean profileSnapshot=host.snapshotProfilingEnabled();
             final long snapshotStart=profileSnapshot?System.nanoTime():0L;
             int scanned=0,passed=0,rays=0;
             nearestSnapshot.clear();
+            teamHudPin.clear();
             try {
                 // No targets: publish an empty valid tick snapshot so unrelated
                 // click/hit/block policies keep their exact session admission.
@@ -131,6 +144,18 @@ public final class ForgeEventAdapter {
                     if(!demand.admit(visible,distanceSq))continue;
                     if(p==pinnedCrosshair)
                         nearestSnapshot.pin(p,p.getEntityId(),distanceSq,visible);
+                    // Without a pin, 256 nearer allied players can fill the
+                    // visible snapshot partition and hide an enemy from the
+                    // opt-in Target HUD nearest non-teammate selection.
+                    // Choose one closest live enemy independently of the
+                    // shared nearest-256 budgets, after demand/LOS admission.
+                    if(pinNearestEnemy &&
+                        minecraft.theWorld.getEntityByID(p.getEntityId())==p &&
+                        !EspTeamPolicy.exclude(minecraft.thePlayer.getTeam(),p.getTeam()) &&
+                        teamHudPin.offer(p.getEntityId(),distanceSq,visible,
+                            pinVisibleOnly,pinRangeSq)) {
+                        nearestSnapshot.pin(p,p.getEntityId(),distanceSq,visible);
+                    }
                     nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible);
                 }
                 final List<WorldSnapshot.Entity> players =
@@ -165,6 +190,7 @@ public final class ForgeEventAdapter {
                     demand.needVisible,demand.needUnfiltered);
             } finally {
                 nearestSnapshot.clear();
+                teamHudPin.clear();
             }
         }
         features.tick();
