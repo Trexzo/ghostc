@@ -39,6 +39,7 @@ REQUIRED = (
     "dev/ghostfusion/features/EspHealthBarGeometry$Side.class",
     "dev/ghostfusion/features/EspLineColor.class",
     "dev/ghostfusion/features/EspDistanceFade.class",
+    "dev/ghostfusion/features/EspLivePaintGate.class",
     "dev/ghostfusion/features/EspNearestBudget.class",
     "dev/ghostfusion/features/EspDrawLimit.class",
     "dev/ghostfusion/services/WorldSnapshotAdmission.class",

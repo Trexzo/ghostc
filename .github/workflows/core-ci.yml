@@ -77,6 +77,8 @@ jobs:
           grep -q 'ESP_HEALTH_PLACEMENT_PASS' .build/esp-health-placement.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.EspHealthBarTests | tee .build/esp-health-bar.log
           grep -q 'ESP_HEALTH_BAR_PASS' .build/esp-health-bar.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.EspLivePaintGateTests | tee .build/esp-live-paint.log
+          grep -q 'ESP_LIVE_PAINT_GATE_PASS' .build/esp-live-paint.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.EspDistanceFadeTests | tee .build/esp-distance-fade.log
           grep -q 'ESP_DISTANCE_FADE_PASS' .build/esp-distance-fade.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.EspBlendOrderTests | tee .build/esp-blend-order.log
