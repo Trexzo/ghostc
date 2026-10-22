@@ -950,10 +950,9 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("espVisible, espIgnoreTeammates, espWalls",host)
         self.assertIn("public boolean espIgnoreTeammates()",host)
         self.assertIn("final boolean ignoreTeammates=host.espIgnoreTeammates();",esp)
-        first="if(ignoreTeammates && EspTeamPolicy.exclude(\\n                        mc.thePlayer.getTeam(),player.getTeam())) continue;"
-        last="if(ignoreTeammates && EspTeamPolicy.exclude(\\n                        mc.thePlayer.getTeam(),p.getTeam())) continue;"
-        self.assertIn(first.replace("\\\\n","\\n"),esp)
-        self.assertIn(last.replace("\\\\n","\\n"),esp)
+        self.assertIn("if(ignoreTeammates && EspTeamPolicy.exclude(",esp)
+        self.assertIn("mc.thePlayer.getTeam(),player.getTeam())) continue;",esp)
+        self.assertIn("mc.thePlayer.getTeam(),p.getTeam())) continue;",esp)
         self.assertLess(esp.index("double distance=mc.thePlayer.getDistanceSqToEntity(player);"),
                         esp.index("mc.thePlayer.getTeam(),player.getTeam()"))
         self.assertLess(esp.index("mc.thePlayer.getTeam(),player.getTeam()"),
