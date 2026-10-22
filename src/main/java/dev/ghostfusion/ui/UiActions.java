@@ -73,9 +73,10 @@ public final class UiActions {
         persist.run();
         return true;
     }
+    /** Persist only if normalization actually changed the numeric setting.
+     * This also avoids redundant disk writes from repeated endpoint presses. */
     public void fraction(String id, String settingId, double fraction) {
-        previewFraction(id,settingId,fraction);
-        persist.run();
+        if(previewFraction(id,settingId,fraction))persist.run();
     }
     /** Update a captured slider on the owner thread without writing a file
      * for every pointer movement. The GUI persists once when capture ends. */
