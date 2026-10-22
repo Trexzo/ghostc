@@ -102,8 +102,67 @@ public final class GuiKeybindCaptureTests {
             "off-owner mutation cannot bind or persist");
         r.shutdown();
     }
+    /** Repeated capture of an existing binding is a validated no-op. */
+    private static void unchangedBindings() {
+        ModuleRegistry r=new ModuleRegistry();
+        r.register(new Dummy("hud.alpha"),12);
+        r.register(new Dummy("hud.beta"),13);
+        final int[] saves={0};
+        UiActions actions=new UiActions(r,()->saves[0]++);
+        actions.bind("hud.alpha",12);
+        ok(saves[0]==0 && r.get("hud.alpha").keybind()==12,
+            "rebinding existing default key does not persist");
+        actions.bind("hud.alpha",0);
+        ok(saves[0]==1,"first unbind persists once");
+        actions.bind("hud.alpha",0);
+        ok(saves[0]==1,"repeated unbind is idempotent");
+        actions.bind("hud.alpha",30);
+        ok(saves[0]==2,"new key persists once");
+        actions.bind("hud.alpha",30);
+        ok(saves[0]==2,"recapturing same key does not save");
+        rejects(()->actions.bind("hud.alpha",13),
+            "duplicate key still rejected");
+        rejects(()->actions.bind("hud.alpha",ReservedKeys.CLICK_GUI),
+            "reserved key still rejected");
+        rejects(()->actions.bind("hud.alpha",-1),
+            "negative key still rejected");
+        rejects(()->actions.bind("missing.module",30),
+            "invalid module still rejected");
+        ok(saves[0]==2 && r.get("hud.alpha").keybind()==30,
+            "rejected binds do not mutate or save");
+        Random random=new Random(2732026L);
+        final int[] keys={0,12,30,48,55};
+        int expected=30,writes=2;
+        for(int i=0;i<60000;i++){
+            int key=keys[random.nextInt(keys.length)];
+            if(key!=expected)writes++;
+            actions.bind("hud.alpha",key);
+            expected=key;
+            ok(r.get("hud.alpha").keybind()==expected,
+                "random bind matches requested key "+i);
+            ok(saves[0]==writes,
+                "exact one save per changed binding "+i);
+        }
+        final int savedBefore=saves[0],oldKey=expected;
+        AtomicBoolean denied=new AtomicBoolean(false);
+        Thread t=new Thread(()->{
+            try{actions.bind("hud.alpha",oldKey);}
+            catch(IllegalStateException ex){denied.set(true);}
+        });
+        t.start();
+        try{t.join();}catch(InterruptedException ex){throw new AssertionError(ex);}
+        ok(denied.get() && saves[0]==savedBefore &&
+            r.get("hud.alpha").keybind()==oldKey,
+            "unchanged binding still requires owner thread");
+        r.shutdown();
+        boolean closed=false;
+        try{actions.bind("hud.alpha",oldKey);}
+        catch(IllegalStateException expectedFailure){closed=true;}
+        ok(closed && saves[0]==savedBefore,
+            "shutdown registry still rejects unchanged binds");
+    }
     public static void main(String[] args){
-        focusPolicy();actionsAndConflict();
+        focusPolicy();actionsAndConflict();unchangedBindings();
         ok(checks>140000,"substantial keyboard bind ownership test");
         System.out.println("GUI_KEYBIND_CAPTURE_PASS assertions="+checks);
     }
