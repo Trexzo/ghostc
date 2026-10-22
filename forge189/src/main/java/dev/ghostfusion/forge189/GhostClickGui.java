@@ -12,6 +12,7 @@ import dev.ghostfusion.ui.GuiHitZones;
 import dev.ghostfusion.ui.GuiChrome;
 import dev.ghostfusion.ui.GuiSelection;
 import dev.ghostfusion.ui.GuiSettingKeyboard;
+import dev.ghostfusion.ui.GuiSearchFocus;
 import dev.ghostfusion.ui.HudPositions.Widget;
 import dev.ghostfusion.ui.HudPreviewGeometry;
 import dev.ghostfusion.ui.HudFootprints;
@@ -550,6 +551,42 @@ public final class GhostClickGui extends GuiScreen {
                 return;
             }
         }
+        if (!hudPage && keyCode==Keyboard.KEY_F &&
+            (Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) ||
+             Keyboard.isKeyDown(Keyboard.KEY_RCONTROL))) {
+            // Ctrl+F explicitly transfers keyboard ownership from modules
+            // and settings to the search field without editing profiles.
+            finishSliderDrag();
+            keyboardSetting=-1;
+            if(search!=null) {
+                search.setFocused(true);
+                search.setCursorPositionEnd();
+                search.setSelectionPos(0);
+            }
+            return;
+        }
+        // Search gets first refusal while focused. Enter releases focus;
+        // arrows and editing keys must never toggle or move modules.
+        GuiSearchFocus.Route searchRoute=GuiSearchFocus.route(
+            !hudPage && search!=null && search.isFocused(),
+            keyCode==Keyboard.KEY_RETURN || keyCode==Keyboard.KEY_NUMPADENTER,
+            keyCode==Keyboard.KEY_TAB);
+        if(searchRoute==GuiSearchFocus.Route.RELEASE) {
+            search.setFocused(false);
+            return;
+        }
+        if(searchRoute==GuiSearchFocus.Route.EDIT) {
+            String before=search.getText();
+            search.textboxKeyTyped(character,keyCode);
+            if(!before.equals(search.getText())) {
+                ui.query(search.getText());
+                scroll=0;
+                settingScroll=0;
+                keyboardSetting=-1;
+                entries();
+            }
+            return;
+        }
         if (!hudPage && keyCode==Keyboard.KEY_TAB) {
             finishSliderDrag();
             if(search!=null)search.setFocused(false);
@@ -623,13 +660,6 @@ public final class GhostClickGui extends GuiScreen {
                 try { host.uiActions().toggle(selected); message=""; }
                 catch(RuntimeException ex) { message="Unable to toggle: "+selected; }
             }
-            return;
-        }
-        if (!hudPage && search != null && search.textboxKeyTyped(character,keyCode)) {
-            ui.query(search.getText());
-            scroll=0;
-            keyboardSetting=-1;
-            entries(); // reject stale selected settings as the search changes
             return;
         }
         super.keyTyped(character,keyCode);
