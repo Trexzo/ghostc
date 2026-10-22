@@ -29,6 +29,7 @@ REQUIRED = (
     "dev/ghostfusion/features/EspFilledBoxGeometry.class",
     "dev/ghostfusion/features/EspHealthBarGeometry.class",
     "dev/ghostfusion/features/TargetHudTextLayout.class",
+    "dev/ghostfusion/features/TargetHudDistanceText.class",
     "dev/ghostfusion/features/HudLiveTargetGate.class",
     "dev/ghostfusion/ui/DiagnosticsHudLayout.class",
     "dev/ghostfusion/ui/HudTextFit.class",
