@@ -463,7 +463,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("WorldSnapshot.validPlayerPose(",from_source)
         self.assertIn("WorldSnapshotAdmission<EntityPlayer>()",from_source)
         self.assertIn("nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible)",from_source)
-        self.assertIn("new ArrayList<WorldSnapshot.Entity>(nearestSnapshot.size())",from_source)
+        self.assertIn("new ArrayList<WorldSnapshot.Entity>(nearestSnapshot.sizeWithPinned())",from_source)
         self.assertIn("nearestSnapshot.clear();\n            }",from_source)
         self.assertNotIn("if (players.size() == 256) break;",from_source)
         self.assertIn("snapshot=null;",services)
