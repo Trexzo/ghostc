@@ -415,7 +415,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("keyCode==Keyboard.KEY_RIGHT || keyCode==Keyboard.KEY_R",gui)
         self.assertIn("if(keyCode==Keyboard.KEY_R)",gui)
         self.assertIn("if(!Keyboard.isRepeatEvent())",gui)
-        self.assertIn('"TAB  ENTER  LEFT/RIGHT  R: RESET"',gui)
+        self.assertIn('"TAB  SHIFT+ARROWS  HOME/END  R"',gui)
         key=gui.index("@Override protected void keyTyped")
         self.assertLess(gui.index("if (capture != null)",key),
                         gui.index("host.uiActions().reset(selected,item.getKey())",key))
@@ -427,6 +427,19 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("profileRoundTrip();",suite)
         self.assertIn("dev.ghostfusion.tests.SettingDefaultResetTests",
                       content(".github/workflows/core-ci.yml"))
+
+    def test_numeric_settings_fine_adjustment_and_endpoints(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        keyboard=content("src/main/java/dev/ghostfusion/ui/GuiSettingKeyboard.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/GuiSettingKeyboardTests.java")
+        self.assertIn("keyCode==Keyboard.KEY_HOME || keyCode==Keyboard.KEY_END",gui)
+        self.assertIn("GuiSettingKeyboard.endpointFraction(n.min(),n.max(),",gui)
+        self.assertIn("Keyboard.KEY_LSHIFT",gui)
+        self.assertIn("Keyboard.KEY_RSHIFT",gui)
+        self.assertIn("int direction,boolean fine",keyboard)
+        self.assertIn("fine?0.01:0.05",keyboard)
+        self.assertIn("90000;i++",tests)
+        self.assertIn("precisionAndEndpoints();",tests)
 
     def test_settings_keyboard_navigation_wires_typed_ui_actions(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
