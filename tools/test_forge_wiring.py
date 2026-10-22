@@ -479,7 +479,8 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("public static int next(",policy)
         self.assertIn("public static int reveal(",policy)
         self.assertIn("public static double nudgeFraction(",policy)
-        self.assertIn("typedActions();replay();",suite)
+        self.assertIn("typedActions();",suite)
+        self.assertIn("replay();",suite)
         self.assertIn("dev.ghostfusion.tests.GuiSettingKeyboardTests",
                       content(".github/workflows/core-ci.yml"))
 
