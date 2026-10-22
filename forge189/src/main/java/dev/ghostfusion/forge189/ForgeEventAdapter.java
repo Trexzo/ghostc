@@ -8,6 +8,7 @@ import dev.ghostfusion.services.WorldSnapshotAdmission;
 import dev.ghostfusion.services.SnapshotDemand;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.MovingObjectPosition;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
@@ -79,6 +80,22 @@ public final class ForgeEventAdapter {
             final SnapshotDemand demand=SnapshotDemand.of(
                 host.featureEnabled("hud.target"),host.targetVisible(),host.targetRange(),
                 host.featureEnabled("combat.aimassist"),host.aimVisibleOnly(),host.aimRange());
+            // Only an enabled crosshair HUD may reserve one optional slot.
+            // Reject stale reticle references before scanning playerEntities.
+            EntityPlayer crosshairPlayer=null;
+            if(host.featureEnabled("hud.target") &&
+               "crosshair".equals(host.targetSelection())) {
+                MovingObjectPosition hit=minecraft.objectMouseOver;
+                if(hit!=null &&
+                   hit.typeOfHit==MovingObjectPosition.MovingObjectType.ENTITY &&
+                   hit.entityHit instanceof EntityPlayer &&
+                   hit.entityHit!=minecraft.thePlayer) {
+                    EntityPlayer candidate=(EntityPlayer)hit.entityHit;
+                    if(minecraft.theWorld.getEntityByID(candidate.getEntityId())==candidate)
+                        crosshairPlayer=candidate;
+                }
+            }
+            final EntityPlayer pinnedCrosshair=crosshairPlayer;
             final boolean profileSnapshot=host.snapshotProfilingEnabled();
             final long snapshotStart=profileSnapshot?System.nanoTime():0L;
             int scanned=0,passed=0,rays=0;
@@ -112,11 +129,13 @@ public final class ForgeEventAdapter {
                         visible=minecraft.thePlayer.canEntityBeSeen(p);
                     }
                     if(!demand.admit(visible,distanceSq))continue;
+                    if(p==pinnedCrosshair)
+                        nearestSnapshot.pin(p,p.getEntityId(),distanceSq,visible);
                     nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible);
                 }
                 final List<WorldSnapshot.Entity> players =
-                    new ArrayList<WorldSnapshot.Entity>(nearestSnapshot.size());
-                nearestSnapshot.forEach(new WorldSnapshotAdmission.Visitor<EntityPlayer>() {
+                    new ArrayList<WorldSnapshot.Entity>(nearestSnapshot.sizeWithPinned());
+                nearestSnapshot.forEachWithPinned(new WorldSnapshotAdmission.Visitor<EntityPlayer>() {
                     public void visit(EntityPlayer p,boolean visible) {
                         // Reject a candidate that changed between admission and
                         // publication, instead of failing the whole client tick.

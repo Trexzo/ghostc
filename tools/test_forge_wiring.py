@@ -487,13 +487,35 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.NearestSnapshotTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_crosshair_snapshot_pin_keeps_one_over_budget_player(self):
+        adapter=self.adapter
+        admission=content("src/main/java/dev/ghostfusion/services/WorldSnapshotAdmission.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/PinnedSnapshotTests.java")
+        workflow=content(".github/workflows/core-ci.yml")
+        self.assertIn('host.featureEnabled("hud.target")',adapter)
+        self.assertIn('"crosshair".equals(host.targetSelection())',adapter)
+        self.assertIn("minecraft.theWorld.getEntityByID(candidate.getEntityId())==candidate",adapter)
+        self.assertIn("final EntityPlayer pinnedCrosshair=crosshairPlayer;",adapter)
+        self.assertIn("if(p==pinnedCrosshair)",adapter)
+        self.assertIn("nearestSnapshot.pin(p,p.getEntityId(),distanceSq,visible);",adapter)
+        self.assertLess(adapter.index("if(!demand.admit(visible,distanceSq))continue;"),
+                        adapter.index("nearestSnapshot.pin(p,p.getEntityId(),distanceSq,visible);"))
+        self.assertIn("nearestSnapshot.sizeWithPinned()",adapter)
+        self.assertIn("nearestSnapshot.forEachWithPinned(",adapter)
+        self.assertIn("minecraft.theWorld.getEntityByID(p.getEntityId())!=p",adapter)
+        self.assertIn("private T pinned;",admission)
+        self.assertIn("boolean extra=includePinned && needsPinnedSlot();",admission)
+        self.assertIn("pinned=null;",admission)
+        self.assertIn("crowdedPinnedTarget();",suite)
+        self.assertIn("dev.ghostfusion.tests.PinnedSnapshotTests",workflow)
+
     def test_visibility_partitioned_snapshots_keep_visible_candidates(self):
         adapter=self.adapter
         admission=content("src/main/java/dev/ghostfusion/services/WorldSnapshotAdmission.java")
         self.assertIn("new WorldSnapshotAdmission<EntityPlayer>()",adapter)
         self.assertIn("if(demand.testVisibility(distanceSq) && !p.isInvisible())",adapter)
         self.assertIn("nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible)",adapter)
-        self.assertIn("nearestSnapshot.forEach(new WorldSnapshotAdmission.Visitor<EntityPlayer>()",adapter)
+        self.assertIn("nearestSnapshot.forEachWithPinned(new WorldSnapshotAdmission.Visitor<EntityPlayer>()",adapter)
         self.assertIn("p.getEntityId(),p.posX,p.posY,p.posZ,health,true,stillVisible,true",adapter)
         self.assertIn("new EspNearestBudget<T>(256)",admission)
         self.assertIn("hidden.removeId(id)",admission)
