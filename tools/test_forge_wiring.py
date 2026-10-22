@@ -371,7 +371,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("if(searchRoute==GuiSearchFocus.Route.EDIT)",gui)
         self.assertIn("if(!before.equals(search.getText()))",gui)
         self.assertIn("ui.query(search.getText())",gui)
-        self.assertIn("GuiSearchFocus.Route.PASS",policy)
+        self.assertIn("return Route.PASS;",policy)
         self.assertIn("75000;i++",suite)
         self.assertIn("dev.ghostfusion.tests.GuiSearchFocusTests",
                       content(".github/workflows/core-ci.yml"))
