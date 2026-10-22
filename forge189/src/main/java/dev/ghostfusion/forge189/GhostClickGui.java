@@ -655,6 +655,13 @@ public final class GhostClickGui extends GuiScreen {
                                 host.uiActions().bool(selected,item.getKey());
                             else if(s instanceof Setting.Choice)
                                 host.uiActions().cycle(selected,item.getKey());
+                        } else if(s instanceof Setting.Choice) {
+                            if(keyCode==Keyboard.KEY_HOME || keyCode==Keyboard.KEY_END)
+                                host.uiActions().choiceEdge(selected,item.getKey(),
+                                    keyCode==Keyboard.KEY_END);
+                            else if(keyCode==Keyboard.KEY_LEFT || keyCode==Keyboard.KEY_RIGHT)
+                                host.uiActions().cycle(selected,item.getKey(),
+                                    keyCode==Keyboard.KEY_RIGHT?1:-1);
                         } else if(s instanceof Setting.Number) {
                             Setting.Number n=(Setting.Number)s;
                             double oldFraction=NumericSliderScale.fraction(

@@ -428,6 +428,24 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.SettingDefaultResetTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_choice_keyboard_left_right_home_end_routing(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        actions=content("src/main/java/dev/ghostfusion/ui/UiActions.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/GuiSettingKeyboardTests.java")
+        self.assertIn("host.uiActions().choiceEdge(selected,item.getKey(),",gui)
+        self.assertIn("host.uiActions().cycle(selected,item.getKey(),",gui)
+        self.assertIn("else if(s instanceof Setting.Choice)",gui)
+        self.assertIn("public boolean cycle(String id,String settingId,int direction)",actions)
+        self.assertIn("public boolean choiceEdge(String id,String settingId,boolean last)",actions)
+        self.assertIn("if(value.equals(choice.get()))return false;",actions)
+        self.assertIn("75000;i++",suite)
+        self.assertIn("choiceDirections();",suite)
+        key=gui.index("@Override protected void keyTyped")
+        self.assertLess(gui.index("GuiSearchFocus.route(",key),
+                        gui.index("host.uiActions().choiceEdge(",key))
+        self.assertLess(gui.index("if (capture != null)",key),
+                        gui.index("host.uiActions().choiceEdge(",key))
+
     def test_numeric_settings_fine_adjustment_and_endpoints(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         keyboard=content("src/main/java/dev/ghostfusion/ui/GuiSettingKeyboard.java")

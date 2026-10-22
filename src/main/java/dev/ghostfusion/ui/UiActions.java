@@ -32,14 +32,38 @@ public final class UiActions {
         s.setFromText(Boolean.toString(!((Setting.Bool) s).get()));
         persist.run();
     }
+    /** Preserve the existing forward-cycle API for mouse and Enter actions. */
     public void cycle(String id, String settingId) {
-        Setting<?> s = setting(id, settingId);
-        if (!(s instanceof Setting.Choice)) throw new IllegalArgumentException("Not a choice");
-        Setting.Choice choice = (Setting.Choice) s;
-        List<String> values = choice.options();
-        int idx = values.indexOf(choice.get());
-        choice.setFromText(values.get((idx + 1) % values.size()));
+        cycle(id,settingId,1);
+    }
+    /** Keyboard Left/Right cycles backward/forward through validated choices. */
+    public boolean cycle(String id,String settingId,int direction) {
+        if(direction!=1 && direction!=-1)
+            throw new IllegalArgumentException("choice direction");
+        Setting.Choice choice=checkedChoice(id,settingId);
+        List<String> values=choice.options();
+        int current=values.indexOf(choice.get());
+        if(current<0)throw new IllegalStateException("Unknown current choice");
+        return choose(choice,values.get((current+direction+values.size())%values.size()));
+    }
+    /** Keyboard Home/End chooses the first/last ordered option. */
+    public boolean choiceEdge(String id,String settingId,boolean last) {
+        Setting.Choice choice=checkedChoice(id,settingId);
+        List<String> values=choice.options();
+        return choose(choice,values.get(last?values.size()-1:0));
+    }
+    private Setting.Choice checkedChoice(String id,String settingId) {
+        Setting<?> s=setting(id,settingId);
+        if(!(s instanceof Setting.Choice))
+            throw new IllegalArgumentException("Not a choice");
+        return (Setting.Choice)s;
+    }
+    /** Persist one changed option, never an already-selected one. */
+    private boolean choose(Setting.Choice choice,String value) {
+        if(value.equals(choice.get()))return false;
+        choice.setFromText(value);
         persist.run();
+        return true;
     }
     /** Explicit single-setting default restore. Unchanged state never writes
      * a new profile; focus/validation is owned by the ClickGUI. */
