@@ -1224,6 +1224,26 @@ class ForgeWiring(unittest.TestCase):
         ci=content(".github/workflows/core-ci.yml")
         self.assertIn("dev.ghostfusion.tests.CompactGuiTests",ci)
 
+    def test_module_fault_reset_uses_safe_two_step_gui_and_keybind(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        actions=content("src/main/java/dev/ghostfusion/ui/UiActions.java")
+        registry=content("src/main/java/dev/ghostfusion/core/ModuleRegistry.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/FaultRecoveryUiTests.java")
+        self.assertIn("boolean faulted = e.state() == ModuleRegistry.State.FAULTED;",gui)
+        self.assertIn('faulted ? "RESET" : enabled ? "ON" : "OFF"',gui)
+        self.assertIn('label(trim("FAULT: "+e.lastFault()+"  (RESET to clear)"',gui)
+        self.assertIn("host.uiActions().toggle(e.module().id())",gui)
+        self.assertIn("host.uiActions().toggle(selected)",gui)
+        self.assertIn("modules.setEnabled(id, e.state() == ModuleRegistry.State.DISABLED);",actions)
+        self.assertIn("setEnabled(e.module.id(), e.state == State.DISABLED);",registry)
+        self.assertIn("if (e.state == State.FAULTED) throw new IllegalStateException",registry)
+        self.assertIn('e.state = State.DISABLED; e.lastFault = "";',registry)
+        self.assertIn("faultedClickGuiReset();",suite)
+        self.assertIn("keybindReset();",suite)
+        self.assertIn("noReentrantRetry();",suite)
+        self.assertIn("dev.ghostfusion.tests.FaultRecoveryUiTests",
+                      content(".github/workflows/core-ci.yml"))
+
     def test_module_lifecycle_reentry_and_sealed_shutdown(self):
         registry=content("src/main/java/dev/ghostfusion/core/ModuleRegistry.java")
         suite=content("src/test/java/dev/ghostfusion/tests/ModuleLifecycleReentryTests.java")

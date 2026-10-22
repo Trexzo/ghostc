@@ -15,7 +15,10 @@ public final class UiActions {
     public void toggle(String id) {
         modules.assertOwnerThread();
         ModuleRegistry.Entry e = modules.get(id);
-        modules.setEnabled(id, e.state() != ModuleRegistry.State.ENABLED);
+        // Faulted modules cannot be re-enabled until their fault marker is
+        // explicitly reset. One press resets to DISABLED, a second enables.
+        // Never invoke onEnable while the prior fault is still latched.
+        modules.setEnabled(id, e.state() == ModuleRegistry.State.DISABLED);
         persist.run();
     }
     public void bind(String id, int key) {
