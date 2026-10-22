@@ -36,6 +36,7 @@ REQUIRED = (
     "dev/ghostfusion/ui/GuiSliderDrag.class",
     "dev/ghostfusion/ui/GuiSettingKeyboard.class",
     "dev/ghostfusion/ui/GuiSearchFocus.class",
+    "dev/ghostfusion/ui/GuiKeybindCapture.class",
     "dev/ghostfusion/ui/NumericSliderScale.class",
     "dev/ghostfusion/ui/HudWidgetViewport.class",
     "dev/ghostfusion/features/EspHealthBarGeometry$Side.class",

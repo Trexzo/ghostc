@@ -13,6 +13,7 @@ import dev.ghostfusion.ui.GuiChrome;
 import dev.ghostfusion.ui.GuiSelection;
 import dev.ghostfusion.ui.GuiSettingKeyboard;
 import dev.ghostfusion.ui.GuiSearchFocus;
+import dev.ghostfusion.ui.GuiKeybindCapture;
 import dev.ghostfusion.ui.HudPositions.Widget;
 import dev.ghostfusion.ui.HudPreviewGeometry;
 import dev.ghostfusion.ui.HudFootprints;
@@ -224,7 +225,7 @@ public final class GhostClickGui extends GuiScreen {
         int bindY = sy + 22;
         rect(x + side + 11, bindY, w - side - 26, 18, 0x66394359);
         String keyText = capture != null && capture.equals(selected) ? "Press key (ESC cancel / BACKSPACE clear)" :
-            "KEYBIND: " + (e.keybind() == 0 ? "NONE" : Keyboard.getKeyName(e.keybind()));
+            "KEYBIND [B]: " + (e.keybind() == 0 ? "NONE" : Keyboard.getKeyName(e.keybind()));
         label(trim(keyText, w - side - 39), x + side + 16, bindY + 5, 0xFFEAECF5);
         int sY = bindY + 24;
         List<Map.Entry<String, Setting<?>>> settings = new ArrayList<Map.Entry<String, Setting<?>>>(e.settings().entrySet());
@@ -522,6 +523,9 @@ public final class GhostClickGui extends GuiScreen {
             return;
         }
         if (capture != null) {
+            // Key repeat from the B shortcut or the bound key must never
+            // silently become a new module binding.
+            if(Keyboard.isRepeatEvent())return;
             String id = capture; capture = null;
             if (keyCode == Keyboard.KEY_ESCAPE) return;
             if (keyCode == Keyboard.KEY_F7) {
@@ -593,6 +597,16 @@ public final class GhostClickGui extends GuiScreen {
                 settingScroll=0;
                 keyboardSetting=-1;
                 entries();
+            }
+            return;
+        }
+        if (keyCode==Keyboard.KEY_B &&
+            GuiKeybindCapture.arm(!hudPage,search!=null && search.isFocused(),
+                keyboardSetting,selected,Keyboard.isRepeatEvent())) {
+            finishSliderDrag();
+            entries(); // reconcile the current search/category filter first
+            if(selected!=null) {
+                capture=selected;message="";
             }
             return;
         }

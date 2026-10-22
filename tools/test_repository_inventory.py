@@ -10,7 +10,7 @@ import sys
 
 ROOT=Path(__file__).resolve().parent.parent
 TESTS=(
-    "CoreTests","ModuleLifecycleReentryTests","FaultRecoveryUiTests","GuiKeyboardNavigationTests","GuiSettingKeyboardTests","GuiSearchFocusTests","TargetHudPaletteTests","TargetHudSelectionTests","TargetHudDistanceTextTests","PinnedSnapshotTests","HostRuntimeTests","UiTests","ServicesTests","FeatureTests",
+    "CoreTests","ModuleLifecycleReentryTests","FaultRecoveryUiTests","GuiKeyboardNavigationTests","GuiSettingKeyboardTests","GuiKeybindCaptureTests","GuiSearchFocusTests","TargetHudPaletteTests","TargetHudSelectionTests","TargetHudDistanceTextTests","PinnedSnapshotTests","HostRuntimeTests","UiTests","ServicesTests","FeatureTests",
     "EspSkeletonTests","EspTelemetryTests","FramePerformanceTests","LifecycleVisibilityTests",
     "EspHealthBarTests","EspHealthPlacementTests","EspNearestBudgetTests",
     "EspLosPruningTests","NearestSnapshotTests",
@@ -53,7 +53,7 @@ def verify():
     for name in MUST_EXIST:
         if not (ROOT/name).is_file():
             issues.append(name)
-    for version in range(8,84):
+    for version in range(8,85):
         path=Path("docs")/("RUNTIME_R%02d.md"%version)
         if not (ROOT/path).is_file():
             issues.append(str(path))
@@ -63,7 +63,7 @@ def verify():
             issues.append(path+" (README reference)")
     if issues:
         raise AssertionError("Repository inventory incomplete: "+", ".join(sorted(set(issues))))
-    print("REPOSITORY_INVENTORY_PASS tests=%d milestones=%d"%(len(TESTS),76))
+    print("REPOSITORY_INVENTORY_PASS tests=%d milestones=%d"%(len(TESTS),77))
 
 if __name__=="__main__":
     try:
