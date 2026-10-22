@@ -10,6 +10,7 @@ import dev.ghostfusion.features.SprintPolicy;
 import dev.ghostfusion.features.TargetHudPolicy;
 import dev.ghostfusion.features.HudLiveTargetGate;
 import dev.ghostfusion.features.TargetHudTextLayout;
+import dev.ghostfusion.features.TargetHudDistanceText;
 import dev.ghostfusion.features.TargetHudPalette;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
@@ -303,6 +304,21 @@ public final class ForgeFeatureDriver {
                 palette.accent);
             mc.fontRendererObj.drawStringWithShadow(labels.healthLabel,
                 x+width-9-labels.healthLabelWidth,y+8,palette.healthText);
+        }
+        if(host.targetDistance()) {
+            // Separate lower row uses existing unused card space; keep the
+            // original 160px footprint and all legacy name/HP placements.
+            final int distanceY=y+(health?33:18);
+            if(distanceY+mc.fontRendererObj.FONT_HEIGHT<=y+height) {
+                String distanceText=TargetHudDistanceText.format(
+                    player.posX,player.posY,player.posZ,
+                    mc.thePlayer.posX,mc.thePlayer.posY,mc.thePlayer.posZ,
+                    host.targetRange(),width-18,targetFontWidths);
+                if(!distanceText.isEmpty())
+                    mc.fontRendererObj.drawStringWithShadow(distanceText,
+                        x+width-9-mc.fontRendererObj.getStringWidth(distanceText),
+                        distanceY,palette.healthText);
+            }
         }
     }
 }

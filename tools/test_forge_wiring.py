@@ -88,6 +88,29 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("EXCLUDED_PRIVATE_VALUE",workflow)
         self.assertNotIn("$lines | Set-Content -LiteralPath $report -Encoding UTF8\\nWrite-Output",accept)
 
+    def test_target_hud_opt_in_distance_is_live_and_pixel_bounded(self):
+        forge=(FORGE/"ForgeFeatureDriver.java").read_text(encoding="utf-8")
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        policy=content("src/main/java/dev/ghostfusion/features/TargetHudDistanceText.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/TargetHudDistanceTextTests.java")
+        self.assertIn('new Setting.Bool("show_distance", false)',host)
+        self.assertIn("public boolean targetDistance()",host)
+        self.assertIn("targetSelection, targetDistance);",host)
+        self.assertIn("if(host.targetDistance())",forge)
+        self.assertIn("final int distanceY=y+(health?33:18);",forge)
+        self.assertIn("distanceY+mc.fontRendererObj.FONT_HEIGHT<=y+height",forge)
+        self.assertIn("TargetHudDistanceText.format(",forge)
+        self.assertIn("player.posX,player.posY,player.posZ,",forge)
+        self.assertIn("mc.thePlayer.posX,mc.thePlayer.posY,mc.thePlayer.posZ,",forge)
+        self.assertIn("host.targetRange(),width-18,targetFontWidths",forge)
+        self.assertIn("double sq=dx*dx+dy*dy+dz*dz;",policy)
+        self.assertIn("if(!Double.isFinite(sq)||sq>range*range)return \"\";",policy)
+        self.assertIn("100000;i++",suite)
+        self.assertIn("loaded.targetDistance()",suite)
+        self.assertIn("dev.ghostfusion.tests.TargetHudDistanceTextTests",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("TargetHudDistanceText.class",content("tools/verify_forge_jar.py"))
+
     def test_target_hud_crosshair_selection_is_snapshot_and_identity_fenced(self):
         forge=(FORGE/"ForgeFeatureDriver.java").read_text(encoding="utf-8")
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
@@ -129,7 +152,7 @@ class ForgeWiring(unittest.TestCase):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         layout=content("src/main/java/dev/ghostfusion/features/TargetHudTextLayout.java")
         self.assertIn('new Setting.Choice("health_text","values","values","percent")',host)
-        self.assertIn('0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin, targetSelection);',host)
+        self.assertIn('0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin, targetSelection, targetDistance);',host)
         self.assertIn("TargetHudTextLayout.layout(",forge)
         self.assertIn("host.targetHealthText(),liveHealth,",forge)
         self.assertIn("mc.fontRendererObj.getStringWidth(value)",forge)

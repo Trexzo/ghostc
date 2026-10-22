@@ -54,6 +54,8 @@ public final class HostRuntime {
     private final Setting.Number targetRange = new Setting.Number("range", 8.0, 2.0, 24.0);
     private final Setting.Bool targetVisible = new Setting.Bool("visible_only", true);
     private final Setting.Bool targetHealth = new Setting.Bool("show_health", true);
+    // Off by default: old HUD visuals and profiles are unchanged.
+    private final Setting.Bool targetDistance = new Setting.Bool("show_distance", false);
     // Existing profiles keep Nearest; Crosshair draws only the entity under the reticle.
     private final Setting.Choice targetSelection =
         new Setting.Choice("selection","nearest","nearest","crosshair");
@@ -137,7 +139,7 @@ public final class HostRuntime {
         modules.register(new FeatureModule("hud.cps", "CPS Counter", GhostModule.Category.RENDER),
             0, cpsRight);
         modules.register(new FeatureModule("hud.target", "Target HUD", GhostModule.Category.RENDER),
-            0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin, targetSelection);
+            0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin, targetSelection, targetDistance);
         modules.register(new FeatureModule("render.esp", "Player ESP", GhostModule.Category.RENDER),
             0, espRange, espVisible, espWalls, espWidth, espStyle, espHealth,
             espHealthSide, espHealthGap,
@@ -258,6 +260,7 @@ public final class HostRuntime {
     public double targetRange() { modules.assertOwnerThread(); return targetRange.get(); }
     public boolean targetVisible() { modules.assertOwnerThread(); return targetVisible.get(); }
     public boolean targetHealth() { modules.assertOwnerThread(); return targetHealth.get(); }
+    public boolean targetDistance() { modules.assertOwnerThread(); return targetDistance.get(); }
     public String targetHealthText() {
         modules.assertOwnerThread(); return targetHealthText.get();
     }
