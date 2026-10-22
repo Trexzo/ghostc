@@ -254,7 +254,7 @@ public final class GhostClickGui extends GuiScreen {
             sY += 22;
         }
         if (keyboardSetting>=0 && available>0) label(
-            "TAB  SPACE/ENTER  LEFT/RIGHT",x+side+13,bindY+6,0xFFE7E8F5);
+            "TAB  ENTER  LEFT/RIGHT  R: RESET",x+side+13,bindY+6,0xFFE7E8F5);
         else if (settings.size() > available) label(
             (settingScroll + 1) + "-" + Math.min(settings.size(), settingScroll + available) +
             "/" + settings.size() + "  scroll", x + side + 13, bindY + 6, 0xFFE7E8F5);
@@ -629,7 +629,7 @@ public final class GhostClickGui extends GuiScreen {
             (search==null || !search.isFocused()) &&
             (keyCode==Keyboard.KEY_RETURN || keyCode==Keyboard.KEY_NUMPADENTER ||
              keyCode==Keyboard.KEY_SPACE || keyCode==Keyboard.KEY_LEFT ||
-             keyCode==Keyboard.KEY_RIGHT)) {
+             keyCode==Keyboard.KEY_RIGHT || keyCode==Keyboard.KEY_R)) {
             entries();
             if(selected!=null && keyboardSetting>=0) {
                 List<Map.Entry<String, Setting<?>>> settings=
@@ -639,7 +639,12 @@ public final class GhostClickGui extends GuiScreen {
                     Map.Entry<String, Setting<?>> item=settings.get(keyboardSetting);
                     Setting<?> s=item.getValue();
                     try {
-                        if(keyCode==Keyboard.KEY_SPACE || keyCode==Keyboard.KEY_RETURN ||
+                        if(keyCode==Keyboard.KEY_R) {
+                            // A focused setting only: reset its own original
+                            // typed default, not the entire module/profile.
+                            if(!Keyboard.isRepeatEvent())
+                                host.uiActions().reset(selected,item.getKey());
+                        } else if(keyCode==Keyboard.KEY_SPACE || keyCode==Keyboard.KEY_RETURN ||
                            keyCode==Keyboard.KEY_NUMPADENTER) {
                             if(s instanceof Setting.Bool)
                                 host.uiActions().bool(selected,item.getKey());

@@ -5,13 +5,22 @@ import java.util.Locale;
 /** Typed validated setting. Storage and public mutation use the same parser. */
 public abstract class Setting<T> {
     private final String id;
+    private final T defaultValue;
     private T value;
     protected Setting(String id, T initialValue) {
         this.id = ModuleRegistry.validateId(id);
+        this.defaultValue = initialValue;
         this.value = initialValue;
     }
     public final String id() { return id; }
     public final T get() { return value; }
+    /** Restore this setting's original constructor default, not profile state.
+     * Boolean, String and Double setting values are immutable. */
+    public final boolean resetToDefault() {
+        if(java.util.Objects.equals(value,defaultValue))return false;
+        value=defaultValue;
+        return true;
+    }
     public final void setFromText(String text) { value = parse(text); }
     public final String serialize() { return format(value); }
     public abstract T parse(String text);

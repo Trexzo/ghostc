@@ -373,6 +373,33 @@ class ForgeWiring(unittest.TestCase):
                       content(".github/workflows/core-ci.yml"))
         self.assertIn("GuiKeybindCapture.class",content("tools/verify_forge_jar.py"))
 
+    def test_focused_setting_can_restore_original_typed_default(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        setting=content("src/main/java/dev/ghostfusion/core/Setting.java")
+        actions=content("src/main/java/dev/ghostfusion/ui/UiActions.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/SettingDefaultResetTests.java")
+        self.assertIn("private final T defaultValue;",setting)
+        self.assertIn("boolean resetToDefault()",setting)
+        self.assertIn("java.util.Objects.equals(value,defaultValue)",setting)
+        self.assertIn("public boolean reset(String id,String settingId)",actions)
+        self.assertIn("if(!s.resetToDefault())return false;",actions)
+        self.assertIn("host.uiActions().reset(selected,item.getKey())",gui)
+        self.assertIn("keyCode==Keyboard.KEY_RIGHT || keyCode==Keyboard.KEY_R",gui)
+        self.assertIn("if(keyCode==Keyboard.KEY_R)",gui)
+        self.assertIn("if(!Keyboard.isRepeatEvent())",gui)
+        self.assertIn('"TAB  ENTER  LEFT/RIGHT  R: RESET"',gui)
+        key=gui.index("@Override protected void keyTyped")
+        self.assertLess(gui.index("if (capture != null)",key),
+                        gui.index("host.uiActions().reset(selected,item.getKey())",key))
+        self.assertLess(gui.index("GuiSearchFocus.route(",key),
+                        gui.index("host.uiActions().reset(selected,item.getKey())",key))
+        self.assertLess(gui.index("if (hudPage) {",key),
+                        gui.index("host.uiActions().reset(selected,item.getKey())",key))
+        self.assertIn("40000;i++",suite)
+        self.assertIn("profileRoundTrip();",suite)
+        self.assertIn("dev.ghostfusion.tests.SettingDefaultResetTests",
+                      content(".github/workflows/core-ci.yml"))
+
     def test_settings_keyboard_navigation_wires_typed_ui_actions(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         policy=content("src/main/java/dev/ghostfusion/ui/GuiSettingKeyboard.java")
