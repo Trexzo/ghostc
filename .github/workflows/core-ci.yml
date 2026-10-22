@@ -49,6 +49,8 @@ jobs:
           grep -q 'GUI_SEARCH_FOCUS_PASS' .build/gui-search-focus.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiKeybindCaptureTests | tee .build/gui-keybind-capture.log
           grep -q 'GUI_KEYBIND_CAPTURE_PASS' .build/gui-keybind-capture.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.SettingDefaultResetTests | tee .build/setting-default-reset.log
+          grep -q 'SETTING_DEFAULT_RESET_PASS' .build/setting-default-reset.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSettingKeyboardTests | tee .build/gui-setting-keyboard.log
           grep -q 'GUI_SETTING_KEYBOARD_PASS' .build/gui-setting-keyboard.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiKeyboardNavigationTests | tee .build/gui-keyboard.log

@@ -41,6 +41,14 @@ public final class UiActions {
         choice.setFromText(values.get((idx + 1) % values.size()));
         persist.run();
     }
+    /** Explicit single-setting default restore. Unchanged state never writes
+     * a new profile; focus/validation is owned by the ClickGUI. */
+    public boolean reset(String id,String settingId) {
+        Setting<?> s=setting(id,settingId);
+        if(!s.resetToDefault())return false;
+        persist.run();
+        return true;
+    }
     public void fraction(String id, String settingId, double fraction) {
         previewFraction(id,settingId,fraction);
         persist.run();
