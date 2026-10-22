@@ -321,6 +321,30 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('faultWarning = "Module disabled:',host)
         self.assertIn('diagnostics.record(Counter.FEATURE_FAULT)',host)
 
+    def test_settings_keyboard_navigation_wires_typed_ui_actions(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        policy=content("src/main/java/dev/ghostfusion/ui/GuiSettingKeyboard.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/GuiSettingKeyboardTests.java")
+        self.assertIn("keyCode==Keyboard.KEY_TAB",gui)
+        self.assertIn("search.setFocused(false)",gui)
+        self.assertIn("GuiSettingKeyboard.next(",gui)
+        self.assertIn("GuiSettingKeyboard.reveal(",gui)
+        self.assertIn("GuiSettingKeyboard.nudgeFraction(",gui)
+        self.assertIn("host.uiActions().bool(selected,item.getKey())",gui)
+        self.assertIn("host.uiActions().cycle(selected,item.getKey())",gui)
+        self.assertIn("host.uiActions().fraction(selected,item.getKey(),next)",gui)
+        self.assertIn("i==keyboardSetting ? ",gui)
+        self.assertIn("keyboardSetting=-1;",gui)
+        self.assertLess(gui.index("if (capture != null)"),gui.index("keyCode==Keyboard.KEY_TAB"))
+        self.assertLess(gui.index("if (hudPage) {",gui.index("@Override protected void keyTyped")),
+                        gui.index("keyCode==Keyboard.KEY_TAB"))
+        self.assertIn("public static int next(",policy)
+        self.assertIn("public static int reveal(",policy)
+        self.assertIn("public static double nudgeFraction(",policy)
+        self.assertIn("typedActions();replay();",suite)
+        self.assertIn("dev.ghostfusion.tests.GuiSettingKeyboardTests",
+                      content(".github/workflows/core-ci.yml"))
+
     def test_keyboard_filter_navigation_keeps_active_module_visible(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         selection=content("src/main/java/dev/ghostfusion/ui/GuiSelection.java")
