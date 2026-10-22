@@ -1196,7 +1196,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('label("No matching modules"',gui)
         self.assertIn("if (selected == null) return;",gui)
         self.assertIn("entries(); // immediately invalidate settings/key capture",gui)
-        self.assertIn("entries(); // reject stale selected settings",gui)
+        self.assertIn("if(!before.equals(search.getText()))",gui)
         self.assertIn("if (visible.isEmpty()) return null;",selection)
         ci=content(".github/workflows/core-ci.yml")
         self.assertIn("dev.ghostfusion.tests.CompactGuiTests",ci)
