@@ -6,6 +6,7 @@ import dev.ghostfusion.core.ModuleRegistry;
 import dev.ghostfusion.core.Setting;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.ui.UiActions;
+import dev.ghostfusion.ui.NumericSliderScale;
 import dev.ghostfusion.ui.UiSettingsStore;
 import dev.ghostfusion.ui.UiState;
 
@@ -106,6 +107,51 @@ public final class UiTests {
         ok(persisted[0] == 11, "only successful actions persisted");
         r.shutdown();
     }
+    /** A normalized numeric no-op must not write a profile file. */
+    private static void numericNoopWrites() {
+        ModuleRegistry r=new ModuleRegistry();
+        Setting.Number amount=new Setting.Number("amount",50.0,0.0,100.0);
+        Setting.Number fixed=new Setting.Number("fixed",7.0,7.0,7.0);
+        r.register(new Dummy("hud.numeric","Numeric HUD",GhostModule.Category.RENDER),
+            0,amount,fixed);
+        final int[] saves={0};
+        UiActions actions=new UiActions(r,()->saves[0]++);
+        actions.fraction("hud.numeric","amount",0.5);
+        ok(saves[0]==0 && amount.get()==50.0,
+            "fraction selecting current numeric value does not persist");
+        actions.fraction("hud.numeric","amount",1.0);
+        ok(saves[0]==1 && amount.get()==100.0,
+            "changed fraction commits exactly once");
+        actions.fraction("hud.numeric","amount",1.0);
+        actions.fraction("hud.numeric","amount",999.0);
+        ok(saves[0]==1,
+            "repeated and clamped endpoint fractions do not write");
+        actions.fraction("hud.numeric","amount",0.0);
+        ok(saves[0]==2 && amount.get()==0.0,
+            "moving away from endpoint persists once");
+        actions.fraction("hud.numeric","fixed",0.0);
+        actions.fraction("hud.numeric","fixed",1.0);
+        ok(saves[0]==2 && fixed.get()==7.0,
+            "constant numeric range never triggers profile writes");
+        fails(()->actions.fraction("hud.numeric","amount",Double.NaN));
+        fails(()->actions.fraction("hud.numeric","unknown",0.5));
+        ok(saves[0]==2,"rejected fractions never persist");
+
+        java.util.Random random=new java.util.Random(2722026L);
+        int writes=saves[0];
+        for(int i=0;i<65000;i++) {
+            double fraction=random.nextDouble()*1.6-0.3;
+            double next=NumericSliderScale.value(0.0,100.0,fraction);
+            boolean change=Double.compare(amount.get(),next)!=0;
+            if(change)writes++;
+            actions.fraction("hud.numeric","amount",fraction);
+            ok(Double.compare(amount.get(),next)==0,
+                "numeric fraction maps through validated slider scale "+i);
+            ok(saves[0]==writes,
+                "numeric profile write count matches actual changes "+i);
+        }
+        r.shutdown();
+    }
     private static void geometry() {
         UiState ui = new UiState();
         int[][] screens = {{320,180}, {427,240}, {854,480}, {1280,720}, {1920,1080}, {3840,2160}};
@@ -200,6 +246,7 @@ public final class UiTests {
     }
     public static void main(String[] args) throws Exception {
         modelAndActions();
+        numericNoopWrites();
         geometry();
         preferences();
         hostIntegration();
