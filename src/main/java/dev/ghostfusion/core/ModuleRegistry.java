@@ -109,7 +109,9 @@ public final class ModuleRegistry {
     public void toggleKey(int key) {
         assertLive(); if (key == 0) return;
         for (Entry e : modules.values()) if (e.keybind == key) {
-            setEnabled(e.module.id(), e.state != State.ENABLED); return;
+            // A faulted keybind clears the fault without running the
+            // previously crashing onEnable. A second press opts in to retry.
+            setEnabled(e.module.id(), e.state == State.DISABLED); return;
         }
     }
     public void dispatch(GameEvent event) {

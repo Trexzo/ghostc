@@ -197,9 +197,14 @@ public final class GhostClickGui extends GuiScreen {
             label(trim(e.module().displayName(), Math.max(60, w - side - 97)),
                     x + side + 15, ry + 8, focused ? 0xFFFFFFFF : 0xFFE4E7F0);
             boolean enabled = e.state() == ModuleRegistry.State.ENABLED;
+            boolean faulted = e.state() == ModuleRegistry.State.FAULTED;
             int right = x + w - 54;
-            rect(right, ry + 5, 39, 15, enabled ? accent() : 0xFF586073);
-            label(enabled ? "ON" : "OFF", right + 9, ry + 8, enabled ? 0xFF101320 : 0xFFFFFFFF);
+            rect(right, ry + 5, 39, 15,
+                faulted ? 0xFFAA5360 : enabled ? accent() : 0xFF586073);
+            // RESET is a distinct safe action, not another enable attempt.
+            label(faulted ? "RESET" : enabled ? "ON" : "OFF",
+                right + (faulted ? 5 : 9), ry + 8,
+                enabled && !faulted ? 0xFF101320 : 0xFFFFFFFF);
         }
         int sy = listY + listH + 5;
         rect(x + side + 9, sy - 4, w - side - 20, 1, 0x557E879D);
@@ -211,7 +216,11 @@ public final class GhostClickGui extends GuiScreen {
         ModuleRegistry.Entry e;
         try { e = host.modules().get(selected); }
         catch (IllegalArgumentException ex) { return; }
-        label("SETTINGS  " + e.module().displayName(), x + side + 13, sy + 4, accent());
+        if(e.state()==ModuleRegistry.State.FAULTED)
+            label(trim("FAULT: "+e.lastFault()+"  (RESET to clear)",
+                Math.max(0,w-side-39)),x+side+13,sy+4,0xFFFFB3A6);
+        else
+            label("SETTINGS  " + e.module().displayName(), x + side + 13, sy + 4, accent());
         int bindY = sy + 22;
         rect(x + side + 11, bindY, w - side - 26, 18, 0x66394359);
         String keyText = capture != null && capture.equals(selected) ? "Press key (ESC cancel / BACKSPACE clear)" :
