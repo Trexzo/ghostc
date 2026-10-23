@@ -192,6 +192,97 @@ public final class PacketLifecycleReentryTests {
     }
     /** R2.80: owner cancellation must remain terminal and count-stable even
      * when a completion shuts down, resets, or queues additional work. */
+    /** Faulting transports must settle the detached packet, including
+     * unchecked Errors which intentionally propagate after the receipt. */
+    private static void fatalTransportTerminality() throws Exception {
+        for(int cycle=0;cycle<4000;cycle++) {
+            final int iteration=cycle;
+            final int variant=cycle%4;
+            PacketCoordinator packets=new PacketCoordinator(4);
+            List<String> receipts=new ArrayList<String>();
+            long bad=packets.submit("fatal.first",PacketCoordinator.Direction.OUTBOUND,
+                new byte[]{1},cycle,result->{
+                    receipts.add("bad:"+result);
+                    if(variant==1)packets.reset();
+                    else if(variant==2)packets.shutdown();
+                    else if(variant==3) {
+                        long fresh=packets.submit("fatal.new",
+                            PacketCoordinator.Direction.OUTBOUND,new byte[]{3},
+                            iteration,r->receipts.add("new:"+r));
+                        ok(fresh>0,"fatal callback may queue new work for next flush");
+                    }
+                });
+            long later=packets.submit("fatal.second",PacketCoordinator.Direction.OUTBOUND,
+                new byte[]{2},cycle,r->receipts.add("later:"+r));
+            ok(bad>0 && later>bad,
+                "accepted requests have positive ordered tokens "+cycle);
+            boolean propagated=false;
+            try {
+                packets.flush((direction,payload)->{
+                    if(payload[0]==1)throw new AssertionError("fatal transport "+iteration);
+                },cycle,4);
+            } catch(AssertionError expected) {
+                propagated=expected.getMessage()!=null &&
+                    expected.getMessage().startsWith("fatal transport ");
+            }
+            ok(propagated,"fatal transport error is propagated after settlement "+cycle);
+            ok(receipts.size()==(variant==1 || variant==2?2:1) &&
+               "bad:TRANSPORT_FAILED".equals(receipts.get(0)),
+               "detached transport Error produces one failed receipt "+cycle);
+            if(variant==1)
+                ok("later:STALE_SESSION".equals(receipts.get(1)),
+                    "completion reset settles only remaining queued packets "+cycle);
+            else if(variant==2)
+                ok("later:SHUTDOWN".equals(receipts.get(1)),
+                    "completion shutdown settles only remaining queued packets "+cycle);
+            else {
+                ok(packets.metrics().queued==(variant==3?2:1) &&
+                   packets.metrics().failed==1 &&
+                   packets.metrics().delivered==0,
+                   "fatal error does not consume other captured requests "+cycle);
+                ok(packets.flush((direction,payload)->{},cycle,4)==
+                   (variant==3?2:1),
+                   "flush guard releases for later delivery "+cycle);
+                ok(receipts.contains("later:SENT") &&
+                   (variant!=3 || receipts.contains("new:SENT")),
+                   "original later and reentrant work complete only on new flush "+cycle);
+            }
+            if(variant!=2) {
+                ok(packets.metrics().failed==1 &&
+                   packets.metrics().delivered==(variant==0?1:variant==3?2:0) &&
+                   packets.metrics().queued==0,
+                   "fault and completion metrics counted once "+cycle);
+                packets.shutdown();
+            } else {
+                rejects(()->packets.metrics(),
+                    "shutdown callback leaves coordinator terminal "+cycle);
+            }
+        }
+
+        // Exactly the same defensive token contract as inventory: never
+        // wrap into negative IDs or the capacity rejection sentinel (-1).
+        PacketCoordinator nearLimit=new PacketCoordinator(2);
+        java.lang.reflect.Field sequence=PacketCoordinator.class.getDeclaredField("idSequence");
+        sequence.setAccessible(true);
+        sequence.setLong(nearLimit,Long.MAX_VALUE-1);
+        List<PacketCoordinator.Result> receipts=new ArrayList<PacketCoordinator.Result>();
+        long last=nearLimit.submit("max.token",PacketCoordinator.Direction.OUTBOUND,
+            new byte[]{9},1,receipts::add);
+        ok(last==Long.MAX_VALUE,"highest positive packet token accepted");
+        rejects(()->nearLimit.submit("overflow",PacketCoordinator.Direction.OUTBOUND,
+            new byte[]{7},1,receipts::add),
+            "next packet token cannot overflow to negative or -1");
+        ok(nearLimit.metrics().queued==1 && receipts.isEmpty(),
+            "overflow refusal leaves original queue and callback untouched");
+        ok(nearLimit.cancel(last) &&
+           receipts.size()==1 &&
+           receipts.get(0)==PacketCoordinator.Result.CANCELLED,
+           "maximum token remains individually cancellable");
+        rejects(()->nearLimit.submit("still.overflow",PacketCoordinator.Direction.OUTBOUND,
+            new byte[]{7},1,receipts::add),
+            "clearing queue cannot reuse exhausted packet IDs");
+        nearLimit.shutdown();
+    }
     private static void atomicOwnerCancellation() {
         PacketCoordinator shutdown=new PacketCoordinator(5);
         List<String> events=new ArrayList<String>();
@@ -467,9 +558,10 @@ public final class PacketLifecycleReentryTests {
             coordinator.shutdown();
         }
     }
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         resetCallbacks();shutdownCallbacks();thrownCallbacksStillDrain();
-        flushReentryBudget();atomicOwnerCancellation();ownerCancellationReplay();
+        flushReentryBudget();fatalTransportTerminality();
+        atomicOwnerCancellation();ownerCancellationReplay();
         sessionTransitionCallbacks();worldTransitions();repeatedLifecycles();
         ok(assertions>14000,"substantial packet lifecycle regression coverage");
         System.out.println("PACKET_LIFECYCLE_REENTRY_PASS assertions="+assertions);

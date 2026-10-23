@@ -1479,6 +1479,22 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("cycle<6000;cycle++",suite)
         self.assertIn("PACKET_LIFECYCLE_REENTRY_PASS",suite)
 
+    def test_packet_transport_errors_have_terminal_receipts_and_tokens_are_positive(self):
+        packets=content("src/main/java/dev/ghostfusion/services/PacketCoordinator.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/PacketLifecycleReentryTests.java")
+        flush=packets.split("public int flush(Transport transport,long generation,int budget) {",1)[1].split(
+            "public void reset() {",1)[0]
+        self.assertIn("catch(Throwable failure)",flush)
+        self.assertIn("failed++; callback(p.completion,Result.TRANSPORT_FAILED);",flush)
+        self.assertIn("if(failure instanceof Error)throw (Error)failure;",flush)
+        self.assertIn("delivered++; callback(p.completion,Result.SENT);",flush)
+        self.assertLess(flush.index("callback(p.completion,Result.TRANSPORT_FAILED)"),
+                        flush.index("throw (Error)failure"))
+        self.assertIn('if(idSequence==Long.MAX_VALUE)',packets)
+        self.assertIn("fatalTransportTerminality();",suite)
+        self.assertIn("cycle<4000;cycle++",suite)
+        self.assertIn('getDeclaredField("idSequence")',suite)
+
     def test_packet_flush_callbacks_cannot_recursively_bypass_budget(self):
         packets=content("src/main/java/dev/ghostfusion/services/PacketCoordinator.java")
         suite=content("src/test/java/dev/ghostfusion/tests/PacketLifecycleReentryTests.java")
