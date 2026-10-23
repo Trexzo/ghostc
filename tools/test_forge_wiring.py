@@ -1487,7 +1487,9 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("if(shutdown)break;",registry)
         self.assertIn("if(e.state != State.ENABLED)continue;",registry)
         self.assertIn("dispatching=false;",registry)
-        self.assertNotIn("for (Entry e : modules.values()) if (e.state == State.ENABLED)",registry)
+        dispatch=registry.split("public void dispatch(GameEvent event) {",1)[1].split(
+            "private void fault(Entry e, Throwable cause",1)[0]
+        self.assertNotIn("modules.values()",dispatch)
         self.assertIn("stableEventSnapshot();peerMutationAndShutdown();recursiveEventIsolation();",suite)
         self.assertIn("i<20000;i++",suite)
 
