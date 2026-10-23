@@ -10,6 +10,7 @@ import dev.ghostfusion.features.EspTeamPolicy;
 import dev.ghostfusion.features.TargetHudTeamPin;
 import dev.ghostfusion.forge189.ForgePingReadout;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
+import dev.ghostfusion.host.SnapshotTelemetry;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.MovingObjectPosition;
 import java.util.ArrayList;
@@ -186,9 +187,14 @@ public final class ForgeEventAdapter {
                     host.services().generation(),host.services().tick(),
                     minecraft.thePlayer.posX,minecraft.thePlayer.posY,minecraft.thePlayer.posZ,
                     minecraft.thePlayer.rotationYaw,minecraft.thePlayer.rotationPitch,players));
-                if(profileSnapshot)host.recordSnapshotWork(
-                    System.nanoTime()-snapshotStart,scanned,passed,rays,players.size(),
-                    demand.needVisible,demand.needUnfiltered);
+                // A clock anomaly must not invalidate an already published
+                // client-tick snapshot or stop normal gameplay callbacks.
+                if(profileSnapshot) {
+                    long elapsed=SnapshotTelemetry.elapsedNanos(snapshotStart,System.nanoTime());
+                    if(elapsed>=0)host.recordSnapshotWork(
+                        elapsed,scanned,passed,rays,players.size(),
+                        demand.needVisible,demand.needUnfiltered);
+                }
             } finally {
                 nearestSnapshot.clear();
                 teamHudPin.clear();
