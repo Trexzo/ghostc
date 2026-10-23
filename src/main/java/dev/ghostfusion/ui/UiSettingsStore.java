@@ -76,10 +76,12 @@ public final class UiSettingsStore {
         final double[][] positions=new double[widgets.length][2];
         for(int i=0;i<widgets.length;i++) {
             HudPositions.Widget widget=widgets[i];
+            // Sparse legacy schema-1 preferences must never inherit
+            // mutable live widget anchors during load or backup recovery.
             String rawX=p.getProperty(HudPositions.property(widget,true),
-                Double.toString(state.widgets().x(widget)));
+                Double.toString(widget.defaultX));
             String rawY=p.getProperty(HudPositions.property(widget,false),
-                Double.toString(state.widgets().y(widget)));
+                Double.toString(widget.defaultY));
             double px=Double.parseDouble(rawX),py=Double.parseDouble(rawY);
             if(!Double.isFinite(px)||!Double.isFinite(py)||
                 px<0||px>1||py<0||py>1)
