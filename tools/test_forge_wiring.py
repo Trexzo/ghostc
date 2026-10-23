@@ -253,6 +253,22 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("DiagnosticsHudLayout.class",
                       content("tools/verify_forge_jar.py"))
 
+    def test_host_runtime_blocks_reentrant_session_transitions_during_dispatch(self):
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/HostRuntimeTests.java")
+        self.assertIn("private boolean hostDispatching, closing;",host)
+        self.assertIn("private void assertHostEventBoundary()",host)
+        self.assertIn("if(hostDispatching || closing)",host)
+        self.assertIn("hostDispatching=true;",host)
+        self.assertIn("hostDispatching=false;",host)
+        self.assertGreaterEqual(host.count("hostDispatching=true;"),4)
+        self.assertIn("ingress.drainAfter(modules, MAX_EVENTS_PER_TICK, ingressExpiredThroughSequence);",host)
+        self.assertIn("assertHostEventBoundary();\n        if(disconnectReported)return;",host)
+        self.assertIn("closing=true;",host)
+        self.assertIn("closing=false;",host)
+        self.assertIn("testHostEventReentryFence(dir.resolve(\"host-reentry\"));",tests)
+        self.assertIn("i<2500;i++",tests)
+
     def test_async_ingress_is_fenced_across_world_and_disconnect_epochs(self):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         ingress=content("src/main/java/dev/ghostfusion/core/BoundedIngress.java")

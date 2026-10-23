@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R2.84:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R2.85:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R2.85 host event lifecycle fence: prevents module callbacks from changing world presence, disconnecting, ticking, rendering or closing the host inside active event dispatch. Includes asynchronous ingress batches, world transitions, disconnect callbacks and shutdown reentry, with 2,500 tick/ingress replay cycles. See [R2.85 host event ownership](docs/RUNTIME_R105.md).
 - R2.84 verified-only backup recovery: a corrupt primary is never replaced by an unsealed schema-1 backup, even if that backup parses and passes typed validation. Normal legacy file loading remains available, and sealed backups still recover. Core tests cover 256 randomized promotion attempts plus profile and UI state isolation. See [R2.84 sealed recovery gate](docs/RUNTIME_R104.md).
 - R2.83 snapshot visitor isolation: streaming visible, hidden, and pinned candidates now forbids reentrant offer/pin/clear or recursive streaming on the owner thread. Read-only inspection stays available and a thrown visitor releases the guard for the next frame. Pure Java8 regressions include 12,000 seeded attempted-mutation streams. See [R2.83 snapshot emission safety](docs/RUNTIME_R103.md).
 - R2.82 session transition callback fence: world switches and disconnects reject recursive epoch changes, tick advances, snapshot publications and shutdown while pending packet completions are settling. Callback-submitted action/rotation/inventory intents are cleared after completion; close is sealed before SHUTDOWN notifications. Java8 regression coverage replays 4,500 world/disconnect transitions. See [R2.82 session transition safety](docs/RUNTIME_R102.md).
