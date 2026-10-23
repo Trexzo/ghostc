@@ -346,9 +346,13 @@ public final class HostRuntime {
         modules.assertOwnerThread();
         return !closed;
     }
-    /** Can be called from network or worker threads; bounded and non-blocking. */
+    /** Non-owner producers may enqueue ordinary events only. World-change and
+     * disconnect notifications must go through their owner-thread lifecycle
+     * methods, which atomically rotate the session epoch and ingress fence.
+     * Dispatching a queued lifecycle *signal* cannot perform that transition. */
     public boolean enqueue(GameEvent.Kind kind) {
-        if (kind == null) throw new IllegalArgumentException("kind");
+        if (kind != GameEvent.Kind.CLIENT_TICK && kind != GameEvent.Kind.RENDER_2D)
+            throw new IllegalArgumentException("owner-only lifecycle event");
         if (closed) return false;
         return ingress.submit(event(kind));
     }

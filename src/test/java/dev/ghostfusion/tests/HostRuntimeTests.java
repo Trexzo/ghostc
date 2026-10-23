@@ -277,6 +277,97 @@ public final class HostRuntimeTests {
         recovery.close();
         ok(recovery.isClosed(),"faulted module cannot leave host fence latched");
     }
+    /** External producers cannot forge lifecycle notifications without the
+     * matching owner-thread world, queue and service-generation transition. */
+    private static void testProducerLifecycleAuthority(Path config) throws Exception {
+        final HostRuntime host=new HostRuntime(config);
+        final int[] observed=new int[GameEvent.Kind.values().length];
+        final long[] greatestSequence={0L};
+        GhostModule probe=new GhostModule() {
+            public String id(){return "test.lifecycleingress";}
+            public String displayName(){return "Lifecycle Ingress";}
+            public Category category(){return Category.UTILITY;}
+            public void onEnable(){}
+            public void onDisable(){}
+            public void onEvent(GameEvent event) {
+                observed[event.kind().ordinal()]++;
+                greatestSequence[0]=Math.max(greatestSequence[0],event.sequence());
+            }
+        };
+        host.modules().register(probe,0);
+        host.modules().setEnabled(probe.id(),true);
+        long initial=host.services().generation();
+        host.worldPresence(true);
+        ok(host.worldPresent() && host.services().generation()==initial+1 &&
+           observed[GameEvent.Kind.WORLD_CHANGE.ordinal()]==1,
+           "legitimate owner join emits one lifecycle event and rotates epoch");
+        java.util.concurrent.atomic.AtomicInteger workerDenied=
+            new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicBoolean workerFailure=
+            new java.util.concurrent.atomic.AtomicBoolean();
+        Thread producer=new Thread(()->{
+            for(int i=0;i<8000;i++) {
+                for(GameEvent.Kind forbidden:new GameEvent.Kind[]{
+                        GameEvent.Kind.WORLD_CHANGE,GameEvent.Kind.SESSION_DISCONNECT}) {
+                    try {host.enqueue(forbidden);workerFailure.set(true);}
+                    catch(IllegalArgumentException expected){workerDenied.incrementAndGet();}
+                }
+                if(i%80==0) {
+                    if(!host.enqueue(GameEvent.Kind.RENDER_2D) ||
+                       !host.enqueue(GameEvent.Kind.CLIENT_TICK))
+                        workerFailure.set(true);
+                }
+            }
+        },"ghostc-lifecycle-producer");
+        producer.start();
+        producer.join();
+        ok(!workerFailure.get() && workerDenied.get()==16000,
+            "worker rejects 16,000 forged lifecycle notifications but accepts real producer events");
+        ok(host.pendingEvents()==200 && host.droppedEvents()==0,
+            "lifecycle denials consume no ingress capacity or overflow counters");
+        for(int i=0;i<2000;i++) {
+            for(GameEvent.Kind forbidden:new GameEvent.Kind[]{
+                    GameEvent.Kind.WORLD_CHANGE,GameEvent.Kind.SESSION_DISCONNECT}) {
+                boolean denied=false;
+                try {host.enqueue(forbidden);}
+                catch(IllegalArgumentException expected){denied=true;}
+                ok(denied,"owner enqueue also cannot spoof lifecycle semantics "+i);
+            }
+        }
+        boolean nullDenied=false;
+        try {host.enqueue(null);}catch(IllegalArgumentException expected){nullDenied=true;}
+        ok(nullDenied,"null producer event remains rejected");
+        ok(host.pendingEvents()==200 &&
+           host.services().generation()==initial+1 &&
+           observed[GameEvent.Kind.SESSION_DISCONNECT.ordinal()]==0,
+           "forged owner and worker lifecycle events change no epoch or callbacks");
+        host.tick();
+        ok(host.pendingEvents()==72,"bounded first tick drains 128 real producer events");
+        host.tick();
+        ok(host.pendingEvents()==0 &&
+           observed[GameEvent.Kind.RENDER_2D.ordinal()]==100 &&
+           observed[GameEvent.Kind.CLIENT_TICK.ordinal()]==102 &&
+           observed[GameEvent.Kind.WORLD_CHANGE.ordinal()]==1 &&
+           observed[GameEvent.Kind.SESSION_DISCONNECT.ordinal()]==0,
+           "ordinary worker events still deliver but no spoofed lifecycle is dispatched");
+        ok(greatestSequence[0]==203,
+            "forged lifecycle events consume no event sequence IDs");
+        long beforeLeave=host.services().generation();
+        host.worldPresence(false);
+        host.disconnect();
+        ok(!host.worldPresent() &&
+           host.services().generation()==beforeLeave+2 &&
+           observed[GameEvent.Kind.WORLD_CHANGE.ordinal()]==2 &&
+           observed[GameEvent.Kind.SESSION_DISCONNECT.ordinal()]==1,
+           "real leave/disconnect still perform exact ordered epoch transitions");
+        host.worldPresence(true);
+        ok(host.worldPresent() &&
+           observed[GameEvent.Kind.WORLD_CHANGE.ordinal()]==3,
+           "real reconnect still emits one owner lifecycle notification");
+        host.close();
+        ok(host.isClosed() && !host.enqueue(GameEvent.Kind.CLIENT_TICK),
+            "closed host still declines valid asynchronous producer events");
+    }
     private static void testCorruptProfile(Path config) throws Exception {
         Path file = config.resolve("default.properties");
         Files.createDirectories(config);
@@ -293,6 +384,7 @@ public final class HostRuntimeTests {
         testQueuedEventsAndThread(dir.resolve("queues"));
         testIngressSessionFence(dir.resolve("epoch"));
         testHostEventReentryFence(dir.resolve("host-reentry"));
+        testProducerLifecycleAuthority(dir.resolve("producer-lifecycle"));
         testCorruptProfile(dir.resolve("corrupt"));
         ok(count > 280, "meaningful regression coverage");
         System.out.println("HOST_REGRESSION_PASS assertions=" + count);
