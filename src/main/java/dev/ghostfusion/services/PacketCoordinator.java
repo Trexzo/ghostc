@@ -55,6 +55,10 @@ public final class PacketCoordinator {
         if(queue.size()>=capacity) {
             rejected++; callback(callback,Result.REJECTED); return -1;
         }
+        // Positive, never-reused cancellation tokens; -1 is reserved for
+        // ordinary capacity rejection and must never be a real packet ID.
+        if(idSequence==Long.MAX_VALUE)
+            throw new IllegalStateException("packet token overflow");
         long id=++idSequence;
         queue.put(id,new Pending(id,generation,owner,direction,payload.clone(),callback));
         return id;
@@ -103,12 +107,17 @@ public final class PacketCoordinator {
                     cancelled++; callback(p.completion,Result.STALE_SESSION);
                     continue;
                 }
+                // The request is already detached. A transport is external
+                // code and may throw an Error, not just an Exception: settle
+                // the accepted request exactly once before propagating it.
                 try {
                     transport.deliver(p.direction,p.payload.clone());
-                    delivered++; callback(p.completion,Result.SENT);
-                } catch(Exception e) {
+                } catch(Throwable failure) {
                     failed++; callback(p.completion,Result.TRANSPORT_FAILED);
+                    if(failure instanceof Error)throw (Error)failure;
+                    continue;
                 }
+                delivered++; callback(p.completion,Result.SENT);
             }
             return n;
         } finally {
