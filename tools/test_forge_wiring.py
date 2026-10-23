@@ -789,6 +789,20 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.NearestSnapshotTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_visible_upgrade_evicts_hidden_even_if_visible_partition_full(self):
+        admission=content("src/main/java/dev/ghostfusion/services/WorldSnapshotAdmission.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/VisibilitySnapshotTests.java")
+        visible_branch=admission.split("if(isVisible) {",1)[1].split(
+            "// Never publish two identical entity IDs",1)[0]
+        self.assertIn("hidden.removeId(id);",visible_branch)
+        self.assertNotIn("if(admitted)hidden.removeId(id);",visible_branch)
+        self.assertLess(visible_branch.index("hidden.removeId(id);"),
+                        visible_branch.index("return admitted;"))
+        self.assertIn("visibilityUpgradeOutsideCap();",tests)
+        self.assertIn("frame<1600;frame++",tests)
+        self.assertIn("i<12000;i++",tests)
+        self.assertIn("b.sizeWithPinned()==257",tests)
+
     def test_crowded_team_filtered_nearest_hud_pin_uses_existing_bounded_slot(self):
         adapter=self.adapter
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")

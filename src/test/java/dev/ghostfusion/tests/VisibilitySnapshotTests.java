@@ -103,6 +103,93 @@ public final class VisibilitySnapshotTests {
         try {a.forEach(null);}catch(IllegalArgumentException ex){rejected=true;}
         ok(rejected,"null visitor rejected");
     }
+    /** A newer visible observation must invalidate the old hidden
+     * representation even when the visible nearest-256 rejects it. */
+    private static void visibilityUpgradeOutsideCap() {
+        WorldSnapshotAdmission<String> b=new WorldSnapshotAdmission<String>();
+        ok(b.offer("hidden-original",42,.5,false),
+            "old hidden copy enters uncrowded hidden partition");
+        ok(b.pin("visible-reticle",42,1000000,true),
+            "visible crosshair can be pinned before ordinary admission");
+        for(int i=0;i<256;i++)
+            ok(b.offer("visible-"+i,1000+i,i+1,true),
+                "visible partition filled with nearer candidates");
+        ok(!b.offer("visible-too-far",42,1000000,true),
+            "far visible update correctly rejected by nearest-256 budget");
+        ok(b.visibleSize()==256 && b.hiddenSize()==0 && b.size()==256,
+            "rejected visible update still evicts stale hidden copy");
+        ok(b.sizeWithPinned()==257,
+            "visible pin now obtains extra slot rather than reusing stale hidden");
+        final int[] streamed={0,0,0};
+        b.forEachWithPinned((value,visible)->{
+            streamed[0]++;
+            if("visible-reticle".equals(value)) {
+                ok(visible,"reticle never inherits old hidden visibility");
+                streamed[1]++;
+            }
+            if("hidden-original".equals(value))streamed[2]++;
+        });
+        ok(streamed[0]==257 && streamed[1]==1 && streamed[2]==0,
+            "stale hidden target never appears and pin is published exactly once");
+        b.clear();
+
+        ok(b.offer("legitimate-hidden",42,1,false),
+            "separate valid hidden candidate admitted");
+        ok(!b.offer(null,42,2,true) &&
+           !b.offer("invalid-visibility",42,Double.NaN,true) &&
+           b.hiddenSize()==1,
+           "invalid visible observations cannot erase legitimate hidden entities");
+        b.clear();
+
+        Random rng=new Random(2872026L);
+        for(int frame=0;frame<1600;frame++) {
+            b.clear();
+            boolean hiddenFirst=rng.nextBoolean();
+            boolean withPin=rng.nextBoolean();
+            if(hiddenFirst)
+                ok(b.offer("ghost",42,.25,false),"old hidden first "+frame);
+            for(int i=0;i<256;i++) {
+                double distance=i+1+rng.nextDouble()*.05;
+                ok(b.offer("near",1000+i,distance,true),
+                    "fill nearest visible partition "+frame);
+            }
+            if(!hiddenFirst)
+                ok(b.offer("ghost",42,.25,false),"old hidden last "+frame);
+            if(withPin)
+                ok(b.pin("pin",42,1000000,true),"optional visible pin "+frame);
+            ok(!b.offer("far-visible",42,1000000,true),
+                "crowded visible upgrade rejected by normal partition "+frame);
+            ok(b.visibleSize()==256 && b.hiddenSize()==0,
+                "stale hidden ID removed independently of old admission order "+frame);
+            final int[] ordinary={0},pinned={0},ghost={0};
+            b.forEach((item,visible)->{
+                ordinary[0]++;
+                if("ghost".equals(item))ghost[0]++;
+            });
+            b.forEachWithPinned((item,visible)->{
+                pinned[0]++;
+                if("ghost".equals(item))ghost[0]++;
+                if("pin".equals(item))ok(visible,
+                    "optional crosshair pin remains marked visible");
+            });
+            ok(ordinary[0]==256 && ghost[0]==0 &&
+               pinned[0]==256+(withPin?1:0) &&
+               b.sizeWithPinned()==pinned[0],
+               "crowded stream stable after hidden-to-visible upgrade "+frame);
+        }
+        b.clear();
+        // Non-crowded duplicate upgrade still yields exactly one visible ID.
+        for(int i=0;i<12000;i++) {
+            b.clear();
+            ok(b.offer("hidden",i,.5,false),"sparse hidden admitted "+i);
+            ok(b.offer("visible",i,1,true),"sparse visible admitted "+i);
+            ok(b.hiddenSize()==0 && b.visibleSize()==1 &&
+               b.sizeWithPinned()==1,
+               "valid upgrade preserves one visible entry "+i);
+        }
+        b.clear();
+        ok(b.sizeWithPinned()==0,"all per-frame candidate references released");
+    }
     private static void mixedReplay(){
         WorldSnapshotAdmission<Integer> b=new WorldSnapshotAdmission<Integer>();
         Random r=new Random(20261020L);
@@ -124,7 +211,7 @@ public final class VisibilitySnapshotTests {
         ok(b.size()==0,"no retained entity references after replay");
     }
     public static void main(String[] args){
-        crowded();duplicatesAndOwners();mixedReplay();
+        crowded();duplicatesAndOwners();visibilityUpgradeOutsideCap();mixedReplay();
         ok(checks>175000,"substantial visibility target regression");
         System.out.println("VISIBILITY_SNAPSHOT_PASS assertions="+checks);
     }

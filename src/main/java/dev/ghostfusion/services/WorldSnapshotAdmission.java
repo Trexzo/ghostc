@@ -40,7 +40,12 @@ public final class WorldSnapshotAdmission<T> {
             return false;
         if(isVisible) {
             boolean admitted=visible.offer(player,id,squaredDistance);
-            if(admitted)hidden.removeId(id);
+            // A valid visible update supersedes a previously admitted
+            // hidden copy of the same entity, even when the crowded
+            // nearest-visible partition cannot accommodate this update.
+            // Retaining the hidden copy would publish stale visibility and
+            // prevent a visible crosshair pin from getting its extra slot.
+            hidden.removeId(id);
             return admitted;
         }
         // Never publish two identical entity IDs: visible wins the tie.
