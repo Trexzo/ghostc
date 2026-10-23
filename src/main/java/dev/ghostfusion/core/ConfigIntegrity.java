@@ -68,6 +68,19 @@ public final class ConfigIntegrity {
         }
         return out.toString();
     }
+    /** Properties.load otherwise uses last-write-wins for duplicate names,
+     * even when two different spellings decode to the same key. Such files
+     * have ambiguous authority and must not become verified or recovered
+     * config snapshots. Preserve normal Java Properties parsing/escaping. */
+    private static final class StrictProperties extends Properties {
+        @Override public synchronized Object put(Object key,Object value) {
+            if(containsKey(key))
+                throw new IllegalArgumentException("Duplicate config key: "+key);
+            if(size()>=MAX_FIELDS)
+                throw new IllegalArgumentException("Too many config fields");
+            return super.put(key,value);
+        }
+    }
     public static Properties read(Path file) throws IOException {
         if(file==null)throw new IllegalArgumentException("file");
         if(Files.size(file)>MAX_BYTES)throw new IOException("Config size limit exceeded");
@@ -83,7 +96,7 @@ public final class ConfigIntegrity {
                 bytes.write(block,0,count);
             }
         }
-        Properties p=new Properties();
+        Properties p=new StrictProperties();
         try(InputStream snapshot=new ByteArrayInputStream(bytes.toByteArray())) {
             p.load(snapshot);
         }

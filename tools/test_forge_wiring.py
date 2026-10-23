@@ -268,6 +268,18 @@ class ForgeWiring(unittest.TestCase):
         self.assertNotIn("loadFile(backup);",profiles)
         self.assertNotIn("loadFile(backup);",ui)
 
+    def test_config_parser_rejects_duplicate_decoded_keys(self):
+        integrity=content("src/main/java/dev/ghostfusion/core/ConfigIntegrity.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/ConfigRecoveryTests.java")
+        self.assertIn("private static final class StrictProperties extends Properties",integrity)
+        self.assertIn("if(containsKey(key))",integrity)
+        self.assertIn("if(size()>=MAX_FIELDS)",integrity)
+        self.assertIn("Properties p=new StrictProperties();",integrity)
+        self.assertIn("duplicateKeys();",tests)
+        self.assertIn("i<3000;i++",tests)
+        self.assertIn("profile.loadRecovering(\"default\")",tests)
+        self.assertIn("store.loadRecovering()",tests)
+
     def test_typed_backup_protection_uses_same_live_load_parser(self):
         integrity=content("src/main/java/dev/ghostfusion/core/ConfigIntegrity.java")
         profiles=content("src/main/java/dev/ghostfusion/core/ProfileStore.java")

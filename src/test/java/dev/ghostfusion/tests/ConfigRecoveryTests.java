@@ -102,6 +102,107 @@ public final class ConfigRecoveryTests {
         catch(IllegalArgumentException expected){tooManyFields=true;}
         ok(tooManyFields,"legacy field count is capped without checksum");
     }
+    private static void duplicateKeys() throws Exception {
+        Path folder=Files.createTempDirectory("ghostc-duplicate-properties");
+        Path fixture=folder.resolve("duplicate.properties");
+        // Java Properties would otherwise silently keep the last occurrence,
+        // allowing a conflicting first value to evade canonical digest checks.
+        Properties sealed=new Properties();
+        sealed.setProperty("schema","1");
+        sealed.setProperty("value","trusted");
+        ConfigIntegrity.seal(sealed);
+        Path valid=folder.resolve("valid.properties");
+        write(valid,sealed);
+        ok(ConfigIntegrity.verify(ConfigIntegrity.read(valid)),
+            "unique modern sealed config remains readable");
+        String saved=new String(Files.readAllBytes(valid),
+            StandardCharsets.ISO_8859_1);
+        String[] aliases={"value=conflict", "value : conflict",
+            "v\\alue=conflict", "va\\lue=conflict",
+            "value = trusted", "schema=1",
+            "integrity.sha256=invalid"};
+        for(int i=0;i<aliases.length;i++) {
+            Files.write(fixture,(saved+"\n"+aliases[i]+"\n")
+                .getBytes(StandardCharsets.ISO_8859_1));
+            boolean refused=false;
+            try{ConfigIntegrity.read(fixture);}
+            catch(IllegalArgumentException expected){refused=true;}
+            ok(refused,"duplicate decoded key rejected before checksum "+i);
+        }
+        // Even exact duplicate values and unsealed legacy records are ambiguous.
+        Files.write(fixture,"schema=1\nschema=1\n".getBytes(
+            StandardCharsets.ISO_8859_1));
+        boolean legacyRefused=false;
+        try{ConfigIntegrity.read(fixture);}
+        catch(IllegalArgumentException expected){legacyRefused=true;}
+        ok(legacyRefused,"duplicate legacy schema key rejected");
+        Files.write(fixture,"schema=1\nvalue=unique\n".getBytes(
+            StandardCharsets.ISO_8859_1));
+        ok(!ConfigIntegrity.verify(ConfigIntegrity.read(fixture)),
+            "unique legacy records remain readable");
+
+        Random random=new Random(2782026L);
+        for(int i=0;i<3000;i++) {
+            String key="setting."+i;
+            String value=Long.toString(random.nextLong());
+            Properties p=new Properties();
+            p.setProperty("schema","1");p.setProperty(key,value);
+            ConfigIntegrity.seal(p);
+            write(valid,p);
+            String text=new String(Files.readAllBytes(valid),
+                StandardCharsets.ISO_8859_1);
+            ok(ConfigIntegrity.verify(ConfigIntegrity.read(valid)),
+                "unique sealed randomized properties read "+i);
+            String duplicate=(i%3==0?key+"="+value:
+                i%3==1?key+" : conflict":key+" = other");
+            Files.write(fixture,(text+"\n"+duplicate+"\n")
+                .getBytes(StandardCharsets.ISO_8859_1));
+            boolean rejected=false;
+            try{ConfigIntegrity.read(fixture);}
+            catch(IllegalArgumentException expected){rejected=true;}
+            ok(rejected,"random conflicting/exact duplicate rejected "+i);
+        }
+
+        ModuleRegistry registry=new ModuleRegistry();
+        registry.register(new Dummy("test.feature"),44,
+            new Setting.Bool("safe",true));
+        ProfileStore profile=new ProfileStore(folder,registry);
+        profile.save("default");
+        profile.save("default");
+        Path primary=folder.resolve("default.properties");
+        Path backup=folder.resolve("default.properties.bak");
+        byte[] knownGood=Files.readAllBytes(backup);
+        byte[] original=Files.readAllBytes(primary);
+        Files.write(primary,"\nmodule.test.feature.key=44\n".getBytes(
+            StandardCharsets.ISO_8859_1),java.nio.file.StandardOpenOption.APPEND);
+        registry.bind("test.feature",31);
+        ok(profile.loadRecovering("default"),
+            "duplicate-key primary invokes verified profile backup recovery");
+        ok(registry.get("test.feature").keybind()==44,
+            "backup recovers trusted profile without accepting duplicate field");
+        ok(java.util.Arrays.equals(knownGood,Files.readAllBytes(backup)),
+            "profile backup is not overwritten on duplicate-key recovery");
+        ok(Files.size(folder.resolve("default.properties.corrupt"))>original.length,
+            "conflicting original preserved as corrupt evidence");
+        registry.shutdown();
+
+        UiState state=new UiState();
+        UiSettingsStore store=new UiSettingsStore(folder,state);
+        state.position(.22,.31);store.save();
+        state.position(.82,.91);store.save();
+        Path uiPrimary=folder.resolve("ui.properties");
+        byte[] uiBackup=Files.readAllBytes(folder.resolve("ui.properties.bak"));
+        Files.write(uiPrimary,"\nhud.x=0.99\n".getBytes(
+            StandardCharsets.ISO_8859_1),java.nio.file.StandardOpenOption.APPEND);
+        state.position(.55,.65);
+        ok(store.loadRecovering(),
+            "duplicate-key UI primary restores typed-validated backup");
+        ok(state.hudX()==.22 && state.hudY()==.31,
+            "UI recovery restores backup only, not conflicting shadow value");
+        ok(java.util.Arrays.equals(uiBackup,
+            Files.readAllBytes(folder.resolve("ui.properties.bak"))),
+            "last trusted UI backup remains intact");
+    }
     private static void profileRecovery() throws Exception {
         Path folder=Files.createTempDirectory("ghostc-profile-restore");
         ModuleRegistry registry=new ModuleRegistry();
@@ -310,6 +411,7 @@ public final class ConfigRecoveryTests {
     }
     public static void main(String[] args) throws Exception {
         checksum();
+        duplicateKeys();
         profileRecovery();
         uiRecovery();
         rejectUnusableRecoveryWithoutMutation();
