@@ -8,6 +8,7 @@ import dev.ghostfusion.core.ProfileStore;
 import dev.ghostfusion.core.Setting;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.ui.UiSettingsStore;
+import dev.ghostfusion.ui.HudPositions;
 import dev.ghostfusion.ui.UiState;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -253,6 +254,82 @@ public final class ConfigRecoveryTests {
            "failed strict load cannot change live state");
         registry.shutdown();
     }
+    /** R2.81: absent HUD widget axes must resolve from immutable defaults,
+     * not whatever values were last edited in the live UI model. */
+    private static void legacyWidgetDefaults() throws Exception {
+        Path folder=Files.createTempDirectory("ghostc-legacy-widget-anchors");
+        UiState state=new UiState();
+        UiSettingsStore store=new UiSettingsStore(folder,state);
+        Path primary=folder.resolve("ui.properties");
+        Properties legacy=new Properties();
+        legacy.setProperty("schema","1");
+        legacy.setProperty("layout","COMPACT");
+        legacy.setProperty("theme","GRAPHITE");
+        legacy.setProperty("hud.x","0.34");
+        legacy.setProperty("hud.y","0.27");
+        legacy.setProperty(HudPositions.property(HudPositions.Widget.CPS,true),"0.37");
+        legacy.setProperty(HudPositions.property(HudPositions.Widget.TARGET,false),"0.43");
+        write(primary,legacy);
+        HudPositions defaults=new HudPositions();
+        Random random=new Random(2812026L);
+        for(int i=0;i<12000;i++) {
+            for(HudPositions.Widget widget:HudPositions.Widget.values())
+                state.widgets().position(widget,random.nextDouble(),random.nextDouble());
+            state.position(random.nextDouble(),random.nextDouble());
+            state.layout(UiState.Layout.WIDE);
+            state.theme(UiState.Theme.INDIGO);
+            store.load();
+            ok(state.layout()==UiState.Layout.COMPACT &&
+               state.theme()==UiState.Theme.GRAPHITE &&
+               state.hudX()==0.34 && state.hudY()==0.27,
+               "legacy status/layout restores identically "+i);
+            for(HudPositions.Widget widget:HudPositions.Widget.values()) {
+                double expectedX=widget==HudPositions.Widget.CPS?
+                    0.37:defaults.x(widget);
+                double expectedY=widget==HudPositions.Widget.TARGET?
+                    0.43:defaults.y(widget);
+                ok(Double.compare(state.widgets().x(widget),expectedX)==0 &&
+                   Double.compare(state.widgets().y(widget),expectedY)==0,
+                   "missing widget axis uses immutable default "+widget+"/"+i);
+            }
+        }
+        ok(!ConfigIntegrity.verify(ConfigIntegrity.read(primary)),
+            "unique unsealed legacy config remains readable");
+        ConfigIntegrity.seal(legacy);
+        write(primary,legacy);
+        for(HudPositions.Widget widget:HudPositions.Widget.values())
+            state.widgets().position(widget,0.12,0.23);
+        store.load();
+        ok(state.widgets().x(HudPositions.Widget.KEYSTROKES)==
+           defaults.x(HudPositions.Widget.KEYSTROKES) &&
+           state.widgets().y(HudPositions.Widget.CPS)==
+           defaults.y(HudPositions.Widget.CPS),
+           "sparse sealed file has the same default anchors");
+        store.save();
+        Path backup=folder.resolve("ui.properties.bak");
+        ok(Files.exists(backup) && ConfigIntegrity.verify(ConfigIntegrity.read(backup)),
+            "verified sparse primary accepted for safe backup rotation");
+        Properties damaged=read(primary);
+        damaged.setProperty("hud.x","0.99");
+        write(primary,damaged);
+        for(HudPositions.Widget widget:HudPositions.Widget.values())
+            state.widgets().position(widget,0.61,0.72);
+        state.position(.81,.91);
+        ok(store.loadRecovering(),"damaged primary recovers sparse sealed backup");
+        ok(state.hudX()==0.34 && state.hudY()==0.27,
+            "recovery uses original status coordinates");
+        for(HudPositions.Widget widget:HudPositions.Widget.values()) {
+            double x=widget==HudPositions.Widget.CPS?0.37:defaults.x(widget);
+            double y=widget==HudPositions.Widget.TARGET?0.43:defaults.y(widget);
+            ok(Double.compare(state.widgets().x(widget),x)==0 &&
+               Double.compare(state.widgets().y(widget),y)==0,
+               "backup recovery does not inherit stale live widget "+widget);
+        }
+        ok(Files.exists(folder.resolve("ui.properties.corrupt")) &&
+           ConfigIntegrity.verify(ConfigIntegrity.read(primary)),
+           "corrupt primary retained while exact backup contents restored");
+        ok(!store.loadRecovering(),"second load of repaired sparse file succeeds");
+    }
     private static void uiRecovery() throws Exception {
         Path folder=Files.createTempDirectory("ghostc-ui-recovery");
         UiState state=new UiState();
@@ -414,6 +491,7 @@ public final class ConfigRecoveryTests {
         duplicateKeys();
         profileRecovery();
         uiRecovery();
+        legacyWidgetDefaults();
         rejectUnusableRecoveryWithoutMutation();
         hostStartup();
         ok(count>7000,"meaningful integrity and recovery regression coverage");
