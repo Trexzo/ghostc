@@ -1416,7 +1416,7 @@ class ForgeWiring(unittest.TestCase):
     def test_packet_reset_shutdown_reentry_fence(self):
         packets=content("src/main/java/dev/ghostfusion/services/PacketCoordinator.java")
         suite=content("src/test/java/dev/ghostfusion/tests/PacketLifecycleReentryTests.java")
-        self.assertIn("private boolean stopped, resetting, flushing;",packets)
+        self.assertIn("private boolean stopped, resetting, flushing, rejecting;",packets)
         self.assertIn("if(resetting) throw new IllegalStateException(",packets)
         self.assertIn("resetting=true;",packets)
         self.assertIn("queue.clear();",packets)
