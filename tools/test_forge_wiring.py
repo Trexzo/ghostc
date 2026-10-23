@@ -462,15 +462,30 @@ class ForgeWiring(unittest.TestCase):
         policy=content("src/main/java/dev/ghostfusion/ui/GuiSettingKeyboard.java")
         suite=content("src/test/java/dev/ghostfusion/tests/GuiSettingKeyboardTests.java")
         self.assertIn("GuiSettingKeyboard.hint(settings.get(keyboardSetting).getValue())",gui)
-        self.assertIn("if (footer!=null && message.isEmpty() && host.uiWarning().isEmpty())",gui)
+        self.assertIn("if (footer!=null && GuiFooterText.warning(message,host.uiWarning()).isEmpty())",gui)
         self.assertIn("x+side+13,y+h-13,0xFFE7E8F5",gui)
         self.assertNotIn("bindY+6,0xFFE7E8F5",gui)
-        self.assertIn("Math.max(0,w-side-32)",gui)
+        self.assertIn("GuiFooterText.pixelBudget(w,side)",gui)
         self.assertIn("public static String hint(Setting<?> focused)",policy)
         self.assertIn("ENTER/SPACE TOGGLE  R RESET",policy)
         self.assertIn("LEFT/RIGHT  HOME/END  ENTER  R",policy)
         self.assertIn("LEFT/RIGHT  SHIFT+ARROWS  HOME/END  R",policy)
         self.assertIn("hintPolicy();",suite)
+
+    def test_clickgui_warning_footer_bounded_with_error_priority(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        policy=content("src/main/java/dev/ghostfusion/ui/GuiFooterText.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/GuiFooterTextTests.java")
+        self.assertIn("String footerWarning=GuiFooterText.warning(message,host.uiWarning());",gui)
+        self.assertIn("label(trim(footerWarning,GuiFooterText.pixelBudget(w,side)),",gui)
+        self.assertIn("if (!footerWarning.isEmpty())",gui)
+        self.assertNotIn("label(message, x + side + 11",gui)
+        self.assertNotIn("label(host.uiWarning(), x + side + 11",gui)
+        self.assertIn("return !message.isEmpty()?message:warning;",policy)
+        self.assertIn("Math.max(0L,(long)width-sidebar-32L)",policy)
+        self.assertIn("85000;i++",tests)
+        self.assertIn("dev.ghostfusion.tests.GuiFooterTextTests",
+                      content(".github/workflows/core-ci.yml"))
 
     def test_numeric_settings_fine_adjustment_and_endpoints(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")

@@ -11,6 +11,7 @@ import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiHitZones;
 import dev.ghostfusion.ui.GuiChrome;
 import dev.ghostfusion.ui.GuiSelection;
+import dev.ghostfusion.ui.GuiFooterText;
 import dev.ghostfusion.ui.GuiSettingKeyboard;
 import dev.ghostfusion.ui.GuiSearchFocus;
 import dev.ghostfusion.ui.GuiKeybindCapture;
@@ -150,8 +151,12 @@ public final class GhostClickGui extends GuiScreen {
         label(ui.theme() == UiState.Theme.INDIGO ? "INDIGO" : "MINT", x + w - 52, y + 10, accent());
         if (hudPage) drawHudEditor(mx, my);
         else drawModules(mx, my);
-        if (!message.isEmpty()) label(message, x + side + 11, y + h - 13, 0xFFFFB3A6);
-        else if (!host.uiWarning().isEmpty()) label(host.uiWarning(), x + side + 11, y + h - 13, 0xFFFFB3A6);
+        // Errors own the footer and must never draw beyond the content panel.
+        // trim() applies the shared bounded Unicode/font-width fit policy.
+        String footerWarning=GuiFooterText.warning(message,host.uiWarning());
+        if (!footerWarning.isEmpty())
+            label(trim(footerWarning,GuiFooterText.pixelBudget(w,side)),
+                x + side + 11,y + h - 13,0xFFFFB3A6);
     }
     private void drawSidebar() {
         int yy = y + 47;
@@ -262,8 +267,8 @@ public final class GhostClickGui extends GuiScreen {
             footer = (settingScroll + 1) + "-" +
                 Math.min(settings.size(), settingScroll + available) +
                 "/" + settings.size() + "  scroll";
-        if (footer!=null && message.isEmpty() && host.uiWarning().isEmpty())
-            label(trim(footer,Math.max(0,w-side-32)),
+        if (footer!=null && GuiFooterText.warning(message,host.uiWarning()).isEmpty())
+            label(trim(footer,GuiFooterText.pixelBudget(w,side)),
                 x+side+13,y+h-13,0xFFE7E8F5);
     }
     private String trim(String text, int maxPixels) {
