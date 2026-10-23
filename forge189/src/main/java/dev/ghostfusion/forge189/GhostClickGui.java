@@ -402,6 +402,11 @@ public final class GhostClickGui extends GuiScreen {
     @Override protected void mouseClicked(int mx, int my, int button) throws IOException {
         finishSliderDrag();
         finishHudDrag();
+        // Pointer focus takes precedence over a pending keybind editor.
+        // Clicking the bind row itself will explicitly arm capture again
+        // below; all other clicks cancel it before they can focus search,
+        // switch category/module or interact with settings.
+        capture=null;
         super.mouseClicked(mx, my, button);
         rebuild();
         GuiLayout zone = GuiLayout.calculate(width,height,ui.layout());
@@ -565,6 +570,13 @@ public final class GhostClickGui extends GuiScreen {
                 mc.displayGuiScreen(null);
             return;
         }
+        // Ctrl+F is an explicit transfer to search, even if a pending
+        // keyboard/mouse bind capture would otherwise consume KEY_F.
+        if(GuiKeybindCapture.transferToSearch(capture!=null,!hudPage,
+                keyCode==Keyboard.KEY_F,
+                Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) ||
+                Keyboard.isKeyDown(Keyboard.KEY_RCONTROL)))
+            capture=null;
         if (capture != null) {
             // Key repeat from the B shortcut or the bound key must never
             // silently become a new module binding.

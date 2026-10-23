@@ -60,6 +60,42 @@ public final class GuiKeybindCaptureTests {
                 "capture owns keyboard only in eligible state "+i);
         }
     }
+    /** R2.98: a pending keybind must yield to the explicit Ctrl+F
+     * search shortcut while ordinary F/key capture remains functional. */
+    private static void explicitSearchTransfer() {
+        ok(GuiKeybindCapture.transferToSearch(true,true,true,true),
+            "armed module capture yields to Ctrl+F");
+        ok(!GuiKeybindCapture.transferToSearch(true,true,true,false),
+            "plain F remains a legal keybind");
+        ok(!GuiKeybindCapture.transferToSearch(true,true,false,true),
+            "Ctrl plus unrelated key remains capturable");
+        ok(!GuiKeybindCapture.transferToSearch(false,true,true,true),
+            "no capture does not invent a focus transfer");
+        ok(!GuiKeybindCapture.transferToSearch(true,false,true,true),
+            "HUD page never routes module binding to search");
+        Random rnd=new Random(2982026L);
+        for(int i=0;i<160000;i++) {
+            boolean armed=rnd.nextBoolean(),modules=rnd.nextBoolean();
+            boolean f=rnd.nextBoolean(),ctrl=rnd.nextBoolean();
+            boolean expected=armed&&modules&&f&&ctrl;
+            ok(GuiKeybindCapture.transferToSearch(armed,modules,f,ctrl)==expected,
+                "random keyboard focus ownership "+i);
+        }
+        ModuleRegistry registry=new ModuleRegistry();
+        registry.register(new Dummy("hud.alpha"),12);
+        final int[] saves={0};
+        UiActions actions=new UiActions(registry,()->saves[0]++);
+        int old=registry.get("hud.alpha").keybind();
+        boolean transferred=GuiKeybindCapture.transferToSearch(true,true,true,true);
+        if(!transferred)actions.bind("hud.alpha",33);
+        ok(transferred && registry.get("hud.alpha").keybind()==old && saves[0]==0,
+            "search transfer performs no hidden keybind write");
+        boolean captured=GuiKeybindCapture.transferToSearch(true,true,true,false);
+        if(!captured)actions.bind("hud.alpha",33);
+        ok(!captured && registry.get("hud.alpha").keybind()==33 && saves[0]==1,
+            "ordinary F capture still uses validated persistence gateway");
+        registry.shutdown();
+    }
     private static void actionsAndConflict(){
         ModuleRegistry r=new ModuleRegistry();
         r.register(new Dummy("hud.alpha"),12);
@@ -162,7 +198,7 @@ public final class GuiKeybindCaptureTests {
             "shutdown registry still rejects unchanged binds");
     }
     public static void main(String[] args){
-        focusPolicy();actionsAndConflict();unchangedBindings();
+        focusPolicy();explicitSearchTransfer();actionsAndConflict();unchangedBindings();
         ok(checks>140000,"substantial keyboard bind ownership test");
         System.out.println("GUI_KEYBIND_CAPTURE_PASS assertions="+checks);
     }
