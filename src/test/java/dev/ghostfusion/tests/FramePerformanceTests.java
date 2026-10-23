@@ -68,6 +68,60 @@ public final class FramePerformanceTests {
         try{outsider.join();}catch(InterruptedException e){throw new AssertionError(e);}
         ok(refused.get(),"no off-thread metric access");
     }
+    /** R2.94: a forward nanoTime jump across the signed-subtraction
+     * boundary is a valid, very slow frame, not a reversed clock sample. */
+    private static void wideForwardIntervals() {
+        Random rnd=new Random(2942026L);
+        FramePerformance perf=new FramePerformance();
+        for(int trial=0;trial<12000;trial++) {
+            perf.suspend();
+            long start=Long.MIN_VALUE+rnd.nextInt(1000000);
+            long end=Long.MAX_VALUE-rnd.nextInt(1000000);
+            perf.frame(start,1048576L);
+            perf.frame(end,1048576L);
+            if(trial%100==0) {
+                FramePerformance.Snapshot snapshot=perf.snapshot();
+                ok(snapshot.frames==trial+1 &&
+                   snapshot.minFps==0 && snapshot.maxFps==0 &&
+                   snapshot.medianFps==0 && snapshot.p99Fps==0,
+                   "wide elapsed counted as one zero FPS interval "+trial);
+                ok(snapshot.invalidIntervals==0,
+                   "forward wide interval never recorded as invalid "+trial);
+            }
+        }
+        FramePerformance.Snapshot all=perf.snapshot();
+        ok(all.frames==12000 && all.invalidIntervals==0 &&
+           all.memorySamples==24000 && all.peakHeapMiB==1,
+           "all wide intervals accepted with fixed-memory telemetry");
+        // A freshly resumed ordinary frame must not inherit the huge gap.
+        perf.suspend();
+        perf.frame(-16666667L,1048576L);
+        perf.frame(0L,1048576L);
+        all=perf.snapshot();
+        ok(all.frames==12001 && all.maxFps==60 && all.minFps==0,
+           "ordinary 60 FPS still available after huge elapsed measurements");
+        long before=all.frames;
+        perf.frame(-1L,1048576L);
+        ok(perf.snapshot().frames==before &&
+           perf.snapshot().invalidIntervals==1,
+           "a truly backward signed clock remains invalid");
+        perf.frame(19999999L,1048576L);
+        ok(perf.snapshot().frames==before+1 &&
+           perf.snapshot().invalidIntervals==1,
+           "valid cadence resumes after a reversed clock sample");
+
+        FramePerformance boundary=new FramePerformance();
+        boundary.frame(0L,0L);
+        boundary.frame(2000000000L,0L);
+        ok(boundary.snapshot().frames==1 &&
+           boundary.snapshot().medianFps==1,
+           "exact two-second boundary rounds half FPS up to one");
+        boundary.frame(4000000001L,0L);
+        ok(boundary.snapshot().frames==2 &&
+           boundary.snapshot().minFps==0 &&
+           boundary.snapshot().maxFps==1,
+           "duration beyond two seconds rounds to zero FPS");
+    }
     private static void replay() {
         Random random=new Random(20261020L);
         FramePerformance p=new FramePerformance();
@@ -137,7 +191,7 @@ public final class FramePerformanceTests {
             "close preserved export backup");
     }
     public static void main(String[] args) throws Exception {
-        histogram();replay();integration();
+        histogram();wideForwardIntervals();replay();integration();
         ok(checks>30000,"substantial deterministic timing coverage");
         System.out.println("FRAME_PERFORMANCE_PASS assertions="+checks);
     }
