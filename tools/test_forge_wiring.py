@@ -253,6 +253,17 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("testIngressSessionFence(dir.resolve(\"epoch\"));",tests)
         self.assertIn("late-published old event filtered after a newer event",tests)
 
+    def test_legacy_widget_fallback_is_independent_of_live_state(self):
+        store=content("src/main/java/dev/ghostfusion/ui/UiSettingsStore.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/ConfigRecoveryTests.java")
+        self.assertIn("Double.toString(widget.defaultX)",store)
+        self.assertIn("Double.toString(widget.defaultY)",store)
+        self.assertNotIn("Double.toString(state.widgets().x(widget))",store)
+        self.assertNotIn("Double.toString(state.widgets().y(widget))",store)
+        self.assertIn("legacyWidgetDefaults();",tests)
+        self.assertIn("i<12000;i++",tests)
+        self.assertIn("store.loadRecovering()",tests)
+
     def test_recovery_promotes_verified_typed_snapshot_before_live_mutation(self):
         core=content("src/main/java/dev/ghostfusion/core/ConfigIntegrity.java")
         profiles=content("src/main/java/dev/ghostfusion/core/ProfileStore.java")
