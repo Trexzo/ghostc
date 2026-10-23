@@ -181,6 +181,87 @@ public final class ServicesTests {
         inv.shutdown();
         rejects(()->inv.poll(20,2),"shutdown");
     }
+    /** Future-dated inventory work cannot preempt already-ready work.
+     * Expired/wrong-session entries must be pruned without temporary lists. */
+    private static void inventoryScheduling() throws Exception {
+        java.util.Random random=new java.util.Random(2862026L);
+        for(int cycle=0;cycle<12000;cycle++) {
+            long tick=cycle*10L, generation=cycle+1L;
+            InventoryCoordinator inv=new InventoryCoordinator(5);
+            long future=inv.submit("future",1,100,tick+3,4,generation);
+            long middle=inv.submit("middle",2,50,tick+2,5,generation);
+            long ready=inv.submit("ready",3,1,tick,5,generation);
+            long old=inv.submit("stale",4,200,tick,1,generation+1);
+            ok(future>0 && middle>0 && ready>0 && old>0,
+                "valid scheduled tokens accepted "+cycle);
+            InventoryCoordinator.Transaction first=inv.poll(tick,generation);
+            ok(first!=null && first.id==ready && first.start==tick &&
+               first.state==InventoryCoordinator.State.ACTIVE,
+               "eligible lower-priority item selected over future priorities "+cycle);
+            ok(inv.queued()==2,
+               "wrong-generation work pruned without dropping future work "+cycle);
+            ok(inv.acknowledge(ready,true,generation).state==
+               InventoryCoordinator.State.CONFIRMED,
+               "ready work commits independently "+cycle);
+            ok(inv.poll(tick+1,generation)==null && inv.queued()==2,
+               "future work remains queued before start "+cycle);
+            InventoryCoordinator.Transaction second=inv.poll(tick+2,generation);
+            ok(second!=null && second.id==middle && second.start==tick+2,
+               "middle request starts on exact tick "+cycle);
+            ok(inv.poll(tick+2,generation).id==middle,
+               "active work remains single-flight "+cycle);
+            ok(inv.acknowledge(middle,random.nextBoolean(),generation)!=null,
+               "middle transaction receives explicit acknowledgement "+cycle);
+            InventoryCoordinator.Transaction third=inv.poll(tick+3,generation);
+            ok(third!=null && third.id==future && third.start==tick+3,
+               "higher-priority future request activates on schedule "+cycle);
+            ok(inv.acknowledge(future,true,generation)!=null &&
+               inv.poll(tick+4,generation)==null && inv.queued()==0,
+               "all scheduled work finished without phantom requests "+cycle);
+            long expiry=inv.submit("expire",9,3,tick+5,1,generation);
+            ok(expiry>0 && inv.poll(tick+6,generation)==null &&
+               inv.queued()==0,
+               "future work reaching deadline without polling expires "+cycle);
+            long firstOwner=inv.submit("owner.a",10,2,tick+7,3,generation);
+            long other=inv.submit("owner.b",11,2,tick+7,3,generation);
+            long secondOwner=inv.submit("owner.a",12,2,tick+8,3,generation);
+            ok(inv.cancelOwner("owner.a")==2 && inv.queued()==1,
+               "owner cancellation removes all pending original matches "+cycle);
+            ok(inv.poll(tick+7,generation).id==other &&
+               inv.cancelOwner("owner.b")==1 && !inv.active() &&
+               inv.queued()==0,
+               "owner cancellation releases active and keeps other owners "+cycle);
+            ok(firstOwner>0 && secondOwner>0,
+               "owner tokens retain positive monotonic identity "+cycle);
+            inv.shutdown();
+        }
+        // Equal-priority ordering remains FIFO by token, not input slot.
+        InventoryCoordinator ordered=new InventoryCoordinator(3);
+        long a=ordered.submit("a",7,8,99,3,1);
+        long b=ordered.submit("b",6,8,99,3,1);
+        ok(ordered.poll(98,1)==null && ordered.queued()==2,
+            "both equal-priority requests wait until their start");
+        ok(ordered.poll(99,1).id==a,"equal-priority first token wins");
+        ok(ordered.acknowledge(a,true,1)!=null &&
+           ordered.poll(99,1).id==b,
+           "second equal-priority token follows first");
+        ordered.shutdown();
+
+        // The ID is a positive, unreused acknowledgement token, including
+        // at the long boundary. Refuse overflow rather than wrapping to -1.
+        InventoryCoordinator nearLimit=new InventoryCoordinator(2);
+        java.lang.reflect.Field sequence=InventoryCoordinator.class.getDeclaredField("nextId");
+        sequence.setAccessible(true);
+        sequence.setLong(nearLimit,Long.MAX_VALUE-1);
+        ok(nearLimit.submit("near.max",2,1,0,2,1)==Long.MAX_VALUE,
+            "last positive inventory token is valid");
+        boolean wrapped=false;
+        try { nearLimit.submit("wrap",3,1,0,2,1); }
+        catch(IllegalStateException expected){wrapped=true;}
+        ok(wrapped && nearLimit.queued()==1,
+            "inventory token overflow rejected without mutating queue");
+        nearLimit.shutdown();
+    }
     private static void sessions() throws Exception {
         SessionServices s=new SessionServices();
         ok(!s.connected() && s.generation()==0 && s.tick()==0,"initial state");
@@ -221,7 +302,8 @@ public final class ServicesTests {
         host.close();
     }
     public static void main(String[] args) throws Exception {
-        snapshotsAndTargets(); rotations(); actions(); packets(); inventory(); sessions();
+        snapshotsAndTargets(); rotations(); actions(); packets(); inventory();
+        inventoryScheduling(); sessions();
         ok(assertions>100,"nontrivial service assertions");
         System.out.println("SERVICES_REGRESSION_PASS assertions="+assertions);
     }
