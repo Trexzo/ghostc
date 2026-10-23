@@ -1538,6 +1538,20 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("nested flush storm bounded",suite)
         self.assertIn("reset from completion remains safe",suite)
 
+    def test_action_and_rotation_ordinal_overflow_fails_closed(self):
+        actions=content("src/main/java/dev/ghostfusion/services/ActionCoordinator.java")
+        rotations=content("src/main/java/dev/ghostfusion/services/RotationCoordinator.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/ServicesTests.java")
+        self.assertIn('if(ordinal==Long.MAX_VALUE)',actions)
+        self.assertIn('throw new IllegalStateException("action ordinal overflow")',actions)
+        self.assertIn('if(nextOrdinal==Long.MAX_VALUE)',rotations)
+        self.assertIn('throw new IllegalStateException("rotation ordinal overflow")',rotations)
+        self.assertIn("ordinal=0;",actions)
+        self.assertIn("nextOrdinal=0;",rotations)
+        self.assertIn("arbitrationOrdinalBoundaries(); sessions();",suite)
+        self.assertIn("cycle<9000;cycle++",suite)
+        self.assertIn("world leave/rejoin resets both arbitration sequences",suite)
+
     def test_scoped_rotation_intents_and_bounded_owners(self):
         rotation=content("src/main/java/dev/ghostfusion/services/RotationCoordinator.java")
         suite=content("src/test/java/dev/ghostfusion/tests/CoordinatorHygieneTests.java")

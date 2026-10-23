@@ -262,6 +262,97 @@ public final class ServicesTests {
             "inventory token overflow rejected without mutating queue");
         nearLimit.shutdown();
     }
+    /** R2.91: long-lived action/rotation arbitrators must never silently
+     * wrap their FIFO ordinals and invert equal-priority decisions. */
+    private static void arbitrationOrdinalBoundaries() throws Exception {
+        java.lang.reflect.Field actionSequence=
+            ActionCoordinator.class.getDeclaredField("ordinal");
+        java.lang.reflect.Field rotationSequence=
+            RotationCoordinator.class.getDeclaredField("nextOrdinal");
+        actionSequence.setAccessible(true);
+        rotationSequence.setAccessible(true);
+        for(int cycle=0;cycle<9000;cycle++) {
+            final long tick=cycle+1L, generation=cycle+1L;
+            ActionCoordinator actions=new ActionCoordinator();
+            RotationCoordinator rotations=new RotationCoordinator();
+            actionSequence.setLong(actions,Long.MAX_VALUE-1);
+            rotationSequence.setLong(rotations,Long.MAX_VALUE-1);
+
+            actions.request("first",ActionCoordinator.Type.ATTACK,
+                ActionCoordinator.Phase.SIMULATE,1,5,tick,3,generation);
+            rotations.request("first",RotationCoordinator.Scope.CAMERA,
+                12f,4f,5,tick,3,generation);
+            ok(actions.pending()==1 && rotations.pending()==1 &&
+               actionSequence.getLong(actions)==Long.MAX_VALUE &&
+               rotationSequence.getLong(rotations)==Long.MAX_VALUE,
+               "highest positive arbitration ordinals accepted "+cycle);
+            rejects(()->actions.request("second",ActionCoordinator.Type.ATTACK,
+                ActionCoordinator.Phase.SIMULATE,2,8,tick,3,generation),
+                "action overflow cannot evict first request "+cycle);
+            rejects(()->rotations.request("second",RotationCoordinator.Scope.CAMERA,
+                20f,7f,8,tick,3,generation),
+                "rotation overflow cannot evict first request "+cycle);
+            rejects(()->actions.request("first",ActionCoordinator.Type.ATTACK,
+                ActionCoordinator.Phase.SIMULATE,9,8,tick,3,generation),
+                "action overflow cannot mutate even an existing owner "+cycle);
+            rejects(()->rotations.request("first",RotationCoordinator.Scope.CAMERA,
+                60f,15f,8,tick,3,generation),
+                "rotation overflow cannot mutate an existing owner "+cycle);
+            ActionCoordinator.Decision winner=actions.consume(
+                ActionCoordinator.Type.ATTACK,
+                ActionCoordinator.Phase.SIMULATE,tick,generation);
+            RotationCoordinator.Decision view=rotations.decide(
+                RotationCoordinator.Scope.CAMERA,tick,generation,0f,0f);
+            ok(winner!=null && "first".equals(winner.owner) && winner.argument==1 &&
+               "first".equals(view.owner) && view.yaw==12f,
+               "rejected overflow preserves original arbitration winner "+cycle);
+            actions.reset();
+            rotations.clear();
+            ok(actionSequence.getLong(actions)==0 &&
+               rotationSequence.getLong(rotations)==0 &&
+               actions.pending()==0 && rotations.pending()==0,
+               "explicit session reset releases exhausted ordinals "+cycle);
+            actions.request("alpha",ActionCoordinator.Type.ATTACK,
+                ActionCoordinator.Phase.SIMULATE,1,3,tick,3,generation);
+            actions.request("beta",ActionCoordinator.Type.ATTACK,
+                ActionCoordinator.Phase.SIMULATE,2,3,tick,3,generation);
+            rotations.request("alpha",RotationCoordinator.Scope.CAMERA,
+                9f,1f,3,tick,3,generation);
+            rotations.request("beta",RotationCoordinator.Scope.CAMERA,
+                18f,2f,3,tick,3,generation);
+            ok("alpha".equals(actions.consume(ActionCoordinator.Type.ATTACK,
+                ActionCoordinator.Phase.SIMULATE,tick,generation).owner) &&
+               "alpha".equals(rotations.decide(RotationCoordinator.Scope.CAMERA,
+                tick,generation,0f,0f).owner),
+               "fresh epoch restores stable FIFO tie-breaking "+cycle);
+            actions.shutdown();
+            rotations.shutdown();
+        }
+        // Real session invalidation invokes both resets, not just isolated
+        // coordinator test APIs, and clears old-generation work.
+        SessionServices session=new SessionServices();
+        session.world(true);
+        actionSequence.setLong(session.actions(),Long.MAX_VALUE);
+        rotationSequence.setLong(session.rotations(),Long.MAX_VALUE);
+        rejects(()->session.actions().request("no",ActionCoordinator.Type.USE,
+            ActionCoordinator.Phase.SIMULATE,0,1,0,1,session.generation()),
+            "exhausted actions refuse request before transition");
+        rejects(()->session.rotations().request("no",RotationCoordinator.Scope.CAMERA,
+            0f,0f,1,0,1,session.generation()),
+            "exhausted rotations refuse request before transition");
+        session.world(false);
+        session.world(true);
+        ok(actionSequence.getLong(session.actions())==0 &&
+           rotationSequence.getLong(session.rotations())==0,
+           "world leave/rejoin resets both arbitration sequences");
+        session.actions().request("yes",ActionCoordinator.Type.USE,
+            ActionCoordinator.Phase.SIMULATE,0,1,0,1,session.generation());
+        session.rotations().request("yes",RotationCoordinator.Scope.CAMERA,
+            0f,0f,1,0,1,session.generation());
+        ok(session.actions().pending()==1 && session.rotations().pending()==1,
+            "new session accepts requests after exhausted old ordinals");
+        session.close();
+    }
     private static void sessions() throws Exception {
         SessionServices s=new SessionServices();
         ok(!s.connected() && s.generation()==0 && s.tick()==0,"initial state");
@@ -303,7 +394,7 @@ public final class ServicesTests {
     }
     public static void main(String[] args) throws Exception {
         snapshotsAndTargets(); rotations(); actions(); packets(); inventory();
-        inventoryScheduling(); sessions();
+        inventoryScheduling(); arbitrationOrdinalBoundaries(); sessions();
         ok(assertions>100,"nontrivial service assertions");
         System.out.println("SERVICES_REGRESSION_PASS assertions="+assertions);
     }
