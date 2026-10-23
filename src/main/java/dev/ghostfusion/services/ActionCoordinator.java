@@ -50,6 +50,10 @@ public final class ActionCoordinator {
         String key=key(owner,type,phase);
         if(requests.size()>=256 && !requests.containsKey(key))
             throw new IllegalStateException("action capacity exceeded");
+        // Equal-priority FIFO is ordered by a positive, monotonic ordinal.
+        // Never wrap to Long.MIN_VALUE and silently reverse that ordering.
+        if(ordinal==Long.MAX_VALUE)
+            throw new IllegalStateException("action ordinal overflow");
         requests.put(key, new Request(owner,type,phase,argument,
             priority,tick,tick+ttl,generation,++ordinal));
     }
@@ -92,6 +96,9 @@ public final class ActionCoordinator {
     public int pending() { check(); return requests.size(); }
     public void reset() {
         check(); requests.clear(); consumedTicks.clear(); consumedGenerations.clear();
+        // All competing requests are gone. A new session can safely reuse
+        // small internal ordering ordinals without colliding with survivors.
+        ordinal=0;
     }
     public void shutdown() {
         if(Thread.currentThread()!=thread) throw new IllegalStateException("action owner thread");

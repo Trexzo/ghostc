@@ -47,6 +47,8 @@ public final class RotationCoordinator {
         String key=key(owner,scope);
         if(requests.size()>=MAX_PENDING && !requests.containsKey(key))
             throw new IllegalStateException("rotation capacity exceeded");
+        if(nextOrdinal==Long.MAX_VALUE)
+            throw new IllegalStateException("rotation ordinal overflow");
         requests.put(key, new Request(owner, scope, yaw, pitch, priority,
             now, now + lifetimeTicks, generation, ++nextOrdinal));
     }
@@ -85,10 +87,14 @@ public final class RotationCoordinator {
         return count;
     }
     public int pending() { assertOwner(); return requests.size(); }
-    public void clear() { assertOwner(); requests.clear(); }
+    public void clear() {
+        assertOwner(); requests.clear();
+        // No outstanding request retains the former tie-break ordinal.
+        nextOrdinal=0;
+    }
     public void shutdown() {
         if (Thread.currentThread() != ownerThread) throw new IllegalStateException("rotation owner thread");
         if (stopped) return;
-        requests.clear(); stopped = true;
+        requests.clear(); nextOrdinal=0; stopped = true;
     }
 }
