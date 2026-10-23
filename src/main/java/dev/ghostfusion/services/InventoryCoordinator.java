@@ -1,8 +1,7 @@
 package dev.ghostfusion.services;
 
-import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.Map;
 
 /**
  * Single-flight inventory transaction intents. No Minecraft inventory mutation here.
@@ -11,13 +10,13 @@ import java.util.Map;
 public final class InventoryCoordinator {
     public enum State { QUEUED, ACTIVE, CONFIRMED, REJECTED, EXPIRED, CANCELLED }
     public static final class Transaction {
-        public final long id, generation, expiry; public final String owner;
+        public final long id, generation, start, expiry; public final String owner;
         public final int slot, priority; public final State state;
-        private Transaction(long id,long generation,long expiry,String owner,int slot,int priority,State state) {
-            this.id=id; this.generation=generation; this.expiry=expiry;
+        private Transaction(long id,long generation,long start,long expiry,String owner,int slot,int priority,State state) {
+            this.id=id; this.generation=generation; this.start=start; this.expiry=expiry;
             this.owner=owner; this.slot=slot; this.priority=priority; this.state=state;
         }
-        Transaction state(State next) { return new Transaction(id,generation,expiry,owner,slot,priority,next); }
+        Transaction state(State next) { return new Transaction(id,generation,start,expiry,owner,slot,priority,next); }
     }
     private final Thread thread=Thread.currentThread();
     private final LinkedHashMap<Long,Transaction> pending=new LinkedHashMap<Long,Transaction>();
@@ -37,23 +36,34 @@ public final class InventoryCoordinator {
         check(); ServiceValidation.request(owner,tick,ttl,generation);
         if(slot<0 || slot>44) throw new IllegalArgumentException("slot");
         if(pending.size()+(active==null?0:1)>=capacity) { rejected++; return -1; }
+        // Never wrap a token into a negative/sentinel or reused ID.
+        if(nextId==Long.MAX_VALUE)throw new IllegalStateException("inventory token overflow");
         long id=++nextId;
-        pending.put(id,new Transaction(id,generation,tick+ttl,owner,slot,priority,State.QUEUED));
+        pending.put(id,new Transaction(id,generation,tick,tick+ttl,owner,slot,priority,State.QUEUED));
         return id;
     }
     /** Called once per owner tick. At most one ACTIVE transaction at a time. */
     public Transaction poll(long tick,long generation) {
         check(); if(tick<0 || generation<0) throw new IllegalArgumentException("time");
         if(active!=null && (active.generation!=generation || tick>=active.expiry)) active=null;
-        for(Transaction t:new ArrayList<Transaction>(pending.values()))
-            if(t.generation!=generation || tick>=t.expiry) pending.remove(t.id);
-        if(active!=null) return active;
+        // Prune old work and select an eligible candidate in one pass.
+        // Do not copy the entire pending collection on each owner tick.
+        if(pending.isEmpty())return active;
         Transaction best=null;
-        for(Transaction t:pending.values()) {
-            if(best==null || t.priority>best.priority || (t.priority==best.priority && t.id<best.id))
-                best=t;
+        Iterator<Transaction> iterator=pending.values().iterator();
+        while(iterator.hasNext()) {
+            Transaction t=iterator.next();
+            if(t.generation!=generation || tick>=t.expiry) {
+                iterator.remove();
+                continue;
+            }
+            // Requests scheduled in a later tick must remain QUEUED.
+            if(active!=null || tick<t.start)continue;
+            if(best==null || t.priority>best.priority ||
+               (t.priority==best.priority && t.id<best.id))best=t;
         }
-        if(best==null) return null;
+        if(active!=null)return active;
+        if(best==null)return null;
         pending.remove(best.id);
         active=best.state(State.ACTIVE);
         return active;
@@ -65,8 +75,12 @@ public final class InventoryCoordinator {
     }
     public int cancelOwner(String owner) {
         check(); ServiceValidation.owner(owner); int n=0;
-        for(Transaction t:new ArrayList<Transaction>(pending.values())) {
-            if(t.owner.equals(owner) && pending.remove(t.id)!=null) n++;
+        Iterator<Transaction> iterator=pending.values().iterator();
+        while(iterator.hasNext()) {
+            if(iterator.next().owner.equals(owner)) {
+                iterator.remove();
+                n++;
+            }
         }
         if(active!=null && active.owner.equals(owner)) { active=null; n++; }
         return n;

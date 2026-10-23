@@ -1436,6 +1436,20 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("sessionTransitionCallbacks();worldTransitions();",suite)
         self.assertIn("cycle<4500;cycle++",suite)
 
+    def test_inventory_respects_start_tick_without_pending_list_copy(self):
+        inventory=content("src/main/java/dev/ghostfusion/services/InventoryCoordinator.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/ServicesTests.java")
+        self.assertIn("public final long id, generation, start, expiry;",inventory)
+        self.assertIn("tick,tick+ttl,owner,slot,priority,State.QUEUED",inventory)
+        self.assertIn("tick<t.start",inventory)
+        self.assertIn("if(pending.isEmpty())return active;",inventory)
+        self.assertIn("Iterator<Transaction> iterator=pending.values().iterator();",inventory)
+        self.assertGreaterEqual(inventory.count("iterator.remove();"),2)
+        self.assertNotIn("new ArrayList<Transaction>(pending.values())",inventory)
+        self.assertIn('if(nextId==Long.MAX_VALUE)',inventory)
+        self.assertIn("inventoryScheduling(); sessions();",tests)
+        self.assertIn("cycle<12000;cycle++",tests)
+
     def test_packet_cancel_owner_detaches_before_callbacks(self):
         coordinator=content("src/main/java/dev/ghostfusion/services/PacketCoordinator.java")
         suite=content("src/test/java/dev/ghostfusion/tests/PacketLifecycleReentryTests.java")
