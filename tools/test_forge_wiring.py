@@ -258,8 +258,10 @@ class ForgeWiring(unittest.TestCase):
         tests=content("src/test/java/dev/ghostfusion/tests/ConfigRecoveryTests.java")
         self.assertIn("Double.toString(widget.defaultX)",store)
         self.assertIn("Double.toString(widget.defaultY)",store)
-        self.assertNotIn("Double.toString(state.widgets().x(widget))",store)
-        self.assertNotIn("Double.toString(state.widgets().y(widget))",store)
+        staging=store.split("private Staged stage(Properties p) {",1)[1].split(
+            "private void loadFile(Path file)",1)[0]
+        self.assertNotIn("state.widgets().x(widget)",staging)
+        self.assertNotIn("state.widgets().y(widget)",staging)
         self.assertIn("legacyWidgetDefaults();",tests)
         self.assertIn("i<12000;i++",tests)
         self.assertIn("store.loadRecovering()",tests)
