@@ -2,6 +2,7 @@ package dev.ghostfusion.tests;
 
 import dev.ghostfusion.services.PacketCoordinator;
 import dev.ghostfusion.services.SessionServices;
+import dev.ghostfusion.services.WorldSnapshot;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -329,6 +330,96 @@ public final class PacketLifecycleReentryTests {
             packets.shutdown();
         }
     }
+    /** Session invalidation must not be recursively mutated from the
+     * stale-packet completion that runs inside the transition itself. */
+    private static void sessionTransitionCallbacks() {
+        for(int cycle=0;cycle<4500;cycle++) {
+            final int iteration=cycle;
+            SessionServices session=new SessionServices();
+            session.world(true);
+            long startGeneration=session.generation();
+            long startTick=session.tick();
+            AtomicInteger completed=new AtomicInteger();
+            AtomicInteger blocked=new AtomicInteger();
+            long token=session.packets().submit("transition.callback",
+                PacketCoordinator.Direction.OUTBOUND,new byte[]{7},
+                startGeneration,result->{
+                    ok(result==PacketCoordinator.Result.STALE_SESSION,
+                        "transition callback terminates old packet "+iteration);
+                    completed.incrementAndGet();
+                    Runnable[] nested={
+                        ()->session.world(true),
+                        ()->session.world(false),
+                        session::disconnect,
+                        session::tickAdvance,
+                        session::close,
+                        ()->session.publish(new WorldSnapshot(
+                            session.generation(),session.tick(),0,0,0,0,0,
+                            java.util.Collections.<WorldSnapshot.Entity>emptyList()))
+                    };
+                    for(Runnable forbidden:nested) {
+                        try{forbidden.run();}
+                        catch(IllegalStateException expected){blocked.incrementAndGet();}
+                    }
+                    // These direct service references are still valid to
+                    // callbacks, so the outer transition must clear them
+                    // AFTER all packet completions finish.
+                    session.actions().request("callback.intent",
+                        dev.ghostfusion.services.ActionCoordinator.Type.ATTACK,
+                        dev.ghostfusion.services.ActionCoordinator.Phase.SIMULATE,
+                        0,1,session.tick(),1,session.generation());
+                    session.rotations().request("callback.intent",
+                        dev.ghostfusion.services.RotationCoordinator.Scope.CAMERA,
+                        10,5,1,session.tick(),1,session.generation());
+                    session.inventory().submit("callback.intent",2,1,
+                        session.tick(),1,session.generation());
+                });
+            ok(token>0,"stale completion was queued "+cycle);
+            if(cycle%2==0)session.world(false);
+            else session.disconnect();
+            ok(completed.get()==1 && blocked.get()==6,
+                "nested transitions, tick, close, publish rejected "+cycle);
+            ok(session.generation()==startGeneration+1 &&
+               session.tick()==startTick && !session.connected() &&
+               session.snapshot()==null,
+               "exactly one committed session boundary "+cycle);
+            ok(session.actions().pending()==0 &&
+               session.rotations().pending()==0 &&
+               session.inventory().queued()==0 &&
+               session.packets().metrics().queued==0,
+               "callback-created work cleared before outer transition returns "+cycle);
+            session.world(true);
+            ok(session.generation()==startGeneration+2,
+                "legitimate next world transition accepted "+cycle);
+            session.tickAdvance();
+            ok(session.tick()==startTick+1,
+                "owner tick resumes after invalidation "+cycle);
+            session.close();
+        }
+
+        SessionServices closing=new SessionServices();
+        closing.world(true);
+        AtomicInteger shutdownCallbacks=new AtomicInteger();
+        closing.packets().submit("close.callback",
+            PacketCoordinator.Direction.OUTBOUND,new byte[]{1},
+            closing.generation(),result->{
+                ok(result==PacketCoordinator.Result.SHUTDOWN,
+                    "terminal close classifies pending packet");
+                shutdownCallbacks.incrementAndGet();
+                rejects(()->closing.world(true),
+                    "closed host cannot reenter world from SHUTDOWN callback");
+                rejects(closing::disconnect,
+                    "closed host cannot reconnect from SHUTDOWN callback");
+                rejects(closing::tickAdvance,
+                    "closed host cannot tick from SHUTDOWN callback");
+                closing.close(); // idempotent terminal closure remains legal
+            });
+        closing.close();
+        closing.close();
+        ok(shutdownCallbacks.get()==1,
+            "closure seals host before callback and delivers only once");
+        rejects(()->closing.world(true),"closed host never reopens");
+    }
     private static void worldTransitions(){
         SessionServices services=new SessionServices();
         services.world(true);
@@ -379,7 +470,7 @@ public final class PacketLifecycleReentryTests {
     public static void main(String[] args) {
         resetCallbacks();shutdownCallbacks();thrownCallbacksStillDrain();
         flushReentryBudget();atomicOwnerCancellation();ownerCancellationReplay();
-        worldTransitions();repeatedLifecycles();
+        sessionTransitionCallbacks();worldTransitions();repeatedLifecycles();
         ok(assertions>14000,"substantial packet lifecycle regression coverage");
         System.out.println("PACKET_LIFECYCLE_REENTRY_PASS assertions="+assertions);
     }
