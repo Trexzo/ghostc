@@ -1477,6 +1477,20 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.FaultRecoveryUiTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_event_dispatch_stable_snapshot_and_recursive_guard(self):
+        registry=content("src/main/java/dev/ghostfusion/core/ModuleRegistry.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/ModuleLifecycleReentryTests.java")
+        self.assertIn("private Entry[] dispatchEntries = new Entry[0];",registry)
+        self.assertIn("dispatchEntries=modules.values().toArray(new Entry[modules.size()]);",registry)
+        self.assertIn("if(dispatching)throw new IllegalStateException",registry)
+        self.assertIn("Entry[] snapshot=dispatchEntries;",registry)
+        self.assertIn("if(shutdown)break;",registry)
+        self.assertIn("if(e.state != State.ENABLED)continue;",registry)
+        self.assertIn("dispatching=false;",registry)
+        self.assertNotIn("for (Entry e : modules.values()) if (e.state == State.ENABLED)",registry)
+        self.assertIn("stableEventSnapshot();peerMutationAndShutdown();recursiveEventIsolation();",suite)
+        self.assertIn("i<20000;i++",suite)
+
     def test_module_lifecycle_reentry_and_sealed_shutdown(self):
         registry=content("src/main/java/dev/ghostfusion/core/ModuleRegistry.java")
         suite=content("src/test/java/dev/ghostfusion/tests/ModuleLifecycleReentryTests.java")

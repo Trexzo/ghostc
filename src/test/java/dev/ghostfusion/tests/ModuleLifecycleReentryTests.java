@@ -137,6 +137,105 @@ public final class ModuleLifecycleReentryTests {
             "private callback messages never appear in fault metadata");
         registry.shutdown();
     }
+    private static void stableEventSnapshot() {
+        ModuleRegistry registry=new ModuleRegistry();
+        final int[] calls={0,0,0};
+        Module late=new Module("event.late") {
+            public void onEvent(GameEvent event){calls[2]++;}
+        };
+        Module early=new Module("event.early") {
+            private boolean added;
+            public void onEvent(GameEvent event) {
+                calls[0]++;
+                if(!added) {
+                    registry.register(late,0);
+                    registry.setEnabled(late.id(),true);
+                    added=true;
+                }
+            }
+        };
+        Module peer=new Module("event.peer") {
+            public void onEvent(GameEvent event){calls[1]++;}
+        };
+        registry.register(early,0);registry.register(peer,0);
+        registry.setEnabled(early.id(),true);registry.setEnabled(peer.id(),true);
+        registry.dispatch(new GameEvent(GameEvent.Kind.CLIENT_TICK,1));
+        ok(calls[0]==1 && calls[1]==1 && calls[2]==0,
+            "mid-dispatch registration is deferred until the next event");
+        ok(registry.get(late.id()).state()==ModuleRegistry.State.ENABLED,
+            "new module is fully enabled without invalidating active iterator");
+        registry.dispatch(new GameEvent(GameEvent.Kind.CLIENT_TICK,2));
+        ok(calls[0]==2 && calls[1]==2 && calls[2]==1,
+            "new snapshot delivers future events in registration order");
+        for(int i=0;i<20000;i++)
+            registry.dispatch(new GameEvent(GameEvent.Kind.CLIENT_TICK,3+i));
+        ok(calls[0]==20002 && calls[1]==20002 && calls[2]==20001,
+            "20,000 events keep exact stable delivery with no map mutation");
+        registry.shutdown();
+    }
+    private static void peerMutationAndShutdown() {
+        ModuleRegistry registry=new ModuleRegistry();
+        final int[] calls={0,0};
+        Module peer=new Module("event.skip.peer") {
+            public void onEvent(GameEvent event){calls[1]++;}
+        };
+        Module first=new Module("event.skip.first") {
+            public void onEvent(GameEvent event) {
+                calls[0]++;
+                registry.setEnabled(peer.id(),false);
+            }
+        };
+        registry.register(first,0);registry.register(peer,0);
+        registry.setEnabled(first.id(),true);registry.setEnabled(peer.id(),true);
+        registry.dispatch(new GameEvent(GameEvent.Kind.CLIENT_TICK,3));
+        ok(calls[0]==1 && calls[1]==0,
+            "disabled peer must not receive event from captured snapshot");
+        registry.shutdown();
+
+        ModuleRegistry closing=new ModuleRegistry();
+        final int[] after={0};
+        Module shutdown=new Module("event.close") {
+            public void onEvent(GameEvent event){closing.shutdown();}
+        };
+        Module never=new Module("event.after.close") {
+            public void onEvent(GameEvent event){after[0]++;}
+        };
+        closing.register(shutdown,0);closing.register(never,0);
+        closing.setEnabled(shutdown.id(),true);closing.setEnabled(never.id(),true);
+        closing.dispatch(new GameEvent(GameEvent.Kind.CLIENT_TICK,4));
+        ok(after[0]==0 && shutdown.stops==1 && never.stops==1,
+            "shutdown inside callback seals registry before remaining delivery");
+        refused(()->closing.dispatch(new GameEvent(GameEvent.Kind.CLIENT_TICK,5)),
+            "shutdown remains final after a completed dispatch");
+    }
+    private static void recursiveEventIsolation() {
+        ModuleRegistry registry=new ModuleRegistry();
+        final int[] healthyCalls={0};
+        Module recursive=new Module("event.recursive") {
+            public void onEvent(GameEvent event) {
+                registry.dispatch(new GameEvent(GameEvent.Kind.CLIENT_TICK,
+                    event.sequence()+1));
+            }
+        };
+        Module healthy=new Module("event.healthy") {
+            public void onEvent(GameEvent event){healthyCalls[0]++;}
+        };
+        registry.register(recursive,0);registry.register(healthy,0);
+        registry.setEnabled(recursive.id(),true);
+        registry.setEnabled(healthy.id(),true);
+        registry.dispatch(new GameEvent(GameEvent.Kind.CLIENT_TICK,10));
+        ok(registry.get(recursive.id()).state()==ModuleRegistry.State.FAULTED &&
+           recursive.stops==1 && recursive.starts==1,
+            "nested dispatch is fault-contained without stack recursion");
+        ok("IllegalStateException".equals(registry.get(recursive.id()).lastFault()),
+            "recursive dispatch records only exception class");
+        ok(healthyCalls[0]==1,
+            "healthy peer receives current event despite recursive offender");
+        registry.dispatch(new GameEvent(GameEvent.Kind.CLIENT_TICK,11));
+        ok(healthyCalls[0]==2,
+            "dispatching guard releases after contained recursive failure");
+        registry.shutdown();
+    }
     private static void longSession() {
         ModuleRegistry registry=new ModuleRegistry();
         Module module=new Module("session.loop");
@@ -155,7 +254,9 @@ public final class ModuleLifecycleReentryTests {
     }
     public static void main(String[] args) {
         recursiveTransitions();crossModuleCycle();shutdownSealedAndNested();
-        shutdownDuringEnable();eventFailureCleanupReentry();longSession();
+        shutdownDuringEnable();eventFailureCleanupReentry();
+        stableEventSnapshot();peerMutationAndShutdown();recursiveEventIsolation();
+        longSession();
         ok(checks>10000,"substantial lifecycle reentry regression");
         System.out.println("MODULE_LIFECYCLE_REENTRY_PASS assertions="+checks);
     }
