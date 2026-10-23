@@ -279,6 +279,19 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("i<12000;i++",tests)
         self.assertIn("store.loadRecovering()",tests)
 
+    def test_recovery_requires_sealed_backup_but_accepts_legacy_primary(self):
+        integrity=content("src/main/java/dev/ghostfusion/core/ConfigIntegrity.java")
+        recovery=integrity.split("public static void restoreBackup(Path primary,",1)[1]
+        self.assertIn('!"1".equals(staged.getProperty("schema")) || !verify(staged) ||',recovery)
+        self.assertLess(recovery.index("!verify(staged)"),recovery.index("!typedValidator.test(staged)"))
+        tests=content("src/test/java/dev/ghostfusion/tests/ConfigRecoveryTests.java")
+        self.assertIn("recoveryNeedsSealedBackup();",tests)
+        self.assertIn("i<256;i++",tests)
+        self.assertIn('profiles.loadRecovering("default")',tests)
+        self.assertIn("store.loadRecovering()",tests)
+        self.assertIn('profiles.load("legacy")',tests)
+        self.assertIn("store.load();",tests)
+
     def test_recovery_promotes_verified_typed_snapshot_before_live_mutation(self):
         core=content("src/main/java/dev/ghostfusion/core/ConfigIntegrity.java")
         profiles=content("src/main/java/dev/ghostfusion/core/ProfileStore.java")

@@ -103,6 +103,118 @@ public final class ConfigRecoveryTests {
         catch(IllegalArgumentException expected){tooManyFields=true;}
         ok(tooManyFields,"legacy field count is capped without checksum");
     }
+    /** R2.84: a parseable legacy backup is not a verified recovery source.
+     * Direct loads continue to support legacy schema-1 migration. */
+    private static void recoveryNeedsSealedBackup() throws Exception {
+        Path dir=Files.createTempDirectory("ghostc-unsealed-recovery");
+        Path primary=dir.resolve("candidate.properties");
+        Path backup=dir.resolve("candidate.properties.bak");
+        Random random=new Random(2842026L);
+        for(int i=0;i<256;i++) {
+            Properties good=new Properties();
+            good.setProperty("schema","1");
+            good.setProperty("key",Long.toString(random.nextLong()));
+            ConfigIntegrity.seal(good);
+            write(primary,good);
+            Properties changed=new Properties();
+            changed.putAll(good);
+            changed.setProperty("key","tampered-"+i);
+            write(primary,changed); // checksum now mismatches
+            byte[] damaged=Files.readAllBytes(primary);
+            Properties legacy=new Properties();
+            legacy.putAll(good);
+            legacy.remove(ConfigIntegrity.FIELD);
+            write(backup,legacy);
+            boolean refused=false;
+            try{ConfigIntegrity.restoreBackup(primary);}
+            catch(IllegalArgumentException expected){refused=true;}
+            ok(refused,"unsealed schema-1 backup rejected on recovery "+i);
+            ok(java.util.Arrays.equals(damaged,Files.readAllBytes(primary)),
+                "rejected legacy backup does not replace damaged primary "+i);
+            ok(!Files.exists(dir.resolve("candidate.properties.corrupt")),
+                "rejected backup does not create evidence promotion "+i);
+            ok(!ConfigIntegrity.verify(ConfigIntegrity.read(backup)),
+                "legacy file remains readable for ordinary migration "+i);
+            ConfigIntegrity.seal(legacy);
+            write(backup,legacy);
+            ConfigIntegrity.restoreBackup(primary);
+            ok(ConfigIntegrity.verify(ConfigIntegrity.read(primary)),
+                "sealed counterpart is accepted for restoration "+i);
+            ok(Files.exists(dir.resolve("candidate.properties.corrupt")),
+                "valid recovery preserves original damaged bytes "+i);
+            Files.delete(dir.resolve("candidate.properties.corrupt"));
+        }
+        Path profilesDir=Files.createTempDirectory("ghostc-unsealed-profile-recovery");
+        ModuleRegistry registry=new ModuleRegistry();
+        registry.register(new Dummy("test.feature"),44,
+            new Setting.Bool("safe",true));
+        ProfileStore profiles=new ProfileStore(profilesDir,registry);
+        profiles.save("default");
+        profiles.save("default");
+        Path profilePrimary=profilesDir.resolve("default.properties");
+        Path profileBackup=profilesDir.resolve("default.properties.bak");
+        Properties profileLegacy=read(profileBackup);
+        profileLegacy.remove(ConfigIntegrity.FIELD);
+        write(profileBackup,profileLegacy);
+        Properties corruptProfile=read(profilePrimary);
+        corruptProfile.setProperty("module.test.feature.key","12");
+        write(profilePrimary,corruptProfile);
+        byte[] originalProfile=Files.readAllBytes(profilePrimary);
+        registry.bind("test.feature",31);
+        boolean profileRejected=false;
+        try{profiles.loadRecovering("default");}
+        catch(IllegalArgumentException expected){profileRejected=true;}
+        ok(profileRejected && registry.get("test.feature").keybind()==31,
+            "unsealed profile backup cannot change live keybinds");
+        ok(java.util.Arrays.equals(originalProfile,Files.readAllBytes(profilePrimary)) &&
+           !Files.exists(profilesDir.resolve("default.properties.corrupt")),
+            "refused profile recovery retains original bytes without promotion");
+        // Normal legacy migration is unaffected when this file is primary.
+        Path legacyProfile=profilesDir.resolve("legacy.properties");
+        write(legacyProfile,profileLegacy);
+        profiles.load("legacy");
+        ok(registry.get("test.feature").keybind()==44,
+            "ordinary load still accepts schema-1 unsealed profile");
+        ConfigIntegrity.seal(profileLegacy);
+        write(profileBackup,profileLegacy);
+        ok(profiles.loadRecovering("default") &&
+           registry.get("test.feature").keybind()==44,
+            "verified profile backup recovers expected trusted binding");
+        registry.shutdown();
+
+        Path uiDir=Files.createTempDirectory("ghostc-unsealed-ui-recovery");
+        UiState state=new UiState();
+        UiSettingsStore store=new UiSettingsStore(uiDir,state);
+        state.position(.21,.32);store.save();
+        state.position(.71,.82);store.save();
+        Path uiPrimary=uiDir.resolve("ui.properties");
+        Path uiBackup=uiDir.resolve("ui.properties.bak");
+        Properties uiLegacy=read(uiBackup);
+        uiLegacy.remove(ConfigIntegrity.FIELD);
+        write(uiBackup,uiLegacy);
+        Properties corruptUi=read(uiPrimary);
+        corruptUi.setProperty("hud.x","0.99");
+        write(uiPrimary,corruptUi);
+        byte[] oldUi=Files.readAllBytes(uiPrimary);
+        state.position(.51,.62);
+        boolean uiRejected=false;
+        try{store.loadRecovering();}
+        catch(IllegalArgumentException expected){uiRejected=true;}
+        ok(uiRejected && state.hudX()==.51 && state.hudY()==.62,
+            "unsealed UI backup cannot change live HUD anchors");
+        ok(java.util.Arrays.equals(oldUi,Files.readAllBytes(uiPrimary)) &&
+           !Files.exists(uiDir.resolve("ui.properties.corrupt")),
+            "refused UI recovery preserves corrupted primary unchanged");
+        write(uiPrimary,uiLegacy);
+        store.load();
+        ok(state.hudX()==.21 && state.hudY()==.32,
+            "ordinary UI load still accepts unsealed legacy settings");
+        write(uiPrimary,corruptUi);
+        ConfigIntegrity.seal(uiLegacy);
+        write(uiBackup,uiLegacy);
+        ok(store.loadRecovering() && state.hudX()==.21 && state.hudY()==.32,
+            "sealed UI backup recovers exact expected HUD state");
+    }
     private static void duplicateKeys() throws Exception {
         Path folder=Files.createTempDirectory("ghostc-duplicate-properties");
         Path fixture=folder.resolve("duplicate.properties");
@@ -488,6 +600,7 @@ public final class ConfigRecoveryTests {
     }
     public static void main(String[] args) throws Exception {
         checksum();
+        recoveryNeedsSealedBackup();
         duplicateKeys();
         profileRecovery();
         uiRecovery();
