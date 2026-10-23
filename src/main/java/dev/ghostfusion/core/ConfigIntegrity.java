@@ -154,8 +154,10 @@ public final class ConfigIntegrity {
     }
 
     /**
-     * Only called after the backup has been parsed/validated and applied.
+     * Promote only a checksum-verified and typed-valid backup snapshot.
      * Preserve the corrupt original as .corrupt, without rotating .bak.
+     * Legacy unsealed schema-1 files remain readable by ordinary load()
+     * but are not trustworthy recovery candidates.
      */
     public static void restoreBackup(Path primary) throws IOException {
         restoreBackup(primary, new java.util.function.Predicate<Properties>() {
@@ -176,7 +178,10 @@ public final class ConfigIntegrity {
         try {
             Files.copy(backup,temp,StandardCopyOption.REPLACE_EXISTING);
             Properties staged=read(temp);
-            if(!"1".equals(staged.getProperty("schema")) || !typedValidator.test(staged))
+            // Ordinary read permits legacy schema-1 without a digest.
+            // Recovery must be stricter: never promote an unsealed backup.
+            if(!"1".equals(staged.getProperty("schema")) || !verify(staged) ||
+               !typedValidator.test(staged))
                 throw new IllegalArgumentException("Invalid recovered configuration");
             // Keep the original bytes available for incident diagnosis.
             if(Files.exists(primary))Files.copy(primary,
