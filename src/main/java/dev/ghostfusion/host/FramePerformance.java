@@ -30,14 +30,19 @@ public final class FramePerformance {
         if(heapBytes>peakHeapBytes)peakHeapBytes=heapBytes;
         if(memorySamples<Long.MAX_VALUE)memorySamples++;
         if(timing) {
-            long elapsed=nowNanos-previousNanos;
-            if(elapsed>0) {
+            if(nowNanos>previousNanos) {
+                // Valid forward samples may cross more than Long.MAX_VALUE
+                // nanoseconds. Signed subtraction alone cannot classify them.
+                long elapsed=nowNanos-previousNanos;
                 // Rounded to integer FPS; a 0 bucket represents <0.5 FPS.
-                int fps=(int)Math.min(MAX_FPS,Math.round(1000000000.0/(double)elapsed));
+                // Beyond two seconds the result rounds to zero. Compare the
+                // unsigned elapsed duration before converting to double.
+                int fps=Long.compareUnsigned(elapsed,2000000000L)>0 ? 0 :
+                    (int)Math.min(MAX_FPS,Math.round(1000000000.0/(double)elapsed));
                 if(fpsBins[fps]<Long.MAX_VALUE)fpsBins[fps]++;
                 if(frames<Long.MAX_VALUE)frames++;
-            } else if(elapsed<0) {
-                // Invalid or overflowing clock intervals never become FPS.
+            } else if(nowNanos<previousNanos) {
+                // A genuinely backward signed timestamp remains invalid.
                 if(invalidIntervals<Long.MAX_VALUE)invalidIntervals++;
             }
         }

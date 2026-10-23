@@ -1014,6 +1014,16 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.LifecycleVisibilityTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_frame_performance_unsigned_elapsed_and_regression(self):
+        perf=content("src/main/java/dev/ghostfusion/host/FramePerformance.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/FramePerformanceTests.java")
+        self.assertIn("if(nowNanos>previousNanos)",perf)
+        self.assertIn("Long.compareUnsigned(elapsed,2000000000L)>0",perf)
+        self.assertIn("else if(nowNanos<previousNanos)",perf)
+        self.assertIn("wideForwardIntervals();",tests)
+        self.assertIn("Long.MIN_VALUE",tests)
+        self.assertIn("Long.MAX_VALUE",tests)
+
     def test_forge_frame_performance_is_focused_and_opt_in(self):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         sample=content("src/main/java/dev/ghostfusion/host/FramePerformance.java")
