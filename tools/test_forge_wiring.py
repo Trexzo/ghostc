@@ -1361,6 +1361,21 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.PacketLifecycleReentryTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_packet_cancel_owner_detaches_before_callbacks(self):
+        coordinator=content("src/main/java/dev/ghostfusion/services/PacketCoordinator.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/PacketLifecycleReentryTests.java")
+        method=coordinator.split("public int cancelOwner(String owner) {",1)[1].split(
+            "public int flush(Transport transport",1)[0]
+        self.assertIn("ArrayList<Pending> detached=new ArrayList<Pending>();",method)
+        self.assertIn("iterator.remove();",method)
+        self.assertIn("cancelled+=detached.size();",method)
+        self.assertIn("for(Pending p:detached)callback(p.completion,Result.CANCELLED);",method)
+        self.assertLess(method.index("iterator.remove();"),method.index("callback(p.completion,Result.CANCELLED)"))
+        self.assertNotIn("cancel(p.id)",method)
+        self.assertIn("atomicOwnerCancellation();ownerCancellationReplay();",suite)
+        self.assertIn("cycle<6000;cycle++",suite)
+        self.assertIn("PACKET_LIFECYCLE_REENTRY_PASS",suite)
+
     def test_packet_flush_callbacks_cannot_recursively_bypass_budget(self):
         packets=content("src/main/java/dev/ghostfusion/services/PacketCoordinator.java")
         suite=content("src/test/java/dev/ghostfusion/tests/PacketLifecycleReentryTests.java")
@@ -1369,7 +1384,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("} finally {\n            flushing=false;",packets)
         self.assertLess(packets.index("if(flushing) throw"),packets.index("flushing=true;"))
         self.assertLess(packets.index("flushing=true;"),packets.index("for(Pending p:new ArrayList<Pending>(queue.values()))",packets.index("public int flush(")))
-        self.assertIn("flushReentryBudget();worldTransitions();",suite)
+        self.assertIn("flushReentryBudget();atomicOwnerCancellation();ownerCancellationReplay();",suite)
         self.assertIn("nested flush storm bounded",suite)
         self.assertIn("reset from completion remains safe",suite)
 

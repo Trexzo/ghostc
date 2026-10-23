@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R2.79:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R2.80:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R2.80 atomic packet-owner cancellation: all original matching requests are detached before completion callbacks. Callback-triggered shutdown/reset, nested cancellation, faults, and new same-owner submissions cannot interrupt the batch or cancel newly accepted requests. Java8 tests cover explicit cases and 6,000 deterministic lifecycle replays. See [R2.80 packet owner cancellation](docs/RUNTIME_R100.md).
 - R2.79 allocation-free stable event dispatch: core callbacks may register or disable modules without invalidating the iteration or unexpectedly dispatching new modules in the same event. Nested event dispatch is fault-contained rather than recursive, and shutdown terminates the remaining callbacks. A registration-only snapshot cache avoids per-client-tick collection allocation. See [R2.79 stable dispatch lifecycle](docs/RUNTIME_R99.md).
 - R2.78 duplicate-key fail-closed configuration parsing: modern sealed and legacy .properties files now reject multiple decoded spellings of the same field, including escaped aliases and repeated checksum keys. Strict parsing also enforces the existing field limit before fully loading a file. Recovery only promotes validated backups; 3,000 seeded duplicate cases plus profile and HUD recovery regressions protect the path. See [R2.78 strict configuration parsing](docs/RUNTIME_R98.md).
 - R2.77 HUD editor transaction safety: dragging is now tracked against its original normalized anchor and viewport. Release, resize, tab switch and GUI closure commit changed positions, while return-to-origin gestures and repeated keyboard boundaries/default resets avoid redundant writes. Nudge logic preserves exact untouched axes. Java8 tests replay 80,000 capture sessions and Forge wiring checks the lifecycle. See [R2.77 HUD editor captures](docs/RUNTIME_R97.md).

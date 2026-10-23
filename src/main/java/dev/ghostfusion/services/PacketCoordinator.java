@@ -65,11 +65,24 @@ public final class PacketCoordinator {
         if(p==null) return false;
         cancelled++; callback(p.completion,Result.CANCELLED); return true;
     }
+    /** Detach the entire original owner batch before invoking arbitrary
+     * completion code. A callback may reset, shut down or submit new work;
+     * none of those actions can interrupt settlement of this batch or
+     * accidentally cancel the newly submitted work. */
     public int cancelOwner(String owner) {
         check(); ServiceValidation.owner(owner);
-        int count=0;
-        for(Pending p:new ArrayList<Pending>(queue.values())) if(p.owner.equals(owner) && cancel(p.id)) count++;
-        return count;
+        ArrayList<Pending> detached=new ArrayList<Pending>();
+        java.util.Iterator<Pending> iterator=queue.values().iterator();
+        while(iterator.hasNext()) {
+            Pending p=iterator.next();
+            if(p.owner.equals(owner)) {
+                detached.add(p);
+                iterator.remove();
+            }
+        }
+        cancelled+=detached.size();
+        for(Pending p:detached)callback(p.completion,Result.CANCELLED);
+        return detached.size();
     }
     public int flush(Transport transport,long generation,int budget) {
         check();
