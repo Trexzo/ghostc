@@ -1503,7 +1503,8 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("} finally {\n            flushing=false;",packets)
         self.assertLess(packets.index("if(flushing) throw"),packets.index("flushing=true;"))
         self.assertLess(packets.index("flushing=true;"),packets.index("for(Pending p:new ArrayList<Pending>(queue.values()))",packets.index("public int flush(")))
-        self.assertIn("flushReentryBudget();atomicOwnerCancellation();ownerCancellationReplay();",suite)
+        self.assertIn("flushReentryBudget();fatalTransportTerminality();",suite)
+        self.assertIn("atomicOwnerCancellation();ownerCancellationReplay();",suite)
         self.assertIn("nested flush storm bounded",suite)
         self.assertIn("reset from completion remains safe",suite)
 
