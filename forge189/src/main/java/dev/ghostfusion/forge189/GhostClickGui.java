@@ -11,6 +11,7 @@ import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiHitZones;
 import dev.ghostfusion.ui.GuiChrome;
 import dev.ghostfusion.ui.GuiSelection;
+import dev.ghostfusion.ui.GuiFooterText;
 import dev.ghostfusion.ui.GuiSettingKeyboard;
 import dev.ghostfusion.ui.GuiSearchFocus;
 import dev.ghostfusion.ui.GuiKeybindCapture;
