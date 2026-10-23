@@ -163,6 +163,120 @@ public final class HostRuntimeTests {
         ok(queue.drain(registry,2)==0,"legacy unconditional drain preserved");
         registry.shutdown();
     }
+    private static final class HostReentryProbe implements GhostModule {
+        final HostRuntime host;
+        final java.util.EnumMap<GameEvent.Kind,Integer> seen=
+            new java.util.EnumMap<GameEvent.Kind,Integer>(GameEvent.Kind.class);
+        int blocked;
+        HostReentryProbe(HostRuntime host){this.host=host;}
+        public String id(){return "test.hostreentry";}
+        public String displayName(){return "Host Reentry";}
+        public Category category(){return Category.UTILITY;}
+        public void onEnable(){}
+        public void onDisable(){
+            if(host.isClosed())throw new AssertionError("closed too soon");
+        }
+        public void onEvent(GameEvent event) {
+            Integer old=seen.get(event.kind());
+            seen.put(event.kind(),old==null?1:old+1);
+            long before=host.services().generation();
+            long tick=host.services().tick();
+            boolean present=host.worldPresent();
+            Runnable[] nested={
+                ()->host.worldPresence(!present),
+                ()->host.worldPresence(present),
+                host::disconnect,
+                host::tick,
+                ()->host.render2d(),
+                host::close
+            };
+            for(Runnable callback:nested) {
+                boolean refused=false;
+                try{callback.run();}
+                catch(IllegalStateException expected){refused=true;}
+                ok(refused,"module callback denied nested host lifecycle "+event.kind());
+                if(refused)blocked++;
+            }
+            ok(before==host.services().generation() &&
+               tick==host.services().tick() &&
+               present==host.worldPresent() && !host.isClosed(),
+               "callback cannot mutate active session epoch or tick");
+        }
+        int count(GameEvent.Kind kind){Integer n=seen.get(kind);return n==null?0:n;}
+    }
+    private static void testHostEventReentryFence(Path config) throws Exception {
+        HostRuntime host=new HostRuntime(config);
+        HostReentryProbe probe=new HostReentryProbe(host);
+        host.modules().register(probe,0);
+        host.modules().setEnabled(probe.id(),true);
+        long originalGeneration=host.services().generation();
+        host.worldPresence(true);
+        ok(host.worldPresent() &&
+           host.services().generation()==originalGeneration+1 &&
+           probe.count(GameEvent.Kind.WORLD_CHANGE)==1,
+           "initial join commits exactly one lifecycle transition");
+        for(int i=0;i<2500;i++) {
+            ok(host.enqueue(GameEvent.Kind.RENDER_2D),
+                "same-session producer is accepted "+i);
+            host.tick();
+        }
+        ok(probe.count(GameEvent.Kind.RENDER_2D)==2500 &&
+           probe.count(GameEvent.Kind.CLIENT_TICK)==2500 &&
+           host.pendingEvents()==0,
+           "2,500 bounded ingress batches dispatch each event exactly once");
+        ok(host.services().generation()==originalGeneration+1 &&
+           host.worldPresent() &&
+           host.modules().get(probe.id()).state()==ModuleRegistry.State.ENABLED,
+           "denied callbacks cannot invalidate the live world");
+        // A direct host render also has a protected callback window.
+        host.render2d();
+        ok(probe.count(GameEvent.Kind.RENDER_2D)==2501,
+            "direct render dispatched once without recursive render");
+        long beforeLeave=host.services().generation();
+        host.disconnect();
+        ok(!host.worldPresent() &&
+           host.services().generation()==beforeLeave+2 &&
+           probe.count(GameEvent.Kind.WORLD_CHANGE)==2 &&
+           probe.count(GameEvent.Kind.SESSION_DISCONNECT)==1,
+           "disconnect emits one world leave and one disconnect epoch");
+        host.disconnect();
+        ok(probe.count(GameEvent.Kind.SESSION_DISCONNECT)==1,
+            "repeated disconnect remains idempotent");
+        host.worldPresence(true);
+        ok(host.worldPresent() &&
+           probe.count(GameEvent.Kind.WORLD_CHANGE)==3,
+           "legitimate reconnect works after all callback guards released");
+        host.tick();
+        ok(probe.count(GameEvent.Kind.CLIENT_TICK)==2501,
+            "client tick still works after reconnect");
+        ok(probe.blocked==(probe.count(GameEvent.Kind.WORLD_CHANGE)+
+            probe.count(GameEvent.Kind.SESSION_DISCONNECT)+
+            probe.count(GameEvent.Kind.CLIENT_TICK)+
+            probe.count(GameEvent.Kind.RENDER_2D))*6,
+            "every nested lifecycle attempt was refused before mutation");
+        host.close();
+        ok(host.isClosed(),"ordinary owner close still succeeds");
+
+        HostRuntime recovery=new HostRuntime(Files.createTempDirectory("ghostc-reentry-throw"));
+        GhostModule throwing=new GhostModule(){
+            public String id(){return "test.throws";}
+            public String displayName(){return "Throw";}
+            public Category category(){return Category.UTILITY;}
+            public void onEnable(){}
+            public void onDisable(){}
+            public void onEvent(GameEvent event){throw new IllegalStateException("private");}
+        };
+        recovery.modules().register(throwing,0);
+        recovery.modules().setEnabled(throwing.id(),true);
+        recovery.worldPresence(true);
+        ok(recovery.modules().get(throwing.id()).state()==ModuleRegistry.State.FAULTED,
+            "host guard cleans up after failing event callback");
+        recovery.worldPresence(false);
+        recovery.worldPresence(true);
+        recovery.tick();
+        recovery.close();
+        ok(recovery.isClosed(),"faulted module cannot leave host fence latched");
+    }
     private static void testCorruptProfile(Path config) throws Exception {
         Path file = config.resolve("default.properties");
         Files.createDirectories(config);
@@ -178,6 +292,7 @@ public final class HostRuntimeTests {
         testPersistence(dir.resolve("sessions"));
         testQueuedEventsAndThread(dir.resolve("queues"));
         testIngressSessionFence(dir.resolve("epoch"));
+        testHostEventReentryFence(dir.resolve("host-reentry"));
         testCorruptProfile(dir.resolve("corrupt"));
         ok(count > 280, "meaningful regression coverage");
         System.out.println("HOST_REGRESSION_PASS assertions=" + count);

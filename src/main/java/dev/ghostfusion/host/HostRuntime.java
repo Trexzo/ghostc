@@ -127,6 +127,9 @@ public final class HostRuntime {
     private final ProfileStore profiles;
     private final Path configDirectory;
     private boolean disconnectReported = true;
+    // One host event batch owns lifecycle authority through ingress drain,
+    // direct tick/render and transition/disconnect module callbacks.
+    private boolean hostDispatching, closing;
     private volatile boolean closed;
     private boolean worldPresent;
     private boolean inputBlocked;
@@ -349,32 +352,58 @@ public final class HostRuntime {
         if (closed) return false;
         return ingress.submit(event(kind));
     }
+    private void assertHostEventBoundary() {
+        if(hostDispatching || closing)
+            throw new IllegalStateException("Host lifecycle reentry");
+    }
     public void tick() {
         if (!active()) return;
-        services.tickAdvance();
-        diagnostics.record(Counter.CLIENT_TICK);
-        ingress.drainAfter(modules, MAX_EVENTS_PER_TICK, ingressExpiredThroughSequence);
-        modules.dispatch(event(GameEvent.Kind.CLIENT_TICK));
+        assertHostEventBoundary();
+        hostDispatching=true;
+        try {
+            services.tickAdvance();
+            diagnostics.record(Counter.CLIENT_TICK);
+            // The guard covers ALL dequeued producer events as well as the
+            // final synchronous tick callback, not just the latter.
+            ingress.drainAfter(modules, MAX_EVENTS_PER_TICK, ingressExpiredThroughSequence);
+            modules.dispatch(event(GameEvent.Kind.CLIENT_TICK));
+        } finally {
+            hostDispatching=false;
+        }
     }
     public boolean render2d() {
-        if (!active() || !worldPresent) return false;
-        overlay.beginFrame();
-        metrics.beginFrame();
-        modules.dispatch(event(GameEvent.Kind.RENDER_2D));
-        return overlay.frameRequested();
+        if (!active()) return false;
+        assertHostEventBoundary();
+        if(!worldPresent)return false;
+        hostDispatching=true;
+        try {
+            overlay.beginFrame();
+            metrics.beginFrame();
+            modules.dispatch(event(GameEvent.Kind.RENDER_2D));
+            return overlay.frameRequested();
+        } finally {
+            hostDispatching=false;
+        }
     }
     public void worldPresence(boolean present) {
-        if (!active() || worldPresent == present) return;
-        // Capture all event sequences assigned before this world transition.
-        // In-flight producers may add them later; the consumer checks stamps.
-        ingressExpiredThroughSequence = sequence.get();
-        services.world(present);
-        framePerformance.suspend(); // Never include menu/world transition time as a frame.
-        diagnostics.record(present ? Counter.WORLD_ENTER : Counter.WORLD_LEAVE);
-        if (present) disconnectReported = false;
-        worldPresent = present;
-        input.clearPressed();
-        modules.dispatch(event(GameEvent.Kind.WORLD_CHANGE));
+        if (!active()) return;
+        assertHostEventBoundary();
+        if(worldPresent==present)return;
+        hostDispatching=true;
+        try {
+            // Capture all event sequences assigned before this world transition.
+            // In-flight producers may add them later; the consumer checks stamps.
+            ingressExpiredThroughSequence = sequence.get();
+            services.world(present);
+            framePerformance.suspend();
+            diagnostics.record(present ? Counter.WORLD_ENTER : Counter.WORLD_LEAVE);
+            if (present) disconnectReported = false;
+            worldPresent = present;
+            input.clearPressed();
+            modules.dispatch(event(GameEvent.Kind.WORLD_CHANGE));
+        } finally {
+            hostDispatching=false;
+        }
     }
     /** Focus transition resets stale key-down state (GUI, chat, alt-tab). */
     public void inputFocus(boolean blocked) {
@@ -400,17 +429,25 @@ public final class HostRuntime {
     }
     /** Idempotent even when WorldEvent leaves before network-disconnect arrives. */
     public void disconnect() {
-        if (!active() || disconnectReported) return;
+        if (!active()) return;
+        assertHostEventBoundary();
+        if(disconnectReported)return;
+        // The world-leave callback has its own bounded dispatch window.
+        // No user callback executes between its return and sealing this
+        // disconnect; SESSION_DISCONNECT gets a separate guarded window.
         worldPresence(false);
-        // A disconnect can arrive after WorldEvent has already marked us
-        // absent. Still invalidate any queued session-scoped producer work.
-        ingressExpiredThroughSequence = sequence.get();
-        disconnectReported = true;
-        input.clearPressed();
-        services.disconnect();
-        diagnostics.record(Counter.DISCONNECT);
-        modules.dispatch(event(GameEvent.Kind.SESSION_DISCONNECT));
-        exportDiagnostics();
+        hostDispatching=true;
+        try {
+            ingressExpiredThroughSequence = sequence.get();
+            disconnectReported = true;
+            input.clearPressed();
+            services.disconnect();
+            diagnostics.record(Counter.DISCONNECT);
+            modules.dispatch(event(GameEvent.Kind.SESSION_DISCONNECT));
+            exportDiagnostics();
+        } finally {
+            hostDispatching=false;
+        }
     }
     public void persist() {
         if (!active()) return;
@@ -429,12 +466,18 @@ public final class HostRuntime {
     /** Call from the owning client thread only. */
     public void close() {
         if (!active()) return;
-        persist();
-        persistUi();
-        exportDiagnostics();
-        input.clearPressed();
-        modules.shutdown();
-        services.close();
-        closed = true;
+        assertHostEventBoundary();
+        closing=true;
+        try {
+            persist();
+            persistUi();
+            exportDiagnostics();
+            input.clearPressed();
+            modules.shutdown();
+            services.close();
+            closed = true;
+        } finally {
+            closing=false;
+        }
     }
 }
