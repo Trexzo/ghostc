@@ -175,6 +175,7 @@ public final class PinnedSnapshotTests {
 
         Random rng=new Random(2832026L);
         for(int frame=0;frame<12000;frame++) {
+            final int frameId=frame;
             b.clear();
             int a=100+frame*3;
             Candidate first=new Candidate(a,1,true);
@@ -191,8 +192,8 @@ public final class PinnedSnapshotTests {
                 // Callbacks intentionally attempt an unsafe same-frame
                 // mutation from either a visible, hidden or pinned slot.
                 blocks(()->b.offer(extra,extra.id,0,true),
-                    "replay callback cannot change selection "+frame);
-                blocks(b::clear,"replay callback cannot clear candidates "+frame);
+                    "replay callback cannot change selection "+frameId);
+                blocks(b::clear,"replay callback cannot clear candidates "+frameId);
             });
             ok(streamed.size()==(pin?3:2) &&
                streamed.get(0)==a && streamed.get(1)==a+1 &&
