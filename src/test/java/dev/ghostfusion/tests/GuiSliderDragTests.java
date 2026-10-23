@@ -85,6 +85,67 @@ public final class GuiSliderDragTests {
         rejects(()->actions.previewFraction("render.test","range",Double.NaN),
                 "invalid pointer fraction rejected");
     }
+    private static void revertToInitialValue() {
+        ModuleRegistry modules=new ModuleRegistry();
+        Setting.Number value=new Setting.Number("range",0.25,0.0,1.0);
+        modules.register(new FeatureModule("render.roundtrip","Round Trip",
+            GhostModule.Category.RENDER),0,value);
+        final int[] saves={0};
+        UiActions actions=new UiActions(modules,()->saves[0]++);
+        GuiSliderDrag drag=new GuiSliderDrag();
+        drag.begin("render.roundtrip","range",100,100,640,480,value.get());
+        ok(!drag.finish(),"initial captured value needs no disk write");
+        drag.begin("render.roundtrip","range",100,100,640,480,value.get());
+        actions.previewFraction(drag.moduleId(),drag.settingId(),0.75);
+        drag.observeValue(value.get());
+        ok(value.get()==0.75,"preview applies temporary new value");
+        actions.previewFraction(drag.moduleId(),drag.settingId(),0.25);
+        drag.observeValue(value.get());
+        ok(!drag.finish() && saves[0]==0 && value.get()==0.25,
+            "drag round trip back to baseline writes no profile");
+        drag.begin("render.roundtrip","range",100,100,640,480,value.get());
+        actions.previewFraction(drag.moduleId(),drag.settingId(),0.75);
+        drag.observeValue(value.get());
+        ok(drag.finish(),"real final numeric difference persists");
+        actions.commitSlider();
+        ok(saves[0]==1 && value.get()==0.75,"changed gesture commits once");
+        drag.begin("render.roundtrip","range",100,100,640,480,value.get());
+        actions.previewFraction(drag.moduleId(),drag.settingId(),0.5);
+        drag.observeValue(value.get());
+        ok(drag.finish(),"interrupted dirty capture requests persistence");
+        actions.commitSlider();
+        ok(saves[0]==2 && value.get()==0.5,"interrupted change persists once");
+        rejects(()->drag.observeValue(0.5),"observation after finish rejected");
+        rejects(()->drag.begin("render.roundtrip","range",100,100,640,480,
+                Double.NaN),"nonfinite initial numeric value rejected");
+        drag.begin("render.roundtrip","range",100,100,640,480,value.get());
+        rejects(()->drag.observeValue(Double.POSITIVE_INFINITY),
+                "invalid observation cannot corrupt baseline");
+        ok(!drag.finish(),"rejected observation leaves clean state");
+        modules.shutdown();
+    }
+    private static void randomizedBaseline() {
+        Random random=new Random(2752026L);
+        GuiSliderDrag drag=new GuiSliderDrag();
+        for(int scenario=0;scenario<75000;scenario++) {
+            double initial=(random.nextInt(2001)-1000)/100.0;
+            drag.begin("hud.value","range",0,100,800,600,initial);
+            double actual=initial;
+            int events=2+random.nextInt(9);
+            for(int k=0;k<events;k++) {
+                // Restore baseline frequently, including after prior mutations.
+                actual=(k==events-1 && random.nextBoolean()) ?
+                    initial : (random.nextInt(2001)-1000)/100.0;
+                drag.observeValue(actual);
+                ok(drag.active(),"observations retain active pointer capture");
+            }
+            boolean changed=Double.compare(actual,initial)!=0;
+            ok(drag.finish()==changed,
+                "only final difference triggers a persistence opportunity "+scenario);
+            ok(!drag.active()&&!drag.finish(),
+                "capture revoked and cannot commit twice "+scenario);
+        }
+    }
     private static void randomized() {
         Random random=new Random(2412026L);
         GuiSliderDrag drag=new GuiSliderDrag();
@@ -114,7 +175,7 @@ public final class GuiSliderDragTests {
         ok(dirty==saves && dirty==16000,"one commit opportunity per changed gesture");
     }
     public static void main(String[] args) throws Exception {
-        stateAndGeometry();previewAndCommit();randomized();
+        stateAndGeometry();previewAndCommit();revertToInitialValue();randomizedBaseline();randomized();
         ok(checks>160000,"substantial bounded pointer capture replay");
         System.out.println("GUI_SLIDER_DRAG_PASS assertions="+checks);
     }

@@ -10,6 +10,8 @@ public final class GuiSliderDrag {
     private String moduleId, settingId;
     private int trackLeft, trackWidth, viewportWidth, viewportHeight;
     private boolean dirty;
+    private boolean baselineKnown;
+    private double baseline;
     private void check() {
         if(Thread.currentThread()!=owner)
             throw new IllegalStateException("slider drag owner thread");
@@ -25,7 +27,27 @@ public final class GuiSliderDrag {
         this.moduleId=moduleId;this.settingId=settingId;
         this.trackLeft=left;this.trackWidth=width;
         this.viewportWidth=screenWidth;this.viewportHeight=screenHeight;
-        dirty=false;
+        dirty=false;baselineKnown=false;baseline=0.0;
+    }
+    /** Baseline tracks the persisted numeric value at mouse-down so a
+     * pointer returning to that value does not rewrite an unchanged profile. */
+    public void begin(String moduleId,String settingId,int left,int width,
+                      int screenWidth,int screenHeight,double initialValue) {
+        check();
+        if(!Double.isFinite(initialValue))
+            throw new IllegalArgumentException("nonfinite slider baseline");
+        begin(moduleId,settingId,left,width,screenWidth,screenHeight);
+        baselineKnown=true;baseline=initialValue;
+    }
+    /** Feed back the *actual applied* numeric value, not merely pointer motion.
+     * A drag away from and back to its initial value is a clean transaction. */
+    public void observeValue(double currentValue) {
+        check();
+        if(!active() || !baselineKnown)
+            throw new IllegalStateException("slider baseline not captured");
+        if(!Double.isFinite(currentValue))
+            throw new IllegalArgumentException("nonfinite slider value");
+        dirty=Double.compare(currentValue,baseline)!=0;
     }
     public boolean active() {check();return moduleId!=null;}
     public boolean sameViewport(int width,int height) {
@@ -49,6 +71,7 @@ public final class GuiSliderDrag {
         check();
         boolean changed=dirty;
         moduleId=null;settingId=null;dirty=false;
+        baselineKnown=false;baseline=0.0;
         return changed;
     }
 }
