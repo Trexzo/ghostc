@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R2.86:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R2.87:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R2.87 crowded visibility upgrade cleanup: a valid new visible observation now invalidates an older hidden copy of that entity even when the visible nearest-256 partition is full. This prevents stale hidden publication and lets a visible crosshair pin occupy its bounded additional slot. Core tests cover 1,600 saturated scenes plus 12,000 sparse upgrade cycles. See [R2.87 visibility upgrade consistency](docs/RUNTIME_R107.md).
 - R2.86 inventory schedule correctness and pruning: single-flight inventory intents can no longer activate before their requested start tick, even when higher priority than ready work. Pruning/cancel remove entries with an iterator instead of copying pending transactions each tick, and token overflow fails closed. Java8 tests cover 12,000 seeded scheduling/recovery cycles. See [R2.86 inventory tick eligibility](docs/RUNTIME_R106.md).
 - R2.85 host event lifecycle fence: prevents module callbacks from changing world presence, disconnecting, ticking, rendering or closing the host inside active event dispatch. Includes asynchronous ingress batches, world transitions, disconnect callbacks and shutdown reentry, with 2,500 tick/ingress replay cycles. See [R2.85 host event ownership](docs/RUNTIME_R105.md).
 - R2.84 verified-only backup recovery: a corrupt primary is never replaced by an unsealed schema-1 backup, even if that backup parses and passes typed validation. Normal legacy file loading remains available, and sealed backups still recover. Core tests cover 256 randomized promotion attempts plus profile and UI state isolation. See [R2.84 sealed recovery gate](docs/RUNTIME_R104.md).
