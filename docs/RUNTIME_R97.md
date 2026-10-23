@@ -10,8 +10,11 @@ coordinates from rounded pixels, potentially drifting an untouched axis.
 
 ## Changes
 - Introduce owner-thread-only `HudDragCapture` storing the selected target,
-  initial *serialized* normalized X/Y and original scaled viewport.
-  A gesture commits iff its final exact coordinate differs from mouse-down.
+  initial *serialized* normalized X/Y, original pointer X/Y, and scaled
+  viewport. Returning to the original pointer exactly restores the
+  original normalized anchor, avoiding preview-pixel quantization even on
+  a click without a drag. A gesture commits iff its final exact coordinate
+  differs from mouse-down.
   It cannot be committed twice.
 - Wire native HUD drag to commit on release, resize/non-interactive
   viewport, next mouse click/tab selection and GUI closure.

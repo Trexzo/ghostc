@@ -388,6 +388,9 @@ public final class GhostClickGui extends GuiScreen {
         if(!hudDragging || !hudCapture.sameViewport(width,height))return;
         if(previewW<=0 || previewH<=0 ||
            !GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout())))return;
+        // A pointer round-trip must restore the original *serialized*
+        // normalized anchor, not quantize it through preview pixels.
+        if(hudCapture.restoreAtPointerOrigin(ui,mx,my))return;
         HudPreviewGeometry geometry=previewGeometry();
         if(draggingWidget==null)
             geometry.moveStatus(ui,statusPreviewWidth(),statusPreviewHeight(),
@@ -435,7 +438,7 @@ public final class GhostClickGui extends GuiScreen {
                 Rect r=geometry.widget(ui.widgets(),widget,hudWidth(widget),hudHeight(widget));
                 if(r.contains(mx,my)) {
                     hudControls.select(HudEditorControls.itemFor(widget));
-                    hudCapture.begin(ui,widget,width,height);
+                    hudCapture.begin(ui,widget,width,height,mx,my);
                     hudDragging=true;draggingWidget=widget;
                     dragX=mx-r.x;dragY=my-r.y;
                     return;
@@ -444,7 +447,7 @@ public final class GhostClickGui extends GuiScreen {
             Rect status=geometry.status(ui,statusPreviewWidth(),statusPreviewHeight());
             if(status.contains(mx,my)) {
                 hudControls.select(HudEditorControls.Item.STATUS);
-                hudCapture.begin(ui,null,width,height);
+                hudCapture.begin(ui,null,width,height,mx,my);
                 hudDragging=true;draggingWidget=null;
                 dragX=mx-status.x;dragY=my-status.y;
             }

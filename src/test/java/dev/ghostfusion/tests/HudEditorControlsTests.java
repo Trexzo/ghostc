@@ -208,7 +208,7 @@ public final class HudEditorControlsTests {
         HudDragCapture drag=new HudDragCapture();
         ok(!drag.active() && !drag.finish(ui),
             "idle finish does not request disk persistence");
-        drag.begin(ui,null,1920,1080);
+        drag.begin(ui,null,1920,1080,120,240);
         ok(drag.sameViewport(1920,1080) &&
            !drag.sameViewport(1280,720),"capture binds source viewport");
         boolean nestedDenied=false;
@@ -216,7 +216,12 @@ public final class HudEditorControlsTests {
         catch(IllegalStateException expected){nestedDenied=true;}
         ok(nestedDenied,"nested drag refused without corrupting original");
         ui.position(0.8,0.8);
-        ui.position(UiState.DEFAULT_HUD_X,UiState.DEFAULT_HUD_Y);
+        ok(!drag.restoreAtPointerOrigin(ui,121,240),
+            "different pointer must not undo a legitimate HUD move");
+        ok(drag.restoreAtPointerOrigin(ui,120,240),
+            "returning pointer restores original normalized Status anchor");
+        ok(ui.hudX()==UiState.DEFAULT_HUD_X && ui.hudY()==UiState.DEFAULT_HUD_Y,
+            "Status pointer origin restores exact persisted defaults");
         ok(!drag.finish(ui),"return to same status anchor suppresses write");
         ok(!drag.finish(ui),"finished capture cannot commit twice");
         drag.begin(ui,null,1920,1080);
@@ -226,10 +231,13 @@ public final class HudEditorControlsTests {
         drag.begin(ui,widget,1280,720);
         ui.widgets().position(widget,0.31,0.79);
         ok(drag.finish(ui),"widget move requests persisted commit");
-        drag.begin(ui,widget,1280,720);
+        drag.begin(ui,widget,1280,720,501,601);
         double firstX=ui.widgets().x(widget),firstY=ui.widgets().y(widget);
         ui.widgets().position(widget,0.8,0.8);
-        ui.widgets().position(widget,firstX,firstY);
+        ok(drag.restoreAtPointerOrigin(ui,501,601),
+            "returning widget pointer recognizes original press position");
+        ok(ui.widgets().x(widget)==firstX && ui.widgets().y(widget)==firstY,
+            "widget pointer return restores the original exact X/Y");
         ok(!drag.finish(ui),"widget revert suppresses write");
         rejects(()->drag.begin(ui,widget,0,720),
             "zero width viewport invalid");
@@ -257,16 +265,20 @@ public final class HudEditorControlsTests {
             double x=widget==null?ui.hudX():ui.widgets().x(widget);
             double y=widget==null?ui.hudY():ui.widgets().y(widget);
             int w=1+rng.nextInt(3840),h=1+rng.nextInt(2160);
-            capture.begin(ui,widget,w,h);
+            int pointerX=rng.nextInt(4096),pointerY=rng.nextInt(4096);
+            capture.begin(ui,widget,w,h,pointerX,pointerY);
             int steps=1+rng.nextInt(6);
             for(int k=0;k<steps;k++) {
                 double nx=rng.nextInt(1001)/1000.0,ny=rng.nextInt(1001)/1000.0;
                 if(widget==null)ui.position(nx,ny);
                 else ui.widgets().position(widget,nx,ny);
             }
-            if(rng.nextBoolean()){
-                if(widget==null)ui.position(x,y);
-                else ui.widgets().position(widget,x,y);
+            if(rng.nextBoolean()) {
+                ok(capture.restoreAtPointerOrigin(ui,pointerX,pointerY),
+                    "origin pointer restores exact randomized anchor "+i);
+            } else {
+                ok(!capture.restoreAtPointerOrigin(ui,pointerX+1,pointerY),
+                    "different pointer never restores original anchor "+i);
             }
             double finalX=widget==null?ui.hudX():ui.widgets().x(widget);
             double finalY=widget==null?ui.hudY():ui.widgets().y(widget);

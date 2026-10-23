@@ -9,6 +9,8 @@ public final class HudDragCapture {
     private HudPositions.Widget widget; // null captures Status
     private double initialX,initialY;
     private int screenWidth,screenHeight;
+    private boolean pointerOriginKnown;
+    private int pointerStartX,pointerStartY;
     private void check() {
         if(Thread.currentThread()!=owner)
             throw new IllegalStateException("HUD capture owner thread");
@@ -28,7 +30,27 @@ public final class HudDragCapture {
         initialX=x(ui,target);
         initialY=y(ui,target);
         screenWidth=width;screenHeight=height;
+        pointerOriginKnown=false;pointerStartX=0;pointerStartY=0;
         active=true;
+    }
+    /** Native input passes the first pointer location, allowing an exact
+     * restore if a click/drag ends at its original position. */
+    public void begin(UiState ui,HudPositions.Widget target,int width,int height,
+                      int pointerX,int pointerY) {
+        begin(ui,target,width,height);
+        pointerOriginKnown=true;pointerStartX=pointerX;pointerStartY=pointerY;
+    }
+    /** Avoid quantization from mapping an unchanged preview pixel back to
+     * a normalized anchor. Return true when the origin was recognized. */
+    public boolean restoreAtPointerOrigin(UiState ui,int pointerX,int pointerY) {
+        check();
+        if(!active)throw new IllegalStateException("No HUD capture");
+        if(ui==null)throw new IllegalArgumentException("HUD capture UI");
+        if(!pointerOriginKnown || pointerX!=pointerStartX || pointerY!=pointerStartY)
+            return false;
+        if(widget==null)ui.position(initialX,initialY);
+        else ui.widgets().position(widget,initialX,initialY);
+        return true;
     }
     public boolean active(){check();return active;}
     public boolean sameViewport(int width,int height) {
@@ -42,6 +64,7 @@ public final class HudDragCapture {
                       Double.compare(initialY,y(ui,widget))!=0;
         active=false;widget=null;
         initialX=0;initialY=0;screenWidth=0;screenHeight=0;
+        pointerOriginKnown=false;pointerStartX=0;pointerStartY=0;
         return moved;
     }
 }
