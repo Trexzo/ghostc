@@ -115,6 +115,13 @@ public final class UiSettingsStore {
         }
         ConfigIntegrity.seal(p);
         Path file = directory.resolve("ui.properties");
+        if(ConfigIntegrity.unchangedWithRecoveryBackup(file,p,
+                new java.util.function.Predicate<Properties>() {
+                    public boolean test(Properties candidate) {
+                        try { stage(candidate); return true; }
+                        catch (RuntimeException invalid) { return false; }
+                    }
+                }))return;
         Path tmp = Files.createTempFile(directory, "ghostc-ui-", ".tmp");
         try {
             try (OutputStream out = Files.newOutputStream(tmp)) { p.store(out, "GhostC UI preferences"); }

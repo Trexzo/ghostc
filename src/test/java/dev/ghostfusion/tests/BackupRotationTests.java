@@ -164,8 +164,101 @@ public final class BackupRotationTests {
         }
         noTempLeaks(dir);
     }
+    /** R2.97: closing an unchanged ClickGUI/host never rewrites healthy
+     * primary/backup files, while the backup is bootstrapped and damage heals. */
+    private static void idempotentSaves() throws Exception {
+        final java.nio.file.attribute.FileTime marker=
+            java.nio.file.attribute.FileTime.fromMillis(946684800000L);
+        Path profileDir=Files.createTempDirectory("ghostc-idempotent-profile");
+        ModuleRegistry registry=new ModuleRegistry();
+        registry.register(new Fixture(),44,new Setting.Bool("safe",true));
+        ProfileStore profile=new ProfileStore(profileDir,registry);
+        Path primary=profileDir.resolve("default.properties");
+        Path backup=profileDir.resolve("default.properties.bak");
+        profile.save("default");
+        ok(!Files.exists(backup),"first save remains primary-only");
+        profile.save("default");
+        ok(Files.exists(backup),"second same-value save bootstraps backup");
+        byte[] prior=bytes(primary),priorBackup=bytes(backup);
+        Files.setLastModifiedTime(primary,marker);
+        Files.setLastModifiedTime(backup,marker);
+        for(int i=0;i<512;i++) {
+            profile.save("default");
+            ok(Arrays.equals(prior,bytes(primary)) &&
+               Arrays.equals(priorBackup,bytes(backup)),
+               "unchanged profile preserves exact file bytes "+i);
+            ok(Files.getLastModifiedTime(primary).equals(marker) &&
+               Files.getLastModifiedTime(backup).equals(marker),
+               "unchanged profile preserves write timestamps "+i);
+        }
+        registry.bind("test.feature",43);
+        profile.save("default");
+        ok("43".equals(read(primary).getProperty("module.test.feature.key")) &&
+           Arrays.equals(prior,bytes(backup)),
+           "changed profile writes once and rotates its verified previous value");
+        Properties damagedBackup=read(backup);
+        damagedBackup.setProperty("module.test.feature.key","malformed");
+        write(backup,damagedBackup); // checksum mismatch
+        byte[] newer=bytes(primary);
+        profile.save("default");
+        ok(Arrays.equals(newer,bytes(backup)) &&
+           ConfigIntegrity.verify(ConfigIntegrity.read(backup)),
+           "unchanged profile repairs corrupted backup instead of skipping");
+        tamper(primary,"module.test.feature.key","missing-integrity");
+        byte[] protectedBackup=bytes(backup);
+        profile.save("default");
+        ok(ConfigIntegrity.verify(ConfigIntegrity.read(primary)) &&
+           Arrays.equals(protectedBackup,bytes(backup)),
+           "damaged primary repaired without poisoning last good backup");
+        registry.shutdown();
+        noTempLeaks(profileDir);
+
+        Path uiDir=Files.createTempDirectory("ghostc-idempotent-ui");
+        UiState state=new UiState();
+        UiSettingsStore ui=new UiSettingsStore(uiDir,state);
+        Path uiPrimary=uiDir.resolve("ui.properties");
+        Path uiBackup=uiDir.resolve("ui.properties.bak");
+        state.position(.22,.33);
+        ui.save();
+        ok(!Files.exists(uiBackup),"first UI save has no prior revision");
+        ui.save();
+        ok(Files.exists(uiBackup),"second UI save bootstraps recovery backup");
+        byte[] uiOld=bytes(uiPrimary),uiOldBackup=bytes(uiBackup);
+        Files.setLastModifiedTime(uiPrimary,marker);
+        Files.setLastModifiedTime(uiBackup,marker);
+        for(int i=0;i<512;i++) {
+            ui.save();
+            ok(Arrays.equals(uiOld,bytes(uiPrimary)) &&
+               Arrays.equals(uiOldBackup,bytes(uiBackup)),
+               "unchanged UI preserves both files "+i);
+            ok(Files.getLastModifiedTime(uiPrimary).equals(marker) &&
+               Files.getLastModifiedTime(uiBackup).equals(marker),
+               "unchanged UI avoids timestamp changes "+i);
+        }
+        state.position(.78,.84);
+        ui.save();
+        ok(".78".equals(read(uiPrimary).getProperty("hud.x")) &&
+           Arrays.equals(uiOld,bytes(uiBackup)),
+           "changed HUD anchor writes and backs up previous sealed settings");
+        Properties uiDamage=read(uiBackup);
+        uiDamage.setProperty("theme","NOT_A_THEME");
+        ConfigIntegrity.seal(uiDamage); // valid SHA-256 but typed-invalid
+        write(uiBackup,uiDamage);
+        byte[] uiLatest=bytes(uiPrimary);
+        ui.save();
+        ok(Arrays.equals(uiLatest,bytes(uiBackup)) &&
+           ConfigIntegrity.verify(ConfigIntegrity.read(uiBackup)),
+           "unchanged UI repairs typed-invalid sealed backup");
+        tamper(uiPrimary,"hud.y","9.0");
+        byte[] protectedUiBackup=bytes(uiBackup);
+        ui.save();
+        ok(ConfigIntegrity.verify(ConfigIntegrity.read(uiPrimary)) &&
+           Arrays.equals(protectedUiBackup,bytes(uiBackup)),
+           "UI primary damage repaired without rotating over good backup");
+        noTempLeaks(uiDir);
+    }
     public static void main(String[] args) throws Exception {
-        profile();ui();
+        profile();ui();idempotentSaves();
         ok(checks>800,"nontrivial backup protection regression matrix");
         System.out.println("BACKUP_ROTATION_PASS assertions="+checks);
     }

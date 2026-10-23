@@ -40,6 +40,13 @@ public final class ProfileStore {
                 data.setProperty(pre + "setting." + s.id(), s.serialize());
         }
         ConfigIntegrity.seal(data);
+        if(ConfigIntegrity.unchangedWithRecoveryBackup(destination,data,
+                new java.util.function.Predicate<Properties>() {
+                    public boolean test(Properties candidate) {
+                        try { stage(candidate); return true; }
+                        catch (RuntimeException invalid) { return false; }
+                    }
+                }))return;
         Path temp = Files.createTempFile(directory, name + "-", ".tmp");
         try {
             try (OutputStream out = Files.newOutputStream(temp)) { data.store(out, "GhostFusion schema=1"); }
