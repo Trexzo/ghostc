@@ -33,7 +33,7 @@ public final class PacketCoordinator {
     private final int capacity;
     private final LinkedHashMap<Long, Pending> queue=new LinkedHashMap<Long, Pending>();
     private long idSequence, rejected, delivered, cancelled, failed, callbackFailures;
-    private boolean stopped, resetting, flushing;
+    private boolean stopped, resetting, flushing, rejecting;
     public PacketCoordinator(int capacity) {
         if(capacity<1 || capacity>4096) throw new IllegalArgumentException("capacity");
         this.capacity=capacity;
@@ -53,7 +53,19 @@ public final class PacketCoordinator {
         if(direction==null || payload==null || payload.length==0 || payload.length>32768 ||
            generation<0 || callback==null) throw new IllegalArgumentException("packet");
         if(queue.size()>=capacity) {
-            rejected++; callback(callback,Result.REJECTED); return -1;
+            // Capacity rejection is synchronous. Calling an arbitrary
+            // REJECTED completion can recursively submit another rejected
+            // request forever. Reject nested full-queue attempts *before*
+            // incrementing metrics or invoking another completion.
+            if(rejecting)throw new IllegalStateException("recursive packet rejection");
+            rejected++;
+            rejecting=true;
+            try {
+                callback(callback,Result.REJECTED);
+            } finally {
+                rejecting=false;
+            }
+            return -1;
         }
         // Positive, never-reused cancellation tokens; -1 is reserved for
         // ordinary capacity rejection and must never be a real packet ID.

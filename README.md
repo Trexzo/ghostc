@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R2.88:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R2.89:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R2.89 saturated packet rejection reentrancy: a full queue now refuses nested rejected submissions before invoking more REJECTED callbacks, avoiding unbounded stack recursion. Callback reset, shutdown, cancellation and newly accepted work remain valid; a finally guard releases after callback faults. Java8 tests replay 6,000 saturated callback scenarios. See [R2.89 rejection callback safety](docs/RUNTIME_R109.md).
 - R2.88 transport-error terminality and packet token fencing: external transport Errors now settle the removed packet as TRANSPORT_FAILED exactly once before propagating the Error, preserving the flush budget/reentry guard and pending queue. Packet IDs fail closed at Long.MAX_VALUE rather than wrapping. Java8 tests replay 4,000 failure/reentry scenarios. See [R2.88 packet transport terminality](docs/RUNTIME_R108.md).
 - R2.87 crowded visibility upgrade cleanup: a valid new visible observation now invalidates an older hidden copy of that entity even when the visible nearest-256 partition is full. This prevents stale hidden publication and lets a visible crosshair pin occupy its bounded additional slot. Core tests cover 1,600 saturated scenes plus 12,000 sparse upgrade cycles. See [R2.87 visibility upgrade consistency](docs/RUNTIME_R107.md).
 - R2.86 inventory schedule correctness and pruning: single-flight inventory intents can no longer activate before their requested start tick, even when higher priority than ready work. Pruning/cancel remove entries with an iterator instead of copying pending transactions each tick, and token overflow fails closed. Java8 tests cover 12,000 seeded scheduling/recovery cycles. See [R2.86 inventory tick eligibility](docs/RUNTIME_R106.md).

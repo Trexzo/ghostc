@@ -13,7 +13,7 @@ buildscript {
 
 apply plugin: 'net.minecraftforge.gradle.forge'
 
-version = '2.88.0'
+version = '2.89.0'
 group = 'dev.ghostfusion'
 archivesBaseName = 'ghostc-forge189'
 

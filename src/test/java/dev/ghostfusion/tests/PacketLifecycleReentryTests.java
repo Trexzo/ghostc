@@ -194,6 +194,120 @@ public final class PacketLifecycleReentryTests {
      * when a completion shuts down, resets, or queues additional work. */
     /** Faulting transports must settle the detached packet, including
      * unchecked Errors which intentionally propagate after the receipt. */
+    /** A saturated queue can call arbitrary REJECTED completions, but
+     * callbacks must not recursively reject forever on the same stack. */
+    private static void rejectedCallbackReentry() {
+        for(int cycle=0;cycle<6000;cycle++) {
+            final int iteration=cycle, mode=cycle%6;
+            PacketCoordinator packets=new PacketCoordinator(1);
+            List<String> receipts=new ArrayList<String>();
+            AtomicInteger rejectedCallbacks=new AtomicInteger();
+            AtomicInteger nestedRefused=new AtomicInteger();
+            long original=packets.submit("full.owner",
+                PacketCoordinator.Direction.OUTBOUND,new byte[]{1},
+                iteration,result->receipts.add("original:"+result));
+            ok(original>0,"one slot reserved before rejection "+cycle);
+            PacketCoordinator.Completion[] recursive=new PacketCoordinator.Completion[1];
+            recursive[0]=result->{
+                rejectedCallbacks.incrementAndGet();
+                receipts.add("rejected:"+result);
+                // A recursive nested rejection raises IllegalStateException,
+                // which the existing callback failure boundary contains.
+                packets.submit("recursive.owner",PacketCoordinator.Direction.OUTBOUND,
+                    new byte[]{2},iteration,recursive[0]);
+            };
+            PacketCoordinator.Completion callback;
+            if(mode==0) {
+                callback=recursive[0];
+            } else if(mode==1) {
+                callback=result->{
+                    rejectedCallbacks.incrementAndGet();
+                    receipts.add("rejected:"+result);
+                    rejects(()->packets.submit("recursive.owner",
+                        PacketCoordinator.Direction.OUTBOUND,new byte[]{2},
+                        iteration,recursive[0]),
+                        "nested rejected submission denied synchronously "+iteration);
+                    nestedRefused.incrementAndGet();
+                };
+            } else if(mode==2) {
+                callback=result->{
+                    rejectedCallbacks.incrementAndGet();
+                    receipts.add("rejected:"+result);
+                    packets.reset();
+                    long accepted=packets.submit("fresh.owner",
+                        PacketCoordinator.Direction.OUTBOUND,new byte[]{3},
+                        iteration,r->receipts.add("fresh:"+r));
+                    ok(accepted>original,
+                        "reset releases capacity for accepted callback work "+iteration);
+                };
+            } else if(mode==3) {
+                callback=result->{
+                    rejectedCallbacks.incrementAndGet();
+                    receipts.add("rejected:"+result);
+                    packets.shutdown();
+                };
+            } else if(mode==4) {
+                callback=result->{
+                    rejectedCallbacks.incrementAndGet();
+                    receipts.add("rejected:"+result);
+                    throw new AssertionError("private rejected callback");
+                };
+            } else {
+                callback=result->{
+                    rejectedCallbacks.incrementAndGet();
+                    receipts.add("rejected:"+result);
+                    ok(packets.cancel(original),"callback cancels original "+iteration);
+                    long accepted=packets.submit("replacement.owner",
+                        PacketCoordinator.Direction.OUTBOUND,new byte[]{4},
+                        iteration,r->receipts.add("fresh:"+r));
+                    ok(accepted>original,
+                        "cancel releases capacity for accepted callback work "+iteration);
+                };
+            }
+            long rejected=packets.submit("over.capacity",
+                PacketCoordinator.Direction.OUTBOUND,new byte[]{9},iteration,callback);
+            ok(rejected==-1 && rejectedCallbacks.get()==1 &&
+               receipts.contains("rejected:REJECTED"),
+               "one outer rejected completion, no recursive callbacks "+cycle);
+            if(mode==3) {
+                ok(receipts.contains("original:SHUTDOWN") && receipts.size()==2,
+                    "callback shutdown settles original and stops chain "+cycle);
+                packets.shutdown();
+                rejects(()->packets.metrics(),
+                    "callback shutdown seals coordinator "+cycle);
+                continue;
+            }
+            PacketCoordinator.Metrics before=packets.metrics();
+            ok(before.queued==1 && before.rejected==1 &&
+               before.callbackFailures==(mode==0||mode==4?1:0) &&
+               (mode!=1 || nestedRefused.get()==1),
+               "exact rejection/fault counts with one live request "+cycle);
+            if(mode==4) {
+                ok(packets.submit("another.rejected",
+                    PacketCoordinator.Direction.OUTBOUND,new byte[]{5},iteration,
+                    r->receipts.add("second:"+r))==-1 &&
+                    receipts.contains("second:REJECTED"),
+                    "failed rejection callback releases reentrancy guard "+cycle);
+            }
+            ok(packets.flush((direction,payload)->{},iteration,1)==1,
+                "post-callback flush remains available "+cycle);
+            ok(receipts.contains(
+                   mode==2?"original:STALE_SESSION":
+                   mode==5?"original:CANCELLED":"original:SENT"),
+                "original request receives correct terminal result "+cycle);
+            if(mode==2||mode==5)
+                ok(receipts.contains("fresh:SENT"),
+                    "newly accepted callback request can be delivered "+cycle);
+            PacketCoordinator.Metrics finalMetrics=packets.metrics();
+            ok(finalMetrics.queued==0 &&
+               finalMetrics.rejected==(mode==4?2:1) &&
+               finalMetrics.callbackFailures==(mode==0||mode==4?1:0) &&
+               finalMetrics.delivered==1 &&
+               finalMetrics.cancelled==(mode==2||mode==5?1:0),
+               "settlement and rejection metrics remain exact "+cycle);
+            packets.shutdown();
+        }
+    }
     private static void fatalTransportTerminality() throws Exception {
         for(int cycle=0;cycle<4000;cycle++) {
             final int iteration=cycle;
@@ -560,7 +674,7 @@ public final class PacketLifecycleReentryTests {
     }
     public static void main(String[] args) throws Exception {
         resetCallbacks();shutdownCallbacks();thrownCallbacksStillDrain();
-        flushReentryBudget();fatalTransportTerminality();
+        flushReentryBudget();rejectedCallbackReentry();fatalTransportTerminality();
         atomicOwnerCancellation();ownerCancellationReplay();
         sessionTransitionCallbacks();worldTransitions();repeatedLifecycles();
         ok(assertions>14000,"substantial packet lifecycle regression coverage");
