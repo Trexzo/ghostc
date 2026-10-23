@@ -368,6 +368,93 @@ public final class HostRuntimeTests {
         ok(host.isClosed() && !host.enqueue(GameEvent.Kind.CLIENT_TICK),
             "closed host still declines valid asynchronous producer events");
     }
+    /** R2.92: producer contention at MAX_VALUE never admits a wrapped ID;
+     * owner callbacks fail before partial ticks/world transitions, and a
+     * disconnect reserves its leave/disconnect notifications as one unit. */
+    private static void testEventSequenceOverflow(Path config) throws Exception {
+        final HostRuntime producer=new HostRuntime(config.resolve("producer"));
+        producer.worldPresence(true);
+        java.lang.reflect.Field sequenceField=HostRuntime.class.getDeclaredField("sequence");
+        sequenceField.setAccessible(true);
+        final java.util.concurrent.atomic.AtomicLong sequence=
+            (java.util.concurrent.atomic.AtomicLong)sequenceField.get(producer);
+        sequence.set(Long.MAX_VALUE-2);
+        final java.util.concurrent.atomic.AtomicInteger accepted=
+            new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger overflow=
+            new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger unexpected=
+            new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.CountDownLatch start=
+            new java.util.concurrent.CountDownLatch(1);
+        Thread[] workers=new Thread[48];
+        for(int i=0;i<workers.length;i++) {
+            workers[i]=new Thread(()->{
+                try {
+                    start.await();
+                    if(producer.enqueue(GameEvent.Kind.RENDER_2D))accepted.incrementAndGet();
+                    else unexpected.incrementAndGet();
+                } catch(IllegalStateException expected) {
+                    overflow.incrementAndGet();
+                } catch(Exception failure) {
+                    unexpected.incrementAndGet();
+                }
+            },"ghostc-sequence-producer-"+i);
+            workers[i].start();
+        }
+        start.countDown();
+        for(Thread worker:workers)worker.join();
+        ok(accepted.get()==2 && overflow.get()==46 && unexpected.get()==0,
+            "only two final positive event IDs admitted under worker contention");
+        ok(sequence.get()==Long.MAX_VALUE && producer.pendingEvents()==2 &&
+           producer.droppedEvents()==0,
+            "overflow denials preserve counter, accepted queue and capacity metrics");
+        long beforeTick=producer.services().tick();
+        long beforeGeneration=producer.services().generation();
+        boolean tickDenied=false, leaveDenied=false, disconnectDenied=false, renderDenied=false;
+        try{producer.tick();}catch(IllegalStateException expected){tickDenied=true;}
+        try{producer.worldPresence(false);}catch(IllegalStateException expected){leaveDenied=true;}
+        try{producer.disconnect();}catch(IllegalStateException expected){disconnectDenied=true;}
+        try{producer.render2d();}catch(IllegalStateException expected){renderDenied=true;}
+        ok(tickDenied && leaveDenied && disconnectDenied && renderDenied,
+            "exhausted owner event paths deny without allocating a wrapped event");
+        ok(producer.services().tick()==beforeTick &&
+           producer.services().generation()==beforeGeneration &&
+           producer.worldPresent() && producer.pendingEvents()==2 &&
+           sequence.get()==Long.MAX_VALUE,
+            "failed owner operations cannot advance ticks, alter world or drain ingress");
+        producer.close();
+        ok(producer.isClosed(),"host can close safely with an exhausted event counter");
+
+        HostRuntime paired=new HostRuntime(config.resolve("paired"));
+        paired.worldPresence(true);
+        java.util.concurrent.atomic.AtomicLong pairedIds=
+            (java.util.concurrent.atomic.AtomicLong)sequenceField.get(paired);
+        long generation=paired.services().generation();
+        pairedIds.set(Long.MAX_VALUE-1);
+        boolean pairDenied=false;
+        try{paired.disconnect();}catch(IllegalStateException expected){pairDenied=true;}
+        ok(pairDenied && pairedIds.get()==Long.MAX_VALUE-1 &&
+           paired.worldPresent() && paired.services().generation()==generation,
+            "only one remaining ID refuses two-event disconnect transactionally");
+        pairedIds.set(Long.MAX_VALUE-2);
+        paired.disconnect();
+        ok(pairedIds.get()==Long.MAX_VALUE && !paired.worldPresent() &&
+           !paired.services().connected() &&
+           paired.services().generation()==generation+2,
+            "last two IDs permit exact ordered world-leave and disconnect");
+        paired.close();
+
+        HostRuntime single=new HostRuntime(config.resolve("single"));
+        single.worldPresence(true);
+        java.util.concurrent.atomic.AtomicLong singleIds=
+            (java.util.concurrent.atomic.AtomicLong)sequenceField.get(single);
+        singleIds.set(Long.MAX_VALUE-1);
+        single.worldPresence(false);
+        ok(singleIds.get()==Long.MAX_VALUE && !single.worldPresent(),
+            "single owner world notification can use the final positive ID");
+        single.close();
+    }
     private static void testCorruptProfile(Path config) throws Exception {
         Path file = config.resolve("default.properties");
         Files.createDirectories(config);
@@ -385,6 +472,7 @@ public final class HostRuntimeTests {
         testIngressSessionFence(dir.resolve("epoch"));
         testHostEventReentryFence(dir.resolve("host-reentry"));
         testProducerLifecycleAuthority(dir.resolve("producer-lifecycle"));
+        testEventSequenceOverflow(dir.resolve("sequence-overflow"));
         testCorruptProfile(dir.resolve("corrupt"));
         ok(count > 280, "meaningful regression coverage");
         System.out.println("HOST_REGRESSION_PASS assertions=" + count);

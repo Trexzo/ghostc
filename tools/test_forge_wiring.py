@@ -253,6 +253,17 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("DiagnosticsHudLayout.class",
                       content("tools/verify_forge_jar.py"))
 
+    def test_host_sequence_exhaustion_fails_closed(self):
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/HostRuntimeTests.java")
+        self.assertIn("observed>Long.MAX_VALUE-count",host)
+        self.assertIn("sequence.compareAndSet(observed,next)",host)
+        self.assertIn("long prior=reserveEventIds(leaving?2:1);",host)
+        self.assertIn("applyWorldPresence(false,worldEvent)",host)
+        self.assertIn("testEventSequenceOverflow(dir.resolve",tests)
+        self.assertIn("48",tests)
+        self.assertIn("Long.MAX_VALUE-2",tests)
+
     def test_host_runtime_blocks_reentrant_session_transitions_during_dispatch(self):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         tests=content("src/test/java/dev/ghostfusion/tests/HostRuntimeTests.java")

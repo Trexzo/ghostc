@@ -339,8 +339,22 @@ public final class HostRuntime {
     public int pendingEvents() { return ingress.pending(); }
     public long droppedEvents() { return ingress.rejected(); }
     public boolean isClosed() { return closed; }
+    /** Reserve consecutive positive event IDs atomically across worker producers.
+     * Exhaustion must not wrap into negative sequences: those could silently
+     * evade or corrupt the ingress world-transition fence. */
+    private long reserveEventIds(int count) {
+        if(count<1 || count>2)throw new IllegalArgumentException("event reservation size");
+        long observed,next;
+        do {
+            observed=sequence.get();
+            if(observed<0 || observed>Long.MAX_VALUE-count)
+                throw new IllegalStateException("host event sequence overflow");
+            next=observed+count;
+        } while(!sequence.compareAndSet(observed,next));
+        return observed;
+    }
     private GameEvent event(GameEvent.Kind kind) {
-        return new GameEvent(kind, sequence.incrementAndGet());
+        return new GameEvent(kind,reserveEventIds(1)+1);
     }
     private boolean active() {
         modules.assertOwnerThread();
@@ -363,6 +377,8 @@ public final class HostRuntime {
     public void tick() {
         if (!active()) return;
         assertHostEventBoundary();
+        // Reserve before advancing the session tick or draining producer work.
+        GameEvent tickEvent=event(GameEvent.Kind.CLIENT_TICK);
         hostDispatching=true;
         try {
             services.tickAdvance();
@@ -370,7 +386,7 @@ public final class HostRuntime {
             // The guard covers ALL dequeued producer events as well as the
             // final synchronous tick callback, not just the latter.
             ingress.drainAfter(modules, MAX_EVENTS_PER_TICK, ingressExpiredThroughSequence);
-            modules.dispatch(event(GameEvent.Kind.CLIENT_TICK));
+            modules.dispatch(tickEvent);
         } finally {
             hostDispatching=false;
         }
@@ -379,11 +395,12 @@ public final class HostRuntime {
         if (!active()) return false;
         assertHostEventBoundary();
         if(!worldPresent)return false;
+        GameEvent renderEvent=event(GameEvent.Kind.RENDER_2D);
         hostDispatching=true;
         try {
             overlay.beginFrame();
             metrics.beginFrame();
-            modules.dispatch(event(GameEvent.Kind.RENDER_2D));
+            modules.dispatch(renderEvent);
             return overlay.frameRequested();
         } finally {
             hostDispatching=false;
@@ -393,6 +410,11 @@ public final class HostRuntime {
         if (!active()) return;
         assertHostEventBoundary();
         if(worldPresent==present)return;
+        applyWorldPresence(present,event(GameEvent.Kind.WORLD_CHANGE));
+    }
+    /** The caller reserves the event before any irreversible session mutation.
+     * Disconnect uses this path with an atomically reserved two-event pair. */
+    private void applyWorldPresence(boolean present,GameEvent worldEvent) {
         hostDispatching=true;
         try {
             // Capture all event sequences assigned before this world transition.
@@ -404,7 +426,7 @@ public final class HostRuntime {
             if (present) disconnectReported = false;
             worldPresent = present;
             input.clearPressed();
-            modules.dispatch(event(GameEvent.Kind.WORLD_CHANGE));
+            modules.dispatch(worldEvent);
         } finally {
             hostDispatching=false;
         }
@@ -436,10 +458,19 @@ public final class HostRuntime {
         if (!active()) return;
         assertHostEventBoundary();
         if(disconnectReported)return;
+        // A connected world needs TWO owner notifications. Reserve both
+        // before leaving the world so exhaustion cannot strand a half-
+        // completed disconnect between WORLD_CHANGE and SESSION_DISCONNECT.
+        boolean leaving=worldPresent;
+        long prior=reserveEventIds(leaving?2:1);
+        GameEvent worldEvent=leaving?
+            new GameEvent(GameEvent.Kind.WORLD_CHANGE,prior+1):null;
+        GameEvent disconnectEvent=new GameEvent(GameEvent.Kind.SESSION_DISCONNECT,
+            prior+(leaving?2:1));
         // The world-leave callback has its own bounded dispatch window.
         // No user callback executes between its return and sealing this
         // disconnect; SESSION_DISCONNECT gets a separate guarded window.
-        worldPresence(false);
+        if(leaving)applyWorldPresence(false,worldEvent);
         hostDispatching=true;
         try {
             ingressExpiredThroughSequence = sequence.get();
@@ -447,7 +478,7 @@ public final class HostRuntime {
             input.clearPressed();
             services.disconnect();
             diagnostics.record(Counter.DISCONNECT);
-            modules.dispatch(event(GameEvent.Kind.SESSION_DISCONNECT));
+            modules.dispatch(disconnectEvent);
             exportDiagnostics();
         } finally {
             hostDispatching=false;
