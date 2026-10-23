@@ -350,9 +350,13 @@ public final class GhostClickGui extends GuiScreen {
     private void adjustSliderDrag(int mouseX) {
         if(!sliderDrag.active())return;
         try {
-            if(host.uiActions().previewFraction(sliderDrag.moduleId(),
-                   sliderDrag.settingId(),sliderDrag.fraction(mouseX)))
-                sliderDrag.changed();
+            // Mutate only through UiActions; observe the actual applied
+            // value so returning to the mouse-down value clears dirty state.
+            Setting.Number number=(Setting.Number)host.modules()
+                .get(sliderDrag.moduleId()).settings().get(sliderDrag.settingId());
+            host.uiActions().previewFraction(sliderDrag.moduleId(),
+                sliderDrag.settingId(),sliderDrag.fraction(mouseX));
+            sliderDrag.observeValue(number.get());
         } catch(RuntimeException error) {
             finishSliderDrag();
             message="Setting rejected";
@@ -464,7 +468,8 @@ public final class GhostClickGui extends GuiScreen {
                     int barWidth = Math.max(33,(w-side)/3);
                     if (inside(mx,my,right-barWidth,GuiHitZones.settingStartY(zone)+
                             (index-settingScroll)*22,barWidth,19)) {
-                        sliderDrag.begin(selected,it.getKey(),right-barWidth,barWidth,width,height);
+                        sliderDrag.begin(selected,it.getKey(),right-barWidth,barWidth,width,height,
+                            ((Setting.Number)setting).get());
                         adjustSliderDrag(mx);
                     }
                 }

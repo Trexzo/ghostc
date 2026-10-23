@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R2.74:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R2.75:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R2.75 slider drag final-value persistence: mouse captures now track their initial numeric value and only persist when the final applied value differs. A drag that returns to its starting value does not rewrite the profile; interrupted dirty drags still commit once. Java8 coverage includes 75,000 randomized capture round-trips and live UiActions integration. See [R2.75 slider round-trip guard](docs/RUNTIME_R95.md).
 - R2.74 focused-setting keyboard help now renders in the reserved bottom footer rather than painting over the keybind row. Boolean, Choice and Number settings show distinct valid shortcuts; warning messages take precedence, and long hints are pixel-trimmed for compact layouts. Headless Java8 help-policy and Forge source-wiring regressions guard the geometry. See [R2.74 keyboard help footer](docs/RUNTIME_R94.md).
 - R2.73 idempotent keybind persistence: recapturing an existing key or repeating an unbind now preserves validated registry behavior without rewriting profiles. Duplicate/reserved bindings, owner-thread and shutdown guards still reject. Deterministic Java8 tests cover 60,000 randomized bind/save scenarios. See [R2.73 keybind persistence guard](docs/RUNTIME_R93.md).
 - R2.72 numeric persistence no-op guard: `UiActions.fraction` now saves profiles only when its already-validated `previewFraction` actually changes the stored numeric setting. Repeated keyboard endpoints, clamped values and constant ranges no longer write redundant profiles; invalid values still reject. Java8 headless coverage checks 65,000 randomized fraction/write-count scenarios. See [R2.72 numeric persistence guard](docs/RUNTIME_R92.md).
