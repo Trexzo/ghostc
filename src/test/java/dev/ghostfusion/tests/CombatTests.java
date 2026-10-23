@@ -176,6 +176,29 @@ public final class CombatTests {
         try { foreign.join(); } catch(InterruptedException ex) { throw new AssertionError(ex); }
         ok(rejected.get(),"scheduler client-thread ownership");
     }
+    /** R2.93: huge forward nanoTime jumps cannot suppress overdue clicks. */
+    private static void schedulerWideElapsed() {
+        java.util.Random random=new java.util.Random(2932026L);
+        FixedClickScheduler clock=new FixedClickScheduler();
+        int[] rates={4,10,25};
+        for(int trial=0;trial<30000;trial++) {
+            clock.reset();
+            long first=Long.MIN_VALUE+random.nextInt(1000000);
+            int cps=rates[trial%rates.length];
+            long period=(long)(1000000000.0/cps);
+            ok(!clock.due(first,true,true,cps),"first press arms "+trial);
+            ok(!clock.due(first+period-1,true,true,cps),"early interval "+trial);
+            ok(clock.due(first+period,true,true,cps),"exact boundary "+trial);
+            ok(!clock.due(first+period,true,true,cps),"duplicate blocked "+trial);
+            ok(clock.due(Long.MAX_VALUE,true,true,cps),"huge forward interval due "+trial);
+            ok(!clock.due(Long.MAX_VALUE,true,true,cps),"no delayed catchup "+trial);
+            ok(!clock.due(Long.MAX_VALUE,false,false,cps),"release clears "+trial);
+            ok(!clock.due(Long.MAX_VALUE,true,true,cps),"repress rearms "+trial);
+        }
+        clock.reset();
+        ok(!clock.due(-200000000L,true,true,10),"negative nanoTime origin arms");
+        ok(clock.due(-100000000L,true,true,10),"negative nanoTime origin fires");
+    }
     private static void contracts() {
         SessionServices s=new SessionServices();
         s.world(true);
@@ -246,7 +269,7 @@ public final class CombatTests {
         restored.close();
     }
     public static void main(String[] args) throws Exception {
-        aimGeometry(); scheduler(); contracts(); profiles();
+        aimGeometry(); scheduler(); schedulerWideElapsed(); contracts(); profiles();
         ok(checks>3000,"substantial combat policy suite");
         System.out.println("COMBAT_REGRESSION_PASS assertions="+checks);
     }

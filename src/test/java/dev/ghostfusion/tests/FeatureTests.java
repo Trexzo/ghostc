@@ -80,6 +80,30 @@ public final class FeatureTests {
             ok(meter.left(now+1) == Math.min(10,i+1), "one-second bounded events");
         }
     }
+    /** R2.93: signed subtraction must not preserve expired click windows. */
+    private static void cpsWideElapsed() {
+        Random random=new Random(2931023L);
+        CpsMeter meter=new CpsMeter();
+        for(int trial=0;trial<18000;trial++) {
+            meter.clear();
+            long first=Long.MIN_VALUE+random.nextInt(1000000);
+            meter.mouse(0,true,first,true);
+            meter.mouse(1,true,first+1,true);
+            ok(meter.left(first+999999999L)==1 &&
+               meter.right(first+999999999L)==1,"inside window "+trial);
+            ok(meter.left(first+1000000000L)==0 &&
+               meter.right(first+1000000000L)==1,"exact expiry "+trial);
+            ok(meter.right(Long.MAX_VALUE)==0 && meter.left(Long.MAX_VALUE)==0,
+               "wide forward interval evicts all stale clicks "+trial);
+        }
+        meter.clear();
+        long nearMax=Long.MAX_VALUE-10000;
+        meter.mouse(0,true,nearMax,true);
+        ok(meter.left(Long.MAX_VALUE)==1,"recent click near MAX retained");
+        meter.clear();
+        meter.mouse(1,true,Long.MIN_VALUE,true);
+        ok(meter.right(Long.MAX_VALUE)==0,"initial MIN timestamp expires");
+    }
     private static void sprint() {
         for (int flags = 0; flags < 64; flags++) {
             boolean enabled=(flags&1)!=0, focused=(flags&2)!=0,
@@ -272,7 +296,7 @@ public final class FeatureTests {
         restored.close();
     }
     public static void main(String[] args) throws Exception {
-        cps(); sprint(); targets(); featuresAndProfiles();
+        cps(); cpsWideElapsed(); sprint(); targets(); featuresAndProfiles();
         ok(count>4000,"feature regression coverage substantial");
         System.out.println("FEATURE_REGRESSION_PASS assertions="+count);
     }

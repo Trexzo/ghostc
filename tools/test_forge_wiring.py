@@ -253,6 +253,18 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("DiagnosticsHudLayout.class",
                       content("tools/verify_forge_jar.py"))
 
+    def test_monotonic_elapsed_nanos_overflow_boundaries(self):
+        scheduler=content("src/main/java/dev/ghostfusion/features/FixedClickScheduler.java")
+        meter=content("src/main/java/dev/ghostfusion/features/CpsMeter.java")
+        combat=content("src/test/java/dev/ghostfusion/tests/CombatTests.java")
+        features=content("src/test/java/dev/ghostfusion/tests/FeatureTests.java")
+        self.assertIn("Long.compareUnsigned(nowNanos-armedAtNanos,period)<0",scheduler)
+        self.assertIn("Long.compareUnsigned(now-events.peekFirst(),WINDOW_NS)>=0",meter)
+        self.assertIn("schedulerWideElapsed();",combat)
+        self.assertIn("cpsWideElapsed();",features)
+        self.assertIn("Long.MAX_VALUE",combat)
+        self.assertIn("Long.MIN_VALUE",features)
+
     def test_host_sequence_exhaustion_fails_closed(self):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         tests=content("src/test/java/dev/ghostfusion/tests/HostRuntimeTests.java")
