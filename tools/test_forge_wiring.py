@@ -1410,10 +1410,12 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.GuiSliderDragTests",
                       content(".github/workflows/core-ci.yml"))
         self.assertIn("GuiSliderDrag.class",content("tools/verify_forge_jar.py"))
-        self.assertLess(gui.index("finishSliderDrag();\n        super.mouseClicked("),
-                        gui.index("sliderDrag.begin(selected,it.getKey()"))
+        click=gui.index("@Override protected void mouseClicked")
+        capture=gui.index("sliderDrag.begin(selected,it.getKey()",click)
+        self.assertLess(gui.index("finishSliderDrag();",click),capture)
+        self.assertLess(gui.index("finishHudDrag();",click),capture)
         self.assertLess(gui.index("if(sliderDrag.active()) {",gui.index("mouseClickMove")),
-                        gui.index("if (hudDragging && button==0",gui.index("mouseClickMove")))
+                        gui.index("if(hudDragging) {",gui.index("mouseClickMove")))
         self.assertIn("if (wheel != 0 && !hudPage)",gui)
 
     def test_clickgui_header_and_sidebar_chrome_are_bounded(self):
