@@ -196,6 +196,11 @@ public final class BackupRotationTests {
         ok("43".equals(read(primary).getProperty("module.test.feature.key")) &&
            Arrays.equals(prior,bytes(backup)),
            "changed profile writes once and rotates its verified previous value");
+        // The first save of a changed value keeps the previous-good backup;
+        // its next save must checkpoint the new value for crash recovery.
+        profile.save("default");
+        ok(Arrays.equals(bytes(primary),bytes(backup)),
+           "second changed-profile save checkpoints latest state for recovery");
         Properties damagedBackup=read(backup);
         damagedBackup.setProperty("module.test.feature.key","malformed");
         write(backup,damagedBackup); // checksum mismatch
@@ -240,6 +245,9 @@ public final class BackupRotationTests {
         ok("0.78".equals(read(uiPrimary).getProperty("hud.x")) &&
            Arrays.equals(uiOld,bytes(uiBackup)),
            "changed HUD anchor writes and backs up previous sealed settings");
+        ui.save();
+        ok(Arrays.equals(bytes(uiPrimary),bytes(uiBackup)),
+           "second changed-UI save checkpoints latest HUD state for recovery");
         Properties uiDamage=read(uiBackup);
         uiDamage.setProperty("theme","NOT_A_THEME");
         ConfigIntegrity.seal(uiDamage); // valid SHA-256 but typed-invalid

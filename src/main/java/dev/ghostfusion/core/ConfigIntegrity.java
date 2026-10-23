@@ -107,13 +107,14 @@ public final class ConfigIntegrity {
     }
     /**
      * A close-time save with no logical changes should not rewrite either
-     * verified file. Require BOTH a matching sealed primary and an existing,
+     * verified file. Require BOTH a matching sealed primary and a matching,
      * checksum-verified, typed-valid recovery backup before skipping a write.
      * A damaged primary or backup must go through the ordinary safe rotation
      * and atomic save path instead. Legacy unsealed primaries are migrated.
      *
-     * The backup may intentionally contain the previous different state.
-     * Only the primary must match the desired properties exactly.
+     * A backup of the previous state is useful immediately after a mutation,
+     * but the next close must checkpoint the latest state to the backup
+     * before later unchanged closes may become no-ops.
      */
     public static boolean unchangedWithRecoveryBackup(Path primary,Properties desired,
             java.util.function.Predicate<Properties> typedValidator) {
@@ -129,7 +130,10 @@ public final class ConfigIntegrity {
             if(!verify(onDisk) || !onDisk.equals(desired) ||
                !typedValidator.test(onDisk))return false;
             Properties recovery=read(backup);
-            return verify(recovery) && typedValidator.test(recovery);
+            // A distinct older backup must be refreshed on the next save
+            // so recovery restores the latest acknowledged HUD/profile state.
+            return verify(recovery) && typedValidator.test(recovery) &&
+                recovery.equals(desired);
         } catch(IOException | RuntimeException invalid) {
             return false; // The ordinary save path repairs the valid primary.
         }

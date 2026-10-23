@@ -14,13 +14,16 @@ disk churn and replace backup timestamps without any user state change.
 ConfigIntegrity.unchangedWithRecoveryBackup validates the requested sealed
 properties and verifies two independent durable files: an exact, typed-valid,
 checksum-sealed primary and an existing, checksum-sealed, typed-valid recovery
-backup. The backup may intentionally contain an earlier different state.
-Only when all checks pass may save() return without touching either file.
+backup. The backup must also represent the current desired state. Only when all
+checks pass may save() return without touching either file. This
+ensures that a GUI close after a changed profile/HUD value checkpoints
+the new version in .bak rather than leaving the recovery image stale.
 
 After the first save there is intentionally no backup. The second save,
 even when unchanged, runs the existing rotation/atomic-write path to establish
-a verified recovery candidate. A changed profile/HUD value likewise preserves
-verified backup rotation. Malformed or unsealed primaries, missing/invalid
+a verified recovery candidate. A changed profile/HUD value likewise preserves verified backup rotation;
+the next save promotes its new verified primary into the recovery backup.
+Malformed or unsealed primaries, missing/invalid
 backups, checksum mismatch, and sealed-but-typed-invalid backups all fall back
 to the existing safe save path, which cannot promote an unverified primary
 into a good backup. Existing recovery and schema-1 legacy migration remain

@@ -41,6 +41,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("unchangedWithRecoveryBackup(Path primary,Properties desired,",integrity)
         self.assertIn("!onDisk.equals(desired)",integrity)
         self.assertIn("verify(recovery) && typedValidator.test(recovery)",integrity)
+        self.assertIn("recovery.equals(desired)",integrity)
         self.assertIn("ConfigIntegrity.unchangedWithRecoveryBackup(destination,data,",profile)
         self.assertIn("ConfigIntegrity.unchangedWithRecoveryBackup(file,p,",ui)
         self.assertIn("idempotentSaves();",tests)
