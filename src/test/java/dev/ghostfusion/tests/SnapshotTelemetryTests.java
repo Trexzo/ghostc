@@ -50,6 +50,44 @@ public final class SnapshotTelemetryTests {
         try{other.join();}catch(InterruptedException interrupted){throw new AssertionError(interrupted);}
         ok(blocked.get(),"snapshot measurements owner-thread bound");
     }
+    /** R2.95: optional timing cannot turn a signed-overflow clock reading
+     * into a negative duration and crash the client's owner tick. */
+    private static void clockArithmetic() {
+        ok(SnapshotTelemetry.elapsedNanos(Long.MIN_VALUE,Long.MIN_VALUE)==0,
+            "Long.MIN_VALUE is a legitimate timestamp");
+        ok(SnapshotTelemetry.elapsedNanos(Long.MAX_VALUE,Long.MAX_VALUE)==0,
+            "equal near-MAX timestamps yield zero nanos");
+        ok(SnapshotTelemetry.elapsedNanos(-100000000L,0L)==100000000L,
+            "ordinary negative-origin duration exact");
+        ok(SnapshotTelemetry.elapsedNanos(0L,-1L)==-1L,
+            "backward signed time skipped");
+        ok(SnapshotTelemetry.elapsedNanos(Long.MAX_VALUE,Long.MIN_VALUE)==-1L,
+            "decreasing signed interval skipped");
+        Random random=new Random(2952026L);
+        for(int i=0;i<24000;i++) {
+            long from=Long.MIN_VALUE+random.nextInt(1000000);
+            long to=Long.MAX_VALUE-random.nextInt(1000000);
+            ok(SnapshotTelemetry.elapsedNanos(from,to)==Long.MAX_VALUE,
+                "wide positive elapsed saturates "+i);
+            long ordinary=1+random.nextInt(8000000);
+            ok(SnapshotTelemetry.elapsedNanos(from,from+ordinary)==ordinary,
+                "ordinary sub-frame interval exact "+i);
+            ok(SnapshotTelemetry.elapsedNanos(to,from)==-1L,
+                "backward sample rejected "+i);
+        }
+        SnapshotTelemetry profiling=new SnapshotTelemetry();
+        long invalid=SnapshotTelemetry.elapsedNanos(10L,9L);
+        if(invalid>=0)profiling.record(invalid,1,1,0,1,SnapshotTelemetry.Mode.MIXED);
+        ok(profiling.snapshot().samples==0,"invalid timing does not mutate histogram");
+        long large=SnapshotTelemetry.elapsedNanos(Long.MIN_VALUE,Long.MAX_VALUE);
+        profiling.record(large,2,2,1,1,SnapshotTelemetry.Mode.MIXED);
+        ok(profiling.snapshot().samples==1 &&
+           profiling.snapshot().maxUs==Long.MAX_VALUE/1000L &&
+           profiling.snapshot().p95Us==SnapshotTelemetry.MAX_US_BIN,
+           "saturated valid timing remains bounded numeric sample");
+        ok(profiling.snapshot(SnapshotTelemetry.Mode.MIXED).samples==1,
+           "classified demand-mode sample count remains consistent");
+    }
     private static void deterministic(){
         SnapshotTelemetry m=new SnapshotTelemetry();
         Random random=new Random(2172026L);
@@ -119,7 +157,7 @@ public final class SnapshotTelemetryTests {
         ok(!legacy.containsKey("snap.samples"),"legacy save API remains compatible");
     }
     public static void main(String[] args) throws Exception{
-        exact();deterministic();optInExport();
+        exact();clockArithmetic();deterministic();optInExport();
         ok(checks>80000,"wide profiler regression coverage");
         System.out.println("SNAPSHOT_TELEMETRY_PASS assertions="+checks);
     }

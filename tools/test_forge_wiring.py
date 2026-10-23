@@ -905,6 +905,17 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.VisibilitySnapshotTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_snapshot_profiler_clock_fault_does_not_abort_gameplay_tick(self):
+        adapter=self.adapter
+        telemetry=content("src/main/java/dev/ghostfusion/host/SnapshotTelemetry.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/SnapshotTelemetryTests.java")
+        self.assertIn("SnapshotTelemetry.elapsedNanos(snapshotStart,System.nanoTime())",adapter)
+        self.assertIn("if(elapsed>=0)host.recordSnapshotWork(",adapter)
+        self.assertIn("if(endNanos<startNanos)return -1L;",telemetry)
+        self.assertIn("Long.compareUnsigned(delta,Long.MAX_VALUE)>0",telemetry)
+        self.assertIn("clockArithmetic();",tests)
+        self.assertNotIn("System.nanoTime()-snapshotStart",adapter)
+
     def test_opt_in_snapshot_profiler_tracks_actual_forge_tick_work(self):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         meter=content("src/main/java/dev/ghostfusion/host/SnapshotTelemetry.java")
@@ -916,7 +927,8 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("if(profileSnapshot)rays++;",self.adapter)
         self.assertIn("host.recordSnapshotWork(",self.adapter)
         self.assertLess(self.adapter.index("host.services().publish(new WorldSnapshot("),
-                        self.adapter.index("if(profileSnapshot)host.recordSnapshotWork("))
+                        self.adapter.index("if(profileSnapshot) {"))
+        self.assertIn("if(elapsed>=0)host.recordSnapshotWork(",self.adapter)
         self.assertIn("if(!snapshotProfilingEnabled())return;",host)
         self.assertIn("snapshotTelemetry.record(elapsedNanos,scanned,inRange,losQueries,published)",host)
         self.assertIn("new long[MAX_US_BIN+2]",meter)

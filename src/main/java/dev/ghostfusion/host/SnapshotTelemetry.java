@@ -70,6 +70,19 @@ public final class SnapshotTelemetry {
     private static long plus(long a,long b){
         return a>Long.MAX_VALUE-b?Long.MAX_VALUE:a+b;
     }
+    /**
+     * Convert the two signed-order nanoTime samples on the Forge owner thread
+     * into a safe duration. A backwards sample is invalid (-1), rather than
+     * an exception during gameplay. A valid forward duration may exceed the
+     * signed long range; saturate it at Long.MAX_VALUE for numeric telemetry.
+     * No wall-clock origin or actual timestamp is retained.
+     */
+    public static long elapsedNanos(long startNanos,long endNanos) {
+        if(endNanos<startNanos)return -1L;
+        long delta=endNanos-startNanos;
+        return Long.compareUnsigned(delta,Long.MAX_VALUE)>0 ?
+            Long.MAX_VALUE : delta;
+    }
     private static void validate(long elapsedNanos,int scanned,int range,
                                  int rays,int published){
         if(elapsedNanos<0 || scanned<0 || range<0 || rays<0 || published<0 ||
