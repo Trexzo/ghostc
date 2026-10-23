@@ -194,8 +194,8 @@ public final class HudEditorControlsTests {
                 ok(Double.compare(ui.widgets().y(item.widget),priorY)==0,
                     "zero nudge does not reserialize widget anchor");
             }
-            controls.nudge(ui,Integer.MAX_VALUE,Integer.MAX_VALUE,1920,1080,83,43);
-            ok(!controls.nudgeIfChanged(ui,10,10,1920,1080,83,43),
+            controls.nudge(ui,Integer.MIN_VALUE,Integer.MIN_VALUE,1920,1080,83,43);
+            ok(!controls.nudgeIfChanged(ui,-10,-10,1920,1080,83,43),
                 "boundary nudge performs no mutation");
             ok(controls.resetIfChanged(ui),
                 "reset from boundary changes only selected anchor");
@@ -211,8 +211,10 @@ public final class HudEditorControlsTests {
         drag.begin(ui,null,1920,1080);
         ok(drag.sameViewport(1920,1080) &&
            !drag.sameViewport(1280,720),"capture binds source viewport");
-        rejects(()->drag.begin(ui,null,1920,1080),
-            "nested drag refused without corrupting original");
+        boolean nestedDenied=false;
+        try{drag.begin(ui,null,1920,1080);}
+        catch(IllegalStateException expected){nestedDenied=true;}
+        ok(nestedDenied,"nested drag refused without corrupting original");
         ui.position(0.8,0.8);
         ui.position(UiState.DEFAULT_HUD_X,UiState.DEFAULT_HUD_Y);
         ok(!drag.finish(ui),"return to same status anchor suppresses write");
@@ -279,7 +281,7 @@ public final class HudEditorControlsTests {
         ok(wouldCommit>25000 && wouldCommit<60000,
             "seed exercises real changes and reverted gestures");
     }
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         footprint();selectionAndReset();tabRanges();nudgeReplay();
         changedAwareActions();capturedHudTransactions();randomizedCapture();
         ok(checks>160000,"substantial HUD control test coverage");
