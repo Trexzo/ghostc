@@ -1369,10 +1369,30 @@ class ForgeWiring(unittest.TestCase):
         self.assertLess(packets.index("stopped=true;"),
                         packets.index("callback(p.completion,Result.SHUTDOWN);"))
         self.assertIn("resetCallbacks();shutdownCallbacks();thrownCallbacksStillDrain();",suite)
-        self.assertIn("worldTransitions();repeatedLifecycles();",suite)
+        self.assertIn("sessionTransitionCallbacks();worldTransitions();repeatedLifecycles();",suite)
         self.assertIn("PACKET_LIFECYCLE_REENTRY_PASS",suite)
         self.assertIn("dev.ghostfusion.tests.PacketLifecycleReentryTests",
                       content(".github/workflows/core-ci.yml"))
+
+    def test_session_transition_callbacks_are_fenced_and_cleared(self):
+        services=content("src/main/java/dev/ghostfusion/services/SessionServices.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/PacketLifecycleReentryTests.java")
+        method=services.split("private void transition(boolean active, boolean force) {",1)[1].split(
+            "public void world(boolean active) {",1)[0]
+        self.assertIn("if(transitioning)throw new IllegalStateException(",method)
+        self.assertIn("if(generation==Long.MAX_VALUE)",method)
+        self.assertIn("transitioning=true;",method)
+        self.assertIn("transitioning=false;",method)
+        self.assertLess(method.index("snapshot=null;"),method.index("packets.reset();"))
+        self.assertLess(method.index("packets.reset();"),method.index("actions.reset();"))
+        self.assertLess(method.index("packets.reset();"),method.index("inventory.reset();"))
+        self.assertIn("if(transitioning)throw new IllegalStateException(\"tick during session transition\")",services)
+        self.assertIn("if(transitioning)throw new IllegalStateException(\"snapshot during session transition\")",services)
+        self.assertIn("transition(false,true);",services)
+        closing=services.split("public void close() {",1)[1]
+        self.assertLess(closing.index("closed=true;"),closing.index("packets.shutdown();"))
+        self.assertIn("sessionTransitionCallbacks();worldTransitions();",suite)
+        self.assertIn("cycle<4500;cycle++",suite)
 
     def test_packet_cancel_owner_detaches_before_callbacks(self):
         coordinator=content("src/main/java/dev/ghostfusion/services/PacketCoordinator.java")
