@@ -22,7 +22,7 @@ TESTS=(
     "CombatTests","CombatIsolationTests","CombatMoreTests","LiveCombatTargetGateTests",
     "CoordinatorHygieneTests","PacketLifecycleReentryTests","RuntimeSafetyTests","FeatureFaultTests",
     "ViewportRuntimeTests","WorldLifecycleTests","ViewportHitTests",
-    "GuiChromeTests","GuiSliderDragTests","NumericSliderScaleTests","FaultPrivacyTests","CompactGuiTests","ReservedKeyTests",
+    "GuiChromeTests","GuiSliderDragTests","GuiFooterTextTests","NumericSliderScaleTests","FaultPrivacyTests","CompactGuiTests","ReservedKeyTests",
     "HudPlacementTests","HudPreviewTests","HudEditorControlsTests",
     "StatusHudLayoutTests","PingHudTests","DiagnosticsHudLayoutTests","HudTextFitTests",
     "HudWidgetViewportTests",
@@ -53,7 +53,7 @@ def verify():
     for name in MUST_EXIST:
         if not (ROOT/name).is_file():
             issues.append(name)
-    for version in range(8,96):
+    for version in range(8,97):
         path=Path("docs")/("RUNTIME_R%02d.md"%version)
         if not (ROOT/path).is_file():
             issues.append(str(path))
@@ -63,7 +63,7 @@ def verify():
             issues.append(path+" (README reference)")
     if issues:
         raise AssertionError("Repository inventory incomplete: "+", ".join(sorted(set(issues))))
-    print("REPOSITORY_INVENTORY_PASS tests=%d milestones=%d"%(len(TESTS),88))
+    print("REPOSITORY_INVENTORY_PASS tests=%d milestones=%d"%(len(TESTS),89))
 
 if __name__=="__main__":
     try:
