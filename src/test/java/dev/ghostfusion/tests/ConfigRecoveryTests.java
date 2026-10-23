@@ -122,8 +122,8 @@ public final class ConfigRecoveryTests {
             "value = trusted", "schema=1",
             "integrity.sha256=invalid"};
         for(int i=0;i<aliases.length;i++) {
-            Files.write(fixture,(saved+"\\n"+aliases[i]+"\\n")
-                .replace("\\n","\n").getBytes(StandardCharsets.ISO_8859_1));
+            Files.write(fixture,(saved+"\n"+aliases[i]+"\n")
+                .getBytes(StandardCharsets.ISO_8859_1));
             boolean refused=false;
             try{ConfigIntegrity.read(fixture);}
             catch(IllegalArgumentException expected){refused=true;}
