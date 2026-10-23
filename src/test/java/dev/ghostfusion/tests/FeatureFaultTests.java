@@ -151,6 +151,86 @@ public final class FeatureFaultTests {
         }
         loaded.close();
     }
+    /** R2.96: direct and cross-module recursive renderer callbacks must
+     * not bypass the existing module fault quarantine or overflow the stack. */
+    private static void reentrantCallbackFence() {
+        ModuleRegistry registry=new ModuleRegistry();
+        TestModule a=new TestModule("hud.recursive.a");
+        TestModule b=new TestModule("hud.recursive.b");
+        registry.register(a,0); registry.register(b,0);
+        registry.setEnabled(a.id(),true);registry.setEnabled(b.id(),true);
+        final int[] faults={0},calls={0};
+        FeatureFaultGuard guard=new FeatureFaultGuard(registry,
+            (id,type)->{
+                ok("IllegalStateException".equals(type),"recursive fault type sanitized");
+                faults[0]++;
+            });
+        ok(!guard.execute(a.id(),()->{
+            calls[0]++;
+            guard.execute(a.id(),()->calls[0]++);
+        }),"direct reentry quarantines offending feature");
+        ok(calls[0]==1 && a.disabled==1 && faults[0]==1,
+            "nested callback cannot execute and fault is reported once");
+        ok(registry.get(a.id()).state()==ModuleRegistry.State.DISABLED &&
+           registry.get(b.id()).state()==ModuleRegistry.State.ENABLED,
+           "recursive feature quarantined while unrelated peer remains enabled");
+        ok("IllegalStateException".equals(guard.recentFaults().get(a.id())),
+            "only sanitized recursive exception class is retained");
+
+        registry.setEnabled(a.id(),true);
+        final int[] inner={0};
+        ok(guard.execute(a.id(),()->{
+            ok(!guard.execute(b.id(),()->{
+                inner[0]++;
+                guard.execute(a.id(),()->inner[0]++);
+            }),"indirect A-B-A recursion quarantines inner peer");
+        }),"outer A completes after nested peer's contained failure");
+        ok(inner[0]==1 && faults[0]==2 &&
+           registry.get(a.id()).state()==ModuleRegistry.State.ENABLED &&
+           registry.get(b.id()).state()==ModuleRegistry.State.DISABLED,
+           "only reentering nested callback is rejected and B quarantined");
+        ok(!guard.recentFaults().containsKey(a.id()) &&
+           "IllegalStateException".equals(guard.recentFaults().get(b.id())),
+           "healthy A stays clean while nested B fault is recorded");
+
+        registry.setEnabled(b.id(),true);
+        ok(guard.execute(a.id(),()->{
+            ok(guard.execute(b.id(),()->inner[0]++),
+                "independent nested module remains permitted");
+        }),"normal A-B nested callback succeeds");
+        ok(inner[0]==2 && faults[0]==2,
+           "no new fault from independent nested module");
+
+        final int[] intercepted={0};
+        ok(guard.execute(a.id(),()->{
+            try {guard.execute(a.id(),()->{throw new AssertionError("ran recursively");});}
+            catch(IllegalStateException rejected) {intercepted[0]++;}
+        }),"a caller may contain a rejected nested invocation itself");
+        ok(intercepted[0]==1 && registry.get(a.id()).state()==ModuleRegistry.State.ENABLED,
+           "rejected nested callback does not execute if exception is handled");
+
+        boolean escaped=false;
+        try {guard.execute(a.id(),()->{throw new AssertionError("serious JVM fault");});}
+        catch(AssertionError expected){escaped=true;}
+        ok(escaped,"JVM Error remains unswallowed by reentry boundary");
+        ok(guard.execute(a.id(),()->calls[0]++),
+           "guard released after a serious JVM Error");
+
+        for(int i=0;i<12000;i++) {
+            ok(!guard.execute(a.id(),()->{
+                calls[0]++;
+                guard.execute(a.id(),()->calls[0]++);
+            }),"reentrant callback bounded at depth one "+i);
+            ok(registry.get(a.id()).state()==ModuleRegistry.State.DISABLED,
+               "recursive callback remains disabled "+i);
+            registry.setEnabled(a.id(),true);
+            ok(guard.execute(a.id(),()->calls[0]++),
+               "explicit re-enable restores legal callback "+i);
+        }
+        ok(calls[0]==24002 && faults[0]==12002,
+           "12,000 cycles cannot stack-recurse, leak guard state or duplicate reports");
+        registry.shutdown();
+    }
     private static void ownership() throws Exception {
         ModuleRegistry r=new ModuleRegistry();
         TestModule mod=new TestModule("hud.owner");
@@ -166,7 +246,8 @@ public final class FeatureFaultTests {
         r.shutdown();
     }
     public static void main(String[] args) throws Exception {
-        faultContainment();listenerErrors();hostAndPersistence();fullFeatureQuarantine();ownership();
+        faultContainment();listenerErrors();hostAndPersistence();fullFeatureQuarantine();
+        reentrantCallbackFence();ownership();
         ok(checks>=320,"substantial per-frame quarantine coverage");
         System.out.println("FEATURE_FAULT_PASS assertions="+checks);
     }

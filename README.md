@@ -1,9 +1,10 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R2.95:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R2.96:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
+- R2.96 feature callback reentry safety: a render/movement feature may not recursively reenter its own active callback, including via another module; recursive attempts are rejected through existing isolated fault handling and cleanup always releases the guard. Independent nested peer callbacks remain legal. Java8 regression exercises 12,000 fault-and-recovery cycles. See [R2.96 callback reentry safety](docs/RUNTIME_R116.md).
 - R2.95 Forge snapshot-profiler clock safety: validated elapsed nanoTime duration saturates at Long.MAX_VALUE on signed arithmetic overflow, and genuinely backward samples skip telemetry without aborting a published client-tick snapshot. No new gameplay gating, profile settings or persisted identity fields. Java8 regression covers 24,000 randomized wide-interval cases and 24,000 ordinary intervals. See [R2.95 snapshot clock fence](docs/RUNTIME_R115.md).
 - R2.94 FPS diagnostic clock safety: accepted forward nanoTime intervals use unsigned elapsed comparisons to avoid signed-subtraction overflow being mislabeled as invalid. Very long gaps correctly fall into the existing 0 FPS bucket; actual backward timestamps remain invalid. Java8 tests cover 12,000 extreme forward intervals, ordinary 60 FPS recovery, and two-second rounding boundaries. See [R2.94 frame elapsed safety](docs/RUNTIME_R114.md).
 - R2.93 nanoTime signed-overflow correctness: AutoClicker pacing and CPS window expiry use unsigned elapsed durations, so very large forward time jumps cannot suppress due pulses or retain stale CPS clicks. Java8 boundary regressions exercise 30,000 scheduler and 18,000 meter cases. See [R2.93 nanoTime elapsed safety](docs/RUNTIME_R113.md).

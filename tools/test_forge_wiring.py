@@ -23,6 +23,16 @@ class ForgeWiring(unittest.TestCase):
         self.gl = (FORGE / "RenderStateGuard.java").read_text(encoding="utf-8")
         self.adapter = (FORGE / "ForgeEventAdapter.java").read_text(encoding="utf-8")
 
+    def test_feature_guard_reentry_fenced_without_peer_starvation(self):
+        guard=content("src/main/java/dev/ghostfusion/host/FeatureFaultGuard.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/FeatureFaultTests.java")
+        self.assertIn("private final HashSet<String> executing",guard)
+        self.assertIn("if (!executing.add(stableId))",guard)
+        self.assertIn("executing.remove(stableId);",guard)
+        self.assertIn("registry.setEnabled(stableId,false);",guard)
+        self.assertIn("reentrantCallbackFence();",tests)
+        self.assertIn("12,000 cycles cannot stack-recurse",tests)
+
     def test_release_evidence_is_bound_to_ci_checkout_without_runtime_claims(self):
         workflow=content(".github/workflows/forge189-ci.yml")
         core=content(".github/workflows/core-ci.yml")
