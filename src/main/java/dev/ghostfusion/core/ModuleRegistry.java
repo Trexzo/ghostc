@@ -27,6 +27,10 @@ public final class ModuleRegistry {
     }
     private final Thread owner = Thread.currentThread();
     private final LinkedHashMap<String, Entry> modules = new LinkedHashMap<String, Entry>();
+    // Rebuild only when registering a new module; the client tick's callback
+    // loop must not allocate or iterate a map being changed by user callbacks.
+    private Entry[] dispatchEntries = new Entry[0];
+    private boolean dispatching;
     private boolean shutdown;
     private int lifecycleCallbacks;
     private void beginLifecycle(Entry e) {
@@ -59,6 +63,7 @@ public final class ModuleRegistry {
             if (s == null || entry.settings.put(s.id(), s) != null) throw new IllegalArgumentException("Duplicate/invalid setting");
         }
         modules.put(id, entry);
+        dispatchEntries=modules.values().toArray(new Entry[modules.size()]);
     }
     public Entry get(String id) {
         validateId(id);
@@ -117,9 +122,24 @@ public final class ModuleRegistry {
     public void dispatch(GameEvent event) {
         assertLive();
         if (event == null) throw new IllegalArgumentException("event is null");
-        for (Entry e : modules.values()) if (e.state == State.ENABLED) {
-            try { e.module.onEvent(event); }
-            catch (Throwable ex) { fault(e, ex, true); }
+        // Re-entry from an arbitrary module callback would otherwise recurse
+        // until stack exhaustion. The caller is fault-isolated by the parent.
+        if(dispatching)throw new IllegalStateException("Recursive event dispatch");
+        dispatching=true;
+        try {
+            // A newly registered module is eligible from the NEXT event,
+            // never halfway through a currently executing event.
+            Entry[] snapshot=dispatchEntries;
+            for(Entry e:snapshot) {
+                // An event handler is permitted to request shutdown; callbacks
+                // for the remaining snapshot must not run after it seals us.
+                if(shutdown)break;
+                if(e.state != State.ENABLED)continue;
+                try { e.module.onEvent(event); }
+                catch(Throwable ex) { fault(e,ex,true); }
+            }
+        } finally {
+            dispatching=false;
         }
     }
     private void fault(Entry e, Throwable cause, boolean cleanup) {
