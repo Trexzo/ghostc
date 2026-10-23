@@ -1,6 +1,6 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R2.77:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R2.78:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
@@ -8,6 +8,7 @@
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.
 - Forge `@Mod` adapter under `forge189/`: world-only status/metrics HUD, F8 status toggle and F7 ClickGUI.
 - New searchable ClickGUI: categories, settings, keybind capture, themed wide/compact layout; HUD editor with normalized positions and atomic preference persistence.
+- R2.78 duplicate-key fail-closed configuration parsing: modern sealed and legacy .properties files now reject multiple decoded spellings of the same field, including escaped aliases and repeated checksum keys. Strict parsing also enforces the existing field limit before fully loading a file. Recovery only promotes validated backups; 3,000 seeded duplicate cases plus profile and HUD recovery regressions protect the path. See [R2.78 strict configuration parsing](docs/RUNTIME_R98.md).
 - R2.77 HUD editor transaction safety: dragging is now tracked against its original normalized anchor and viewport. Release, resize, tab switch and GUI closure commit changed positions, while return-to-origin gestures and repeated keyboard boundaries/default resets avoid redundant writes. Nudge logic preserves exact untouched axes. Java8 tests replay 80,000 capture sessions and Forge wiring checks the lifecycle. See [R2.77 HUD editor captures](docs/RUNTIME_R97.md).
 - R2.76 bounded ClickGUI footer warnings: local validation errors take precedence over host warnings, and both are Unicode-safe pixel-fitted to the same reserved footer width as setting hints. Oversized messages no longer render beyond compact/wide panels. The pure Java8 footer policy is validated across 85,000 randomized layouts. See [R2.76 bounded footer errors](docs/RUNTIME_R96.md).
 - R2.75 slider drag final-value persistence: mouse captures now track their initial numeric value and only persist when the final applied value differs. A drag that returns to its starting value does not rewrite the profile; interrupted dirty drags still commit once. Java8 coverage includes 75,000 randomized capture round-trips and live UiActions integration. See [R2.75 slider round-trip guard](docs/RUNTIME_R95.md).
