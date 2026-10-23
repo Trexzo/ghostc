@@ -139,6 +139,19 @@ class ForgeWiring(unittest.TestCase):
                       content(".github/workflows/core-ci.yml"))
         self.assertIn("TargetHudDistanceText.class",content("tools/verify_forge_jar.py"))
 
+    def test_snapshot_admission_visitor_cannot_mutate_live_buffers(self):
+        admission=content("src/main/java/dev/ghostfusion/services/WorldSnapshotAdmission.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/PinnedSnapshotTests.java")
+        self.assertIn("private boolean emitting;",admission)
+        self.assertIn("private void assertWritable()",admission)
+        self.assertIn("if(emitting)throw new IllegalStateException(\"snapshot admission is emitting\")",admission)
+        self.assertIn("if(emitting)throw new IllegalStateException(\"recursive snapshot emission\")",admission)
+        self.assertIn("emitting=true;",admission)
+        self.assertIn("} finally {\n            emitting=false;",admission)
+        self.assertIn("public void clear(){\n        assertWritable();",admission)
+        self.assertIn("visitorMutationGuards();churn();",suite)
+        self.assertIn("frame<12000;frame++",suite)
+
     def test_target_hud_crosshair_selection_is_snapshot_and_identity_fenced(self):
         forge=(FORGE/"ForgeFeatureDriver.java").read_text(encoding="utf-8")
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")

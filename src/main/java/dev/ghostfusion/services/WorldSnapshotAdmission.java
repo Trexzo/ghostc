@@ -23,12 +23,19 @@ public final class WorldSnapshotAdmission<T> {
     private int pinnedId;
     private double pinnedDistanceSq;
     private boolean pinnedVisible;
+    // Visitor code is owner-thread code but must not mutate/reenter the
+    // live ordered candidate buffers while a stream is being published.
+    private boolean emitting;
+    private void assertWritable() {
+        check();
+        if(emitting)throw new IllegalStateException("snapshot admission is emitting");
+    }
     private void check(){
         if(Thread.currentThread()!=owner)
             throw new IllegalStateException("snapshot admission owner thread");
     }
     public boolean offer(T player,int id,double squaredDistance,boolean isVisible) {
-        check();
+        assertWritable();
         if(player==null || !Double.isFinite(squaredDistance) || squaredDistance<0)
             return false;
         if(isVisible) {
@@ -43,7 +50,7 @@ public final class WorldSnapshotAdmission<T> {
     /** Pin at most one already-eligible, current-tick player for crosshair HUD.
      * Does not disturb the normal nearest-256 visibility partitions. */
     public boolean pin(T player,int id,double squaredDistance,boolean isVisible) {
-        check();
+        assertWritable();
         if(player==null || !Double.isFinite(squaredDistance) || squaredDistance<0)
             return false;
         pinned=player;
@@ -77,6 +84,9 @@ public final class WorldSnapshotAdmission<T> {
     private void emit(Visitor<T> sink,boolean includePinned) {
         check();
         if(sink==null)throw new IllegalArgumentException("snapshot visitor");
+        if(emitting)throw new IllegalStateException("recursive snapshot emission");
+        emitting=true;
+        try {
         boolean extra=includePinned && needsPinnedSlot();
         int a=0,b=0;
         while(a<visible.size() || b<hidden.size() || extra){
@@ -105,9 +115,12 @@ public final class WorldSnapshotAdmission<T> {
             if(pickVisible)sink.visit(visible.get(a++),true);
             else sink.visit(hidden.get(b++),false);
         }
+        } finally {
+            emitting=false;
+        }
     }
     public void clear(){
-        check();
+        assertWritable();
         visible.clear();hidden.clear();
         pinned=null; // Never retain a prior-world Minecraft entity.
         pinnedDistanceSq=0;
