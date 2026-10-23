@@ -269,6 +269,21 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("testHostEventReentryFence(dir.resolve(\"host-reentry\"));",tests)
         self.assertIn("i<2500;i++",tests)
 
+    def test_async_producer_cannot_spoof_owner_lifecycle_events(self):
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/HostRuntimeTests.java")
+        enqueue=host.split("public boolean enqueue(GameEvent.Kind kind) {",1)[1].split(
+            "private void assertHostEventBoundary()",1)[0]
+        self.assertIn("kind != GameEvent.Kind.CLIENT_TICK",enqueue)
+        self.assertIn("kind != GameEvent.Kind.RENDER_2D",enqueue)
+        self.assertIn('throw new IllegalArgumentException("owner-only lifecycle event")',enqueue)
+        self.assertLess(enqueue.index("owner-only lifecycle event"),
+                        enqueue.index("return ingress.submit(event(kind));"))
+        self.assertIn('testProducerLifecycleAuthority(dir.resolve("producer-lifecycle"));',tests)
+        self.assertIn("i<8000;i++",tests)
+        self.assertIn("i<2000;i++",tests)
+        self.assertIn("greatestSequence[0]==203",tests)
+
     def test_async_ingress_is_fenced_across_world_and_disconnect_epochs(self):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         ingress=content("src/main/java/dev/ghostfusion/core/BoundedIngress.java")
