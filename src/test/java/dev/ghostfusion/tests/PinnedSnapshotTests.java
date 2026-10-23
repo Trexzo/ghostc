@@ -127,6 +127,84 @@ public final class PinnedSnapshotTests {
         }
         ok(missingSink,"null pinned visitor rejected");
     }
+    /** Visitor callbacks may read counts but cannot mutate buffers or
+     * recursively stream the same live candidate snapshot. */
+    private static void blocks(Runnable action,String message) {
+        boolean denied=false;
+        try{action.run();}catch(IllegalStateException expected){denied=true;}
+        ok(denied,message);
+    }
+    private static void visitorMutationGuards() {
+        WorldSnapshotAdmission<Candidate> b=new WorldSnapshotAdmission<Candidate>();
+        Candidate visible=new Candidate(40,2,true);
+        Candidate hidden=new Candidate(41,3,false);
+        Candidate pinned=new Candidate(42,4,true);
+        ok(b.offer(visible,visible.id,4,true),"baseline visible admission");
+        ok(b.offer(hidden,hidden.id,9,false),"baseline hidden admission");
+        ok(b.pin(pinned,pinned.id,16,true),"baseline pinned admission");
+        List<Integer> visited=new ArrayList<Integer>();
+        b.forEachWithPinned((item,isVisible)->{
+            visited.add(item.id);
+            ok(b.size()==2 && b.sizeWithPinned()==3,
+                "read-only inspection allowed during visitor callback");
+            blocks(b::clear,"world clear forbidden during emission");
+            blocks(()->b.offer(new Candidate(99,0,true),99,0,true),
+                "offer forbidden during emission");
+            blocks(()->b.pin(new Candidate(98,0,false),98,0,false),
+                "pin replacement forbidden during emission");
+            blocks(()->b.forEach((nested,v)->{}),
+                "recursive plain snapshot emission forbidden");
+            blocks(()->b.forEachWithPinned((nested,v)->{}),
+                "recursive pinned snapshot emission forbidden");
+        });
+        ok(visited.equals(java.util.Arrays.asList(40,41,42)),
+            "ordered snapshot unchanged despite rejected callback mutations");
+        ok(b.size()==2 && b.sizeWithPinned()==3,
+            "rejected changes never corrupt admission state");
+        boolean thrown=false;
+        try {b.forEachWithPinned((item,vis)->{
+            throw new IllegalArgumentException("visitor failure");
+        });}catch(IllegalArgumentException expected){thrown=true;}
+        ok(thrown,"visitor failure is reported to owner");
+        visited.clear();
+        b.forEachWithPinned((item,vis)->visited.add(item.id));
+        ok(visited.equals(java.util.Arrays.asList(40,41,42)),
+            "failed visitor releases emission guard for retry");
+        b.clear();
+        ok(b.sizeWithPinned()==0,"after emission failure clear releases references");
+
+        Random rng=new Random(2832026L);
+        for(int frame=0;frame<12000;frame++) {
+            final int frameId=frame;
+            b.clear();
+            int a=100+frame*3;
+            Candidate first=new Candidate(a,1,true);
+            Candidate second=new Candidate(a+1,2,false);
+            Candidate extra=new Candidate(a+2,3,true);
+            ok(b.offer(first,first.id,1,true),"replay visible admitted "+frame);
+            ok(b.offer(second,second.id,4,false),"replay hidden admitted "+frame);
+            boolean pin=rng.nextBoolean();
+            if(pin)ok(b.pin(extra,extra.id,9,true),
+                "replay pinned admitted "+frame);
+            List<Integer> streamed=new ArrayList<Integer>();
+            b.forEachWithPinned((item,vis)->{
+                streamed.add(item.id);
+                // Callbacks intentionally attempt an unsafe same-frame
+                // mutation from either a visible, hidden or pinned slot.
+                blocks(()->b.offer(extra,extra.id,0,true),
+                    "replay callback cannot change selection "+frameId);
+                blocks(b::clear,"replay callback cannot clear candidates "+frameId);
+            });
+            ok(streamed.size()==(pin?3:2) &&
+               streamed.get(0)==a && streamed.get(1)==a+1 &&
+               (!pin || streamed.get(2)==a+2),
+               "replay stable merged order with optional pin "+frame);
+            ok(b.size()==2 && b.sizeWithPinned()==(pin?3:2),
+                "replay buffers intact after callback attempts "+frame);
+        }
+        b.clear();
+        ok(b.sizeWithPinned()==0,"replay final clean world boundary");
+    }
     private static void churn() {
         WorldSnapshotAdmission<Candidate> b=new WorldSnapshotAdmission<Candidate>();
         Random r=new Random(20261022L);
@@ -147,7 +225,7 @@ public final class PinnedSnapshotTests {
         ok(b.sizeWithPinned()==0,"long-session cleanup succeeds");
     }
     public static void main(String[] args) {
-        crowdedPinnedTarget();duplicateAndInvalid();churn();
+        crowdedPinnedTarget();duplicateAndInvalid();visitorMutationGuards();churn();
         ok(checks>140000,"substantial pinned-snapshot crowded replay");
         System.out.println("PINNED_SNAPSHOT_PASS assertions="+checks);
     }
