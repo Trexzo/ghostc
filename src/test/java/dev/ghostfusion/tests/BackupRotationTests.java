@@ -237,7 +237,7 @@ public final class BackupRotationTests {
         }
         state.position(.78,.84);
         ui.save();
-        ok(".78".equals(read(uiPrimary).getProperty("hud.x")) &&
+        ok("0.78".equals(read(uiPrimary).getProperty("hud.x")) &&
            Arrays.equals(uiOld,bytes(uiBackup)),
            "changed HUD anchor writes and backs up previous sealed settings");
         Properties uiDamage=read(uiBackup);
