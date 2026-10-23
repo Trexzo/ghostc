@@ -1476,7 +1476,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertGreaterEqual(inventory.count("iterator.remove();"),2)
         self.assertNotIn("new ArrayList<Transaction>(pending.values())",inventory)
         self.assertIn('if(nextId==Long.MAX_VALUE)',inventory)
-        self.assertIn("inventoryScheduling(); sessions();",tests)
+        self.assertIn("inventoryScheduling(); arbitrationOrdinalBoundaries(); sessions();",tests)
         self.assertIn("cycle<12000;cycle++",tests)
 
     def test_packet_cancel_owner_detaches_before_callbacks(self):
