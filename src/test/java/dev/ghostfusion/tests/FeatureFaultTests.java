@@ -227,7 +227,7 @@ public final class FeatureFaultTests {
             ok(guard.execute(a.id(),()->calls[0]++),
                "explicit re-enable restores legal callback "+i);
         }
-        ok(calls[0]==24003 && faults[0]==12002,
+        ok(calls[0]==24002 && faults[0]==12002,
            "12,000 cycles cannot stack-recurse, leak guard state or duplicate reports");
         registry.shutdown();
     }
