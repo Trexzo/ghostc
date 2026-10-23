@@ -1410,10 +1410,12 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.GuiSliderDragTests",
                       content(".github/workflows/core-ci.yml"))
         self.assertIn("GuiSliderDrag.class",content("tools/verify_forge_jar.py"))
-        self.assertLess(gui.index("finishSliderDrag();\n        super.mouseClicked("),
-                        gui.index("sliderDrag.begin(selected,it.getKey()"))
+        click=gui.index("@Override protected void mouseClicked")
+        capture=gui.index("sliderDrag.begin(selected,it.getKey()",click)
+        self.assertLess(gui.index("finishSliderDrag();",click),capture)
+        self.assertLess(gui.index("finishHudDrag();",click),capture)
         self.assertLess(gui.index("if(sliderDrag.active()) {",gui.index("mouseClickMove")),
-                        gui.index("if (hudDragging && button==0",gui.index("mouseClickMove")))
+                        gui.index("if(hudDragging) {",gui.index("mouseClickMove")))
         self.assertIn("if (wheel != 0 && !hudPage)",gui)
 
     def test_clickgui_header_and_sidebar_chrome_are_bounded(self):
@@ -1570,8 +1572,8 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("HudFootprints.height(widget,jump,sneak,targetHealth)",viewport)
         self.assertIn("HudFootprints.height(widget,host.keysJump()",gui)
         self.assertIn("HudEditorControls.tabAt(",gui)
-        self.assertIn("hudControls.nudge(ui,",gui)
-        self.assertIn("hudControls.reset(ui)",gui)
+        self.assertIn("hudControls.nudgeIfChanged(ui,",gui)
+        self.assertIn("hudControls.resetIfChanged(ui)",gui)
         self.assertIn("hudControls.select(picked)",gui)
         self.assertIn("Keyboard.KEY_LEFT",gui)
         self.assertIn("Keyboard.KEY_RIGHT",gui)
@@ -1587,6 +1589,33 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("case TARGET: return targetHealth?43:29;",sizes)
         self.assertIn("dev.ghostfusion.tests.HudEditorControlsTests",
                       content(".github/workflows/core-ci.yml"))
+
+    def test_hud_editor_drag_capture_saves_only_final_changed_anchor(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        capture=content("src/main/java/dev/ghostfusion/ui/HudDragCapture.java")
+        editor=content("src/main/java/dev/ghostfusion/ui/HudEditorControls.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/HudEditorControlsTests.java")
+        self.assertIn("private final HudDragCapture hudCapture = new HudDragCapture();",gui)
+        self.assertIn("hudCapture.begin(ui,widget,width,height,mx,my);",gui)
+        self.assertIn("hudCapture.begin(ui,null,width,height,mx,my);",gui)
+        self.assertIn("boolean changed=hudCapture.finish(ui);",gui)
+        self.assertIn("if(hudCapture.restoreAtPointerOrigin(ui,mx,my))return;",gui)
+        self.assertIn("public boolean restoreAtPointerOrigin(UiState ui,int pointerX,int pointerY)",capture)
+        self.assertIn("pointerX!=pointerStartX || pointerY!=pointerStartY",capture)
+        self.assertIn("origin pointer restores exact randomized anchor",tests)
+        self.assertIn("if(changed)host.persistUi();",gui)
+        self.assertIn("if(hudDragging && (!hudCapture.sameViewport(width,height)",gui)
+        self.assertIn("finishHudDrag();",gui)
+        self.assertIn("if(state==0)adjustHudDrag(mx,my);",gui)
+        self.assertIn("if(hudControls.resetIfChanged(ui))host.persistUi();",gui)
+        self.assertIn("if(hudControls.nudgeIfChanged(ui,dx*step,dy*step,",gui)
+        self.assertIn("if(!endedHudDrag)host.persistUi();",gui)
+        self.assertIn("Double.compare(initialX,x(ui,widget))!=0",capture)
+        self.assertIn("public boolean resetIfChanged(UiState ui)",editor)
+        self.assertIn("public boolean nudgeIfChanged(UiState ui,",editor)
+        self.assertIn("80000;i++",tests)
+        self.assertIn("randomizedCapture();",tests)
+        self.assertIn("HudDragCapture.class",content("tools/verify_forge_jar.py"))
 
     def test_optional_metrics_ping_layout_and_editor_match(self):
         adapter=self.adapter

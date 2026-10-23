@@ -1,6 +1,7 @@
 package dev.ghostfusion.tests;
 
 import dev.ghostfusion.ui.HudEditorControls;
+import dev.ghostfusion.ui.HudDragCapture;
 import dev.ghostfusion.ui.HudFootprints;
 import dev.ghostfusion.ui.HudPositions;
 import dev.ghostfusion.ui.HudPreviewGeometry;
@@ -168,8 +169,133 @@ public final class HudEditorControlsTests {
                "integer-extreme safe clamped nudge "+item);
         }
     }
-    public static void main(String[] args) {
+    private static void changedAwareActions() {
+        UiState ui=new UiState();
+        HudEditorControls controls=new HudEditorControls();
+        controls.select(HudEditorControls.Item.STATUS);
+        ok(!controls.resetIfChanged(ui),"reset already default status is no-op");
+        ok(!controls.nudgeIfChanged(ui,0,0,1920,1080,124,22),
+            "zero nudge never quantizes current anchor");
+        double beforeY=ui.hudY();
+        ok(controls.nudgeIfChanged(ui,10,0,1920,1080,124,22),
+            "real horizontal nudge changes selected anchor");
+        ok(Double.compare(beforeY,ui.hudY())==0,
+            "horizontal nudge preserves exact untouched Y");
+        ok(controls.resetIfChanged(ui),"changed status reset returns true");
+        ok(!controls.resetIfChanged(ui),"repeated status reset returns false");
+        for(HudEditorControls.Item item:HudEditorControls.Item.values()){
+            controls.select(item);
+            if(item.widget!=null) {
+                ok(!controls.resetIfChanged(ui),
+                    "already default widget reset is no-op");
+                double priorY=ui.widgets().y(item.widget);
+                ok(!controls.nudgeIfChanged(ui,0,0,1024,768,83,43),
+                    "widget zero nudge is a no-op");
+                ok(Double.compare(ui.widgets().y(item.widget),priorY)==0,
+                    "zero nudge does not reserialize widget anchor");
+            }
+            controls.nudge(ui,Integer.MIN_VALUE,Integer.MIN_VALUE,1920,1080,83,43);
+            ok(!controls.nudgeIfChanged(ui,-10,-10,1920,1080,83,43),
+                "boundary nudge performs no mutation");
+            ok(controls.resetIfChanged(ui),
+                "reset from boundary changes only selected anchor");
+        }
+        rejects(()->controls.nudgeIfChanged(ui,1,0,0,100,83,43),
+            "invalid dimensions rejected by changed-aware API");
+    }
+    private static void capturedHudTransactions() throws Exception {
+        UiState ui=new UiState();
+        HudDragCapture drag=new HudDragCapture();
+        ok(!drag.active() && !drag.finish(ui),
+            "idle finish does not request disk persistence");
+        drag.begin(ui,null,1920,1080,120,240);
+        ok(drag.sameViewport(1920,1080) &&
+           !drag.sameViewport(1280,720),"capture binds source viewport");
+        boolean nestedDenied=false;
+        try{drag.begin(ui,null,1920,1080);}
+        catch(IllegalStateException expected){nestedDenied=true;}
+        ok(nestedDenied,"nested drag refused without corrupting original");
+        ui.position(0.8,0.8);
+        ok(!drag.restoreAtPointerOrigin(ui,121,240),
+            "different pointer must not undo a legitimate HUD move");
+        ok(drag.restoreAtPointerOrigin(ui,120,240),
+            "returning pointer restores original normalized Status anchor");
+        ok(ui.hudX()==UiState.DEFAULT_HUD_X && ui.hudY()==UiState.DEFAULT_HUD_Y,
+            "Status pointer origin restores exact persisted defaults");
+        ok(!drag.finish(ui),"return to same status anchor suppresses write");
+        ok(!drag.finish(ui),"finished capture cannot commit twice");
+        drag.begin(ui,null,1920,1080);
+        ui.position(0.45,0.61);
+        ok(drag.finish(ui),"status change requests one persisted commit");
+        HudPositions.Widget widget=HudPositions.Widget.TARGET;
+        drag.begin(ui,widget,1280,720);
+        ui.widgets().position(widget,0.31,0.79);
+        ok(drag.finish(ui),"widget move requests persisted commit");
+        drag.begin(ui,widget,1280,720,501,601);
+        double firstX=ui.widgets().x(widget),firstY=ui.widgets().y(widget);
+        ui.widgets().position(widget,0.8,0.8);
+        ok(drag.restoreAtPointerOrigin(ui,501,601),
+            "returning widget pointer recognizes original press position");
+        ok(ui.widgets().x(widget)==firstX && ui.widgets().y(widget)==firstY,
+            "widget pointer return restores the original exact X/Y");
+        ok(!drag.finish(ui),"widget revert suppresses write");
+        rejects(()->drag.begin(ui,widget,0,720),
+            "zero width viewport invalid");
+        rejects(()->drag.begin(null,widget,100,100),
+            "null UI invalid");
+        drag.begin(ui,widget,100,100);
+        java.util.concurrent.atomic.AtomicBoolean rejected=
+            new java.util.concurrent.atomic.AtomicBoolean();
+        Thread foreign=new Thread(()->{
+            try{drag.finish(ui);}catch(IllegalStateException e){rejected.set(true);}
+        });
+        foreign.start();foreign.join();
+        ok(rejected.get()&&drag.active(),
+            "foreign-thread finish must not release another thread's drag");
+        ok(!drag.finish(ui),"captured default can be released");
+    }
+    private static void randomizedCapture() {
+        java.util.Random rng=new java.util.Random(2772026L);
+        UiState ui=new UiState();
+        HudDragCapture capture=new HudDragCapture();
+        HudPositions.Widget[] widgets=HudPositions.Widget.values();
+        int wouldCommit=0;
+        for(int i=0;i<80000;i++){
+            HudPositions.Widget widget=i%4==0?null:widgets[rng.nextInt(widgets.length)];
+            double x=widget==null?ui.hudX():ui.widgets().x(widget);
+            double y=widget==null?ui.hudY():ui.widgets().y(widget);
+            int w=1+rng.nextInt(3840),h=1+rng.nextInt(2160);
+            int pointerX=rng.nextInt(4096),pointerY=rng.nextInt(4096);
+            capture.begin(ui,widget,w,h,pointerX,pointerY);
+            int steps=1+rng.nextInt(6);
+            for(int k=0;k<steps;k++) {
+                double nx=rng.nextInt(1001)/1000.0,ny=rng.nextInt(1001)/1000.0;
+                if(widget==null)ui.position(nx,ny);
+                else ui.widgets().position(widget,nx,ny);
+            }
+            if(rng.nextBoolean()) {
+                ok(capture.restoreAtPointerOrigin(ui,pointerX,pointerY),
+                    "origin pointer restores exact randomized anchor "+i);
+            } else {
+                ok(!capture.restoreAtPointerOrigin(ui,pointerX+1,pointerY),
+                    "different pointer never restores original anchor "+i);
+            }
+            double finalX=widget==null?ui.hudX():ui.widgets().x(widget);
+            double finalY=widget==null?ui.hudY():ui.widgets().y(widget);
+            boolean expected=Double.compare(x,finalX)!=0 ||
+                             Double.compare(y,finalY)!=0;
+            if(expected)wouldCommit++;
+            ok(capture.finish(ui)==expected,
+                "capture final-state oracle matches disk-save decision "+i);
+            ok(!capture.active()&&!capture.finish(ui),
+                "finished drag cannot save twice "+i);
+        }
+        ok(wouldCommit>25000 && wouldCommit<60000,
+            "seed exercises real changes and reverted gestures");
+    }
+    public static void main(String[] args) throws Exception {
         footprint();selectionAndReset();tabRanges();nudgeReplay();
+        changedAwareActions();capturedHudTransactions();randomizedCapture();
         ok(checks>160000,"substantial HUD control test coverage");
         System.out.println("HUD_EDITOR_CONTROLS_PASS assertions="+checks);
     }
