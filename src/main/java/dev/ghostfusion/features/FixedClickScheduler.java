@@ -29,7 +29,9 @@ public final class FixedClickScheduler {
             armedAtNanos=nowNanos;
             return false; // native first press is processed by vanilla Minecraft
         }
-        if(nowNanos-armedAtNanos<period) return false;
+        // A valid forward nanoTime interval can exceed the signed long range.
+        // Compare elapsed nanos without signed-subtraction overflow.
+        if(Long.compareUnsigned(nowNanos-armedAtNanos,period)<0) return false;
         // Missed frames do not create a burst of queued clicks.
         armedAtNanos=nowNanos;
         return true;

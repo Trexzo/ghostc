@@ -1,9 +1,10 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R2.92:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R2.93:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
+- R2.93 nanoTime signed-overflow correctness: AutoClicker pacing and CPS window expiry use unsigned elapsed durations, so very large forward time jumps cannot suppress due pulses or retain stale CPS clicks. Java8 boundary regressions exercise 30,000 scheduler and 18,000 meter cases. See [R2.93 nanoTime elapsed safety](docs/RUNTIME_R113.md).
 - R2.92 host event sequence exhaustion: atomic positive-ID reservations stop overflow even under producer contention. Tick/render/world-change/disconnect reserve required owner notifications before mutating host lifecycle state, with a two-ID disconnect reservation preventing partial world leave. Java8 regression exercises 48 competing producers, failed owner callbacks and the last two legal notification IDs. See [R2.92 event sequence safety](docs/RUNTIME_R112.md).
 - Host-independent registry, module lifecycle, typed settings, owner-thread policy, bounded event queue and profile persistence.
 - `HostRuntime` receives client tick/render/input/world/disconnect transitions, isolates them from Minecraft objects, and persists toggles.

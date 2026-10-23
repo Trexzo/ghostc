@@ -23,7 +23,11 @@ public final class CpsMeter {
         evict(left, now); evict(right, now);
     }
     private static void evict(Deque<Long> events, long now) {
-        while (!events.isEmpty() && now - events.peekFirst() >= WINDOW_NS) events.removeFirst();
+        // Nondecreasing timestamps may still span more than Long.MAX_VALUE
+        // nanos; unsigned elapsed comparison expires such old clicks.
+        while (!events.isEmpty() &&
+               Long.compareUnsigned(now-events.peekFirst(),WINDOW_NS)>=0)
+            events.removeFirst();
     }
     public void mouse(int button, boolean down, long now, boolean accepting) {
         check(now);
