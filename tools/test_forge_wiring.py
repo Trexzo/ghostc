@@ -33,6 +33,20 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("reentrantCallbackFence();",tests)
         self.assertIn("12,000 cycles cannot stack-recurse",tests)
 
+    def test_idempotent_verified_profile_and_ui_saves(self):
+        integrity=content("src/main/java/dev/ghostfusion/core/ConfigIntegrity.java")
+        profile=content("src/main/java/dev/ghostfusion/core/ProfileStore.java")
+        ui=content("src/main/java/dev/ghostfusion/ui/UiSettingsStore.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/BackupRotationTests.java")
+        self.assertIn("unchangedWithRecoveryBackup(Path primary,Properties desired,",integrity)
+        self.assertIn("!onDisk.equals(desired)",integrity)
+        self.assertIn("verify(recovery) && typedValidator.test(recovery)",integrity)
+        self.assertIn("recovery.equals(desired)",integrity)
+        self.assertIn("ConfigIntegrity.unchangedWithRecoveryBackup(destination,data,",profile)
+        self.assertIn("ConfigIntegrity.unchangedWithRecoveryBackup(file,p,",ui)
+        self.assertIn("idempotentSaves();",tests)
+        self.assertIn("second same-value save bootstraps backup",tests)
+
     def test_release_evidence_is_bound_to_ci_checkout_without_runtime_claims(self):
         workflow=content(".github/workflows/forge189-ci.yml")
         core=content(".github/workflows/core-ci.yml")

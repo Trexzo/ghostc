@@ -106,6 +106,40 @@ public final class ConfigIntegrity {
         return p;
     }
     /**
+     * A close-time save with no logical changes should not rewrite either
+     * verified file. Require BOTH a matching sealed primary and a matching,
+     * checksum-verified, typed-valid recovery backup before skipping a write.
+     * A damaged primary or backup must go through the ordinary safe rotation
+     * and atomic save path instead. Legacy unsealed primaries are migrated.
+     *
+     * A backup of the previous state is useful immediately after a mutation,
+     * but the next close must checkpoint the latest state to the backup
+     * before later unchanged closes may become no-ops.
+     */
+    public static boolean unchangedWithRecoveryBackup(Path primary,Properties desired,
+            java.util.function.Predicate<Properties> typedValidator) {
+        if(primary==null || desired==null || typedValidator==null)
+            throw new IllegalArgumentException("primary/desired/validator");
+        if(!verify(desired))throw new IllegalArgumentException("unsealed desired config");
+        Path backup=primary.resolveSibling(primary.getFileName()+".bak");
+        if(!Files.isRegularFile(primary,java.nio.file.LinkOption.NOFOLLOW_LINKS) ||
+           !Files.isRegularFile(backup,java.nio.file.LinkOption.NOFOLLOW_LINKS))
+            return false;
+        try {
+            Properties onDisk=read(primary);
+            if(!verify(onDisk) || !onDisk.equals(desired) ||
+               !typedValidator.test(onDisk))return false;
+            Properties recovery=read(backup);
+            // A distinct older backup must be refreshed on the next save
+            // so recovery restores the latest acknowledged HUD/profile state.
+            return verify(recovery) && typedValidator.test(recovery) &&
+                recovery.equals(desired);
+        } catch(IOException | RuntimeException invalid) {
+            return false; // The ordinary save path repairs the valid primary.
+        }
+    }
+
+    /**
      * Rotate a backup only from the exact bytes of a verified modern config.
      *
      * The source may have become damaged since startup; never overwrite the
