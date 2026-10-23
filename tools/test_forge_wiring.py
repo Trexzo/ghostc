@@ -1416,7 +1416,7 @@ class ForgeWiring(unittest.TestCase):
     def test_packet_reset_shutdown_reentry_fence(self):
         packets=content("src/main/java/dev/ghostfusion/services/PacketCoordinator.java")
         suite=content("src/test/java/dev/ghostfusion/tests/PacketLifecycleReentryTests.java")
-        self.assertIn("private boolean stopped, resetting, flushing;",packets)
+        self.assertIn("private boolean stopped, resetting, flushing, rejecting;",packets)
         self.assertIn("if(resetting) throw new IllegalStateException(",packets)
         self.assertIn("resetting=true;",packets)
         self.assertIn("queue.clear();",packets)
@@ -1479,6 +1479,21 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("cycle<6000;cycle++",suite)
         self.assertIn("PACKET_LIFECYCLE_REENTRY_PASS",suite)
 
+    def test_packet_full_queue_rejection_callback_is_recursion_fenced(self):
+        packets=content("src/main/java/dev/ghostfusion/services/PacketCoordinator.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/PacketLifecycleReentryTests.java")
+        submit=packets.split("public long submit(String owner,Direction direction,",1)[1].split(
+            "public boolean cancel(long id)",1)[0]
+        self.assertIn("private boolean stopped, resetting, flushing, rejecting;",packets)
+        self.assertIn('if(rejecting)throw new IllegalStateException("recursive packet rejection");',submit)
+        self.assertIn("rejected++;",submit)
+        self.assertIn("rejecting=true;",submit)
+        self.assertIn("} finally {\n                rejecting=false;",submit)
+        self.assertLess(submit.index("if(rejecting)throw"),submit.index("rejected++;"))
+        self.assertLess(submit.index("rejecting=true;"),submit.index("callback(callback,Result.REJECTED);"))
+        self.assertIn("rejectedCallbackReentry();fatalTransportTerminality();",tests)
+        self.assertIn("cycle<6000;cycle++",tests)
+
     def test_packet_transport_errors_have_terminal_receipts_and_tokens_are_positive(self):
         packets=content("src/main/java/dev/ghostfusion/services/PacketCoordinator.java")
         suite=content("src/test/java/dev/ghostfusion/tests/PacketLifecycleReentryTests.java")
@@ -1503,7 +1518,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("} finally {\n            flushing=false;",packets)
         self.assertLess(packets.index("if(flushing) throw"),packets.index("flushing=true;"))
         self.assertLess(packets.index("flushing=true;"),packets.index("for(Pending p:new ArrayList<Pending>(queue.values()))",packets.index("public int flush(")))
-        self.assertIn("flushReentryBudget();fatalTransportTerminality();",suite)
+        self.assertIn("flushReentryBudget();rejectedCallbackReentry();fatalTransportTerminality();",suite)
         self.assertIn("atomicOwnerCancellation();ownerCancellationReplay();",suite)
         self.assertIn("nested flush storm bounded",suite)
         self.assertIn("reset from completion remains safe",suite)
