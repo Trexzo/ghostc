@@ -23,6 +23,7 @@ import dev.ghostfusion.ui.GuiSliderDrag;
 import dev.ghostfusion.ui.NumericSliderScale;
 import dev.ghostfusion.ui.StatusHudLayout;
 import dev.ghostfusion.ui.HudEditorControls;
+import dev.ghostfusion.ui.HudDragCapture;
 import dev.ghostfusion.ui.HudPreviewGeometry.Rect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
@@ -49,6 +50,7 @@ public final class GhostClickGui extends GuiScreen {
     private String message = "";
     private boolean hudPage;
     private boolean hudDragging;
+    private final HudDragCapture hudCapture = new HudDragCapture();
     private Widget draggingWidget; // null means the original Status HUD
     private final HudEditorControls hudControls = new HudEditorControls();
     private final GuiSliderDrag sliderDrag = new GuiSliderDrag();
@@ -87,6 +89,8 @@ public final class GhostClickGui extends GuiScreen {
         listY=g.listY; listH=g.listHeight; visibleRows=g.visibleRows;
         previewX=g.previewX; previewY=g.previewY;
         previewW=g.previewWidth; previewH=g.previewHeight;
+        if(hudDragging && (!hudCapture.sameViewport(width,height) ||
+                           !GuiChrome.interactive(g)))finishHudDrag();
         if (!GuiChrome.interactive(g)) {
             hudDragging=false;
             draggingWidget=null;
@@ -371,8 +375,30 @@ public final class GhostClickGui extends GuiScreen {
     private void finishSliderDrag() {
         if(sliderDrag.finish())host.uiActions().commitSlider();
     }
+    /** Commit once on release, resize, tab switch or GUI closure.
+     * Returning to the original anchor has no persistence side effect. */
+    private boolean finishHudDrag() {
+        if(!hudDragging)return false;
+        boolean changed=hudCapture.finish(ui);
+        hudDragging=false;draggingWidget=null;
+        if(changed)host.persistUi();
+        return changed;
+    }
+    private void adjustHudDrag(int mx,int my) {
+        if(!hudDragging || !hudCapture.sameViewport(width,height))return;
+        if(previewW<=0 || previewH<=0 ||
+           !GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout())))return;
+        HudPreviewGeometry geometry=previewGeometry();
+        if(draggingWidget==null)
+            geometry.moveStatus(ui,statusPreviewWidth(),statusPreviewHeight(),
+                mx,my,dragX,dragY);
+        else
+            geometry.moveWidget(ui.widgets(),draggingWidget,mx,my,dragX,dragY,
+                hudWidth(draggingWidget),hudHeight(draggingWidget));
+    }
     @Override protected void mouseClicked(int mx, int my, int button) throws IOException {
         finishSliderDrag();
+        finishHudDrag();
         super.mouseClicked(mx, my, button);
         rebuild();
         GuiLayout zone = GuiLayout.calculate(width,height,ui.layout());
@@ -398,8 +424,6 @@ public final class GhostClickGui extends GuiScreen {
                 x+side+12,y+62,w-side-24,mx,my);
             if(picked!=null) {
                 hudControls.select(picked);
-                hudDragging=false;
-                draggingWidget=null;
                 return;
             }
             HudPreviewGeometry geometry=previewGeometry();
@@ -411,6 +435,7 @@ public final class GhostClickGui extends GuiScreen {
                 Rect r=geometry.widget(ui.widgets(),widget,hudWidth(widget),hudHeight(widget));
                 if(r.contains(mx,my)) {
                     hudControls.select(HudEditorControls.itemFor(widget));
+                    hudCapture.begin(ui,widget,width,height);
                     hudDragging=true;draggingWidget=widget;
                     dragX=mx-r.x;dragY=my-r.y;
                     return;
@@ -419,6 +444,7 @@ public final class GhostClickGui extends GuiScreen {
             Rect status=geometry.status(ui,statusPreviewWidth(),statusPreviewHeight());
             if(status.contains(mx,my)) {
                 hudControls.select(HudEditorControls.Item.STATUS);
+                hudCapture.begin(ui,null,width,height);
                 hudDragging=true;draggingWidget=null;
                 dragX=mx-status.x;dragY=my-status.y;
             }
@@ -491,15 +517,9 @@ public final class GhostClickGui extends GuiScreen {
             else finishSliderDrag();
             return;
         }
-        if (hudDragging && button==0 && previewW>0 && previewH>0 &&
-            GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout()))) {
-            HudPreviewGeometry geometry=previewGeometry();
-            if(draggingWidget==null)
-                geometry.moveStatus(ui,statusPreviewWidth(),statusPreviewHeight(),
-                    mx,my,dragX,dragY);
-            else
-                geometry.moveWidget(ui.widgets(),draggingWidget,mx,my,dragX,dragY,
-                    hudWidth(draggingWidget),hudHeight(draggingWidget));
+        if(hudDragging) {
+            if(button==0)adjustHudDrag(mx,my);
+            else finishHudDrag();
         }
     }
     @Override protected void mouseReleased(int mx,int my,int state) {
@@ -508,10 +528,9 @@ public final class GhostClickGui extends GuiScreen {
             if(state==0 && sliderDrag.sameViewport(width,height))adjustSliderDrag(mx);
             finishSliderDrag();
         }
-        if (hudDragging) {
-            hudDragging=false;
-            draggingWidget=null;
-            host.persistUi();
+        if(hudDragging) {
+            if(state==0)adjustHudDrag(mx,my);
+            finishHudDrag();
         }
     }
     @Override public void handleMouseInput() throws IOException {
@@ -563,8 +582,7 @@ public final class GhostClickGui extends GuiScreen {
         }
         if (hudPage) {
             if (keyCode==Keyboard.KEY_R) {
-                hudControls.reset(ui);
-                host.persistUi();
+                if(hudControls.resetIfChanged(ui))host.persistUi();
                 return;
             }
             int dx=0,dy=0;
@@ -580,8 +598,8 @@ public final class GhostClickGui extends GuiScreen {
                     statusPreviewWidth():hudWidth(item.widget);
                 int ch=item==HudEditorControls.Item.STATUS ?
                     statusPreviewHeight():hudHeight(item.widget);
-                hudControls.nudge(ui,dx*step,dy*step,width,height,cw,ch);
-                host.persistUi();
+                if(hudControls.nudgeIfChanged(ui,dx*step,dy*step,
+                                               width,height,cw,ch))host.persistUi();
                 return;
             }
         }
@@ -729,13 +747,17 @@ public final class GhostClickGui extends GuiScreen {
     }
     @Override public void onGuiClosed() {
         finishSliderDrag();
+        boolean endedHudDrag=hudDragging;
+        finishHudDrag();
         host.diagnostics().record(Counter.GUI_CLOSE);
         Keyboard.enableRepeatEvents(false);
         hudDragging = false;
         draggingWidget = null;
         capture = null;
         keyboardSetting=-1;
-        host.persistUi();
+        // A capture that changed was already committed by finishHudDrag;
+        // otherwise retain the existing close-time preferences checkpoint.
+        if(!endedHudDrag)host.persistUi();
         host.inputFocus(true);
         super.onGuiClosed();
     }
