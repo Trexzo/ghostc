@@ -189,6 +189,146 @@ public final class PacketLifecycleReentryTests {
             q.shutdown();
         }
     }
+    /** R2.80: owner cancellation must remain terminal and count-stable even
+     * when a completion shuts down, resets, or queues additional work. */
+    private static void atomicOwnerCancellation() {
+        PacketCoordinator shutdown=new PacketCoordinator(5);
+        List<String> events=new ArrayList<String>();
+        shutdown.submit("owner.a",PacketCoordinator.Direction.OUTBOUND,
+            new byte[]{1},1,r->{
+                events.add("a1:"+r);
+                shutdown.shutdown();
+            });
+        shutdown.submit("owner.b",PacketCoordinator.Direction.OUTBOUND,
+            new byte[]{2},1,r->events.add("b:"+r));
+        shutdown.submit("owner.a",PacketCoordinator.Direction.OUTBOUND,
+            new byte[]{3},1,r->events.add("a2:"+r));
+        ok(shutdown.cancelOwner("owner.a")==2,
+            "callback-triggered shutdown cannot interrupt detached owner batch");
+        ok(events.size()==3 && "a1:CANCELLED".equals(events.get(0)) &&
+            "b:SHUTDOWN".equals(events.get(1)) &&
+            "a2:CANCELLED".equals(events.get(2)),
+            "detached owner requests remain CANCELLED; unrelated shutdown is distinct");
+        rejects(()->shutdown.cancelOwner("owner.a"),
+            "shutdown stays final after owner cancellation returns");
+
+        PacketCoordinator reset=new PacketCoordinator(5);
+        List<String> resetResults=new ArrayList<String>();
+        reset.submit("owner.a",PacketCoordinator.Direction.OUTBOUND,
+            new byte[]{1},2,r->{resetResults.add("a1:"+r);reset.reset();});
+        reset.submit("owner.b",PacketCoordinator.Direction.OUTBOUND,
+            new byte[]{2},2,r->resetResults.add("b:"+r));
+        reset.submit("owner.a",PacketCoordinator.Direction.OUTBOUND,
+            new byte[]{3},2,r->resetResults.add("a2:"+r));
+        ok(reset.cancelOwner("owner.a")==2 &&
+           resetResults.contains("a1:CANCELLED") &&
+           resetResults.contains("a2:CANCELLED") &&
+           resetResults.contains("b:STALE_SESSION"),
+            "reset from callback only cancels non-detached requests");
+        ok(reset.metrics().queued==0 && reset.metrics().cancelled==3,
+            "reset and detached owner cancellations counted exactly once");
+        reset.shutdown();
+
+        PacketCoordinator submitting=new PacketCoordinator(6);
+        List<String> receipts=new ArrayList<String>();
+        submitting.submit("owner.a",PacketCoordinator.Direction.OUTBOUND,
+            new byte[]{1},3,r->{
+                receipts.add("old1:"+r);
+                ok(submitting.cancelOwner("owner.a")==0,
+                    "nested owner cancellation cannot recapture detached batch");
+                long newId=submitting.submit("owner.a",
+                    PacketCoordinator.Direction.OUTBOUND,new byte[]{9},3,
+                    result->receipts.add("new:"+result));
+                ok(newId>0,"new work from completion allowed after detachment");
+            });
+        submitting.submit("owner.b",PacketCoordinator.Direction.OUTBOUND,
+            new byte[]{2},3,r->receipts.add("peer:"+r));
+        submitting.submit("owner.a",PacketCoordinator.Direction.OUTBOUND,
+            new byte[]{3},3,r->receipts.add("old2:"+r));
+        ok(submitting.cancelOwner("owner.a")==2,
+            "original matched count stable across nested cancellation and submit");
+        ok(submitting.metrics().queued==2 && submitting.metrics().cancelled==2,
+            "new same-owner work and unrelated peer remain pending");
+        ok(submitting.flush((d,b)->{},3,6)==2,
+            "new work delivers on a subsequent explicit flush");
+        ok(receipts.contains("old1:CANCELLED") &&
+           receipts.contains("old2:CANCELLED") &&
+           receipts.contains("new:SENT") && receipts.contains("peer:SENT"),
+            "each detached and subsequently submitted item has unique correct result");
+        submitting.shutdown();
+
+        PacketCoordinator throwing=new PacketCoordinator(3);
+        AtomicInteger settled=new AtomicInteger();
+        throwing.submit("owner.a",PacketCoordinator.Direction.OUTBOUND,
+            new byte[]{1},1,r->{settled.incrementAndGet();
+                throw new IllegalStateException("private callback");});
+        throwing.submit("owner.a",PacketCoordinator.Direction.OUTBOUND,
+            new byte[]{2},1,r->{
+                ok(r==PacketCoordinator.Result.CANCELLED,"later owner receipt is cancelled");
+                settled.incrementAndGet();
+            });
+        ok(throwing.cancelOwner("owner.a")==2 && settled.get()==2 &&
+           throwing.metrics().callbackFailures==1 &&
+           throwing.metrics().cancelled==2,
+            "thrown first callback does not prevent later owner completion");
+        throwing.shutdown();
+    }
+
+    private static void ownerCancellationReplay() {
+        for(int cycle=0;cycle<6000;cycle++) {
+            final int mode=cycle%4, epoch=cycle;
+            PacketCoordinator packets=new PacketCoordinator(5);
+            AtomicInteger owners=new AtomicInteger(),peers=new AtomicInteger(),
+                newWork=new AtomicInteger();
+            packets.submit("owner.a",PacketCoordinator.Direction.OUTBOUND,
+                new byte[]{1},epoch,r->{
+                    ok(r==PacketCoordinator.Result.CANCELLED,
+                        "old owner receipt remains cancelled "+epoch);
+                    owners.incrementAndGet();
+                    if(mode==0)packets.shutdown();
+                    else if(mode==1)packets.reset();
+                    else if(mode==2) {
+                        ok(packets.cancelOwner("owner.a")==0,
+                            "reentry does not see detached owner "+epoch);
+                    } else {
+                        packets.submit("owner.a",PacketCoordinator.Direction.OUTBOUND,
+                            new byte[]{4},epoch,result->{
+                                ok(result==PacketCoordinator.Result.SENT,
+                                    "new owner work not retroactively cancelled "+epoch);
+                                newWork.incrementAndGet();
+                            });
+                    }
+                });
+            packets.submit("owner.b",PacketCoordinator.Direction.OUTBOUND,
+                new byte[]{2},epoch,r->{
+                    PacketCoordinator.Result expected=mode==0?
+                        PacketCoordinator.Result.SHUTDOWN:mode==1?
+                        PacketCoordinator.Result.STALE_SESSION:
+                        PacketCoordinator.Result.SENT;
+                    ok(r==expected,"peer terminal result follows transition "+epoch);
+                    peers.incrementAndGet();
+                });
+            packets.submit("owner.a",PacketCoordinator.Direction.OUTBOUND,
+                new byte[]{3},epoch,r->{
+                    ok(r==PacketCoordinator.Result.CANCELLED,
+                        "second original owner receipt remains cancelled "+epoch);
+                    owners.incrementAndGet();
+                });
+            ok(packets.cancelOwner("owner.a")==2 && owners.get()==2,
+                "complete original owner batch settled exactly once "+epoch);
+            if(mode>=2)
+                ok(packets.flush((d,b)->{},epoch,5)==(mode==3?2:1),
+                    "subsequent queue contains only non-detached work "+epoch);
+            ok(peers.get()==1 && newWork.get()==(mode==3?1:0),
+                "completion counts match owner cancellation mode "+epoch);
+            if(mode!=0) {
+                ok(packets.metrics().queued==0 &&
+                   packets.metrics().cancelled==(mode==1?3:2),
+                    "owner and reset metrics exact "+epoch);
+            }
+            packets.shutdown();
+        }
+    }
     private static void worldTransitions(){
         SessionServices services=new SessionServices();
         services.world(true);
@@ -238,7 +378,8 @@ public final class PacketLifecycleReentryTests {
     }
     public static void main(String[] args) {
         resetCallbacks();shutdownCallbacks();thrownCallbacksStillDrain();
-        flushReentryBudget();worldTransitions();repeatedLifecycles();
+        flushReentryBudget();atomicOwnerCancellation();ownerCancellationReplay();
+        worldTransitions();repeatedLifecycles();
         ok(assertions>14000,"substantial packet lifecycle regression coverage");
         System.out.println("PACKET_LIFECYCLE_REENTRY_PASS assertions="+assertions);
     }
