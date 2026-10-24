@@ -47,6 +47,24 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("idempotentSaves();",tests)
         self.assertIn("second same-value save bootstraps backup",tests)
 
+    def test_clickgui_keybind_capture_cancels_on_pointer_and_ctrl_f_transfer(self):
+        gui=content("forge189/src/main/java/dev/ghostfusion/forge189/GhostClickGui.java")
+        capture=content("src/main/java/dev/ghostfusion/ui/GuiKeybindCapture.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/GuiKeybindCaptureTests.java")
+        mouse=gui.index("@Override protected void mouseClicked(")
+        clear=gui.index("capture=null;",mouse)
+        super_click=gui.index("super.mouseClicked(mx, my, button);",mouse)
+        bind=gui.index("capture = selected;",super_click)
+        self.assertLess(mouse,clear)
+        self.assertLess(clear,super_click)
+        self.assertLess(super_click,bind)
+        keyboard=gui.index("@Override protected void keyTyped(")
+        transfer=gui.index("GuiKeybindCapture.transferToSearch(",keyboard)
+        capture_gate=gui.index("if (capture != null) {",keyboard)
+        self.assertLess(transfer,capture_gate)
+        self.assertIn("return captureArmed && modulesPage && fKey && controlDown;",capture)
+        self.assertIn("explicitSearchTransfer();",tests)
+
     def test_release_evidence_is_bound_to_ci_checkout_without_runtime_claims(self):
         workflow=content(".github/workflows/forge189-ci.yml")
         core=content(".github/workflows/core-ci.yml")
