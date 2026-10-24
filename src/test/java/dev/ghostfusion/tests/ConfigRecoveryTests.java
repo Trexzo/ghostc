@@ -570,6 +570,65 @@ public final class ConfigRecoveryTests {
         ok(!Files.exists(uiFolder.resolve("ui.properties.corrupt")),
            "failed UI preflight does not create recovery artifact");
     }
+    /** Runtime callback failures must not roll back a healthy config on disk. */
+    private static void runtimeFailureDoesNotRecoverProfile() throws Exception {
+        Path folder=Files.createTempDirectory("ghostc-r312-runtime-failure");
+        final boolean[] fail={false};
+        final int[] enabledCalls={0};
+        GhostModule module=new GhostModule() {
+            public String id(){return "test.activation";}
+            public String displayName(){return "activation";}
+            public Category category(){return Category.UTILITY;}
+            public void onEnable(){
+                enabledCalls[0]++;
+                if(fail[0])throw new IllegalStateException("fixture callback failure");
+            }
+            public void onDisable(){}
+            public void onEvent(GameEvent event){}
+        };
+        ModuleRegistry registry=new ModuleRegistry();
+        registry.register(module,42);
+        ProfileStore store=new ProfileStore(folder,registry);
+        registry.setEnabled(module.id(),true);
+        store.save("default");
+        registry.setEnabled(module.id(),false);
+        store.save("default");
+        registry.setEnabled(module.id(),true);
+        store.save("default");
+        registry.setEnabled(module.id(),false);
+        Path primary=folder.resolve("default.properties");
+        Path backup=folder.resolve("default.properties.bak");
+        ok("true".equals(ConfigIntegrity.read(primary).getProperty(
+           "module.test.activation.enabled")) &&
+           "false".equals(ConfigIntegrity.read(backup).getProperty(
+           "module.test.activation.enabled")),
+           "fixture has good enabled primary and older disabled backup");
+        byte[] originalPrimary=Files.readAllBytes(primary);
+        byte[] originalBackup=Files.readAllBytes(backup);
+        fail[0]=true;
+        for(int i=0;i<128;i++) {
+            boolean refused=false;
+            try{store.loadRecovering("default");}
+            catch(IllegalStateException expected){refused=true;}
+            ok(refused,"healthy profile activation fault propagates "+i);
+            ok(registry.get(module.id()).state()==ModuleRegistry.State.DISABLED &&
+               registry.get(module.id()).keybind()==42,
+               "failed activation restores live registry "+i);
+        }
+        ok(enabledCalls[0]==130,
+           "each failed load attempted primary activation exactly once");
+        ok(java.util.Arrays.equals(originalPrimary,Files.readAllBytes(primary)),
+           "callback failure does not replace healthy profile with older backup");
+        ok(java.util.Arrays.equals(originalBackup,Files.readAllBytes(backup)),
+           "callback failure preserves recovery backup byte-for-byte");
+        ok(!Files.exists(folder.resolve("default.properties.corrupt")),
+           "callback failure does not create false corrupt evidence");
+        fail[0]=false;
+        ok(!store.loadRecovering("default") &&
+           registry.get(module.id()).state()==ModuleRegistry.State.ENABLED,
+           "retry of intact primary succeeds without claiming disk recovery");
+        registry.shutdown();
+    }
     private static void hostStartup() throws Exception {
         Path folder=Files.createTempDirectory("ghostc-startup-recover");
         HostRuntime host=new HostRuntime(folder);
@@ -606,6 +665,7 @@ public final class ConfigRecoveryTests {
         uiRecovery();
         legacyWidgetDefaults();
         rejectUnusableRecoveryWithoutMutation();
+        runtimeFailureDoesNotRecoverProfile();
         hostStartup();
         ok(count>7000,"meaningful integrity and recovery regression coverage");
         System.out.println("CONFIG_RECOVERY_PASS assertions="+count);
