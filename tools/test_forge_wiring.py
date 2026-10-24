@@ -511,12 +511,25 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("finally",self.gl)
         self.assertEqual(self.feature.count('drawFeature("hud.'),4)
 
+    def test_fault_warning_tracks_only_unresolved_feature_failures(self):
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        guard=content("src/main/java/dev/ghostfusion/host/FeatureFaultGuard.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/FeatureFaultTests.java")
+        self.assertIn("private String latestWarning=\"\";",guard)
+        self.assertIn("if(recent.remove(stableId)!=null)refreshLatestWarning();",guard)
+        self.assertIn("refreshLatestWarning();",guard)
+        self.assertIn("public String latestFaultWarning()",guard)
+        self.assertIn("return featureFaults.latestFaultWarning();",host)
+        self.assertIn("liveWarningRecovery();",tests)
+        self.assertIn("40000;i++",tests)
+        self.assertNotIn('faultWarning = "Module disabled:',host)
+
     def test_fault_warning_reaches_real_forge_overlay(self):
         self.assertIn("host.faultWarning()",self.adapter)
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         self.assertIn('public boolean runFeature(String id, Runnable callback)',host)
         self.assertIn('featureFaults.execute(id, callback)',host)
-        self.assertIn('faultWarning = "Module disabled:',host)
+        self.assertIn('return featureFaults.latestFaultWarning();',host)
         self.assertIn('diagnostics.record(Counter.FEATURE_FAULT)',host)
 
     def test_repeated_keybind_persists_only_after_valid_change(self):

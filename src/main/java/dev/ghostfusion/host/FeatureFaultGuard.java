@@ -18,6 +18,21 @@ public final class FeatureFaultGuard {
     private final ModuleRegistry registry;
     private final OnFault listener;
     private final LinkedHashMap<String, String> recent = new LinkedHashMap<String,String>();
+    // The HUD queries this every frame. Update only when a fault is added
+    // or successfully recovered, never allocate/copy the fault map on paint.
+    private String latestWarning="";
+    private void refreshLatestWarning() {
+        String id=null,type=null;
+        for(Map.Entry<String,String> candidate:recent.entrySet()) {
+            id=candidate.getKey(); type=candidate.getValue();
+        }
+        latestWarning=id==null?"":"Module disabled: "+id+" ("+type+")";
+    }
+    /** Cached warning for the latest unresolved fault, or empty on recovery. */
+    public String latestFaultWarning() {
+        registry.assertOwnerThread();
+        return latestWarning;
+    }
     // One callback for a given module may not re-enter itself, directly or
     // through another module. Peer callbacks may still nest normally.
     private final HashSet<String> executing = new HashSet<String>();
@@ -39,7 +54,7 @@ public final class FeatureFaultGuard {
         try {
             try {
                 callback.run();
-                recent.remove(stableId);
+                if(recent.remove(stableId)!=null)refreshLatestWarning();
                 return true;
             } catch (RuntimeException ex) {
                 String type=ex.getClass().getSimpleName();
@@ -47,6 +62,7 @@ public final class FeatureFaultGuard {
                 registry.setEnabled(stableId,false);
                 recent.put(stableId,type);
                 if (recent.size() > 32) recent.remove(recent.keySet().iterator().next());
+                refreshLatestWarning();
                 try { listener.report(stableId,type); }
                 catch (RuntimeException ignored) { /* report must not crash the caller */ }
                 return false;
