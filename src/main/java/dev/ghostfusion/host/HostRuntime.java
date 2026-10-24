@@ -501,6 +501,10 @@ public final class HostRuntime {
         if (!active()) return;
         assertHostEventBoundary();
         closing=true;
+        // closed is set only after persistence and module shutdown. Seal the
+        // cross-thread producer queue before any onDisable callback executes,
+        // so no event can be admitted during the shutdown window.
+        ingress.seal();
         try {
             persist();
             persistUi();
