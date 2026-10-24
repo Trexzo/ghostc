@@ -16,12 +16,19 @@ public final class ModuleRegistry {
         private final LinkedHashMap<String, Setting<?>> settings = new LinkedHashMap<String, Setting<?>>();
         private State state = State.DISABLED;
         private int keybind;
+        private final int defaultKeybind;
         private String lastFault = "";
         private boolean transitioning;
-        private Entry(GhostModule module) { this.module = module; }
+        private Entry(GhostModule module, int defaultKey) {
+            this.module = module;
+            this.defaultKeybind = defaultKey;
+            this.keybind = defaultKey;
+        }
         public GhostModule module() { return module; }
         public State state() { return state; }
         public int keybind() { return keybind; }
+        /** Immutable registration baseline, unaffected by profile loads or GUI rebinds. */
+        public int defaultKeybind() { return defaultKeybind; }
         public String lastFault() { return lastFault; }
         public Map<String, Setting<?>> settings() { return Collections.unmodifiableMap(settings); }
     }
@@ -57,8 +64,7 @@ public final class ModuleRegistry {
         if (modules.containsKey(id)) throw new IllegalArgumentException("Duplicate module ID: " + id);
         validateKey(defaultKey);
         if (defaultKey != 0 && isBound(defaultKey)) throw new IllegalArgumentException("Duplicate keybind: " + defaultKey);
-        Entry entry = new Entry(module);
-        entry.keybind = defaultKey;
+        Entry entry = new Entry(module, defaultKey);
         if (settings != null) for (Setting<?> s : settings) {
             if (s == null || entry.settings.put(s.id(), s) != null) throw new IllegalArgumentException("Duplicate/invalid setting");
         }

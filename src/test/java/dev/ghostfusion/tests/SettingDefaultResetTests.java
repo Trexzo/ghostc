@@ -175,6 +175,98 @@ public final class SettingDefaultResetTests {
             dir.resolve("restore.properties"))),"recovered primary sealed");
         registry.shutdown();
     }
+    /** Missing key fields restore immutable registration defaults, not live binds. */
+    private static void sparseProfileKeyDefaults() throws Exception {
+        Path dir=Files.createTempDirectory("ghostc-r314-key-defaults");
+        ModuleRegistry registry=new ModuleRegistry();
+        registry.register(new Dummy(),44);
+        GhostModule peer=new GhostModule(){
+            public String id(){return "test.key.peer";}
+            public String displayName(){return "Peer key";}
+            public Category category(){return Category.UTILITY;}
+            public void onEnable(){}
+            public void onDisable(){}
+            public void onEvent(GameEvent event){}
+        };
+        registry.register(peer,52);
+        ProfileStore store=new ProfileStore(dir,registry);
+        ok(registry.get("test.defaults").defaultKeybind()==44 &&
+           registry.get("test.key.peer").defaultKeybind()==52,
+           "registration captures stable key defaults");
+        Path primary=dir.resolve("sparse-keys.properties");
+        for(int i=0;i<1024;i++){
+            java.util.Properties p=new java.util.Properties();
+            p.setProperty("schema","1");
+            p.setProperty("module.test.defaults.enabled","false");
+            p.setProperty("module.test.key.peer.enabled","false");
+            int variant=i%8;
+            if(variant==1)p.setProperty("module.test.defaults.key","0");
+            if(variant==2)p.setProperty("module.test.defaults.key","77");
+            if(variant==3){
+                p.setProperty("module.test.defaults.key","88");
+                p.setProperty("module.test.key.peer.key","0");
+            }
+            if(variant==5)p.setProperty("module.test.defaults.key","52");
+            if(variant==6){
+                p.setProperty("module.test.defaults.key","33");
+                p.setProperty("module.test.key.peer.key","44");
+            }
+            if(variant==7)p.setProperty("module.test.defaults.key","65");
+            if((i&1)==0)ConfigIntegrity.seal(p);
+            try(java.io.OutputStream out=Files.newOutputStream(primary)){
+                p.store(out,"keybind sparsity regression");
+            }
+            registry.bind("test.defaults",0);
+            registry.bind("test.key.peer",0);
+            registry.bind("test.defaults",110);
+            registry.bind("test.key.peer",111);
+            if(variant==5 || variant==7){
+                boolean refused=false;
+                try{store.load("sparse-keys");}
+                catch(IllegalArgumentException expected){refused=true;}
+                ok(refused,"duplicate or reserved fallback rejected "+i);
+                ok(registry.get("test.defaults").keybind()==110 &&
+                   registry.get("test.key.peer").keybind()==111,
+                   "failed staging does not mutate live keys "+i);
+                continue;
+            }
+            store.load("sparse-keys");
+            int expectedA=variant==1?0:variant==2?77:
+                          variant==3?88:variant==6?33:44;
+            int expectedB=variant==3?0:variant==6?44:52;
+            ok(registry.get("test.defaults").keybind()==expectedA &&
+               registry.get("test.key.peer").keybind()==expectedB,
+               "sparse keybind and explicit override parity "+i);
+            ok(registry.get("test.defaults").defaultKeybind()==44 &&
+               registry.get("test.key.peer").defaultKeybind()==52,
+               "constructor keybind defaults remain immutable "+i);
+        }
+        // Also validate that trusted sparse backup recovery uses the defaults.
+        Path recovery=dir.resolve("recover-keys.properties");
+        java.util.Properties p=new java.util.Properties();
+        p.setProperty("schema","1");
+        p.setProperty("module.test.defaults.enabled","false");
+        p.setProperty("module.test.key.peer.key","0");
+        ConfigIntegrity.seal(p);
+        try(java.io.OutputStream out=Files.newOutputStream(
+                dir.resolve("recover-keys.properties.bak"))){
+            p.store(out,"trusted sparse backup");
+        }
+        Files.write(recovery,"schema=1\\nmodule.test.defaults.key=65\\n".getBytes(
+            java.nio.charset.StandardCharsets.ISO_8859_1));
+        registry.bind("test.defaults",0);
+        registry.bind("test.key.peer",0);
+        registry.bind("test.defaults",110);
+        registry.bind("test.key.peer",111);
+        ok(store.loadRecovering("recover-keys"),
+           "verified sparse backup is accepted for recovery");
+        ok(registry.get("test.defaults").keybind()==44 &&
+           registry.get("test.key.peer").keybind()==0,
+           "recovery restores omitted default and explicit unbound");
+        ok(ConfigIntegrity.verify(ConfigIntegrity.read(recovery)),
+           "recovered primary remains sealed");
+        registry.shutdown();
+    }
     private static void profileRoundTrip()throws Exception{
         Path dir=Files.createTempDirectory("ghostc-r265-default");
         HostRuntime host=new HostRuntime(dir);
@@ -205,7 +297,8 @@ public final class SettingDefaultResetTests {
         loaded.close();
     }
     public static void main(String[] args)throws Exception {
-        typedGateway();randomized();sparseProfileDefaults();profileRoundTrip();
+        typedGateway();randomized();sparseProfileDefaults();
+        sparseProfileKeyDefaults();profileRoundTrip();
         ok(checks>120000,"typed default restores deeply covered");
         System.out.println("SETTING_DEFAULT_RESET_PASS checks="+checks);
     }

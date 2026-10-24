@@ -112,7 +112,10 @@ public final class ProfileStore {
             String enabled = data.getProperty(pre + "enabled", "false");
             if (!"true".equals(enabled) && !"false".equals(enabled)) throw new IllegalArgumentException("Invalid enabled: " + id);
             stage.enabled = Boolean.parseBoolean(enabled);
-            try { stage.key = Integer.parseInt(data.getProperty(pre + "key", "0")); }
+            // Sparse legacy profiles must not silently unbind a module.
+            // Use registration defaults, never a previously edited live binding.
+            try { stage.key = Integer.parseInt(data.getProperty(
+                pre + "key", Integer.toString(e.defaultKeybind()))); }
             catch (NumberFormatException ex) { throw new IllegalArgumentException("Invalid key: " + id, ex); }
             // Preflight the central reserved-key policy before applying any
             // enables, settings or keybinds to the live registry.
