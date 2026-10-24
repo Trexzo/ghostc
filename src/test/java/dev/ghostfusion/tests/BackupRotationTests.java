@@ -265,8 +265,71 @@ public final class BackupRotationTests {
            "UI primary damage repaired without rotating over good backup");
         noTempLeaks(uiDir);
     }
+    /** R3.06: all recovery staging copies are bounded by the same 1 MiB
+     * config budget, and oversize sources cannot create huge .tmp/.corrupt. */
+    private static void boundedRecoveryCopies() throws Exception {
+        Path dir=Files.createTempDirectory("ghostc-r306-bounded-copies");
+        UiState state=new UiState();
+        UiSettingsStore store=new UiSettingsStore(dir,state);
+        state.position(.42,.24);
+        store.save();
+        store.save();
+        Path primary=dir.resolve("ui.properties");
+        Path backup=dir.resolve("ui.properties.bak");
+        byte[] safeBackup=Files.readAllBytes(backup);
+        byte[] huge=new byte[3*1024*1024+127];
+        Arrays.fill(huge,(byte)49);
+        Files.write(primary,huge);
+        ok(!ConfigIntegrity.rotateVerifiedBackup(primary),
+           "oversized primary cannot rotate into valid .bak");
+        ok(Arrays.equals(safeBackup,Files.readAllBytes(backup)),
+           "oversized failed rotation keeps exact trusted backup");
+        noRecoveryTempLeaks(dir);
+        ok(store.loadRecovering(),
+           "oversized damaged primary recovers from small verified backup");
+        ok(ConfigIntegrity.verify(ConfigIntegrity.read(primary)) &&
+           Arrays.equals(safeBackup,Files.readAllBytes(backup)),
+           "bounded restore promotes only the exact small verified backup");
+        ok(!Files.exists(dir.resolve("ui.properties.corrupt")),
+           "oversized corrupt primary is never duplicated as huge evidence");
+        noRecoveryTempLeaks(dir);
+
+        // The backup itself may be huge: never first copy all of its
+        // contents into the private staging directory.
+        Files.write(primary,huge);
+        byte[] malformedPrimary=Files.readAllBytes(primary);
+        Files.write(backup,huge);
+        boolean denied=false;
+        try {store.loadRecovering();}
+        catch(java.io.IOException expected){denied=true;}
+        ok(denied,"oversized backup is refused before promotion");
+        ok(Arrays.equals(malformedPrimary,Files.readAllBytes(primary)),
+           "oversized backup refusal leaves original corrupt primary unchanged");
+        ok(Files.size(backup)==huge.length &&
+           !Files.exists(dir.resolve("ui.properties.corrupt")),
+           "rejected oversized backup creates no false recovery artifact");
+        noRecoveryTempLeaks(dir);
+        // Also test the direct helper path without a typed load call.
+        denied=false;
+        try {ConfigIntegrity.restoreBackup(primary);}
+        catch(java.io.IOException expected){denied=true;}
+        ok(denied && Files.size(primary)==huge.length,
+           "direct recovery rejects oversized backup before altering primary");
+        noRecoveryTempLeaks(dir);
+    }
+    private static void noRecoveryTempLeaks(Path dir) throws Exception {
+        try(Stream<Path> files=Files.list(dir)) {
+            ok(!files.anyMatch(p->{
+                String name=p.getFileName().toString();
+                return name.startsWith("ghostc-recover-") ||
+                       name.startsWith("ghostc-corrupt-") ||
+                       name.startsWith("ghostc-backup-");
+            }),"bounded staging deletes all temporary copies");
+        }
+    }
+
     public static void main(String[] args) throws Exception {
-        profile();ui();idempotentSaves();
+        profile();ui();idempotentSaves();boundedRecoveryCopies();
         ok(checks>800,"nontrivial backup protection regression matrix");
         System.out.println("BACKUP_ROTATION_PASS assertions="+checks);
     }
