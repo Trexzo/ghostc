@@ -10,19 +10,37 @@ public final class BoundedIngress {
     private final AtomicInteger queued = new AtomicInteger();
     private final AtomicLong rejected = new AtomicLong();
     private final int capacity;
+    // Serialize publication with the terminal close fence. CAS still
+    // coordinates producer reservations with the single owner consumer.
+    private final Object admissionLock = new Object();
+    private boolean sealed;
     public BoundedIngress(int capacity) {
         if (capacity < 1 || capacity > 65536) throw new IllegalArgumentException("capacity");
         this.capacity = capacity;
     }
     public boolean submit(GameEvent event) {
         if (event == null) throw new IllegalArgumentException("event");
-        while (true) {
-            int n = queued.get();
-            if (n >= capacity) { rejected.incrementAndGet(); return false; }
-            if (queued.compareAndSet(n, n + 1)) break;
+        synchronized (admissionLock) {
+            if (sealed) { rejected.incrementAndGet(); return false; }
+            while (true) {
+                int n = queued.get();
+                if (n >= capacity) { rejected.incrementAndGet(); return false; }
+                if (queued.compareAndSet(n, n + 1)) break;
+            }
+            // A producer cannot hold a reserved slot after the close fence:
+            // it must publish before leaving this monitor, or be rejected.
+            queue.add(event);
+            return true;
         }
-        queue.add(event);
-        return true;
+    }
+    /** Terminal admission fence. A producer already publishing completes
+     * before this returns; every later submit is refused. Previously queued
+     * events remain bounded and may be drained by the owner if desired.
+     * Idempotent; no module callback runs while holding this monitor. */
+    public void seal() {
+        synchronized (admissionLock) {
+            sealed = true;
+        }
     }
     public int drain(ModuleRegistry target, int limit) {
         return drainAfter(target, limit, -1L);

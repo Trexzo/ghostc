@@ -180,6 +180,23 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("testPrimitiveKeyboardBitmap();",core)
         self.assertIn("i<150000;i++",core)
 
+    def test_terminal_shutdown_fences_asynchronous_ingress(self):
+        ingress=content("src/main/java/dev/ghostfusion/core/BoundedIngress.java")
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/HostRuntimeTests.java")
+        self.assertIn("private final Object admissionLock = new Object();",ingress)
+        self.assertIn("synchronized (admissionLock)",ingress)
+        self.assertIn("public void seal()",ingress)
+        self.assertIn("if (sealed) { rejected.incrementAndGet(); return false; }",ingress)
+        self.assertIn("testIngressShutdownAdmissionFence(dir.resolve",tests)
+        self.assertIn("1200;j++",tests)
+        close=host.index("public void close()")
+        seal=host.index("ingress.seal();",close)
+        persist=host.index("persist();",close)
+        shutdown=host.index("modules.shutdown();",close)
+        self.assertLess(seal,persist)
+        self.assertLess(seal,shutdown)
+
     def test_release_evidence_is_bound_to_ci_checkout_without_runtime_claims(self):
         workflow=content(".github/workflows/forge189-ci.yml")
         core=content(".github/workflows/core-ci.yml")

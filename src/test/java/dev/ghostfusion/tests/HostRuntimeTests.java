@@ -96,6 +96,102 @@ public final class HostRuntimeTests {
         ok(!another.render2d(), "profile stays disabled across restart");
         another.close();
     }
+    /** R3.08: concurrent producers cannot publish past the terminal
+     * ingress fence, including during module onDisable callbacks. */
+    private static void testIngressShutdownAdmissionFence(Path config) throws Exception {
+        final HostRuntime host=new HostRuntime(config.resolve("host"));
+        final java.util.concurrent.atomic.AtomicBoolean rejectedDuringDisable=
+            new java.util.concurrent.atomic.AtomicBoolean();
+        final java.util.concurrent.atomic.AtomicBoolean observedClosing=
+            new java.util.concurrent.atomic.AtomicBoolean();
+        GhostModule probe=new GhostModule() {
+            public String id(){return "test.shutdown_ingress";}
+            public String displayName(){return "Shutdown Ingress";}
+            public Category category(){return Category.UTILITY;}
+            public void onEnable(){}
+            public void onDisable(){
+                observedClosing.set(!host.isClosed());
+                rejectedDuringDisable.set(!host.enqueue(GameEvent.Kind.CLIENT_TICK));
+            }
+            public void onEvent(GameEvent event){}
+        };
+        host.modules().register(probe,0);
+        host.modules().setEnabled(probe.id(),true);
+        ok(host.enqueue(GameEvent.Kind.CLIENT_TICK),
+            "producer event accepted before shutdown");
+        int before=host.pendingEvents();
+        host.close();
+        ok(host.isClosed() && observedClosing.get() &&
+           rejectedDuringDisable.get(),
+           "shutdown callback cannot enqueue while closed flag is not yet set");
+        ok(host.pendingEvents()==before,
+           "terminal callback cannot append a late producer event");
+        ok(!host.enqueue(GameEvent.Kind.RENDER_2D),
+           "no producer event admitted after shutdown");
+
+        final BoundedIngress q=new BoundedIngress(65536);
+        final java.util.concurrent.atomic.AtomicLong next=
+            new java.util.concurrent.atomic.AtomicLong();
+        final java.util.concurrent.atomic.AtomicInteger accepted=
+            new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger denied=
+            new java.util.concurrent.atomic.AtomicInteger();
+        for(int i=0;i<19;i++) {
+            ok(q.submit(new GameEvent(GameEvent.Kind.CLIENT_TICK,
+                next.incrementAndGet())),"before-seal enqueue "+i);
+            accepted.incrementAndGet();
+        }
+        final java.util.concurrent.CountDownLatch start=
+            new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch ready=
+            new java.util.concurrent.CountDownLatch(12);
+        final java.util.concurrent.atomic.AtomicBoolean workerFailed=
+            new java.util.concurrent.atomic.AtomicBoolean();
+        Thread[] workers=new Thread[12];
+        for(int i=0;i<workers.length;i++) {
+            workers[i]=new Thread(()->{
+                ready.countDown();
+                try {
+                    start.await();
+                    for(int j=0;j<1200;j++) {
+                        GameEvent e=new GameEvent(GameEvent.Kind.CLIENT_TICK,
+                            next.incrementAndGet());
+                        if(q.submit(e))accepted.incrementAndGet();
+                        else denied.incrementAndGet();
+                    }
+                }catch(Exception unexpected){workerFailed.set(true);}
+            },"r308-ingress-producer-"+i);
+            workers[i].start();
+        }
+        ready.await();
+        start.countDown();
+        q.seal();
+        q.seal();
+        for(Thread worker:workers)worker.join();
+        ok(!workerFailed.get() && accepted.get()+denied.get()==14419,
+           "12 producer races accounted without lost reservations");
+        ok(q.pending()==accepted.get(),
+           "sealed queue contains exactly completed pre-seal publications");
+        ok(!q.submit(new GameEvent(GameEvent.Kind.CLIENT_TICK,
+            next.incrementAndGet())) && q.rejected()==denied.get()+1,
+            "all post-seal calls reject consistently and are counted");
+        ModuleRegistry registry=new ModuleRegistry();
+        final java.util.concurrent.atomic.AtomicInteger consumed=
+            new java.util.concurrent.atomic.AtomicInteger();
+        GhostModule collector=new GhostModule() {
+            public String id(){return "test.sealed_collector";}
+            public String displayName(){return "Sealed Collector";}
+            public Category category(){return Category.UTILITY;}
+            public void onEnable(){}
+            public void onDisable(){}
+            public void onEvent(GameEvent event){consumed.incrementAndGet();}
+        };
+        registry.register(collector,0);registry.setEnabled(collector.id(),true);
+        ok(q.drain(registry,65536)==accepted.get() &&
+           q.pending()==0 && consumed.get()==accepted.get(),
+           "pre-seal accepted events remain drainable with no ghost slot");
+        registry.shutdown();
+    }
     private static void testQueuedEventsAndThread(Path config) throws Exception {
         HostRuntime host = new HostRuntime(config);
         for (int i = 0; i < 256; i++) ok(host.enqueue(GameEvent.Kind.CLIENT_TICK), "queue slot " + i);
@@ -499,6 +595,7 @@ public final class HostRuntimeTests {
         testPersistence(dir.resolve("sessions"));
         testLiveHotkeyRebinding(dir.resolve("hotkey-rebind"));
         testQueuedEventsAndThread(dir.resolve("queues"));
+        testIngressShutdownAdmissionFence(dir.resolve("shutdown-ingress"));
         testIngressSessionFence(dir.resolve("epoch"));
         testHostEventReentryFence(dir.resolve("host-reentry"));
         testProducerLifecycleAuthority(dir.resolve("producer-lifecycle"));
