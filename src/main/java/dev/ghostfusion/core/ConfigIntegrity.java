@@ -8,6 +8,7 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
@@ -148,7 +149,9 @@ public final class ConfigIntegrity {
     private static boolean copyBounded(Path source,Path destination) throws IOException {
         long total=0;
         byte[] block=new byte[8192];
-        try(InputStream in=Files.newInputStream(source);
+        // Do not follow a symlink substituted after path validation.
+        // This also protects backup rotation and corrupt-evidence copies.
+        try(InputStream in=Files.newInputStream(source,LinkOption.NOFOLLOW_LINKS);
             OutputStream out=Files.newOutputStream(destination)) {
             int count;
             while((count=in.read(block))!=-1) {
@@ -229,6 +232,14 @@ public final class ConfigIntegrity {
         if(primary==null || typedValidator==null)
             throw new IllegalArgumentException("primary/validator");
         Path backup=primary.resolveSibling(primary.getFileName()+".bak");
+        // Recovery must not import a sealed file through a symlink outside
+        // this config directory, or replace a caller-owned primary alias.
+        // Check before creating a staging file; copyBounded also opens with
+        // NOFOLLOW_LINKS if the source is swapped later.
+        if(Files.isSymbolicLink(primary))
+            throw new IOException("Recovery primary must not be a symbolic link");
+        if(!Files.isRegularFile(backup,LinkOption.NOFOLLOW_LINKS))
+            throw new IOException("Recovery backup must be a regular file");
         Path temp=Files.createTempFile(primary.getParent(),"ghostc-recover-", ".tmp");
         try {
             if(!copyBounded(backup,temp))
