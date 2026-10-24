@@ -1,9 +1,10 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R3.00:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R3.01:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
+- R3.01 ClickGUI hidden-setting focus safety: mouse-wheel scroll, layout resize and setting edits now revoke keyboard focus whenever its setting row is no longer painted. Visible focus remains intact; Tab can explicitly reselect and reveal a row, preventing arrow/Home/End/R edits of invisible settings. Java8 regression exercises 125,000 seeded focus/viewport scenarios plus typed profile write exclusion. See [R3.01 setting focus visibility](docs/RUNTIME_R121.md).
 - R3.00 Ctrl+F keybind-capture fix: pressing Ctrl after arming the ClickGUI module binding defers the Ctrl-only assignment until key release, allowing Ctrl+F to transfer focus to search without accidentally rebinding a module. Ctrl alone and ordinary F remain bindable, while mouse/focus/close cancellation revokes deferred assignments. Java8 regression exercises 150,000 seeded key-release scenarios. See [R3.00 capture chord arbitration](docs/RUNTIME_R120.md).
 - R2.99 live fault-warning recovery: a previously crashed HUD/ESP/movement feature's warning disappears after a successful explicit retry, while other still-unresolved feature warnings remain visible in recency order. The latest warning is cached and updated only on fault/recovery, with no per-frame map copies or exception payload exposure. Java8 regression checks independent faults, recoveries and 40,000 identical cached warning reads. See [R2.99 fault-warning lifecycle](docs/RUNTIME_R119.md).
 - R2.98 ClickGUI focus-transfer safety: mouse clicks cancel stale pending keybind capture before switching module/search/settings focus, while clicking a bind row explicitly re-arms it. Ctrl+F transfers a pending capture to search; plain F and other keys retain normal assignment semantics. Java8 regression exercises 160,000 keyboard ownership cases, and Forge wiring pins mouse/keyboard precedence. See [R2.98 keybind focus transfer](docs/RUNTIME_R118.md).

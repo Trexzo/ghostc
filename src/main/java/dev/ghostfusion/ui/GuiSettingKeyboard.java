@@ -27,6 +27,18 @@ public final class GuiSettingKeyboard {
         if(focus>=start+rows)return Math.min(count-rows,focus-rows+1);
         return start;
     }
+    /** Manual scroll and viewport resize must not leave keyboard focus on a
+     * hidden setting. Keep focus only if its painted row remains visible.
+     * Tab navigation can explicitly re-establish focus and reveal that row.
+     */
+    public static int visibleFocus(int focused,int first,int count,int rows) {
+        if(count<0 || rows<0 || first<0)
+            throw new IllegalArgumentException("visible setting focus");
+        if(focused<0 || focused>=count || rows==0)return -1;
+        int bounded=Math.min(first,Math.max(0,count-rows));
+        return focused>=bounded && (long)focused<(long)bounded+rows ?
+            focused : -1;
+    }
     /** Contextual hints are pure policy: only controls valid for the focused type. */
     public static String hint(Setting<?> focused) {
         if(focused==null)throw new IllegalArgumentException("focused setting");
