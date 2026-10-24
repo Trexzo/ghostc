@@ -226,6 +226,16 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("Files.createSymbolicLink(primary,external.toAbsolutePath());",tests)
         self.assertIn("noRecoveryTempLeaks(dir);",tests)
 
+    def test_direct_config_load_rejects_symlink_aliases(self):
+        config=content("src/main/java/dev/ghostfusion/core/ConfigIntegrity.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/BackupRotationTests.java")
+        reader=config.split("public static Properties read(Path file)",1)[1].split("public static boolean unchangedWithRecoveryBackup",1)[0]
+        self.assertIn("Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS)",reader)
+        self.assertIn("Files.newInputStream(file,LinkOption.NOFOLLOW_LINKS)",reader)
+        self.assertIn("symlinkDirectLoadFences();",tests)
+        self.assertIn('try{loader.load("default");}',tests)
+        self.assertIn("try{ui.load();}",tests)
+
     def test_release_evidence_is_bound_to_ci_checkout_without_runtime_claims(self):
         workflow=content(".github/workflows/forge189-ci.yml")
         core=content(".github/workflows/core-ci.yml")

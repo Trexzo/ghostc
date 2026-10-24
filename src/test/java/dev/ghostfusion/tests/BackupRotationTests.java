@@ -371,6 +371,63 @@ public final class BackupRotationTests {
            "rotation also rejects linked primary without damaging backup");
         noRecoveryTempLeaks(dir);
     }
+    /** R3.11: sealed files outside config may not be loaded through symlinks. */
+    private static void symlinkDirectLoadFences() throws Exception {
+        Path local=Files.createTempDirectory("ghostc-r311-direct-");
+        Path outside=Files.createTempDirectory("ghostc-r311-external-");
+        UiState author=new UiState();author.position(.34,.56);
+        new UiSettingsStore(local,author).save();
+        Path primary=local.resolve("ui.properties");
+        Path foreign=outside.resolve("valid-ui.properties");
+        Files.move(primary,foreign);
+        byte[] external=Files.readAllBytes(foreign);
+        Files.createSymbolicLink(primary,foreign.toAbsolutePath());
+        UiState live=new UiState();live.position(.77,.22);
+        UiSettingsStore ui=new UiSettingsStore(local,live);
+        boolean refused=false;
+        try{ConfigIntegrity.read(primary);}catch(java.io.IOException expected){refused=true;}
+        ok(refused,"direct parser rejects linked but sealed UI file");
+        refused=false;
+        try{ui.load();}catch(java.io.IOException expected){refused=true;}
+        ok(refused && live.hudX()==.77 && live.hudY()==.22,
+            "normal UI loader refuses alias without changing live HUD");
+        refused=false;
+        try{ui.loadRecovering();}catch(java.io.IOException expected){refused=true;}
+        ok(refused && live.hudX()==.77 && live.hudY()==.22,
+            "UI recovery cannot accept a linked primary either");
+        ok(Files.isSymbolicLink(primary) &&
+            Arrays.equals(external,Files.readAllBytes(foreign)) &&
+            !Files.exists(local.resolve("ui.properties.corrupt")),
+            "external UI bytes, alias and evidence unchanged");
+        noRecoveryTempLeaks(local);
+
+        ModuleRegistry authorRegistry=new ModuleRegistry();
+        authorRegistry.register(new Fixture(),44);
+        new ProfileStore(local,authorRegistry).save("default");
+        Path profile=local.resolve("default.properties");
+        Path outsideProfile=outside.resolve("valid-profile.properties");
+        Files.move(profile,outsideProfile);
+        byte[] original=Files.readAllBytes(outsideProfile);
+        Files.createSymbolicLink(profile,outsideProfile.toAbsolutePath());
+        ModuleRegistry liveRegistry=new ModuleRegistry();
+        liveRegistry.register(new Fixture(),55);
+        ProfileStore loader=new ProfileStore(local,liveRegistry);
+        refused=false;
+        try{loader.load("default");}catch(java.io.IOException expected){refused=true;}
+        ok(refused && liveRegistry.get("test.feature").keybind()==55,
+            "normal profile load never imports linked external keybind");
+        refused=false;
+        try{loader.loadRecovering("default");}
+        catch(java.io.IOException expected){refused=true;}
+        ok(refused && liveRegistry.get("test.feature").keybind()==55,
+            "profile recovery cannot bypass direct admission fence");
+        ok(Files.isSymbolicLink(profile) &&
+            Arrays.equals(original,Files.readAllBytes(outsideProfile)) &&
+            !Files.exists(local.resolve("default.properties.corrupt")),
+            "external profile and local alias remain intact");
+        noRecoveryTempLeaks(local);
+        authorRegistry.shutdown();liveRegistry.shutdown();
+    }
     private static void noRecoveryTempLeaks(Path dir) throws Exception {
         try(Stream<Path> files=Files.list(dir)) {
             ok(!files.anyMatch(p->{
@@ -384,7 +441,7 @@ public final class BackupRotationTests {
 
     public static void main(String[] args) throws Exception {
         profile();ui();idempotentSaves();boundedRecoveryCopies();
-        symlinkRecoveryFences();
+        symlinkRecoveryFences();symlinkDirectLoadFences();
         ok(checks>800,"nontrivial backup protection regression matrix");
         System.out.println("BACKUP_ROTATION_PASS assertions="+checks);
     }

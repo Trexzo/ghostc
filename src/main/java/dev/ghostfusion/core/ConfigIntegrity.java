@@ -85,11 +85,14 @@ public final class ConfigIntegrity {
     }
     public static Properties read(Path file) throws IOException {
         if(file==null)throw new IllegalArgumentException("file");
+        // Direct loads must never bypass the recovery source-link fence.
+        if(!Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS))
+            throw new IOException("Config source must be a regular file");
         if(Files.size(file)>MAX_BYTES)throw new IOException("Config size limit exceeded");
         // Bound the actual bytes read, not only a pre-read Files.size().
         // A file can grow while its input stream is open.
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
-        try(InputStream in=Files.newInputStream(file)) {
+        try(InputStream in=Files.newInputStream(file,LinkOption.NOFOLLOW_LINKS)) {
             byte[] block=new byte[8192];
             int count;
             while((count=in.read(block))!=-1) {
