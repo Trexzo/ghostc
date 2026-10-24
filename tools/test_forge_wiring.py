@@ -102,6 +102,22 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("manualScrollFocusSafety();",tests)
         self.assertIn("125000;i++",tests)
 
+    def test_acceptance_diagnostics_stream_and_output_are_bounded(self):
+        accept=content("tools/Invoke-GhostCAcceptance.ps1")
+        workflow=content(".github/workflows/forge189-ci.yml")
+        self.assertIn("$maxDiagBytes = 65536",accept)
+        self.assertIn("New-Object byte[] ($maxDiagBytes + 1)",accept)
+        self.assertIn("while ($read -lt $buffer.Length)",accept)
+        self.assertIn("$read -gt $maxDiagBytes",accept)
+        self.assertIn("$rows.Count -gt 256",accept)
+        self.assertIn("$_.Length -le 120",accept)
+        self.assertIn("$safe.Count -gt 128",accept)
+        self.assertIn("Sort-Object -Unique",accept)
+        self.assertIn("Withheld: diagnostics exceeds 64 KiB",accept)
+        self.assertIn("WINDOWS_ACCEPTANCE_BOUNDED_DIAGNOSTICS_PASS",workflow)
+        self.assertIn("('7' * 70000)",workflow)
+        self.assertIn("$bounded.Contains($longNumber)",workflow)
+
     def test_release_evidence_is_bound_to_ci_checkout_without_runtime_claims(self):
         workflow=content(".github/workflows/forge189-ci.yml")
         core=content(".github/workflows/core-ci.yml")

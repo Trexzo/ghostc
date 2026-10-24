@@ -314,6 +314,34 @@ jobs:
             throw 'Numeric diagnostics sidecar missing or privacy filtering failed'
           }
           Write-Output 'WINDOWS_ACCEPTANCE_PRESERVE_CHECKLIST_AND_TELEMETRY_PASS'
+          # Oversized data is withheld rather than published; human checklist remains untouched.
+          [IO.File]::WriteAllText($diagPath, ("count.gui_open=8" + [Environment]::NewLine + ('7' * 70000)))
+          (Get-Item -LiteralPath $diagPath).LastWriteTimeUtc =
+            [DateTime]::new([long]$stateFirst.preparedUtcTicks,[DateTimeKind]::Utc).AddSeconds(3)
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Collect -GameDir $root
+          if ($LASTEXITCODE -ne 0) { throw 'Bounded oversized diagnostics Collect failed' }
+          $oversized = Get-Content -LiteralPath (Join-Path $root 'ghostc-acceptance/telemetry-latest.txt') -Raw
+          if ($oversized -notmatch 'Withheld: diagnostics exceeds 64 KiB' -or
+              $oversized -match 'count.gui_open=8' -or
+              (Get-FileHash -LiteralPath $report -Algorithm SHA256).Hash -ne $editedHash) {
+            throw 'Oversized diagnostics were published or checklist was modified'
+          }
+          $longNumber = '7' * 240
+          [IO.File]::WriteAllText($diagPath,
+            ("count.gui_open=8" + [Environment]::NewLine + "perf.bad_numeric=$longNumber" +
+             [Environment]::NewLine + "private_data=DO_NOT_EXPORT" + [Environment]::NewLine))
+          (Get-Item -LiteralPath $diagPath).LastWriteTimeUtc =
+            [DateTime]::new([long]$stateFirst.preparedUtcTicks,[DateTimeKind]::Utc).AddSeconds(4)
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Collect -GameDir $root
+          if ($LASTEXITCODE -ne 0) { throw 'Bounded mixed diagnostics Collect failed' }
+          $bounded = Get-Content -LiteralPath (Join-Path $root 'ghostc-acceptance/telemetry-latest.txt') -Raw
+          if ($bounded -notmatch 'count.gui_open=8' -or
+              $bounded.Contains($longNumber) -or
+              $bounded -match 'DO_NOT_EXPORT' -or
+              (Get-FileHash -LiteralPath $report -Algorithm SHA256).Hash -ne $editedHash) {
+            throw 'Mixed diagnostics exceeded numeric bounds or changed owner checklist'
+          }
+          Write-Output 'WINDOWS_ACCEPTANCE_BOUNDED_DIAGNOSTICS_PASS'
           $installed = Join-Path $mods "ghostc-forge189-$version.jar"
 
           # Simulate malicious backup-parent replacement after Prepare.

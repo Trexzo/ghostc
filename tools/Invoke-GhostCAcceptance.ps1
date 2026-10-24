@@ -432,13 +432,40 @@ if (Test-Path -LiteralPath $diagPath -PathType Leaf) {
     if ($state.schema -eq 2 -and
         $modifiedTicks -gt [long]$state.preparedUtcTicks -and
         $modifiedTicks -gt [long]$state.diagnosticsBaselineModifiedUtcTicks) {
-        $safe = @(Get-Content -LiteralPath $diagPath |
-            Where-Object { $_ -match '^(?:count\.[a-z0-9_]+|perf\.[a-z0-9_]+|snap\.[a-z0-9_]+)=[0-9]+\z' } |
-            Sort-Object)
-        if ($safe.Count -gt 0) {
-            $diagStatus = '(Diagnostics file modified after Prepare; this does not verify a game launch.)'
+        # Bound actual bytes read even if the input grows after its stat.
+        $maxDiagBytes = 65536
+        $buffer = New-Object byte[] ($maxDiagBytes + 1)
+        $read = 0
+        $stream = [IO.File]::Open($diagPath,
+            [IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::ReadWrite)
+        try {
+            while ($read -lt $buffer.Length) {
+                $part = $stream.Read($buffer,$read,$buffer.Length - $read)
+                if ($part -eq 0) { break }
+                $read += $part
+            }
+        }
+        finally { $stream.Dispose() }
+        if ($read -gt $maxDiagBytes) {
+            $diagStatus = '(Withheld: diagnostics exceeds 64 KiB safety budget.)'
         } else {
-            $diagStatus = '(No allowlisted numeric counters in freshly modified diagnostics.)'
+            $rows = @([Text.Encoding]::UTF8.GetString($buffer,0,$read) -split '\r?\n')
+            if ($rows.Count -gt 256) {
+                $diagStatus = '(Withheld: diagnostics exceeds 256-line safety budget.)'
+            } else {
+                $safe = @($rows | Where-Object {
+                    $_.Length -le 120 -and
+                    $_ -match '^(?:count\.[a-z0-9_]+|perf\.[a-z0-9_]+|snap\.[a-z0-9_]+)=[0-9]+\z'
+                } | Sort-Object -Unique)
+                if ($safe.Count -gt 128) {
+                    $safe = @()
+                    $diagStatus = '(Withheld: diagnostics exceeds 128-counter safety budget.)'
+                } elseif ($safe.Count -gt 0) {
+                    $diagStatus = '(Diagnostics file modified after Prepare; this does not verify a game launch.)'
+                } else {
+                    $diagStatus = '(No bounded allowlisted numeric counters in freshly modified diagnostics.)'
+                }
+            }
         }
     } else {
         $diagStatus = '(Withheld: diagnostics predates Prepare or no supported freshness baseline.)'

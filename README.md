@@ -1,9 +1,10 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R3.01:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R3.02:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
+- R3.02 bounded Windows acceptance telemetry: Collect reads a maximum of 64 KiB of opt-in diagnostics from a bounded stream, withholds overlong/overpopulated input, accepts short namespaced numeric rows and caps output at 128 counters. An oversized file cannot overwrite a manually completed checklist or masquerade as proof of gameplay. Windows CI uses a 70 KB fixture and a 240-digit numeric field. See [R3.02 bounded acceptance evidence](docs/RUNTIME_R122.md).
 - R3.01 ClickGUI hidden-setting focus safety: mouse-wheel scroll, layout resize and setting edits now revoke keyboard focus whenever its setting row is no longer painted. Visible focus remains intact; Tab can explicitly reselect and reveal a row, preventing arrow/Home/End/R edits of invisible settings. Java8 regression exercises 125,000 seeded focus/viewport scenarios plus typed profile write exclusion. See [R3.01 setting focus visibility](docs/RUNTIME_R121.md).
 - R3.00 Ctrl+F keybind-capture fix: pressing Ctrl after arming the ClickGUI module binding defers the Ctrl-only assignment until key release, allowing Ctrl+F to transfer focus to search without accidentally rebinding a module. Ctrl alone and ordinary F remain bindable, while mouse/focus/close cancellation revokes deferred assignments. Java8 regression exercises 150,000 seeded key-release scenarios. See [R3.00 capture chord arbitration](docs/RUNTIME_R120.md).
 - R2.99 live fault-warning recovery: a previously crashed HUD/ESP/movement feature's warning disappears after a successful explicit retry, while other still-unresolved feature warnings remain visible in recency order. The latest warning is cached and updated only on fault/recovery, with no per-frame map copies or exception payload exposure. Java8 regression checks independent faults, recoveries and 40,000 identical cached warning reads. See [R2.99 fault-warning lifecycle](docs/RUNTIME_R119.md).
