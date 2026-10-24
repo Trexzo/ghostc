@@ -96,6 +96,65 @@ public final class GuiKeybindCaptureTests {
             "ordinary F capture still uses validated persistence gateway");
         registry.shutdown();
     }
+    /** R3.00: Ctrl-down cannot prematurely commit an active capture.
+     * Ctrl-release without F still binds Ctrl, and Ctrl+F never saves. */
+    private static void controlChordAndRelease() {
+        ok(GuiKeybindCapture.deferControl(true,true),
+           "control-down is deferred during capture");
+        ok(!GuiKeybindCapture.deferControl(true,false),
+           "ordinary keys are not delayed");
+        ok(!GuiKeybindCapture.deferControl(false,true),
+           "no capture cannot create deferred bind");
+        ok(GuiKeybindCapture.commitDeferredControl(true,29,29),
+           "left Ctrl-alone commits on release");
+        ok(GuiKeybindCapture.commitDeferredControl(true,157,157),
+           "right Ctrl-alone commits on release");
+        ok(!GuiKeybindCapture.commitDeferredControl(true,29,157),
+           "other Ctrl release cannot commit wrong key");
+        ok(!GuiKeybindCapture.commitDeferredControl(true,29,33),
+           "F-down is not a control release");
+        ok(!GuiKeybindCapture.commitDeferredControl(false,29,29),
+           "focus transfer cancels deferred Ctrl release");
+        ok(!GuiKeybindCapture.commitDeferredControl(true,0,29),
+           "no pending control cannot commit");
+        Random rnd=new Random(3002026L);
+        int[] keys={0,29,157,33,45,56,54};
+        for(int i=0;i<150000;i++) {
+            boolean armed=rnd.nextBoolean(),ctrl=rnd.nextBoolean();
+            int pending=keys[rnd.nextInt(keys.length)];
+            int released=keys[rnd.nextInt(keys.length)];
+            ok(GuiKeybindCapture.deferControl(armed,ctrl)==(armed&&ctrl),
+               "deferred key-down gate "+i);
+            ok(GuiKeybindCapture.commitDeferredControl(armed,pending,released)==
+                (armed&&pending!=0&&pending==released),
+                "matching release admission "+i);
+        }
+        ModuleRegistry r=new ModuleRegistry();
+        r.register(new Dummy("hud.chord"),12);
+        final int[] saves={0};
+        UiActions actions=new UiActions(r,()->saves[0]++);
+        boolean ctrlPending=GuiKeybindCapture.deferControl(true,true);
+        ok(ctrlPending&&r.get("hud.chord").keybind()==12&&saves[0]==0,
+           "Ctrl-down alone does not save a premature binding");
+        boolean toSearch=GuiKeybindCapture.transferToSearch(true,true,true,true);
+        if(!toSearch)actions.bind("hud.chord",33);
+        ok(toSearch&&saves[0]==0&&r.get("hud.chord").keybind()==12,
+           "Ctrl then F transfers to search without profile mutation");
+        ok(!GuiKeybindCapture.commitDeferredControl(false,29,29),
+           "released Ctrl after search transfer cannot bind");
+        if(GuiKeybindCapture.commitDeferredControl(true,29,29))
+            actions.bind("hud.chord",29);
+        ok(r.get("hud.chord").keybind()==29&&saves[0]==1,
+           "standalone left Ctrl remains bindable after release");
+        if(GuiKeybindCapture.commitDeferredControl(true,157,157))
+            actions.bind("hud.chord",157);
+        ok(r.get("hud.chord").keybind()==157&&saves[0]==2,
+           "standalone right Ctrl remains bindable after release");
+        actions.bind("hud.chord",33);
+        ok(r.get("hud.chord").keybind()==33&&saves[0]==3,
+           "ordinary F remains bindable without Ctrl");
+        r.shutdown();
+    }
     private static void actionsAndConflict(){
         ModuleRegistry r=new ModuleRegistry();
         r.register(new Dummy("hud.alpha"),12);
@@ -198,7 +257,8 @@ public final class GuiKeybindCaptureTests {
             "shutdown registry still rejects unchanged binds");
     }
     public static void main(String[] args){
-        focusPolicy();explicitSearchTransfer();actionsAndConflict();unchangedBindings();
+        focusPolicy();explicitSearchTransfer();controlChordAndRelease();
+        actionsAndConflict();unchangedBindings();
         ok(checks>140000,"substantial keyboard bind ownership test");
         System.out.println("GUI_KEYBIND_CAPTURE_PASS assertions="+checks);
     }

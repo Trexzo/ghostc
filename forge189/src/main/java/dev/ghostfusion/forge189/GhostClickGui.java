@@ -47,6 +47,9 @@ public final class GhostClickGui extends GuiScreen {
     private int searchPositionX=-1, searchPositionY=-1, searchPositionWidth=-1;
     private String selected = "hud.status";
     private String capture;
+    // Ctrl-alone is a valid bind, but its key-down must not consume a
+    // pending capture before the user can complete Ctrl+F search.
+    private int pendingControlBind;
     private String message = "";
     private boolean hudPage;
     private boolean hudDragging;
@@ -95,6 +98,7 @@ public final class GhostClickGui extends GuiScreen {
             hudDragging=false;
             draggingWidget=null;
             capture=null;
+            pendingControlBind=0;
         }
         syncSearch(g);
     }
@@ -188,6 +192,7 @@ public final class GhostClickGui extends GuiScreen {
             settingScroll=0;
             keyboardSetting=-1;
             capture=null;
+            pendingControlBind=0;
             scroll=GuiSelection.reveal(selected,filtered,scroll,Math.max(1,visibleRows));
         }
         return filtered;
@@ -407,6 +412,7 @@ public final class GhostClickGui extends GuiScreen {
         // below; all other clicks cancel it before they can focus search,
         // switch category/module or interact with settings.
         capture=null;
+        pendingControlBind=0;
         super.mouseClicked(mx, my, button);
         rebuild();
         GuiLayout zone = GuiLayout.calculate(width,height,ui.layout());
@@ -424,7 +430,7 @@ public final class GhostClickGui extends GuiScreen {
         }
         if (header==GuiChrome.Header.MODULES) { hudPage = false; return; }
         if (header==GuiChrome.Header.HUD) {
-            hudPage = true; capture = null; keyboardSetting=-1; return;
+            hudPage = true; capture = null; pendingControlBind=0; keyboardSetting=-1; return;
         }
         if (hudPage) {
             if (previewW<1 || previewH<1) return;
@@ -491,7 +497,8 @@ public final class GhostClickGui extends GuiScreen {
         ModuleRegistry.Entry e = host.modules().get(selected);
         int settingY = listY + listH + 5 + 22;
         if (inside(mx,my,x+side+11,settingY,w-side-26,18)) {
-            capture = selected; keyboardSetting=-1; message = ""; return;
+            capture = selected; pendingControlBind=0;
+            keyboardSetting=-1; message = ""; return;
         }
         List<Map.Entry<String, Setting<?>>> settings = new ArrayList<Map.Entry<String, Setting<?>>>(e.settings().entrySet());
         int index = GuiHitZones.settingIndex(zone,mx,my,settingScroll,settings.size());
@@ -564,6 +571,24 @@ public final class GhostClickGui extends GuiScreen {
             }
         }
     }
+    /**
+     * GuiScreen.keyTyped sees key-down only. Observe the matching Ctrl
+     * release here so Ctrl alone remains bindable without consuming the
+     * capture before a following F can transfer focus to search.
+     */
+    @Override public void handleKeyboardInput() throws IOException {
+        if(!Keyboard.getEventKeyState() &&
+           GuiKeybindCapture.commitDeferredControl(capture!=null,
+               pendingControlBind,Keyboard.getEventKey())) {
+            String id=capture;
+            int control=pendingControlBind;
+            capture=null;
+            pendingControlBind=0;
+            try {host.uiActions().bind(id,control);message="";}
+            catch(RuntimeException ex){message="Key already assigned or invalid";}
+        }
+        super.handleKeyboardInput();
+    }
     @Override protected void keyTyped(char character,int keyCode) throws IOException {
         if (!GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout()))) {
             if (keyCode==Keyboard.KEY_ESCAPE || keyCode==Keyboard.KEY_F7)
@@ -575,13 +600,21 @@ public final class GhostClickGui extends GuiScreen {
         if(GuiKeybindCapture.transferToSearch(capture!=null,!hudPage,
                 keyCode==Keyboard.KEY_F,
                 Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) ||
-                Keyboard.isKeyDown(Keyboard.KEY_RCONTROL)))
+                Keyboard.isKeyDown(Keyboard.KEY_RCONTROL))) {
             capture=null;
+            pendingControlBind=0;
+        }
         if (capture != null) {
             // Key repeat from the B shortcut or the bound key must never
             // silently become a new module binding.
             if(Keyboard.isRepeatEvent())return;
-            String id = capture; capture = null;
+            if(GuiKeybindCapture.deferControl(capture!=null,
+                keyCode==Keyboard.KEY_LCONTROL ||
+                keyCode==Keyboard.KEY_RCONTROL)) {
+                pendingControlBind=keyCode;
+                return;
+            }
+            String id = capture; capture = null; pendingControlBind=0;
             if (keyCode == Keyboard.KEY_ESCAPE) return;
             if (keyCode == Keyboard.KEY_F7) {
                 mc.displayGuiScreen(null);
@@ -660,7 +693,7 @@ public final class GhostClickGui extends GuiScreen {
             finishSliderDrag();
             entries(); // reconcile the current search/category filter first
             if(selected!=null) {
-                capture=selected;message="";
+                capture=selected;pendingControlBind=0;message="";
             }
             return;
         }
@@ -744,6 +777,7 @@ public final class GhostClickGui extends GuiScreen {
                 selected=next;
                 settingScroll=0;
                 capture=null;
+                pendingControlBind=0;
             }
             scroll=GuiSelection.reveal(selected,filtered,scroll,Math.max(1,visibleRows));
             return;
@@ -769,6 +803,7 @@ public final class GhostClickGui extends GuiScreen {
         hudDragging = false;
         draggingWidget = null;
         capture = null;
+        pendingControlBind=0;
         keyboardSetting=-1;
         // A capture that changed was already committed by finishHudDrag;
         // otherwise retain the existing close-time preferences checkpoint.
