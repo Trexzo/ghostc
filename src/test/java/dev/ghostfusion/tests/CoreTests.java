@@ -77,6 +77,61 @@ public final class CoreTests {
         check(r.get("a").state() == ModuleRegistry.State.DISABLED, "shutdown disabled");
         fails(() -> r.setEnabled("a", true), "shutdown is final");
     }
+    /** R3.05: dynamic bindings match the reference without hot-path copies. */
+    private static void testAllocationFreeHotkeyLookup() throws Exception {
+        ModuleRegistry r=new ModuleRegistry();
+        Fake[] modules=new Fake[64];
+        for(int i=0;i<modules.length;i++) {
+            modules[i]=new Fake("lookup."+i);
+            r.register(modules[i],0);
+        }
+        check(r.boundToKey(0)==null && r.boundToKey(65)==null,
+            "unbound and reserved keys have no module lookup");
+        final java.util.concurrent.atomic.AtomicBoolean refused=
+            new java.util.concurrent.atomic.AtomicBoolean();
+        Thread worker=new Thread(()->{
+            try {r.boundToKey(30);}
+            catch(IllegalStateException expected){refused.set(true);}
+        });
+        worker.start();worker.join();
+        check(refused.get(),"key lookup is owner-thread-only");
+        r.bind("lookup.0",303);
+        ModuleRegistry.Entry stable=r.boundToKey(303);
+        check(stable==r.get("lookup.0"),"exact registered entry returned");
+        r.setEnabled("lookup.0",true);
+        check(r.boundToKey(303)==stable &&
+            stable.state()==ModuleRegistry.State.ENABLED,
+            "state changes preserve lookup identity");
+        r.bind("lookup.0",0);
+        check(r.boundToKey(303)==null,"unbinding invalidates previous key");
+        final java.util.Random rnd=new java.util.Random(3052026L);
+        for(int i=0;i<48000;i++) {
+            if(i%9==0) {
+                int which=rnd.nextInt(modules.length);
+                int newKey=1000+i;
+                r.bind(modules[which].id(),newKey);
+            }
+            int probe;
+            if(i%3==0) {
+                int which=rnd.nextInt(modules.length);
+                probe=r.get(modules[which].id()).keybind();
+            } else if(i%3==1)probe=1000+rnd.nextInt(49000);
+            else probe=0;
+            ModuleRegistry.Entry reference=null;
+            if(probe!=0)for(ModuleRegistry.Entry e:r.all()) {
+                if(e.keybind()==probe){reference=e;break;}
+            }
+            check(r.boundToKey(probe)==reference,
+                "cached hotkey lookup identical to live public snapshot "+i);
+        }
+        Fake appended=new Fake("lookup.after");
+        r.register(appended,59999);
+        check(r.boundToKey(59999)==r.get(appended.id()),
+            "late registration visible to lookup");
+        check(r.boundToKey(303)==null,
+            "old unbound key remains invalid after registration");
+        r.shutdown();
+    }
     private static void testSettingsAndProfiles() throws Exception {
         ModuleRegistry r = new ModuleRegistry();
         Setting.Bool b = new Setting.Bool("enabled", false);
@@ -150,7 +205,8 @@ public final class CoreTests {
         r.shutdown();
     }
     public static void main(String[] args) throws Exception {
-        testRegistry(); testSettingsAndProfiles(); testIngressAndThread();
+        testRegistry(); testAllocationFreeHotkeyLookup();
+        testSettingsAndProfiles(); testIngressAndThread();
         System.out.println("CORE_REGRESSION_PASS assertions=" + assertions);
     }
 }

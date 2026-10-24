@@ -17,6 +17,35 @@ public final class HostRuntimeTests {
         count++;
         if (!passes) throw new AssertionError(message);
     }
+    /** R3.05: repeated unbound keyboard traffic is inert, rebinding is live,
+     * and genuine on/off changes still survive a restarted host profile. */
+    private static void testLiveHotkeyRebinding(Path config) throws Exception {
+        HostRuntime host=new HostRuntime(config);
+        int old=HostRuntime.DEFAULT_STATUS_KEY;
+        host.modules().bind("hud.status",45);
+        ok(host.modules().boundToKey(old)==null &&
+           host.modules().boundToKey(45)==host.modules().get("hud.status"),
+           "new binding immediately visible to cached lookup");
+        ModuleRegistry.State before=host.modules().get("hud.status").state();
+        for(int i=0;i<18000;i++) {
+            host.key(30,true,false);
+            host.key(30,false,false);
+        }
+        ok(host.modules().get("hud.status").state()==before,
+            "18k unrelated key pairs cannot toggle status");
+        host.key(old,true,false);host.key(old,false,false);
+        ok(host.modules().get("hud.status").state()==before,
+            "previous binding no longer toggles status");
+        host.key(45,true,false);host.key(45,false,false);
+        ok(host.modules().get("hud.status").state()!=before,
+            "new binding toggles once on a fresh edge");
+        host.close();
+        HostRuntime resumed=new HostRuntime(config);
+        ok(resumed.modules().get("hud.status").keybind()==45 &&
+           resumed.modules().get("hud.status").state()!=before,
+           "hotkey and enabled state persisted across restart");
+        resumed.close();
+    }
     private static void checkDefaultsAndWorld(Path config) {
         HostRuntime host = new HostRuntime(config);
         ok(host.modules().get("hud.status").state() == ModuleRegistry.State.ENABLED, "default HUD enabled");
@@ -468,6 +497,7 @@ public final class HostRuntimeTests {
         Path dir = Files.createTempDirectory("ghostc-host-tests-");
         checkDefaultsAndWorld(dir.resolve("sessions"));
         testPersistence(dir.resolve("sessions"));
+        testLiveHotkeyRebinding(dir.resolve("hotkey-rebind"));
         testQueuedEventsAndThread(dir.resolve("queues"));
         testIngressSessionFence(dir.resolve("epoch"));
         testHostEventReentryFence(dir.resolve("host-reentry"));

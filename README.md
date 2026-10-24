@@ -1,9 +1,10 @@
 # GhostC — modular Minecraft 1.8.9 client
 
-**Milestone R3.04:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
+**Milestone R3.05:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented
 
+- R3.05 allocation-free module hotkey resolution: HostRuntime no longer creates a full ArrayList snapshot of registered modules for every physical keyboard callback. Owner-thread boundToKey scans the already cached registration array while reading live keybinds; GUI rebinds, profile restoration, focus/repeat rules and state-change persistence remain unchanged. Java8 tests cover 48,000 live binding checks and 18,000 unbound key pairs. See [R3.05 hotkey lookup](docs/RUNTIME_R125.md).
 - R3.04 allocation-free CPS hot path: replace boxed timestamp deques with two 4,096-slot primitive long ring buffers. Mouse-down admission, one-second expiry and cap eviction no longer allocate per event; existing physical edge/focus/world-reset semantics remain intact. An independent seeded 160,000-event oracle compares both queues across expiry, overflow, unknown buttons and resets. See [R3.04 primitive CPS rings](docs/RUNTIME_R124.md).
 - R3.03 bounded CPS input memory: the left/right physical click counter retains only the most recent 4,096 one-second edges per button, rather than allocating indefinitely during an abnormal input flood. Normal CPS remains exact; the display saturates at its bounded maximum and recovers as old edges expire. Java8 regression exercises 30,000 events on each button plus 72 seeded flood/expiry cycles and focus/reset behavior. See [R3.03 CPS memory budget](docs/RUNTIME_R123.md).
 - R3.02 bounded Windows acceptance telemetry: Collect reads a maximum of 64 KiB of opt-in diagnostics from a bounded stream, withholds overlong/overpopulated input, accepts short namespaced numeric rows and caps output at 128 counters. An oversized file cannot overwrite a manually completed checklist or masquerade as proof of gameplay. Windows CI uses a 70 KB fixture and a 240-digit numeric field. See [R3.02 bounded acceptance evidence](docs/RUNTIME_R122.md).

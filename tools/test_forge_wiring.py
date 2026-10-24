@@ -137,6 +137,20 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("saturated>20000",tests)
         self.assertIn("cps.mouse(button, Mouse.getEventButtonState(), System.nanoTime(), focused);",driver)
 
+    def test_hotkey_lookup_is_live_and_does_not_copy_registry_per_key(self):
+        registry=content("src/main/java/dev/ghostfusion/core/ModuleRegistry.java")
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        core=content("src/test/java/dev/ghostfusion/tests/CoreTests.java")
+        runtime=content("src/test/java/dev/ghostfusion/tests/HostRuntimeTests.java")
+        self.assertIn("public Entry boundToKey(int key)",registry)
+        self.assertIn("for (Entry e : dispatchEntries) if (e.keybind == key)",registry)
+        self.assertIn("ModuleRegistry.Entry changed = modules.boundToKey(keycode);",host)
+        self.assertNotIn("for (ModuleRegistry.Entry entry : modules.all())",host)
+        self.assertIn("testAllocationFreeHotkeyLookup();",core)
+        self.assertIn("48000;i++",core)
+        self.assertIn("testLiveHotkeyRebinding(dir.resolve",runtime)
+        self.assertIn("18000;i++",runtime)
+
     def test_release_evidence_is_bound_to_ci_checkout_without_runtime_claims(self):
         workflow=content(".github/workflows/forge189-ci.yml")
         core=content(".github/workflows/core-ci.yml")

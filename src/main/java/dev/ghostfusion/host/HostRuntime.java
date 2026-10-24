@@ -445,11 +445,9 @@ public final class HostRuntime {
     public void key(int keycode, boolean pressed, boolean textFieldOrMenuFocused) {
         if (!active()) return;
         inputFocus(textFieldOrMenuFocused);
-        ModuleRegistry.Entry changed = null;
-        ModuleRegistry.State before = null;
-        if (keycode != 0) for (ModuleRegistry.Entry entry : modules.all()) {
-            if (entry.keybind() == keycode) { changed = entry; before = entry.state(); break; }
-        }
+        // No fresh full-registry List on every physical key press/release.
+        ModuleRegistry.Entry changed = modules.boundToKey(keycode);
+        ModuleRegistry.State before = changed == null ? null : changed.state();
         input.keyEvent(keycode, pressed, inputBlocked);
         if (changed != null && changed.state() != before) persist();
     }

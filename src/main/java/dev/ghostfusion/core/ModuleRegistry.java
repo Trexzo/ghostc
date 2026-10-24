@@ -72,6 +72,17 @@ public final class ModuleRegistry {
         return e;
     }
     public List<Entry> all() { return Collections.unmodifiableList(new ArrayList<Entry>(modules.values())); }
+    /**
+     * Allocation-free owner-thread hotkey lookup. Registration snapshots
+     * are stable; bindings are read live so GUI edits and profile reloads
+     * cannot leave a separate key-index stale.
+     */
+    public Entry boundToKey(int key) {
+        assertOwnerThread();
+        if (key == 0) return null;
+        for (Entry e : dispatchEntries) if (e.keybind == key) return e;
+        return null;
+    }
     public static void validateKey(int key) {
         if (key < 0 || key > 65535 || ReservedKeys.reserved(key))
             throw new IllegalArgumentException("Invalid or reserved keycode: " + key);
