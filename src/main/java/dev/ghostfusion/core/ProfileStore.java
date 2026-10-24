@@ -72,9 +72,13 @@ public final class ProfileStore {
     public boolean loadRecovering(String name) throws java.io.IOException {
         registry.assertOwnerThread();
         Path primary=path(name);
+        LinkedHashMap<String, Staged> plan;
+        boolean recovered=false;
         try {
-            loadFile(primary);
-            return false;
+            // Only file-read, checksum and typed-preflight failures justify
+            // filesystem recovery. Applying a valid plan can fail because a
+            // module callback faults; that is NOT config corruption.
+            plan=stage(ConfigIntegrity.read(primary));
         } catch(java.io.IOException | RuntimeException primaryFailure) {
             Path backup=primary.resolveSibling(primary.getFileName()+".bak");
             if(!Files.exists(backup))throw primaryFailure;
@@ -86,15 +90,17 @@ public final class ProfileStore {
                             catch (RuntimeException invalid) { return false; }
                         }
                     });
-                // Only apply settings after the verified backup bytes have
-                // been promoted; failed restoration leaves live state intact.
-                loadFile(primary);
-                return true;
+                plan=stage(ConfigIntegrity.read(primary));
+                recovered=true;
             } catch(java.io.IOException | RuntimeException backupFailure) {
                 primaryFailure.addSuppressed(backupFailure);
                 throw primaryFailure;
             }
         }
+        // Runtime/application exceptions must propagate without promoting an
+        // older backup over an intact primary or writing false corrupt evidence.
+        applyStaged(plan);
+        return recovered;
     }
     /** Typed preflight shared by loading and backup admission; no live mutations. */
     private LinkedHashMap<String, Staged> stage(Properties data) {
@@ -122,7 +128,9 @@ public final class ProfileStore {
         return plan;
     }
     private void loadFile(Path source) throws java.io.IOException {
-        LinkedHashMap<String, Staged> plan=stage(ConfigIntegrity.read(source));
+        applyStaged(stage(ConfigIntegrity.read(source)));
+    }
+    private void applyStaged(LinkedHashMap<String, Staged> plan) {
         LinkedHashMap<String, Staged> old = new LinkedHashMap<String, Staged>();
         for (ModuleRegistry.Entry e : registry.all()) {
             Staged st = new Staged(); st.enabled = e.state() == ModuleRegistry.State.ENABLED;
