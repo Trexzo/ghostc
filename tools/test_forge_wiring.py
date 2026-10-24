@@ -118,6 +118,18 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("('7' * 70000)",workflow)
         self.assertIn("$bounded.Contains($longNumber)",workflow)
 
+    def test_cps_event_flood_has_fixed_bounded_window(self):
+        meter=content("src/main/java/dev/ghostfusion/features/CpsMeter.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/FeatureTests.java")
+        driver=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeFeatureDriver.java")
+        self.assertIn("public static final int MAX_WINDOW_CLICKS = 4096;",meter)
+        self.assertIn("if(events.size()==MAX_WINDOW_CLICKS)events.removeFirst();",meter)
+        self.assertIn("recordEdge(button == 0 ? left : right, now);",meter)
+        self.assertIn("cpsBoundedFlood();",tests)
+        self.assertIn("30000;i++",tests)
+        self.assertIn("72;trial++",tests)
+        self.assertIn("cps.mouse(button, Mouse.getEventButtonState(), System.nanoTime(), focused);",driver)
+
     def test_release_evidence_is_bound_to_ci_checkout_without_runtime_claims(self):
         workflow=content(".github/workflows/forge189-ci.yml")
         core=content(".github/workflows/core-ci.yml")

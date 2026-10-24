@@ -104,6 +104,70 @@ public final class FeatureTests {
         meter.mouse(1,true,Long.MIN_VALUE,true);
         ok(meter.right(Long.MAX_VALUE)==0,"initial MIN timestamp expires");
     }
+    /** R3.03: extreme mouse event rates must have fixed memory cost,
+     * preserve the newest one-second edges, and resume exact counts. */
+    private static void cpsBoundedFlood() {
+        CpsMeter meter=new CpsMeter();
+        final int cap=CpsMeter.MAX_WINDOW_CLICKS;
+        ok(cap>=1024 && cap<=8192,"physical CPS window has a practical fixed budget");
+        long last=0L;
+        for(int i=0;i<30000;i++) {
+            long now=100000L+1000L*i;
+            meter.mouse(0,true,now,true);
+            meter.mouse(0,false,now,true);
+            meter.mouse(1,true,now,true);
+            meter.mouse(1,false,now,true);
+            last=now;
+            if(i%257==0) {
+                int expected=Math.min(i+1,cap);
+                ok(meter.left(now)==expected && meter.right(now)==expected,
+                   "bounded left/right CPS from 30k-edge flood "+i);
+            }
+        }
+        ok(meter.left(last)==cap && meter.right(last)==cap,
+           "both rolling queues saturate independently at exact cap");
+        // The oldest retained observation is still in the window: older
+        // dropped events must never resurrect as time advances.
+        ok(meter.left(last+999999999L)==1 &&
+           meter.right(last+999999999L)==1,
+           "old input flood expires down to newest physical click");
+        ok(meter.left(last+1000000000L)==0 &&
+           meter.right(last+1000000000L)==0,
+           "exact 1-second boundary expires the last retained edge");
+        long start=last+1000000001L;
+        for(int i=0;i<33;i++) {
+            long now=start+10000L*i;
+            meter.mouse(0,true,now,true);
+            meter.mouse(0,false,now,true);
+        }
+        ok(meter.left(start+320000L)==33 && meter.right(start+320000L)==0,
+           "ordinary true CPS accuracy resumes immediately after saturation");
+        meter.mouse(0,true,start+330000L,false);
+        ok(meter.left(start+330000L)==33,
+           "GUI focus suppression never adds synthetic CPS");
+        meter.clear();
+        ok(meter.left(0L)==0 && meter.right(0L)==0,
+           "world/reset clears saturated queues and timestamps");
+
+        Random rnd=new Random(3032026L);
+        for(int trial=0;trial<72;trial++) {
+            meter.clear();
+            long t=1L;
+            int count=3000+rnd.nextInt(4000);
+            for(int i=0;i<count;i++) {
+                t+=1+rnd.nextInt(4000);
+                meter.mouse(0,true,t,true);
+                meter.mouse(0,false,t,true);
+                if(i%511==0)
+                    ok(meter.left(t)==Math.min(i+1,cap),
+                       "seeded bounded event admission "+trial+"/"+i);
+            }
+            ok(meter.left(t)==Math.min(count,cap),
+               "seeded cap always preserves newest observations "+trial);
+            ok(meter.left(t+1000000000L)==0,
+               "seeded burst fully expires and releases retained memory "+trial);
+        }
+    }
     private static void sprint() {
         for (int flags = 0; flags < 64; flags++) {
             boolean enabled=(flags&1)!=0, focused=(flags&2)!=0,
@@ -296,7 +360,8 @@ public final class FeatureTests {
         restored.close();
     }
     public static void main(String[] args) throws Exception {
-        cps(); cpsWideElapsed(); sprint(); targets(); featuresAndProfiles();
+        cps(); cpsWideElapsed(); cpsBoundedFlood();
+        sprint(); targets(); featuresAndProfiles();
         ok(count>4000,"feature regression coverage substantial");
         System.out.println("FEATURE_REGRESSION_PASS assertions="+count);
     }
