@@ -244,8 +244,9 @@ public final class GhostClickGui extends GuiScreen {
         int sY = bindY + 24;
         List<Map.Entry<String, Setting<?>>> settings = new ArrayList<Map.Entry<String, Setting<?>>>(e.settings().entrySet());
         int available = Math.max(0, (y + h - 18 - sY) / 22);
-        if(keyboardSetting>=settings.size())keyboardSetting=-1;
         settingScroll = Math.max(0, Math.min(settingScroll, Math.max(0, settings.size() - available)));
+        keyboardSetting=GuiSettingKeyboard.visibleFocus(
+            keyboardSetting,settingScroll,settings.size(),available);
         for (int i = settingScroll; i < settings.size() && i < settingScroll + available; i++) {
             Map.Entry<String, Setting<?>> kv = settings.get(i);
             Setting<?> setting = kv.getValue();
@@ -565,6 +566,12 @@ public final class GhostClickGui extends GuiScreen {
                 ModuleRegistry.Entry e = host.modules().get(selected);
                 int max = Math.max(0,e.settings().size()-GuiHitZones.visibleSettings(zone));
                 settingScroll = Math.max(0,Math.min(max, settingScroll+direction));
+                // Wheel scrolling is manual: never reveal the formerly
+                // focused row by undoing the user's scroll, and never
+                // mutate a now-hidden setting from later arrow input.
+                keyboardSetting=GuiSettingKeyboard.visibleFocus(
+                    keyboardSetting,settingScroll,e.settings().size(),
+                    GuiHitZones.visibleSettings(zone));
             } else if (GuiHitZones.moduleArea(zone,mx,my)) {
                 int max = Math.max(0,entries().size() - zone.visibleRows);
                 scroll = Math.max(0,Math.min(max,scroll + direction));
@@ -719,6 +726,12 @@ public final class GhostClickGui extends GuiScreen {
              keyCode==Keyboard.KEY_RIGHT || keyCode==Keyboard.KEY_R ||
              keyCode==Keyboard.KEY_HOME || keyCode==Keyboard.KEY_END)) {
             entries();
+            if(selected!=null && keyboardSetting>=0) {
+                keyboardSetting=GuiSettingKeyboard.visibleFocus(
+                    keyboardSetting,settingScroll,
+                    host.modules().get(selected).settings().size(),
+                    GuiHitZones.visibleSettings(GuiLayout.calculate(width,height,ui.layout())));
+            }
             if(selected!=null && keyboardSetting>=0) {
                 List<Map.Entry<String, Setting<?>>> settings=
                     new ArrayList<Map.Entry<String, Setting<?>>>(host.modules().get(selected)

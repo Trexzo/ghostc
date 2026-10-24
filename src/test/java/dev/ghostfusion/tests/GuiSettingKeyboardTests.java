@@ -70,6 +70,73 @@ public final class GuiSettingKeyboardTests {
         ok(GuiSettingKeyboard.nudgeFraction(5,5,5,1)==.05,
             "constant numeric range returns harmless fraction");
     }
+    /** R3.01: wheel scrolling or resize cannot preserve hidden keyboard
+     * focus capable of mutating an unseen settings row. */
+    private static void manualScrollFocusSafety() {
+        ok(GuiSettingKeyboard.visibleFocus(2,1,8,3)==2,
+           "manual scroll keeps still-visible setting");
+        ok(GuiSettingKeyboard.visibleFocus(1,2,8,3)==-1,
+           "scroll away above focused row clears focus");
+        ok(GuiSettingKeyboard.visibleFocus(5,0,8,3)==-1,
+           "scroll away below focused row clears focus");
+        ok(GuiSettingKeyboard.visibleFocus(5,5,8,3)==5,
+           "scroll back onto row requires explicit focus if already cleared");
+        ok(GuiSettingKeyboard.visibleFocus(0,0,8,0)==-1,
+           "zero painted setting rows revoke keyboard editing");
+        ok(GuiSettingKeyboard.visibleFocus(50,0,8,3)==-1,
+           "stale out-of-range focus removed");
+        ok(GuiSettingKeyboard.visibleFocus(-1,0,8,3)==-1,
+           "unfocused state stays unfocused");
+        ok(GuiSettingKeyboard.visibleFocus(6,100,8,3)==6,
+           "overscrolled offset clamps to final painted rows");
+        rejects(()->GuiSettingKeyboard.visibleFocus(0,-1,5,2),
+           "negative first scroll rejected");
+        rejects(()->GuiSettingKeyboard.visibleFocus(0,0,-1,2),
+           "negative setting count rejected");
+        rejects(()->GuiSettingKeyboard.visibleFocus(0,0,5,-1),
+           "negative visible row count rejected");
+
+        Random random=new Random(3012026L);
+        for(int i=0;i<125000;i++) {
+            int count=random.nextInt(51),rows=random.nextInt(13);
+            int scroll=random.nextInt(151);
+            int focus=random.nextInt(66)-8;
+            int first=Math.min(scroll,Math.max(0,count-rows));
+            boolean painted=focus>=0 && focus<count && rows>0 &&
+                focus>=first && focus-first<rows;
+            int next=GuiSettingKeyboard.visibleFocus(focus,scroll,count,rows);
+            ok(next==(painted?focus:-1),
+               "manual wheel/resize focus matches painted row "+i);
+            if(next>=0)
+                ok(next>=first && next<first+rows,
+                   "retained keyboard setting remains visible "+i);
+            // Once hidden focus is revoked, later scrolling cannot silently
+            // revive it. Only an explicit Tab or mouse click may reassign it.
+            if(next<0)
+                ok(GuiSettingKeyboard.visibleFocus(next,0,count,rows)==-1,
+                   "hidden focus never resurrects on scroll-back "+i);
+        }
+
+        ModuleRegistry registry=new ModuleRegistry();
+        Setting.Number hidden=new Setting.Number("hidden",5,0,10);
+        Setting.Number visible=new Setting.Number("visible",5,0,10);
+        registry.register(new Dummy(),0,hidden,visible);
+        final int[] writes={0};
+        UiActions actions=new UiActions(registry,()->writes[0]++);
+        int focus=GuiSettingKeyboard.visibleFocus(0,1,2,1);
+        if(focus>=0)actions.fraction("gui.keyboard","hidden",1.0);
+        ok(focus==-1 && hidden.get()==5 && visible.get()==5 &&
+           writes[0]==0,"scrolling hidden setting cannot issue a profile save");
+        focus=GuiSettingKeyboard.next(focus,2,1);
+        int first=GuiSettingKeyboard.reveal(focus,1,2,1);
+        ok(focus==0 && first==0 &&
+           GuiSettingKeyboard.visibleFocus(focus,first,2,1)==0,
+           "explicit Tab re-establishes and reveals hidden row");
+        actions.fraction("gui.keyboard","hidden",1.0);
+        ok(hidden.get()==10 && writes[0]==1,
+           "newly visible keyboard focus may mutate via typed gateway");
+        registry.shutdown();
+    }
     private static void precisionAndEndpoints(){
         ok(Math.abs(GuiSettingKeyboard.nudgeFraction(50,0,100,1,true)-.51)<1e-12,
             "Shift+Right uses one percent");
@@ -220,7 +287,8 @@ public final class GuiSettingKeyboardTests {
         }
     }
     public static void main(String[] args) {
-        hintPolicy();boundaries();precisionAndEndpoints();typedActions();choiceDirections();replay();
+        hintPolicy();boundaries();manualScrollFocusSafety();
+        precisionAndEndpoints();typedActions();choiceDirections();replay();
         ok(checks>300000,"large keyboard settings regression replay");
         System.out.println("GUI_SETTING_KEYBOARD_PASS assertions="+checks);
     }

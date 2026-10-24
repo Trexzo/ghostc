@@ -82,6 +82,26 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("controlChordAndRelease();",tests)
         self.assertIn("150000;i++",tests)
 
+    def test_setting_keyboard_focus_never_edits_scrolled_offscreen_rows(self):
+        gui=content("forge189/src/main/java/dev/ghostfusion/forge189/GhostClickGui.java")
+        policy=content("src/main/java/dev/ghostfusion/ui/GuiSettingKeyboard.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/GuiSettingKeyboardTests.java")
+        self.assertIn("public static int visibleFocus(int focused,int first,int count,int rows)",policy)
+        wheel=gui.index("int max = Math.max(0,e.settings().size()-GuiHitZones.visibleSettings(zone));")
+        wheelFocus=gui.index("keyboardSetting=GuiSettingKeyboard.visibleFocus(",wheel)
+        wheelEnd=gui.index("} else if (GuiHitZones.moduleArea(zone,mx,my))",wheel)
+        self.assertLess(wheelFocus,wheelEnd)
+        render=gui.index("private void drawModules(")
+        renderFocus=gui.index("keyboardSetting=GuiSettingKeyboard.visibleFocus(",render)
+        paint=gui.index("for (int i = settingScroll;",render)
+        self.assertLess(renderFocus,paint)
+        keys=gui.index("if (!hudPage && keyboardSetting>=0 &&")
+        valid=gui.index("keyboardSetting=GuiSettingKeyboard.visibleFocus(",keys)
+        mutation=gui.index("host.uiActions().fraction(selected,item.getKey(),next);",keys)
+        self.assertLess(valid,mutation)
+        self.assertIn("manualScrollFocusSafety();",tests)
+        self.assertIn("125000;i++",tests)
+
     def test_release_evidence_is_bound_to_ci_checkout_without_runtime_claims(self):
         workflow=content(".github/workflows/forge189-ci.yml")
         core=content(".github/workflows/core-ci.yml")
