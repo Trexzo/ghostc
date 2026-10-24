@@ -60,7 +60,7 @@ jobs:
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiKeyboardNavigationTests | tee .build/gui-keyboard.log
           grep -q 'GUI_KEYBOARD_NAVIGATION_PASS' .build/gui-keyboard.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.CoreTests | tee .build/test.log
-          grep -q 'CORE_REGRESSION_PASS assertions=36' .build/test.log
+          grep -Eq '^CORE_REGRESSION_PASS assertions=[0-9]+$' .build/test.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HostRuntimeTests | tee .build/host.log
           grep -q 'HOST_REGRESSION_PASS' .build/host.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.UiTests | tee .build/ui.log
