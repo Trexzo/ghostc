@@ -2,6 +2,7 @@ package dev.ghostfusion.core;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -139,6 +140,26 @@ public final class ConfigIntegrity {
         }
     }
 
+    /** Copy at most MAX_BYTES from the actual stream into an already
+     * private staging file. Unlike Files.copy, a concurrent writer cannot
+     * grow the destination without limit after an initial Files.size.
+     * @return false on an over-budget stream; destination is never promoted.
+     */
+    private static boolean copyBounded(Path source,Path destination) throws IOException {
+        long total=0;
+        byte[] block=new byte[8192];
+        try(InputStream in=Files.newInputStream(source);
+            OutputStream out=Files.newOutputStream(destination)) {
+            int count;
+            while((count=in.read(block))!=-1) {
+                if(count>MAX_BYTES-total)return false;
+                out.write(block,0,count);
+                total+=count;
+            }
+        }
+        return true;
+    }
+
     /**
      * Rotate a backup only from the exact bytes of a verified modern config.
      *
@@ -166,7 +187,7 @@ public final class ConfigIntegrity {
         Path staged=Files.createTempFile(primary.getParent(),"ghostc-backup-", ".tmp");
         try {
             try {
-                Files.copy(primary,staged,StandardCopyOption.REPLACE_EXISTING);
+                if(!copyBounded(primary,staged))return false;
                 Properties p=read(staged);
                 if(!"1".equals(p.getProperty("schema")) || !verify(p) || !typedValidator.test(p))
                     return false;
@@ -210,17 +231,34 @@ public final class ConfigIntegrity {
         Path backup=primary.resolveSibling(primary.getFileName()+".bak");
         Path temp=Files.createTempFile(primary.getParent(),"ghostc-recover-", ".tmp");
         try {
-            Files.copy(backup,temp,StandardCopyOption.REPLACE_EXISTING);
+            if(!copyBounded(backup,temp))
+                throw new IOException("Recovery backup size limit exceeded");
             Properties staged=read(temp);
             // Ordinary read permits legacy schema-1 without a digest.
             // Recovery must be stricter: never promote an unsealed backup.
             if(!"1".equals(staged.getProperty("schema")) || !verify(staged) ||
                !typedValidator.test(staged))
                 throw new IllegalArgumentException("Invalid recovered configuration");
-            // Keep the original bytes available for incident diagnosis.
-            if(Files.exists(primary))Files.copy(primary,
-                primary.resolveSibling(primary.getFileName()+".corrupt"),
-                StandardCopyOption.REPLACE_EXISTING);
+            // Preserve corrupt evidence only when it fits the same
+            // 1 MiB bound. Never copy an arbitrarily large broken primary
+            // into .corrupt; doing so could exhaust the player's disk.
+            if(Files.exists(primary)) {
+                Path evidence=Files.createTempFile(primary.getParent(),
+                    "ghostc-corrupt-", ".tmp");
+                try {
+                    if(copyBounded(primary,evidence)) {
+                        Path corrupt=primary.resolveSibling(primary.getFileName()+".corrupt");
+                        try {
+                            Files.move(evidence,corrupt,StandardCopyOption.ATOMIC_MOVE,
+                                StandardCopyOption.REPLACE_EXISTING);
+                        } catch(AtomicMoveNotSupportedException ex) {
+                            Files.move(evidence,corrupt,StandardCopyOption.REPLACE_EXISTING);
+                        }
+                    }
+                } finally {
+                    Files.deleteIfExists(evidence);
+                }
+            }
             try {
                 Files.move(temp,primary,StandardCopyOption.ATOMIC_MOVE,
                     StandardCopyOption.REPLACE_EXISTING);

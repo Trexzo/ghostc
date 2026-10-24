@@ -151,6 +151,21 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("testLiveHotkeyRebinding(dir.resolve",runtime)
         self.assertIn("18000;i++",runtime)
 
+    def test_config_backup_rotation_and_recovery_copies_are_stream_bounded(self):
+        core=content("src/main/java/dev/ghostfusion/core/ConfigIntegrity.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/BackupRotationTests.java")
+        self.assertIn("private static boolean copyBounded(Path source,Path destination)",core)
+        self.assertIn("if(count>MAX_BYTES-total)return false;",core)
+        self.assertIn("if(!copyBounded(primary,staged))return false;",core)
+        self.assertIn("if(!copyBounded(backup,temp))",core)
+        self.assertIn("if(copyBounded(primary,evidence))",core)
+        self.assertNotIn("Files.copy(backup,temp",core)
+        self.assertNotIn("Files.copy(primary,staged",core)
+        self.assertNotIn("Files.copy(primary,",core)
+        self.assertIn("boundedRecoveryCopies();",tests)
+        self.assertIn("3*1024*1024+127",tests)
+        self.assertIn("noRecoveryTempLeaks(dir);",tests)
+
     def test_release_evidence_is_bound_to_ci_checkout_without_runtime_claims(self):
         workflow=content(".github/workflows/forge189-ci.yml")
         core=content(".github/workflows/core-ci.yml")
@@ -2085,7 +2100,7 @@ class ForgeWiring(unittest.TestCase):
         profile=content("src/main/java/dev/ghostfusion/core/ProfileStore.java")
         ui=content("src/main/java/dev/ghostfusion/ui/UiSettingsStore.java")
         self.assertIn("public static boolean rotateVerifiedBackup(Path primary)",core)
-        self.assertIn("Files.copy(primary,staged,StandardCopyOption.REPLACE_EXISTING)",core)
+        self.assertIn("if(!copyBounded(primary,staged))return false;",core)
         self.assertIn("Properties p=read(staged)",core)
         self.assertIn("!verify(p)",core)
         self.assertIn("Files.move(staged,backup,StandardCopyOption.ATOMIC_MOVE",core)
