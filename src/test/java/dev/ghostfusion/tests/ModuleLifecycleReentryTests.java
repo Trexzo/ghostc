@@ -29,6 +29,34 @@ public final class ModuleLifecycleReentryTests {
         public void onDisable(){stops++;if(disable!=null)disable.run();}
         public void onEvent(GameEvent event){}
     }
+    /** Registry preflight can be asked while a lifecycle callback is active
+     * without changing shutdown authority or committing any state. */
+    private static void explicitShutdownPreflight() {
+        ModuleRegistry r=new ModuleRegistry();
+        Module m=new Module("preflight.callbacks");
+        r.register(m,0);
+        final AtomicInteger refused=new AtomicInteger();
+        m.enable=()->{
+            try{r.assertShutdownAllowed();}
+            catch(IllegalStateException expected){refused.incrementAndGet();}
+        };
+        m.disable=()->{
+            try{r.assertShutdownAllowed();}
+            catch(IllegalStateException expected){refused.incrementAndGet();}
+        };
+        r.setEnabled(m.id(),true);
+        ok(refused.get()==1 &&
+           r.get(m.id()).state()==ModuleRegistry.State.ENABLED,
+           "onEnable preflight refusal does not fault or seal registry");
+        r.setEnabled(m.id(),false);
+        ok(refused.get()==2 &&
+           r.get(m.id()).state()==ModuleRegistry.State.DISABLED,
+           "onDisable preflight refusal leaves registry usable");
+        r.assertShutdownAllowed();
+        r.shutdown();
+        r.shutdown();
+        ok(refused.get()==2,"ordinary shutdown remains idempotent");
+    }
     private static void recursiveTransitions() {
         ModuleRegistry registry=new ModuleRegistry();
         Module self=new Module("recursive.enable");
@@ -253,6 +281,7 @@ public final class ModuleLifecycleReentryTests {
         registry.shutdown();
     }
     public static void main(String[] args) {
+        explicitShutdownPreflight();
         recursiveTransitions();crossModuleCycle();shutdownSealedAndNested();
         shutdownDuringEnable();eventFailureCleanupReentry();
         stableEventSnapshot();peerMutationAndShutdown();recursiveEventIsolation();

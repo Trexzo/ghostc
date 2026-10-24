@@ -172,10 +172,17 @@ public final class ModuleRegistry {
             if(acquired) endLifecycle(e);
         }
     }
-    public void shutdown() {
-        assertOwnerThread(); if (shutdown) return;
+    /** Preflight a host-level close before it persists state or seals ingress.
+     * In particular, a callback invoked by setEnabled may not partly close
+     * its host, since the registry would reject shutdown afterwards. */
+    public void assertShutdownAllowed() {
+        assertOwnerThread();
         if(lifecycleCallbacks!=0)
             throw new IllegalStateException("Cannot shutdown during module lifecycle");
+    }
+    public void shutdown() {
+        assertOwnerThread(); if (shutdown) return;
+        assertShutdownAllowed();
         // Seal the registry BEFORE invoking arbitrary module callbacks.
         // They cannot re-enable peers, register modules or change keybinds.
         shutdown = true;
