@@ -166,6 +166,20 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("3*1024*1024+127",tests)
         self.assertIn("noRecoveryTempLeaks(dir);",tests)
 
+    def test_input_router_uses_bounded_primitive_key_bitmap(self):
+        router=content("src/main/java/dev/ghostfusion/core/InputRouter.java")
+        core=content("src/test/java/dev/ghostfusion/tests/CoreTests.java")
+        self.assertIn("private final long[] pressed = new long[1024];",router)
+        self.assertIn("int slot=key >>> 6;",router)
+        self.assertIn("long mask=1L << (key & 63);",router)
+        self.assertIn("Arrays.fill(pressed,0L);",router)
+        self.assertIn("ModuleRegistry.validateKey(key);",router)
+        self.assertIn("if (key == 0 || ReservedKeys.reserved(key)) return;",router)
+        self.assertNotIn("HashSet",router)
+        self.assertNotIn("Set<Integer>",router)
+        self.assertIn("testPrimitiveKeyboardBitmap();",core)
+        self.assertIn("i<150000;i++",core)
+
     def test_release_evidence_is_bound_to_ci_checkout_without_runtime_claims(self):
         workflow=content(".github/workflows/forge189-ci.yml")
         core=content(".github/workflows/core-ci.yml")
