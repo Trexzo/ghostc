@@ -577,7 +577,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("GuiKeybindCapture.arm(!hudPage,search!=null && search.isFocused(),",gui)
         self.assertIn("keyboardSetting,selected,Keyboard.isRepeatEvent()",gui)
         self.assertIn("entries(); // reconcile the current search/category filter first",gui)
-        self.assertIn("capture=selected;message=\"\";",gui)
+        self.assertIn("capture=selected;pendingControlBind=0;message=\"\";",gui)
         self.assertIn('"KEYBIND [B]: "',gui)
         self.assertIn("if (keyCode == Keyboard.KEY_ESCAPE) return;",gui)
         self.assertIn("if (keyCode == Keyboard.KEY_BACK || keyCode == Keyboard.KEY_DELETE) keyCode = 0;",gui)
