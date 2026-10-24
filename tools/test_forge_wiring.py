@@ -373,7 +373,7 @@ class ForgeWiring(unittest.TestCase):
         combat=content("src/test/java/dev/ghostfusion/tests/CombatTests.java")
         features=content("src/test/java/dev/ghostfusion/tests/FeatureTests.java")
         self.assertIn("Long.compareUnsigned(nowNanos-armedAtNanos,period)<0",scheduler)
-        self.assertIn("Long.compareUnsigned(now-events.peekFirst(),WINDOW_NS)>=0",meter)
+        self.assertIn("Long.compareUnsigned(now - timestamps[head], WINDOW_NS) >= 0",meter)
         self.assertIn("schedulerWideElapsed();",combat)
         self.assertIn("cpsWideElapsed();",features)
         self.assertIn("Long.MAX_VALUE",combat)
