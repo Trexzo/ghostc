@@ -16,7 +16,17 @@ public final class ProfileStore {
     private static final Pattern NAME = Pattern.compile("[A-Za-z0-9_-]{1,48}");
     private final Path directory;
     private final ModuleRegistry registry;
-    public ProfileStore(Path directory, ModuleRegistry registry) { this.directory = directory; this.registry = registry; }
+    // Capture the initial module policy once, before any profile is applied.
+    // HostRuntime enables the default Status HUD before constructing this store.
+    private final Map<String, Boolean> initialEnabled = new LinkedHashMap<String, Boolean>();
+    public ProfileStore(Path directory, ModuleRegistry registry) {
+        this.directory = directory;
+        this.registry = registry;
+        registry.assertOwnerThread();
+        for (ModuleRegistry.Entry e : registry.all())
+            initialEnabled.put(e.module().id(),
+                e.state() == ModuleRegistry.State.ENABLED);
+    }
     private Path path(String name) {
         if (name == null || !NAME.matcher(name).matches()) throw new IllegalArgumentException("Invalid profile name");
         return directory.resolve(name + ".properties");
@@ -109,7 +119,10 @@ public final class ProfileStore {
         for (ModuleRegistry.Entry e : registry.all()) {
             String id = e.module().id(), pre = "module." + id + ".";
             Staged stage = new Staged();
-            String enabled = data.getProperty(pre + "enabled", "false");
+            // A missing legacy field uses startup policy, not whatever
+            // state another profile left in the live module registry.
+            String enabled = data.getProperty(pre + "enabled",
+                Boolean.toString(Boolean.TRUE.equals(initialEnabled.get(id))));
             if (!"true".equals(enabled) && !"false".equals(enabled)) throw new IllegalArgumentException("Invalid enabled: " + id);
             stage.enabled = Boolean.parseBoolean(enabled);
             // Sparse legacy profiles must not silently unbind a module.
