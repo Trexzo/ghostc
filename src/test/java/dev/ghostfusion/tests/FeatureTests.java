@@ -168,6 +168,69 @@ public final class FeatureTests {
                "seeded burst fully expires and releases retained memory "+trial);
         }
     }
+    /** R3.04: independent boxed reference model proves primitive rings
+     * preserve one-second expiry, cap, focus, invalid buttons and reset. */
+    private static void cpsPrimitiveRingOracle() {
+        CpsMeter meter = new CpsMeter();
+        java.util.Deque<Long> left = new java.util.ArrayDeque<Long>();
+        java.util.Deque<Long> right = new java.util.ArrayDeque<Long>();
+        boolean[] held = new boolean[2];
+        Random rnd = new Random(3042026L);
+        long time = Long.MIN_VALUE + 1000000000L;
+        int saturated = 0;
+        int checked = 0;
+        for (int i = 0; i < 160000; i++) {
+            if (i > 0 && i % 25007 == 0)
+                time += 1000000001L;
+            else
+                time += 1 + rnd.nextInt(30000);
+            while (!left.isEmpty() &&
+                   Long.compareUnsigned(time-left.peekFirst(),1000000000L)>=0)
+                left.removeFirst();
+            while (!right.isEmpty() &&
+                   Long.compareUnsigned(time-right.peekFirst(),1000000000L)>=0)
+                right.removeFirst();
+            // Mostly L/R alternation; occasional unknown button, and focus
+            // suppression, to mirror real input routing under stress.
+            int button = i%37==0 ? 7 : i%5==0 ? 1 : 0;
+            boolean down = i%2==0;
+            boolean accepting = i%173!=0;
+            if (button==0 || button==1) {
+                if (!accepting) {
+                    held[button]=false;
+                } else {
+                    if (down && !held[button]) {
+                        java.util.Deque<Long> destination=button==0?left:right;
+                        if(destination.size()==CpsMeter.MAX_WINDOW_CLICKS)
+                            destination.removeFirst();
+                        destination.addLast(time);
+                    }
+                    held[button]=down;
+                }
+            }
+            meter.mouse(button,down,time,accepting);
+            if(left.size()==CpsMeter.MAX_WINDOW_CLICKS ||
+               right.size()==CpsMeter.MAX_WINDOW_CLICKS)saturated++;
+            if(i%13==0) {
+                ok(meter.left(time)==left.size() &&
+                   meter.right(time)==right.size(),
+                   "primitive ring matches independent reference "+i);
+                checked++;
+            }
+            if(i%49999==49998) {
+                meter.clear();
+                left.clear();right.clear();
+                held[0]=false;held[1]=false;
+            }
+        }
+        ok(saturated>20000 && checked>10000,
+           "replay exercised repeated ring wrap, saturation and expiry");
+        ok(meter.left(time)==left.size() && meter.right(time)==right.size(),
+           "final ring state identical after wrap and reset");
+        meter.clear();
+        ok(meter.left(0L)==0 && meter.right(0L)==0,
+           "clear restores empty state and timestamp baseline");
+    }
     private static void sprint() {
         for (int flags = 0; flags < 64; flags++) {
             boolean enabled=(flags&1)!=0, focused=(flags&2)!=0,
@@ -360,7 +423,7 @@ public final class FeatureTests {
         restored.close();
     }
     public static void main(String[] args) throws Exception {
-        cps(); cpsWideElapsed(); cpsBoundedFlood();
+        cps(); cpsWideElapsed(); cpsBoundedFlood(); cpsPrimitiveRingOracle();
         sprint(); targets(); featuresAndProfiles();
         ok(count>4000,"feature regression coverage substantial");
         System.out.println("FEATURE_REGRESSION_PASS assertions="+count);
