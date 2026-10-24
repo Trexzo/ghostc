@@ -65,6 +65,23 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("return captureArmed && modulesPage && fKey && controlDown;",capture)
         self.assertIn("explicitSearchTransfer();",tests)
 
+    def test_ctrl_chord_pending_release_uses_native_keyboard_events(self):
+        gui=content("forge189/src/main/java/dev/ghostfusion/forge189/GhostClickGui.java")
+        capture=content("src/main/java/dev/ghostfusion/ui/GuiKeybindCapture.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/GuiKeybindCaptureTests.java")
+        self.assertIn("@Override public void handleKeyboardInput() throws IOException",gui)
+        self.assertIn("!Keyboard.getEventKeyState()",gui)
+        self.assertIn("GuiKeybindCapture.commitDeferredControl(capture!=null,",gui)
+        self.assertIn("GuiKeybindCapture.deferControl(capture!=null,",gui)
+        self.assertIn("pendingControlBind=keyCode;",gui)
+        self.assertIn("String id = capture; capture = null; pendingControlBind=0;",gui)
+        self.assertIn("pendingControlBind=0;\n        super.mouseClicked",gui)
+        self.assertIn("pendingControlBind=0;\n        keyboardSetting=-1;",gui)
+        self.assertIn("return captureArmed && isControlKey;",capture)
+        self.assertIn("pendingControl!=0 && pendingControl==releasedKey;",capture)
+        self.assertIn("controlChordAndRelease();",tests)
+        self.assertIn("150000;i++",tests)
+
     def test_release_evidence_is_bound_to_ci_checkout_without_runtime_claims(self):
         workflow=content(".github/workflows/forge189-ci.yml")
         core=content(".github/workflows/core-ci.yml")
@@ -560,7 +577,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("GuiKeybindCapture.arm(!hudPage,search!=null && search.isFocused(),",gui)
         self.assertIn("keyboardSetting,selected,Keyboard.isRepeatEvent()",gui)
         self.assertIn("entries(); // reconcile the current search/category filter first",gui)
-        self.assertIn("capture=selected;message=\"\";",gui)
+        self.assertIn("capture=selected;pendingControlBind=0;message=\"\";",gui)
         self.assertIn('"KEYBIND [B]: "',gui)
         self.assertIn("if (keyCode == Keyboard.KEY_ESCAPE) return;",gui)
         self.assertIn("if (keyCode == Keyboard.KEY_BACK || keyCode == Keyboard.KEY_DELETE) keyCode = 0;",gui)
