@@ -119,7 +119,11 @@ public final class ProfileStore {
             ModuleRegistry.validateKey(stage.key);
             for (Setting<?> s : e.settings().values()) {
                 String raw = data.getProperty(pre + "setting." + s.id());
-                if (raw != null) { s.parse(raw); stage.settings.put(s, raw); }
+                // Missing legacy or newly introduced settings must use their
+                // constructor defaults, not state left by a previous profile.
+                String chosen = raw == null ? s.serializeDefault() : raw;
+                s.parse(chosen);
+                stage.settings.put(s, chosen);
             }
             plan.put(id, stage);
         }

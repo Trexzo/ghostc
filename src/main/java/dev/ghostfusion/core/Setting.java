@@ -23,6 +23,8 @@ public abstract class Setting<T> {
     }
     public final void setFromText(String text) { value = parse(text); }
     public final String serialize() { return format(value); }
+    /** Immutable constructor baseline for sparse legacy profile loads. */
+    public final String serializeDefault() { return format(defaultValue); }
     public abstract T parse(String text);
     protected abstract String format(T val);
 

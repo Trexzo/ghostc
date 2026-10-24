@@ -4,6 +4,8 @@ import dev.ghostfusion.core.GameEvent;
 import dev.ghostfusion.core.GhostModule;
 import dev.ghostfusion.core.ModuleRegistry;
 import dev.ghostfusion.core.Setting;
+import dev.ghostfusion.core.ProfileStore;
+import dev.ghostfusion.core.ConfigIntegrity;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.ui.UiActions;
 import java.nio.file.Files;
@@ -113,6 +115,66 @@ public final class SettingDefaultResetTests {
         }
         registry.shutdown();
     }
+    /** Sparse profiles must be independent of previous live setting edits. */
+    private static void sparseProfileDefaults() throws Exception {
+        Path dir=Files.createTempDirectory("ghostc-r313-sparse-profiles");
+        ModuleRegistry registry=new ModuleRegistry();
+        Setting.Bool flag=new Setting.Bool("flag",true);
+        Setting.Choice style=new Setting.Choice("style","classic",
+            "classic","glass","minimal");
+        Setting.Number scale=new Setting.Number("scale",1.25,.25,2.0);
+        registry.register(new Dummy(),44,flag,style,scale);
+        ProfileStore store=new ProfileStore(dir,registry);
+        Path path=dir.resolve("sparse.properties");
+        for(int i=0;i<512;i++) {
+            java.util.Properties p=new java.util.Properties();
+            p.setProperty("schema","1");
+            p.setProperty("module.test.defaults.key","44");
+            p.setProperty("module.test.defaults.enabled","false");
+            int present=i%4;
+            if(present==0)p.setProperty("module.test.defaults.setting.flag","false");
+            if(present==1)p.setProperty("module.test.defaults.setting.style","minimal");
+            if(present==2)p.setProperty("module.test.defaults.setting.scale","0.75");
+            if((i&1)==0)ConfigIntegrity.seal(p);
+            try(java.io.OutputStream out=Files.newOutputStream(path)) {
+                p.store(out,"sparse fixture");
+            }
+            flag.setFromText((i&1)==0?"true":"false");
+            style.setFromText("glass");
+            scale.setFromText("2.0");
+            store.load("sparse");
+            ok(flag.get()==(present!=0),"missing flag uses constructor default "+i);
+            ok((present==1?"minimal":"classic").equals(style.get()),
+               "missing choice uses constructor default "+i);
+            ok(scale.get()==(present==2?.75:1.25),
+               "missing number uses constructor default "+i);
+            ok(registry.get("test.defaults").keybind()==44,
+               "sparse legacy binding is preserved "+i);
+        }
+        // A sparse sealed backup must also recover using defaults, not live
+        // settings mutated after the backup was written.
+        java.util.Properties recovery=new java.util.Properties();
+        recovery.setProperty("schema","1");
+        recovery.setProperty("module.test.defaults.key","44");
+        recovery.setProperty("module.test.defaults.setting.flag","false");
+        ConfigIntegrity.seal(recovery);
+        Path backup=dir.resolve("restore.properties.bak");
+        try(java.io.OutputStream out=Files.newOutputStream(backup)) {
+            recovery.store(out,"trusted sparse recovery");
+        }
+        Files.write(dir.resolve("restore.properties"),
+            "schema=1\nmodule.test.defaults.key=oops\n".getBytes(
+                java.nio.charset.StandardCharsets.ISO_8859_1));
+        flag.setFromText("true");
+        style.setFromText("glass");
+        scale.setFromText("2.0");
+        ok(store.loadRecovering("restore"),"sparse verified backup recovers");
+        ok(!flag.get() && "classic".equals(style.get()) && scale.get()==1.25,
+           "sparse recovery applies explicit and default values");
+        ok(ConfigIntegrity.verify(ConfigIntegrity.read(
+            dir.resolve("restore.properties"))),"recovered primary sealed");
+        registry.shutdown();
+    }
     private static void profileRoundTrip()throws Exception{
         Path dir=Files.createTempDirectory("ghostc-r265-default");
         HostRuntime host=new HostRuntime(dir);
@@ -143,7 +205,7 @@ public final class SettingDefaultResetTests {
         loaded.close();
     }
     public static void main(String[] args)throws Exception {
-        typedGateway();randomized();profileRoundTrip();
+        typedGateway();randomized();sparseProfileDefaults();profileRoundTrip();
         ok(checks>120000,"typed default restores deeply covered");
         System.out.println("SETTING_DEFAULT_RESET_PASS checks="+checks);
     }
