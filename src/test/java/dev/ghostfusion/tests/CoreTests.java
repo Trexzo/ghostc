@@ -207,6 +207,7 @@ public final class CoreTests {
     public static void main(String[] args) throws Exception {
         testRegistry(); testAllocationFreeHotkeyLookup();
         testSettingsAndProfiles(); testIngressAndThread();
+        check(assertions>48000,"48,000 dynamic hotkey lookup checks executed");
         System.out.println("CORE_REGRESSION_PASS assertions=" + assertions);
     }
 }
