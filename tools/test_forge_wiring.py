@@ -215,6 +215,17 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("testClosePreflightDuringModuleLifecycle(dir.resolve",tests)
         self.assertIn("explicitShutdownPreflight();",lifecycle)
 
+    def test_config_recovery_does_not_follow_external_symlinks(self):
+        core=content("src/main/java/dev/ghostfusion/core/ConfigIntegrity.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/BackupRotationTests.java")
+        self.assertIn("Files.newInputStream(source,LinkOption.NOFOLLOW_LINKS)",core)
+        self.assertIn("if(Files.isSymbolicLink(primary))",core)
+        self.assertIn("if(!Files.isRegularFile(backup,LinkOption.NOFOLLOW_LINKS))",core)
+        self.assertIn("symlinkRecoveryFences();",tests)
+        self.assertIn("Files.createSymbolicLink(backup,external.toAbsolutePath());",tests)
+        self.assertIn("Files.createSymbolicLink(primary,external.toAbsolutePath());",tests)
+        self.assertIn("noRecoveryTempLeaks(dir);",tests)
+
     def test_release_evidence_is_bound_to_ci_checkout_without_runtime_claims(self):
         workflow=content(".github/workflows/forge189-ci.yml")
         core=content(".github/workflows/core-ci.yml")

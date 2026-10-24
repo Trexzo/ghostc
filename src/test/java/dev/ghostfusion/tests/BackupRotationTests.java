@@ -317,6 +317,60 @@ public final class BackupRotationTests {
            "direct recovery rejects oversized backup before altering primary");
         noRecoveryTempLeaks(dir);
     }
+    /** R3.10: local recovery must never chase a symlink into another
+     * directory, including a symlink to an otherwise perfectly valid backup.
+     * Confirm no external bytes, primary or trusted backup are replaced. */
+    private static void symlinkRecoveryFences() throws Exception {
+        Path dir=Files.createTempDirectory("ghostc-r310-links-");
+        Path outside=Files.createTempDirectory("ghostc-r310-external-");
+        UiState state=new UiState();
+        UiSettingsStore store=new UiSettingsStore(dir,state);
+        state.position(.22,.44);
+        store.save();store.save();
+        Path primary=dir.resolve("ui.properties");
+        Path backup=dir.resolve("ui.properties.bak");
+        byte[] trusted=Files.readAllBytes(backup);
+        Path external=outside.resolve("external.properties");
+        Files.write(external,trusted);
+        byte[] externalBytes=Files.readAllBytes(external);
+        byte[] damaged="corrupt-original-without-checksum".getBytes(
+            java.nio.charset.StandardCharsets.UTF_8);
+        Files.write(primary,damaged);
+
+        // A verified digest does not grant permission to import a backup
+        // through an external filesystem alias.
+        Files.delete(backup);
+        Files.createSymbolicLink(backup,external.toAbsolutePath());
+        boolean refused=false;
+        try {ConfigIntegrity.restoreBackup(primary);}
+        catch(java.io.IOException expected){refused=true;}
+        ok(refused && Files.isSymbolicLink(backup),
+           "backup alias is rejected before recovery staging");
+        ok(Arrays.equals(damaged,Files.readAllBytes(primary)) &&
+           Arrays.equals(externalBytes,Files.readAllBytes(external)),
+           "backup link refusal preserves local and external bytes");
+        noRecoveryTempLeaks(dir);
+
+        // Restore a normal verified backup, then reject a linked primary.
+        Files.delete(backup);
+        Files.write(backup,trusted);
+        Files.delete(primary);
+        Files.write(external,damaged);
+        Files.createSymbolicLink(primary,external.toAbsolutePath());
+        refused=false;
+        try {ConfigIntegrity.restoreBackup(primary);}
+        catch(java.io.IOException expected){refused=true;}
+        ok(refused && Files.isSymbolicLink(primary),
+           "primary alias is rejected before creating .corrupt evidence");
+        ok(Arrays.equals(damaged,Files.readAllBytes(external)) &&
+           Arrays.equals(trusted,Files.readAllBytes(backup)) &&
+           !Files.exists(dir.resolve("ui.properties.corrupt")),
+           "linked-primary refusal preserves trusted backup and external file");
+        ok(!ConfigIntegrity.rotateVerifiedBackup(primary) &&
+           Arrays.equals(trusted,Files.readAllBytes(backup)),
+           "rotation also rejects linked primary without damaging backup");
+        noRecoveryTempLeaks(dir);
+    }
     private static void noRecoveryTempLeaks(Path dir) throws Exception {
         try(Stream<Path> files=Files.list(dir)) {
             ok(!files.anyMatch(p->{
@@ -330,6 +384,7 @@ public final class BackupRotationTests {
 
     public static void main(String[] args) throws Exception {
         profile();ui();idempotentSaves();boundedRecoveryCopies();
+        symlinkRecoveryFences();
         ok(checks>800,"nontrivial backup protection regression matrix");
         System.out.println("BACKUP_ROTATION_PASS assertions="+checks);
     }
