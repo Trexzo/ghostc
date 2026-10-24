@@ -37,7 +37,8 @@ public final class HostRuntime {
     private final FeatureFaultGuard featureFaults = new FeatureFaultGuard(modules, new FeatureFaultGuard.OnFault() {
         public void report(String stableId, String exceptionType) {
             diagnostics.record(Counter.FEATURE_FAULT);
-            faultWarning = "Module disabled: " + stableId + " (" + exceptionType + ")";
+            // The guard owns the warning lifecycle. It automatically
+            // disappears after a successful retry of this feature.
             persist();
         }
     });
@@ -136,8 +137,7 @@ public final class HostRuntime {
     private String profileWarning = "";
     private String uiWarning = "";
     private String diagnosticsWarning = "";
-    private String faultWarning = "";
-
+ 
     public HostRuntime(Path configDirectory) {
         if (configDirectory == null) throw new IllegalArgumentException("configDirectory");
         this.configDirectory = configDirectory;
@@ -231,7 +231,7 @@ public final class HostRuntime {
         }
         framePerformance.frame(nowNanos,usedHeapBytes);
     }
-    public String faultWarning() { modules.assertOwnerThread(); return faultWarning; }
+    public String faultWarning() { modules.assertOwnerThread(); return featureFaults.latestFaultWarning(); }
     /** Visual/sprint callbacks are isolated per module; a failing module is disabled and persisted. */
     public boolean runFeature(String id, Runnable callback) {
         if (!active() || !worldPresent) return false;
