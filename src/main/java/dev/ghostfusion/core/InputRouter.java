@@ -1,23 +1,40 @@
 package dev.ghostfusion.core;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Arrays;
 
-/** Edge-triggered module toggles. Suppresses input while text/chat/menu has focus. */
+/** Fixed-memory, owner-thread physical key edges. Suppressed GUI/chat keys
+ * remain pressed until release or an explicit focus/world reset. */
 public final class InputRouter {
+    // Key validation admits an unsigned 16-bit domain. No Integer boxing.
+    private final long[] pressed = new long[1024];
     private final ModuleRegistry registry;
-    private final Set<Integer> pressed = new HashSet<Integer>();
-    public InputRouter(ModuleRegistry registry) { this.registry = registry; }
-    public void keyEvent(int key, boolean down, boolean typingOrModal) {
-        registry.assertOwnerThread();
-        // A global shortcut is legal as an incoming physical key event but
-        // is NOT valid as an assignable module key. Ignore it without throwing
-        // or changing any module's pressed-key state.
-        if (key == 0 || ReservedKeys.reserved(key)) return;
-        ModuleRegistry.validateKey(key);
-        if (down) {
-            if (pressed.add(key) && !typingOrModal) registry.toggleKey(key);
-        } else pressed.remove(key);
+    public InputRouter(ModuleRegistry registry) {
+        if(registry==null)throw new IllegalArgumentException("registry");
+        this.registry=registry;
     }
-    public void clearPressed() { registry.assertOwnerThread(); pressed.clear(); }
+    private boolean press(int key) {
+        int slot=key >>> 6;
+        long mask=1L << (key & 63);
+        long old=pressed[slot];
+        if((old & mask)!=0)return false;
+        pressed[slot]=old | mask;
+        return true;
+    }
+    private void release(int key) {
+        int slot=key >>> 6;
+        pressed[slot] &= ~(1L << (key & 63));
+    }
+    public void keyEvent(int key,boolean down,boolean typingOrModal) {
+        registry.assertOwnerThread();
+        // F7 is a global shortcut and cannot bind a module.
+        if (key == 0 || ReservedKeys.reserved(key)) return;
+        ModuleRegistry.validateKey(key); // validate before bitmap indexing
+        if(down) {
+            if(press(key) && !typingOrModal)registry.toggleKey(key);
+        } else release(key);
+    }
+    public void clearPressed() {
+        registry.assertOwnerThread();
+        Arrays.fill(pressed,0L);
+    }
 }

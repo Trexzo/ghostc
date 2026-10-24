@@ -132,6 +132,79 @@ public final class CoreTests {
             "old unbound key remains invalid after registration");
         r.shutdown();
     }
+    /** R3.07: the fixed bitmap mirrors original boxed HashSet edge state
+     * for the complete 16-bit key space, including chat, repeats and resets. */
+    private static void testPrimitiveKeyboardBitmap() throws Exception {
+        ModuleRegistry r=new ModuleRegistry();
+        int[] keys={1,63,64,66,127,128,303,65535};
+        Fake[] modules=new Fake[keys.length];
+        boolean[] enabled=new boolean[keys.length];
+        for(int i=0;i<keys.length;i++) {
+            modules[i]=new Fake("keyboard."+i);
+            r.register(modules[i],keys[i]);
+        }
+        InputRouter router=new InputRouter(r);
+        java.util.HashSet<Integer> reference=new java.util.HashSet<Integer>();
+        java.util.Random rnd=new java.util.Random(3072026L);
+        for(int i=0;i<150000;i++) {
+            int key;
+            if(i%11==0)key=keys[rnd.nextInt(keys.length)];
+            else if(i%37==0)key=65;
+            else if(i%41==0)key=0;
+            else if(i%7==0)key=i%65535+1;
+            else key=1+rnd.nextInt(65535);
+            boolean down=(i%19<12);
+            boolean modal=(i%13==0);
+            if(i%5503==0) {
+                router.clearPressed();
+                reference.clear();
+            }
+            if(key!=0 && key!=65) {
+                if(down) {
+                    boolean first=reference.add(key);
+                    if(first && !modal)
+                        for(int n=0;n<keys.length;n++)
+                            if(keys[n]==key)enabled[n]=!enabled[n];
+                } else reference.remove(key);
+            }
+            router.keyEvent(key,down,modal);
+            for(int n=0;n<keys.length;n++)
+                check((r.get(modules[n].id()).state()==ModuleRegistry.State.ENABLED)==enabled[n],
+                    "key state matches old reference "+i+"/"+n);
+        }
+        router.clearPressed();
+        int[] edges={63,64,127,128,65535};
+        for(int key:edges) {
+            ModuleRegistry.Entry bound=r.boundToKey(key);
+            ModuleRegistry.State before=bound.state();
+            router.keyEvent(key,true,true);
+            router.keyEvent(key,true,false);
+            check(bound.state()==before,"modal press suppresses repeat "+key);
+            router.keyEvent(key,false,false);
+            router.keyEvent(key,true,false);
+            check(bound.state()!=before,"physical release and repress toggles "+key);
+            router.keyEvent(key,false,false);
+        }
+        for(int key:new int[]{-1,65536,Integer.MAX_VALUE}) {
+            final int invalid=key;
+            fails(()->router.keyEvent(invalid,true,false),
+                "out-of-range key rejected without indexing "+invalid);
+        }
+        ModuleRegistry.State previous=r.boundToKey(66).state();
+        router.keyEvent(66,true,false);
+        check(r.boundToKey(66).state()!=previous,
+            "invalid input does not poison later valid F8 event");
+        router.keyEvent(66,false,false);
+        final java.util.concurrent.atomic.AtomicBoolean refused=
+            new java.util.concurrent.atomic.AtomicBoolean();
+        Thread worker=new Thread(()->{
+            try {router.clearPressed();}
+            catch(IllegalStateException expected){refused.set(true);}
+        });
+        worker.start();worker.join();
+        check(refused.get(),"bitmap clear remains owner-thread-only");
+        r.shutdown();
+    }
     private static void testSettingsAndProfiles() throws Exception {
         ModuleRegistry r = new ModuleRegistry();
         Setting.Bool b = new Setting.Bool("enabled", false);
@@ -206,6 +279,7 @@ public final class CoreTests {
     }
     public static void main(String[] args) throws Exception {
         testRegistry(); testAllocationFreeHotkeyLookup();
+        testPrimitiveKeyboardBitmap();
         testSettingsAndProfiles(); testIngressAndThread();
         check(assertions>48000,"48,000 dynamic hotkey lookup checks executed");
         System.out.println("CORE_REGRESSION_PASS assertions=" + assertions);
