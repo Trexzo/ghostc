@@ -197,6 +197,24 @@ class ForgeWiring(unittest.TestCase):
         self.assertLess(seal,persist)
         self.assertLess(seal,shutdown)
 
+    def test_host_close_preflights_module_lifecycle_before_side_effects(self):
+        registry=content("src/main/java/dev/ghostfusion/core/ModuleRegistry.java")
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/HostRuntimeTests.java")
+        lifecycle=content("src/test/java/dev/ghostfusion/tests/ModuleLifecycleReentryTests.java")
+        self.assertIn("public void assertShutdownAllowed()",registry)
+        self.assertIn("assertShutdownAllowed();\n        // Seal the registry",registry)
+        close=host.index("public void close()")
+        preflight=host.index("modules.assertShutdownAllowed();",close)
+        seal=host.index("ingress.seal();",close)
+        persist=host.index("persist();",close)
+        shutdown=host.index("modules.shutdown();",close)
+        self.assertLess(preflight,seal)
+        self.assertLess(preflight,persist)
+        self.assertLess(preflight,shutdown)
+        self.assertIn("testClosePreflightDuringModuleLifecycle(dir.resolve",tests)
+        self.assertIn("explicitShutdownPreflight();",lifecycle)
+
     def test_release_evidence_is_bound_to_ci_checkout_without_runtime_claims(self):
         workflow=content(".github/workflows/forge189-ci.yml")
         core=content(".github/workflows/core-ci.yml")

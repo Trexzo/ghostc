@@ -500,6 +500,10 @@ public final class HostRuntime {
     public void close() {
         if (!active()) return;
         assertHostEventBoundary();
+        // Abort before ANY mutation when called from an onEnable/onDisable
+        // callback. Without this preflight, ingress was sealed and configs
+        // were saved before ModuleRegistry.shutdown finally rejected close.
+        modules.assertShutdownAllowed();
         closing=true;
         // closed is set only after persistence and module shutdown. Seal the
         // cross-thread producer queue before any onDisable callback executes,

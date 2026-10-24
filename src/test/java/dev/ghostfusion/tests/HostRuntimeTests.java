@@ -192,6 +192,63 @@ public final class HostRuntimeTests {
            "pre-seal accepted events remain drainable with no ghost slot");
         registry.shutdown();
     }
+    /** R3.09: module enable/disable callbacks cannot half-close the host.
+     * Refusal must happen before ingress is sealed or profiles are written. */
+    private static void testClosePreflightDuringModuleLifecycle(Path config) throws Exception {
+        HostRuntime host=new HostRuntime(config);
+        final java.util.concurrent.atomic.AtomicInteger attempts=
+            new java.util.concurrent.atomic.AtomicInteger();
+        GhostModule onEnableCloser=new GhostModule() {
+            public String id(){return "test.close.enable";}
+            public String displayName(){return "Close From Enable";}
+            public Category category(){return Category.UTILITY;}
+            public void onEnable(){attempts.incrementAndGet();host.close();}
+            public void onDisable(){}
+            public void onEvent(GameEvent event){}
+        };
+        host.modules().register(onEnableCloser,0);
+        host.modules().setEnabled(onEnableCloser.id(),true);
+        ok(attempts.get()==1 &&
+           host.modules().get(onEnableCloser.id()).state()==ModuleRegistry.State.FAULTED,
+           "close inside onEnable is rejected and fault-isolated");
+        ok(!host.isClosed() && !Files.exists(config.resolve("default.properties")),
+           "rejected close neither marks host closed nor persists profile");
+        ok(host.enqueue(GameEvent.Kind.CLIENT_TICK),
+           "rejected onEnable close leaves asynchronous ingress open");
+        host.tick();
+        ok(host.pendingEvents()==0,
+           "host can continue processing queued work after refusal");
+        host.modules().setEnabled(onEnableCloser.id(),false);
+
+        GhostModule onDisableCloser=new GhostModule() {
+            public String id(){return "test.close.disable";}
+            public String displayName(){return "Close From Disable";}
+            public Category category(){return Category.UTILITY;}
+            public void onEnable(){}
+            public void onDisable(){attempts.incrementAndGet();host.close();}
+            public void onEvent(GameEvent event){}
+        };
+        host.modules().register(onDisableCloser,0);
+        host.modules().setEnabled(onDisableCloser.id(),true);
+        host.modules().setEnabled(onDisableCloser.id(),false);
+        ok(attempts.get()==2 &&
+           host.modules().get(onDisableCloser.id()).state()==ModuleRegistry.State.FAULTED,
+           "close inside onDisable is rejected without recursive teardown");
+        ok(!host.isClosed() && !Files.exists(config.resolve("default.properties")),
+           "rejected onDisable close leaves host and profile unchanged");
+        ok(host.enqueue(GameEvent.Kind.RENDER_2D),
+           "rejected disable callback does not seal producer admission");
+        host.tick();
+        ok(host.pendingEvents()==0,
+           "ordinary ticks still drain events after denied close");
+        host.modules().setEnabled(onDisableCloser.id(),false);
+        host.close();
+        ok(host.isClosed() &&
+           Files.exists(config.resolve("default.properties")),
+           "subsequent legal close persists and finalizes host");
+        ok(!host.enqueue(GameEvent.Kind.CLIENT_TICK),
+           "legal shutdown still seals incoming work");
+    }
     private static void testQueuedEventsAndThread(Path config) throws Exception {
         HostRuntime host = new HostRuntime(config);
         for (int i = 0; i < 256; i++) ok(host.enqueue(GameEvent.Kind.CLIENT_TICK), "queue slot " + i);
@@ -596,6 +653,7 @@ public final class HostRuntimeTests {
         testLiveHotkeyRebinding(dir.resolve("hotkey-rebind"));
         testQueuedEventsAndThread(dir.resolve("queues"));
         testIngressShutdownAdmissionFence(dir.resolve("shutdown-ingress"));
+        testClosePreflightDuringModuleLifecycle(dir.resolve("lifecycle-close"));
         testIngressSessionFence(dir.resolve("epoch"));
         testHostEventReentryFence(dir.resolve("host-reentry"));
         testProducerLifecycleAuthority(dir.resolve("producer-lifecycle"));
