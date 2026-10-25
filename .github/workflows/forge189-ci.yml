@@ -685,3 +685,6 @@ jobs:
           }
           Write-Output 'GHOSTC_DELIVERED_ARTIFACT_TAMPER_GUARD_PASS'
           Write-Output 'GHOSTC_DELIVERED_ARTIFACT_OFFLINE_ACCEPTANCE_PASS (NOT in-game tested)'
+          # The preceding intentional negative test leaves LASTEXITCODE nonzero.
+          # Only exit successfully after every explicit assertion has passed.
+          exit 0
