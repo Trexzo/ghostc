@@ -535,7 +535,8 @@ class ForgeWiring(unittest.TestCase):
     def test_host_runtime_blocks_reentrant_session_transitions_during_dispatch(self):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         tests=content("src/test/java/dev/ghostfusion/tests/HostRuntimeTests.java")
-        self.assertIn("private boolean hostDispatching, closing;",host)
+        self.assertIn("private boolean hostDispatching;",host)
+        self.assertIn("private volatile boolean closing;",host)
         self.assertIn("private void assertHostEventBoundary()",host)
         self.assertIn("if(hostDispatching || closing)",host)
         self.assertIn("hostDispatching=true;",host)
