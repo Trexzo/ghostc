@@ -44,7 +44,12 @@ public final class RuntimeSafetyTests {
         ok(!g.allowed(2,true,true,false,true,0,-99),"unbound attack key blocked");
         ok(!g.allowed(2,true,true,false,true,65,-99),"reserved F7 blocked");
         ok(!g.allowed(2,true,true,false,true,-100,-100),"conflicting attack/use binding blocked");
-        ok(g.allowed(2,true,true,false,true,30,-99),"keyboard attack bind supported");
+        ok(!g.allowed(2,true,true,false,true,30,-99),
+           "new keyboard attack binding requires release first");
+        ok(!g.allowed(2,true,true,false,false,30,-99),
+           "keyboard remap observes release in ready game");
+        ok(g.allowed(2,true,true,false,true,30,-99),
+           "keyboard attack bind supported after fresh press");
         ok(!g.allowed(2,false,true,false,true,-100,-99),"no player/world invalidates");
         ok(!g.allowed(2,true,true,false,true,-100,-99),"stale held after load blocked");
         g.reset();
