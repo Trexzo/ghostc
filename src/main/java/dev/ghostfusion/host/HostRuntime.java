@@ -214,7 +214,10 @@ public final class HostRuntime {
     }
     /** Tick-side focus fence avoids collecting menu/alt-tab samples. */
     public boolean snapshotProfilingEnabled(){
-        return active() && worldPresent && !inputBlocked && diagnosticsEnabled();
+        // Shutdown callbacks must not add samples after the final
+        // diagnostics checkpoint or query live snapshot work.
+        return active() && !closing && worldPresent && !inputBlocked &&
+            diagnosticsEnabled();
     }
     /** Legacy aggregate-only API remains available for core consumers. */
     public void recordSnapshotWork(long elapsedNanos,int scanned,int inRange,
@@ -237,7 +240,9 @@ public final class HostRuntime {
     }
     /** Only record focused in-world frames with explicit diagnostics opt-in. */
     public void performanceFrame(long nowNanos,long usedHeapBytes,boolean focused) {
-        if(!active()) return;
+        // The close checkpoint is captured before onDisable. Late render
+        // callbacks cannot mutate or restart FPS/heap measurement there.
+        if(!active() || closing) return;
         if(!focused || inputBlocked || !worldPresent || !diagnosticsEnabled()) {
             framePerformance.suspend();
             return;
@@ -269,14 +274,19 @@ public final class HostRuntime {
     public float statusScale() { return statusScale.get().floatValue(); }
     public boolean statusShadow() { return statusShadow.get(); }
     public boolean detailedStatus() { return "detailed".equals(statusStyle.get()); }
-    public boolean metricsFrameRequested() { return worldPresent && metrics.frameRequested(); }
+    public boolean metricsFrameRequested() {
+        modules.assertOwnerThread();
+        return !closed && !closing && worldPresent && metrics.frameRequested();
+    }
     public boolean showFps() { return showFps.get(); }
     public boolean showCoordinates() { return showCoordinates.get(); }
     public boolean showPing() { modules.assertOwnerThread(); return showPing.get(); }
     /** Owner-thread read-only settings bridge for Forge features. */
     public boolean featureEnabled(String id) {
         modules.assertOwnerThread();
-        return !closed && worldPresent &&
+        // During onDisable the registry still exposes an ENABLED entry
+        // until that callback returns; never advertise a closing feature.
+        return !closed && !closing && worldPresent &&
             modules.get(id).state() == ModuleRegistry.State.ENABLED;
     }
     public boolean keysJump() { modules.assertOwnerThread(); return keysJump.get(); }

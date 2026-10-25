@@ -208,6 +208,18 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("symlinkCannotLeakUnrelatedContents();",tests)
         self.assertIn("DiagnosticsBackupIntegrityTests",ci)
 
+    def test_closing_host_is_not_feature_or_metrics_eligible(self):
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/HostClosingEligibilityTests.java")
+        workflow=content(".github/workflows/core-ci.yml")
+        self.assertIn("return active() && !closing && worldPresent && !inputBlocked &&",host)
+        self.assertIn("if(!active() || closing) return;",host)
+        self.assertIn("return !closed && !closing && worldPresent && metrics.frameRequested();",host)
+        self.assertIn("return !closed && !closing && worldPresent &&",host)
+        self.assertIn("simulatedClosingRejectsTelemetry();",suite)
+        self.assertIn("realShutdownCallbackCannotAdvertiseFeatures();",suite)
+        self.assertIn("HostClosingEligibilityTests",workflow)
+
     def test_shutdown_callback_cannot_reenter_host_input_or_features(self):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         tests=content("src/test/java/dev/ghostfusion/tests/HostCloseInputFenceTests.java")
@@ -1224,7 +1236,7 @@ class ForgeWiring(unittest.TestCase):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         telemetry=content("src/main/java/dev/ghostfusion/host/SnapshotTelemetry.java")
         diagnostics=content("src/main/java/dev/ghostfusion/host/RuntimeDiagnostics.java")
-        self.assertIn("return active() && worldPresent && !inputBlocked && diagnosticsEnabled();",host)
+        self.assertIn("return active() && !closing && worldPresent && !inputBlocked &&",host)
         self.assertIn("if(!snapshotProfilingEnabled())return;",host)
         self.assertIn("demand.needVisible,demand.needUnfiltered);",self.adapter)
         self.assertIn("lastSnapshotMode=mode;",host)
