@@ -180,6 +180,20 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("testPrimitiveKeyboardBitmap();",core)
         self.assertIn("i<150000;i++",core)
 
+    def test_ingress_drainer_reentry_is_refused_before_dequeue(self):
+        ingress=content("src/main/java/dev/ghostfusion/core/BoundedIngress.java")
+        ci=content(".github/workflows/core-ci.yml")
+        suite=content("src/test/java/dev/ghostfusion/tests/IngressDrainReentryTests.java")
+        self.assertIn("private final AtomicBoolean draining = new AtomicBoolean();",ingress)
+        method=ingress.split("public int drainAfter(",1)[1]
+        self.assertLess(method.index("draining.compareAndSet(false,true)"),
+                        method.index("GameEvent event = queue.poll();"))
+        self.assertIn("finally {",method)
+        self.assertIn("draining.set(false);",method)
+        self.assertIn("recursiveDrainKeepsExactFifo();",suite)
+        self.assertIn("concurrentConsumersCannotSteal();",suite)
+        self.assertIn("IngressDrainReentryTests",ci)
+
     def test_terminal_shutdown_fences_asynchronous_ingress(self):
         ingress=content("src/main/java/dev/ghostfusion/core/BoundedIngress.java")
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")

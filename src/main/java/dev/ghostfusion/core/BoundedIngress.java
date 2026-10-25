@@ -1,6 +1,7 @@
 package dev.ghostfusion.core;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -9,6 +10,11 @@ public final class BoundedIngress {
     private final ConcurrentLinkedQueue<GameEvent> queue = new ConcurrentLinkedQueue<GameEvent>();
     private final AtomicInteger queued = new AtomicInteger();
     private final AtomicLong rejected = new AtomicLong();
+    // A producer may submit during drain. Only one consumer may dequeue,
+    // including when a module callback tries to drain this queue recursively.
+    // Atomic acquisition also rejects a second, differently owned registry
+    // racing the active consumer on another thread.
+    private final AtomicBoolean draining = new AtomicBoolean();
     private final int capacity;
     // Serialize publication with the terminal close fence. CAS still
     // coordinates producer reservations with the single owner consumer.
@@ -58,18 +64,27 @@ public final class BoundedIngress {
         target.assertOwnerThread();
         if (limit < 1 || expiredThroughSequence < -1)
             throw new IllegalArgumentException("drain limit/epoch");
-        int polled = 0, delivered = 0;
-        while (polled < limit) {
-            GameEvent event = queue.poll();
-            if (event == null) break;
-            queued.decrementAndGet();
-            polled++;
-            if (event.sequence() > expiredThroughSequence) {
-                target.dispatch(event);
-                delivered++;
+        // Acquire before queue.poll(): ModuleRegistry's recursive dispatch
+        // guard runs only AFTER a poll and would otherwise lose that event.
+        if (!draining.compareAndSet(false,true))
+            throw new IllegalStateException("Recursive or concurrent ingress drain");
+        try {
+            int polled = 0, delivered = 0;
+            while (polled < limit) {
+                GameEvent event = queue.poll();
+                if (event == null) break;
+                queued.decrementAndGet();
+                polled++;
+                if (event.sequence() > expiredThroughSequence) {
+                    target.dispatch(event);
+                    delivered++;
+                }
             }
+            return delivered;
+        } finally {
+            // An exceptional target.dispatch must never latch the queue.
+            draining.set(false);
         }
-        return delivered;
     }
     public int pending() { return queued.get(); }
     public long rejected() { return rejected.get(); }
