@@ -38,6 +38,8 @@ jobs:
           grep -q 'FAULT_RECOVERY_UI_PASS' .build/fault-recovery-ui.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.ModuleLifecycleReentryTests | tee .build/module-lifecycle.log
           grep -q 'MODULE_LIFECYCLE_REENTRY_PASS' .build/module-lifecycle.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.EventPostLifecycleFaultTests | tee .build/event-post-lifecycle.log
+          grep -q 'EVENT_POST_LIFECYCLE_FAULT_PASS' .build/event-post-lifecycle.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudCrowdedTeamPinTests | tee .build/crowded-team-pin.log
           grep -q 'TARGET_HUD_CROWDED_TEAM_PIN_PASS' .build/crowded-team-pin.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.PinnedSnapshotTests | tee .build/pinned-snapshot.log

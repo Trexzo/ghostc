@@ -153,7 +153,14 @@ public final class ModuleRegistry {
                 if(shutdown)break;
                 if(e.state != State.ENABLED)continue;
                 try { e.module.onEvent(event); }
-                catch(Throwable ex) { fault(e,ex,true); }
+                catch(Throwable ex) {
+                    // The callback may have already disabled itself or
+                    // shut down the registry before failing. In that case
+                    // onDisable has already run (or faulted); invoking it
+                    // again would break exactly-once lifecycle cleanup.
+                    // Only a module that REMAINS enabled needs quarantine.
+                    if(e.state == State.ENABLED)fault(e,ex,true);
+                }
             }
         } finally {
             dispatching=false;

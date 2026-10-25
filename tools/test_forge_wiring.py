@@ -1975,6 +1975,19 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("stableEventSnapshot();peerMutationAndShutdown();recursiveEventIsolation();",suite)
         self.assertIn("i<20000;i++",suite)
 
+    def test_event_fault_after_lifecycle_does_not_disable_twice(self):
+        registry=content("src/main/java/dev/ghostfusion/core/ModuleRegistry.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/EventPostLifecycleFaultTests.java")
+        workflow=content(".github/workflows/core-ci.yml")
+        dispatch=registry.split("public void dispatch(GameEvent event) {",1)[1].split(
+            "private void fault(Entry e, Throwable cause",1)[0]
+        self.assertIn("if(e.state == State.ENABLED)fault(e,ex,true);",dispatch)
+        self.assertIn("selfDisableThenThrow();",tests)
+        self.assertIn("shutdownThenThrow();",tests)
+        self.assertIn("disableFaultThenThrow();",tests)
+        self.assertIn("ordinaryEventFaultStillQuarantines();",tests)
+        self.assertIn("EventPostLifecycleFaultTests",workflow)
+
     def test_module_lifecycle_reentry_and_sealed_shutdown(self):
         registry=content("src/main/java/dev/ghostfusion/core/ModuleRegistry.java")
         suite=content("src/test/java/dev/ghostfusion/tests/ModuleLifecycleReentryTests.java")
