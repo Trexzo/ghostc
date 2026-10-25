@@ -1969,6 +1969,20 @@ class ForgeWiring(unittest.TestCase):
         ci=content(".github/workflows/core-ci.yml")
         self.assertIn("dev.ghostfusion.tests.FaultPrivacyTests",ci)
 
+    def test_combat_remapped_physical_hold_must_observe_release(self):
+        gate=content("src/main/java/dev/ghostfusion/features/PhysicalInputGate.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/PhysicalInputBindingTests.java")
+        controller=(FORGE/"ForgeCombatController.java").read_text(encoding="utf-8")
+        workflow=content(".github/workflows/core-ci.yml")
+        self.assertIn("attackBinding != attackCode || useBinding != useCode",gate)
+        self.assertIn("releaseRequired = true;",gate)
+        self.assertIn("bindingKnown = false;",gate)
+        self.assertIn("mc.gameSettings.keyBindAttack.getKeyCode()",controller)
+        self.assertIn("mc.gameSettings.keyBindUseItem.getKeyCode()",controller)
+        self.assertIn("rebindStress();",suite)
+        self.assertIn("schedulerIntegration();",suite)
+        self.assertIn("PhysicalInputBindingTests",workflow)
+
     def test_reserved_f7_cannot_be_bound_or_loaded_from_profile(self):
         registry=content("src/main/java/dev/ghostfusion/core/ModuleRegistry.java")
         reserved=content("src/main/java/dev/ghostfusion/core/ReservedKeys.java")
