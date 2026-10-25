@@ -208,6 +208,18 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("symlinkCannotLeakUnrelatedContents();",tests)
         self.assertIn("DiagnosticsBackupIntegrityTests",ci)
 
+    def test_shutdown_callback_cannot_reenter_host_input_or_features(self):
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/HostCloseInputFenceTests.java")
+        workflow=content(".github/workflows/core-ci.yml")
+        self.assertIn("private volatile boolean closing;",host)
+        self.assertIn("if (closed || closing) return false;",host)
+        self.assertIn("if (!active() || closing || !worldPresent) return false;",host)
+        self.assertIn("public void inputFocus(boolean blocked) {\n        if (!active() || closing) return;",host)
+        self.assertIn("public void key(int keycode, boolean pressed, boolean textFieldOrMenuFocused) {\n        if (!active() || closing) return;",host)
+        self.assertIn("closeCallbackInputIsInert();",tests)
+        self.assertIn("HostCloseInputFenceTests",workflow)
+
     def test_terminal_shutdown_fences_asynchronous_ingress(self):
         ingress=content("src/main/java/dev/ghostfusion/core/BoundedIngress.java")
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
