@@ -85,7 +85,8 @@ if ($manifest.schema -ne 1 -or
     $manifest.java_class_major -ne 52 -or
     $manifest.verified_java_classes -lt 1 -or
     $manifest.artifact -cne $jar.Name -or
-    $manifest.artifact_bytes -isnot [long] -and $manifest.artifact_bytes -isnot [int]) {
+    ($manifest.artifact_bytes -isnot [long] -and
+     $manifest.artifact_bytes -isnot [int])) {
     throw 'Forge bundle provenance does not match the requested Windows build'
 }
 if ([long]$manifest.artifact_bytes -ne $jar.Length -or
