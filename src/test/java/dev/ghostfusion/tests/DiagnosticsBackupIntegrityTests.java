@@ -32,7 +32,7 @@ public final class DiagnosticsBackupIntegrityTests {
         return d;
     }
     private static void corruptPrimaryCannotReplaceGoodBackup() throws Exception {
-        for(int i=0;i<80;i++) {
+        for(int i=0;i<128;i++) {
             Path folder=Files.createTempDirectory("ghostc-r326-corrupt");
             RuntimeDiagnostics d=initialized(folder);
             Path primary=folder.resolve("diagnostics-last.properties");
@@ -123,7 +123,7 @@ public final class DiagnosticsBackupIntegrityTests {
         corruptPrimaryCannotReplaceGoodBackup();
         symlinkCannotLeakUnrelatedContents();
         validTypedReportsStillRotate();
-        ok(checks>=400,"substantial diagnostics backup robustness checks");
+        ok(checks>=500,"substantial diagnostics backup robustness checks");
         System.out.println("DIAGNOSTICS_BACKUP_INTEGRITY_PASS checks="+checks);
     }
 }

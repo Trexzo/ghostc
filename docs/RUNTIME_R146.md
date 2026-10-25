@@ -26,7 +26,7 @@ This is local **format and content validation**, not cryptographic
 authenticity; diagnostic reports intentionally remain unsealed and
 are not used as a module/UI recovery authority.
 
-\`DiagnosticsBackupIntegrityTests\` covers 80 malformed-primary
+\`DiagnosticsBackupIntegrityTests\` covers 128 malformed-primary
 scenarios (bad schema, extra private fields, invalid numbers,
 duplicate keys, wrong scope, truncated data and oversized files),
 symlink-to-unrelated-file protection, valid report rotation,
