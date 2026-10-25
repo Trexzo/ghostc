@@ -59,7 +59,24 @@ public final class FeatureFaultGuard {
             } catch (RuntimeException ex) {
                 String type=ex.getClass().getSimpleName();
                 if (type.length() > 60) type=type.substring(0,60);
-                registry.setEnabled(stableId,false);
+                // The callback may have legitimately shut down the host
+                // (and therefore its registry) before throwing. It is
+                // already quarantined if its Entry was disabled/faulted
+                // during that transition. Do not turn the original frame
+                // fault into a second "Core shut down" exception.
+                if(entry.state() == ModuleRegistry.State.ENABLED) {
+                    try { registry.setEnabled(stableId,false); }
+                    catch(RuntimeException disableFailure) {
+                        // During an onDisable lifecycle transition the
+                        // registry may still report ENABLED. Propagate the
+                        // original exception to that lifecycle's own fault
+                        // boundary; never report quarantine while active.
+                        if(entry.state() == ModuleRegistry.State.ENABLED) {
+                            if(disableFailure != ex) ex.addSuppressed(disableFailure);
+                            throw ex;
+                        }
+                    }
+                }
                 recent.put(stableId,type);
                 if (recent.size() > 32) recent.remove(recent.keySet().iterator().next());
                 refreshLatestWarning();
