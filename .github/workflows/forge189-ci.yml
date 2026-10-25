@@ -589,3 +589,102 @@ jobs:
             docs/RUNTIME_R136.md
             docs/RUNTIME_R137.md
           if-no-files-found: error
+
+  delivered-windows-artifact:
+    name: Windows / downloaded Forge artifact acceptance rehearsal
+    needs: windows-forge189
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      # Exercise the ZIP delivered to end users, not the original workspace.
+      - uses: actions/download-artifact@v4
+        with:
+          name: ghostc-forge189-windows-build-unverified-ingame
+          path: .github-ci-delivered
+      - name: Verify extracted package and safe Prepare/Rollback (NO game launch)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:GITHUB_WORKSPACE '.github-ci-delivered'
+          $libs = Join-Path $root 'forge189/build/libs'
+          $tool = Join-Path $root 'tools/Invoke-GhostCNativePreflight.ps1'
+          $transaction = Join-Path $root 'tools/Invoke-GhostCAcceptance.ps1'
+          $auditor = Join-Path $root 'tools/audit_native_acceptance.py'
+          $forgeVerifier = Join-Path $root 'tools/verify_forge_jar.py'
+          $provenance = Join-Path $root 'tools/forge_build_manifest.py'
+          $manifest = Join-Path $libs 'GHOSTC_BUILD_MANIFEST.json'
+          $sums = Join-Path $libs 'SHA256SUMS.txt'
+          $jar = @(Get-ChildItem -LiteralPath $libs -File |
+            Where-Object { $_.Name -cmatch '^ghostc-forge189-[0-9]+\.[0-9]+\.[0-9]+\.jar$' })
+          if ($jar.Count -ne 1 -or
+              !(Test-Path -LiteralPath $tool -PathType Leaf) -or
+              !(Test-Path -LiteralPath $transaction -PathType Leaf) -or
+              !(Test-Path -LiteralPath $auditor -PathType Leaf) -or
+              !(Test-Path -LiteralPath $forgeVerifier -PathType Leaf) -or
+              !(Test-Path -LiteralPath $provenance -PathType Leaf) -or
+              !(Test-Path -LiteralPath (Join-Path $root 'docs/RUNTIME_R137.md')) -or
+              !(Test-Path -LiteralPath $manifest -PathType Leaf) -or
+              !(Test-Path -LiteralPath $sums -PathType Leaf)) {
+            throw 'Delivered Forge ZIP incomplete or duplicate versioned JARs'
+          }
+          $revision = $env:GITHUB_SHA.ToLowerInvariant()
+          $record = Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json
+          if ($record.source_revision -cne $revision -or
+              $record.platform -cne 'windows') {
+            throw 'Delivered ZIP does not belong to this exact CI revision'
+          }
+          $version = [regex]::Match($jar[0].Name,
+            '^ghostc-forge189-([0-9]+\.[0-9]+\.[0-9]+)\.jar$').Groups[1].Value
+          python $forgeVerifier --jar $jar[0].FullName --version $version
+          if ($LASTEXITCODE -ne 0) { throw 'Downloaded JAR structure invalid' }
+          python $provenance verify --jar $jar[0].FullName --sha256sums $sums --manifest $manifest --revision $revision --platform windows
+          if ($LASTEXITCODE -ne 0) { throw 'Downloaded manifest invalid' }
+          python $auditor --jar $jar[0].FullName --manifest $manifest --sha256sums $sums
+          if ($LASTEXITCODE -ne 0) { throw 'Downloaded package audit failed' }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Verify -BundleDir $root -ExpectedSourceRevision $revision
+          if ($LASTEXITCODE -ne 0) { throw 'Downloaded artifact Verify failed' }
+          Write-Output 'GHOSTC_DELIVERED_ARTIFACT_VERIFY_PASS'
+
+          # A deliberately wrong commit must not install anything.
+          $game = Join-Path $env:RUNNER_TEMP 'ghostc-delivered-test-profile'
+          New-Item -ItemType Directory -Path (Join-Path $game 'mods') -Force | Out-Null
+          $wrong = '0' * 40
+          if ($wrong -eq $revision) { $wrong = 'f' * 40 }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Prepare -BundleDir $root -ExpectedSourceRevision $wrong -GameDir $game *> $null
+          if ($LASTEXITCODE -eq 0 -or
+              (Test-Path -LiteralPath (Join-Path $game 'ghostc-acceptance/install-state.json')) -or
+              @(Get-ChildItem -LiteralPath (Join-Path $game 'mods') -File).Count -ne 0) {
+            throw 'Wrong SHA installation mutated test profile'
+          }
+          Write-Output 'GHOSTC_DELIVERED_ARTIFACT_WRONG_REVISION_GUARD_PASS'
+
+          # Install the actual extracted archive and restore the test fixture.
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Mode Prepare -BundleDir $root -ExpectedSourceRevision $revision -GameDir $game
+          if ($LASTEXITCODE -ne 0 -or
+              !(Test-Path -LiteralPath (Join-Path $game 'ghostc-acceptance/install-state.json'))) {
+            throw 'Downloaded package Prepare failed'
+          }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $transaction -Mode Rollback -GameDir $game
+          if ($LASTEXITCODE -ne 0 -or
+              (Test-Path -LiteralPath (Join-Path $game 'ghostc-acceptance/install-state.json')) -or
+              @(Get-ChildItem -LiteralPath (Join-Path $game 'mods') -File).Count -ne 0) {
+            throw 'Downloaded package rollback failed'
+          }
+          Write-Output 'GHOSTC_DELIVERED_ARTIFACT_TRANSACTION_PASS'
+
+          # Tamper with a copy, never the original extracted distribution.
+          $tamper = Join-Path $env:RUNNER_TEMP 'ghostc-delivered-tamper'
+          Copy-Item -LiteralPath $root -Destination $tamper -Recurse -ErrorAction Stop
+          $altered = Join-Path $tamper ('forge189/build/libs/' + $jar[0].Name)
+          [IO.File]::AppendAllText($altered,'CI_TAMPER_TEST_NOT_GAME_BINARY')
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $tamper 'tools/Invoke-GhostCNativePreflight.ps1') -Mode Prepare -BundleDir $tamper -ExpectedSourceRevision $revision -GameDir $game *> $null
+          if ($LASTEXITCODE -eq 0 -or
+              (Test-Path -LiteralPath (Join-Path $game 'ghostc-acceptance/install-state.json')) -or
+              @(Get-ChildItem -LiteralPath (Join-Path $game 'mods') -File).Count -ne 0) {
+            throw 'Tampered downloaded JAR passed admission'
+          }
+          Write-Output 'GHOSTC_DELIVERED_ARTIFACT_TAMPER_GUARD_PASS'
+          Write-Output 'GHOSTC_DELIVERED_ARTIFACT_OFFLINE_ACCEPTANCE_PASS (NOT in-game tested)'
+          # The preceding intentional negative test leaves LASTEXITCODE nonzero.
+          # Only exit successfully after every explicit assertion has passed.
+          exit 0
