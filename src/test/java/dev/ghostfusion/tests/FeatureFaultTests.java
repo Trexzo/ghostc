@@ -382,6 +382,110 @@ public final class FeatureFaultTests {
            "explicit reset still clears lifecycle fault without callback");
         lifecycle.shutdown();
     }
+    /** R3.24: repeated faults are newest, even when the module previously
+     * appeared near the front of a full 32-entry warning history. */
+    private static void mostRecentFaultOrderingAndBound() {
+        ModuleRegistry registry=new ModuleRegistry();
+        TestModule[] modules=new TestModule[36];
+        for(int i=0;i<modules.length;i++) {
+            modules[i]=new TestModule("hud.chronology."+i);
+            registry.register(modules[i],0);
+            registry.setEnabled(modules[i].id(),true);
+        }
+        final int[] reports={0};
+        FeatureFaultGuard guard=new FeatureFaultGuard(registry,(id,type)->{
+            reports[0]++;
+            ok(id.startsWith("hud.chronology.") &&
+               !type.contains("SECRET") && !type.isEmpty(),
+               "fault callback publishes sanitized metadata only");
+        });
+        for(int i=0;i<32;i++) {
+            final int index=i;
+            ok(!guard.execute(modules[i].id(),()->{
+                throw new IllegalStateException("SECRET-"+index);
+            }),"original failure quarantined "+i);
+        }
+        ok(guard.recentFaults().size()==32 &&
+           guard.latestFaultWarning().startsWith(
+               "Module disabled: hud.chronology.31 ("),
+           "history starts bounded and warning newest");
+
+        // Re-enable the oldest unresolved feature, then fail again.
+        // LinkedHashMap.put alone used to leave it at the oldest slot.
+        registry.setEnabled(modules[0].id(),true);
+        ok(!guard.execute(modules[0].id(),()->{
+            throw new IllegalArgumentException("SECRET REPEATED FAILURE");
+        }),"repeated failure quarantined again");
+        ok(guard.latestFaultWarning().equals(
+               "Module disabled: hud.chronology.0 (IllegalArgumentException)") &&
+           "IllegalArgumentException".equals(
+               guard.recentFaults().get(modules[0].id())),
+           "repeat fault becomes latest warning and updates type");
+
+        for(int i=32;i<modules.length;i++) {
+            final int index=i;
+            ok(!guard.execute(modules[i].id(),()->{
+                throw new IllegalStateException("PRIVATE-"+index);
+            }),"new distinct feature failure "+i);
+        }
+        Map<String,String> bounded=guard.recentFaults();
+        ok(bounded.size()==32 && bounded.containsKey(modules[0].id()) &&
+           !bounded.containsKey(modules[1].id()) &&
+           !bounded.containsKey(modules[4].id()),
+           "retry survives cap while genuinely oldest failures are evicted");
+        ok(guard.latestFaultWarning().startsWith(
+               "Module disabled: hud.chronology.35 ("),
+           "distinct newest feature owns warning after eviction");
+
+        // A user may repeatedly retry multiple features: alternate which
+        // one is latest, without rebuilding warning strings on idle frames.
+        for(int i=0;i<3200;i++) {
+            registry.setEnabled(modules[0].id(),true);
+            ok(!guard.execute(modules[0].id(),()->{
+                throw new IllegalArgumentException("PRIVATE-ACCOUNT");
+            }),"repeated A failure "+i);
+            ok(guard.latestFaultWarning().equals(
+                   "Module disabled: hud.chronology.0 (IllegalArgumentException)"),
+               "A becomes latest on retry "+i);
+            registry.setEnabled(modules[35].id(),true);
+            ok(!guard.execute(modules[35].id(),()->{
+                throw new IllegalStateException("PRIVATE-SERVER");
+            }),"repeated B failure "+i);
+            ok(guard.latestFaultWarning().equals(
+                   "Module disabled: hud.chronology.35 (IllegalStateException)"),
+               "B becomes latest on retry "+i);
+        }
+        ok(guard.recentFaults().size()==32 &&
+           reports[0]==32+1+4+3200*2,
+           "repeat retries neither duplicate keys nor leak bound");
+        String cached=guard.latestFaultWarning();
+        for(int i=0;i<16000;i++) {
+            ok(guard.latestFaultWarning()==cached,
+               "unchanged HUD warning does not churn strings "+i);
+        }
+
+        registry.setEnabled(modules[35].id(),true);
+        ok(guard.execute(modules[35].id(),()->{}),
+           "successful latest feature retry recovers normally");
+        ok(!guard.recentFaults().containsKey(modules[35].id()) &&
+           guard.latestFaultWarning().startsWith(
+               "Module disabled: hud.chronology.0 ("),
+           "successful recovery reveals next genuinely unresolved fault");
+
+        // Anonymous exception names must be sanitized, but nonempty.
+        registry.setEnabled(modules[34].id(),true);
+        ok(!guard.execute(modules[34].id(),()->{
+            throw new IllegalArgumentException("PRIVATE ANONYMOUS") {};
+        }),"anonymous exception quarantined");
+        ok(guard.latestFaultWarning().equals(
+               "Module disabled: hud.chronology.34 (RuntimeException)") &&
+           "RuntimeException".equals(guard.recentFaults().get(modules[34].id())),
+           "anonymous exception is represented by a safe nonempty type");
+        ok(!guard.recentFaults().toString().contains("PRIVATE"),
+           "no exception messages retained in bounded history");
+
+        registry.shutdown();
+    }
     private static void ownership() throws Exception {
         ModuleRegistry r=new ModuleRegistry();
         TestModule mod=new TestModule("hud.owner");
@@ -399,7 +503,8 @@ public final class FeatureFaultTests {
     public static void main(String[] args) throws Exception {
         faultContainment();listenerErrors();hostAndPersistence();fullFeatureQuarantine();
         reentrantCallbackFence();liveWarningRecovery();
-        shutdownAndLifecycleFaultContainment();ownership();
+        shutdownAndLifecycleFaultContainment();
+        mostRecentFaultOrderingAndBound();ownership();
         ok(checks>=320,"substantial per-frame quarantine coverage");
         System.out.println("FEATURE_FAULT_PASS assertions="+checks);
     }

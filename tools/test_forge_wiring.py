@@ -1962,6 +1962,15 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("eventFailureCleanupReentry();",suite)
         self.assertIn("longSession();",suite)
 
+    def test_latest_feature_fault_is_bounded_by_last_occurrence(self):
+        guard=content("src/main/java/dev/ghostfusion/host/FeatureFaultGuard.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/FeatureFaultTests.java")
+        self.assertIn("recent.remove(stableId);\n                recent.put(stableId,type);",guard)
+        self.assertIn("if (recent.size() > 32) recent.remove(",guard)
+        self.assertIn('if (type.isEmpty()) type="RuntimeException";',guard)
+        self.assertIn("mostRecentFaultOrderingAndBound();",tests)
+        self.assertIn("i<3200;i++",tests)
+
     def test_core_module_fault_never_retains_private_messages(self):
         module=content("src/main/java/dev/ghostfusion/core/ModuleRegistry.java")
         self.assertNotIn("cause.getMessage()",module)
