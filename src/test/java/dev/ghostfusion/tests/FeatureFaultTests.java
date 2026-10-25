@@ -278,6 +278,110 @@ public final class FeatureFaultTests {
            "recovery does not increment fault diagnostic counters");
         host.close();
     }
+    /** R3.21: shutdown and module lifecycle changes during a render fault
+     * must not leak an unrelated cleanup exception or report a false quarantine. */
+    private static void shutdownAndLifecycleFaultContainment() throws Exception {
+        for(int i=0;i<1000;i++) {
+            final int iteration=i;
+            ModuleRegistry registry=new ModuleRegistry();
+            TestModule damaged=new TestModule("hud.shutdown");
+            TestModule peer=new TestModule("hud.other");
+            registry.register(damaged,0);
+            registry.register(peer,0);
+            registry.setEnabled(damaged.id(),true);
+            registry.setEnabled(peer.id(),true);
+            final int[] reports={0};
+            FeatureFaultGuard guard=new FeatureFaultGuard(registry,(id,type)->{
+                ok("hud.shutdown".equals(id) &&
+                   "IllegalArgumentException".equals(type),
+                   "shutdown fault does not leak user data or substitute exception");
+                reports[0]++;
+            });
+            ok(!guard.execute(damaged.id(),()->{
+                registry.shutdown();
+                throw new IllegalArgumentException("SENSITIVE PLAYER ACCOUNT "+iteration);
+            }),"callback shutdown then exception remains quarantined "+i);
+            ok(registry.get(damaged.id()).state()==ModuleRegistry.State.DISABLED &&
+               registry.get(peer.id()).state()==ModuleRegistry.State.DISABLED &&
+               damaged.disabled==1 && peer.disabled==1,
+               "shutdown cleanup executes once for each feature "+i);
+            ok(reports[0]==1 &&
+               guard.latestFaultWarning().contains("IllegalArgumentException") &&
+               !guard.latestFaultWarning().contains("SENSITIVE") &&
+               !guard.recentFaults().toString().contains("PLAYER"),
+               "shutdown records only safe fault metadata "+i);
+            ok(!guard.execute(damaged.id(),()->{
+                throw new AssertionError("disabled callback should never run");
+            }),"disabled shutdown feature stays inert "+i);
+        }
+
+        // A callback that disabled its own module before failure must not
+        // double-invoke onDisable in the fault handler.
+        ModuleRegistry stopped=new ModuleRegistry();
+        TestModule self=new TestModule("hud.selfdisabled");
+        stopped.register(self,0);
+        stopped.setEnabled(self.id(),true);
+        final int[] selfReports={0};
+        FeatureFaultGuard guard=new FeatureFaultGuard(stopped,(id,type)->selfReports[0]++);
+        ok(!guard.execute(self.id(),()->{
+            stopped.setEnabled(self.id(),false);
+            throw new IllegalArgumentException("private payload");
+        }),"previously disabled module fault returns false");
+        ok(self.disabled==1 && selfReports[0]==1 &&
+           stopped.get(self.id()).state()==ModuleRegistry.State.DISABLED,
+           "quarantine does not re-disable a module that self-disabled");
+        stopped.shutdown();
+
+        // Real HostRuntime closure from an already-active feature callback.
+        // The original module error must never escape as 'Core shut down'.
+        Path dir=Files.createTempDirectory("ghostc-r321-closed-host");
+        HostRuntime host=new HostRuntime(dir);
+        host.worldPresence(true);
+        host.uiActions().toggle("hud.cps");
+        ok(!host.runFeature("hud.cps",()->{
+            host.close();
+            throw new IllegalArgumentException("PRIVATE DISCONNECT EVENT");
+        }),"render fault after host closure returns false");
+        ok(host.isClosed() && host.faultWarning().contains("hud.cps") &&
+           host.faultWarning().contains("IllegalArgumentException") &&
+           !host.faultWarning().contains("PRIVATE"),
+           "closed host shows safe original error class without propagating");
+        ok(!host.runFeature("hud.cps",()->{
+            throw new AssertionError("closed host must be inert");
+        }),"closed host never reruns renderer");
+
+        // A module still actively transitioning cannot be certified as
+        // disabled. Let ModuleRegistry's lifecycle containment own the fault.
+        ModuleRegistry lifecycle=new ModuleRegistry();
+        final FeatureFaultGuard[] holder=new FeatureFaultGuard[1];
+        final int[] disables={0},reported={0};
+        GhostModule nested=new GhostModule() {
+            public String id(){return "hud.transition";}
+            public String displayName(){return "transition";}
+            public Category category(){return Category.RENDER;}
+            public void onEnable(){}
+            public void onDisable(){
+                disables[0]++;
+                holder[0].execute(id(),()->{
+                    throw new IllegalArgumentException("PRIVATE TRANSITION");
+                });
+            }
+            public void onEvent(GameEvent e){}
+        };
+        lifecycle.register(nested,0);
+        holder[0]=new FeatureFaultGuard(lifecycle,(id,type)->reported[0]++);
+        lifecycle.setEnabled(nested.id(),true);
+        lifecycle.setEnabled(nested.id(),false);
+        ok(lifecycle.get(nested.id()).state()==ModuleRegistry.State.FAULTED &&
+           "IllegalArgumentException".equals(lifecycle.get(nested.id()).lastFault()),
+           "lifecycle boundary receives original exception and faults module");
+        ok(disables[0]==1 && reported[0]==0,
+           "no fake guard report and no double disable during transition");
+        lifecycle.setEnabled(nested.id(),false);
+        ok(lifecycle.get(nested.id()).state()==ModuleRegistry.State.DISABLED,
+           "explicit reset still clears lifecycle fault without callback");
+        lifecycle.shutdown();
+    }
     private static void ownership() throws Exception {
         ModuleRegistry r=new ModuleRegistry();
         TestModule mod=new TestModule("hud.owner");
@@ -294,7 +398,8 @@ public final class FeatureFaultTests {
     }
     public static void main(String[] args) throws Exception {
         faultContainment();listenerErrors();hostAndPersistence();fullFeatureQuarantine();
-        reentrantCallbackFence();liveWarningRecovery();ownership();
+        reentrantCallbackFence();liveWarningRecovery();
+        shutdownAndLifecycleFaultContainment();ownership();
         ok(checks>=320,"substantial per-frame quarantine coverage");
         System.out.println("FEATURE_FAULT_PASS assertions="+checks);
     }
