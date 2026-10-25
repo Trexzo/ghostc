@@ -1,14 +1,19 @@
 package dev.ghostfusion.host;
 
+import dev.ghostfusion.core.ConfigIntegrity;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.Properties;
 
 /**
@@ -66,6 +71,80 @@ public final class RuntimeDiagnostics {
         if(profiling==null)throw new IllegalArgumentException("snapshot profiler");
         saveReport(directory,perf,profiling.snapshot(),profiling);
     }
+    /** Diagnostics are local counter snapshots, not sealed config files.
+     * Never let a damaged, external-linked or oversized report replace the
+     * last well-formed backup while publishing a fresh safe report. */
+    private static final long MAX_REPORT_BYTES=65536L;
+    private static boolean validBackupReport(Properties data) {
+        if(!"1".equals(data.getProperty("schema")) ||
+           !"counter-only-no-identity".equals(data.getProperty("scope")))
+            return false;
+        Set<String> permitted=new HashSet<String>();
+        permitted.add("schema");permitted.add("scope");
+        for(Counter counter:Counter.values()) {
+            String key="count."+counter.name().toLowerCase(java.util.Locale.ROOT);
+            permitted.add(key);
+            // All expected counters are present in a genuine saved report.
+            if(!data.containsKey(key))return false;
+        }
+        String[] perf={"frame_samples","min_fps","median_fps","p95_fps",
+            "p99_fps","max_fps","heap_mib","peak_heap_mib",
+            "memory_samples","suspends","invalid_intervals"};
+        String[] snapshot={"samples","scanned","in_range","los_queries",
+            "published","p50_us","p95_us","p99_us","max_us"};
+        for(String field:perf)permitted.add("perf."+field);
+        for(String field:snapshot)permitted.add("snap."+field);
+        for(SnapshotTelemetry.Mode mode:SnapshotTelemetry.Mode.values()) {
+            String prefix="snap.mode_"+mode.name().toLowerCase(java.util.Locale.ROOT)+"_";
+            for(String field:snapshot)permitted.add(prefix+field);
+        }
+        for(String key:data.stringPropertyNames()) {
+            if(!permitted.contains(key))return false;
+            if(key.equals("schema")||key.equals("scope"))continue;
+            String value=data.getProperty(key);
+            // Strict nonnegative decimal counter. No arbitrary strings,
+            // private fields or overflowing numeric content in a backup.
+            if(value==null||!value.matches("(?:0|[1-9][0-9]{0,18})"))return false;
+            try {Long.parseLong(value);}
+            catch(NumberFormatException malformed){return false;}
+        }
+        return true;
+    }
+    /** Copy to a private bounded file, validate that exact snapshot, then
+     * promote. The source is opened NOFOLLOW_LINKS even after preflight;
+     * a symlink swap must never copy some unrelated local user's bytes. */
+    private static void rotateValidBackup(Path primary) throws IOException {
+        if(!Files.isRegularFile(primary,LinkOption.NOFOLLOW_LINKS) ||
+           Files.size(primary)>MAX_REPORT_BYTES)return;
+        Path staged=Files.createTempFile(primary.getParent(),"ghostc-diag-backup-",".tmp");
+        try {
+            try {
+                long copied=0;
+                try(InputStream in=Files.newInputStream(primary,LinkOption.NOFOLLOW_LINKS);
+                    OutputStream out=Files.newOutputStream(staged)) {
+                    byte[] block=new byte[4096];int n;
+                    while((n=in.read(block))!=-1) {
+                        if(n>MAX_REPORT_BYTES-copied)return;
+                        out.write(block,0,n);copied+=n;
+                    }
+                }
+                if(!validBackupReport(ConfigIntegrity.read(staged)))return;
+            } catch(IOException | RuntimeException invalid) {
+                // Preserve the existing last-known-good backup. Publishing
+                // this session's new report is still allowed.
+                return;
+            }
+            Path backup=primary.resolveSibling("diagnostics-last.properties.bak");
+            try {
+                Files.move(staged,backup,StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING);
+            } catch(AtomicMoveNotSupportedException ex) {
+                Files.move(staged,backup,StandardCopyOption.REPLACE_EXISTING);
+            }
+        } finally {
+            Files.deleteIfExists(staged);
+        }
+    }
     private void saveReport(Path directory,FramePerformance.Snapshot perf,
                      SnapshotTelemetry.Snapshot snap,SnapshotTelemetry profiling) throws IOException {
         check();
@@ -120,9 +199,7 @@ public final class RuntimeDiagnostics {
             try(OutputStream out = Files.newOutputStream(temp)) {
                 props.store(out, "GhostC opt-in client counters; no identity or network data");
             }
-            if (Files.exists(target))
-                Files.copy(target, directory.resolve("diagnostics-last.properties.bak"),
-                    StandardCopyOption.REPLACE_EXISTING);
+            rotateValidBackup(target);
             try {
                 Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE,
                     StandardCopyOption.REPLACE_EXISTING);
