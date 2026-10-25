@@ -194,6 +194,20 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("concurrentConsumersCannotSteal();",suite)
         self.assertIn("IngressDrainReentryTests",ci)
 
+    def test_diagnostics_backup_never_imports_external_or_invalid_reports(self):
+        diag=content("src/main/java/dev/ghostfusion/host/RuntimeDiagnostics.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/DiagnosticsBackupIntegrityTests.java")
+        ci=content(".github/workflows/core-ci.yml")
+        self.assertIn("rotateValidBackup(target);",diag)
+        self.assertIn("Files.newInputStream(primary,LinkOption.NOFOLLOW_LINKS)",diag)
+        self.assertIn("ConfigIntegrity.read(staged)",diag)
+        self.assertIn("validBackupReport(",diag)
+        self.assertIn("MAX_REPORT_BYTES=65536L",diag)
+        self.assertNotIn("Files.copy(target, directory.resolve(",diag)
+        self.assertIn("corruptPrimaryCannotReplaceGoodBackup();",tests)
+        self.assertIn("symlinkCannotLeakUnrelatedContents();",tests)
+        self.assertIn("DiagnosticsBackupIntegrityTests",ci)
+
     def test_terminal_shutdown_fences_asynchronous_ingress(self):
         ingress=content("src/main/java/dev/ghostfusion/core/BoundedIngress.java")
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")

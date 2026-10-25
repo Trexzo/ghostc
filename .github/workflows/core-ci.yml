@@ -140,6 +140,8 @@ jobs:
           grep -q 'COORDINATOR_HYGIENE_PASS' .build/hygiene.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.RuntimeSafetyTests | tee .build/runtime-safety.log
           grep -q 'RUNTIME_SAFETY_PASS' .build/runtime-safety.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.DiagnosticsBackupIntegrityTests | tee .build/diagnostics-backup-integrity.log
+          grep -q 'DIAGNOSTICS_BACKUP_INTEGRITY_PASS' .build/diagnostics-backup-integrity.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.FeatureFaultTests | tee .build/feature-fault.log
           grep -q 'FEATURE_FAULT_PASS' .build/feature-fault.log
           python3 tools/test_forge_wiring.py
