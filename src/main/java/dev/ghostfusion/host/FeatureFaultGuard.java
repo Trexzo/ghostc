@@ -58,6 +58,9 @@ public final class FeatureFaultGuard {
                 return true;
             } catch (RuntimeException ex) {
                 String type=ex.getClass().getSimpleName();
+                // Anonymous RuntimeException subclasses have no simple name.
+                // Keep fault metadata nonempty without retaining messages.
+                if (type.isEmpty()) type="RuntimeException";
                 if (type.length() > 60) type=type.substring(0,60);
                 // The callback may have legitimately shut down the host
                 // (and therefore its registry) before throwing. It is
@@ -77,6 +80,12 @@ public final class FeatureFaultGuard {
                         }
                     }
                 }
+                // LinkedHashMap preserves the first insertion slot on put.
+                // A retry that fails again is the NEWEST unresolved fault:
+                // move its id to the tail before applying bounded eviction.
+                // Otherwise the HUD can show an older peer failure, and
+                // a recently retried feature can be prematurely evicted.
+                recent.remove(stableId);
                 recent.put(stableId,type);
                 if (recent.size() > 32) recent.remove(recent.keySet().iterator().next());
                 refreshLatestWarning();
