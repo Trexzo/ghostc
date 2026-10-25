@@ -121,6 +121,7 @@ jobs:
             tools/audit_native_acceptance.py
             tools/verify_forge_jar.py
             tools/Invoke-GhostCAcceptance.ps1
+            tools/Invoke-GhostCNativePreflight.ps1
             docs/RUNTIME_R10.md
             docs/RUNTIME_R11.md
             docs/RUNTIME_R12.md
@@ -137,6 +138,7 @@ jobs:
             docs/RUNTIME_R23.md
             docs/RUNTIME_R67.md
             docs/RUNTIME_R136.md
+            docs/RUNTIME_R137.md
           if-no-files-found: error
 
   windows-forge189:
@@ -213,6 +215,38 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Windows provenance generation failed' }
           python tools/forge_build_manifest.py verify --jar $file --sha256sums $sums --manifest $manifest --revision $revision --platform windows
           if ($LASTEXITCODE -ne 0) { throw 'Windows provenance verification failed' }
+      - name: Pinned Windows acceptance preflight and safe isolated Prepare rehearsal (NO Minecraft)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $revision = (& git rev-parse HEAD).Trim()
+          $bundle = (Resolve-Path '.').Path
+          $preflight = (Resolve-Path 'tools/Invoke-GhostCNativePreflight.ps1').Path
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $preflight -Mode Verify -BundleDir $bundle -ExpectedSourceRevision $revision
+          if ($LASTEXITCODE -ne 0) { throw 'Valid Windows CI bundle failed native preflight' }
+          $wrong = '0' * 40
+          if ($wrong -eq $revision) { $wrong = 'f' * 40 }
+          $profile = Join-Path $env:RUNNER_TEMP 'ghostc-preflight-profile-fixture'
+          New-Item -ItemType Directory -Path (Join-Path $profile 'mods') -Force | Out-Null
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $preflight -Mode Prepare -BundleDir $bundle -ExpectedSourceRevision $wrong -GameDir $profile *> $null
+          if ($LASTEXITCODE -eq 0 -or
+              (Test-Path -LiteralPath (Join-Path $profile 'ghostc-acceptance/install-state.json')) -or
+              @(Get-ChildItem -LiteralPath (Join-Path $profile 'mods') -File).Count -ne 0) {
+            throw 'Wrong CI source revision was allowed to mutate a native profile'
+          }
+          Write-Output 'GHOSTC_NATIVE_PREFLIGHT_WRONG_REVISION_DENIED_PASS'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $preflight -Mode Prepare -BundleDir $bundle -ExpectedSourceRevision $revision -GameDir $profile
+          if ($LASTEXITCODE -ne 0 -or
+              !(Test-Path -LiteralPath (Join-Path $profile 'ghostc-acceptance/install-state.json'))) {
+            throw 'Correct CI bundle failed isolated acceptance Prepare rehearsal'
+          }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'tools/Invoke-GhostCAcceptance.ps1' -Mode Rollback -GameDir $profile
+          if ($LASTEXITCODE -ne 0 -or
+              (Test-Path -LiteralPath (Join-Path $profile 'ghostc-acceptance/install-state.json')) -or
+              @(Get-ChildItem -LiteralPath (Join-Path $profile 'mods') -File).Count -ne 0) {
+            throw 'Isolated native preflight rollback left active client or transaction state'
+          }
+          Write-Output 'GHOSTC_NATIVE_PREFLIGHT_ISOLATED_ROLLBACK_PASS'
           python tools/audit_native_acceptance.py --jar $file --manifest $manifest --sha256sums $sums
           if ($LASTEXITCODE -ne 0) { throw 'Windows package identity audit failed' }
       - name: Transactional install/collect/rollback rehearsal (fake profile, NO game launch)
@@ -546,10 +580,12 @@ jobs:
             tools/audit_native_acceptance.py
             tools/verify_forge_jar.py
             tools/Invoke-GhostCAcceptance.ps1
+            tools/Invoke-GhostCNativePreflight.ps1
             docs/RUNTIME_R10.md
             docs/RUNTIME_R15.md
             docs/RUNTIME_R16.md
             docs/RUNTIME_R23.md
             docs/RUNTIME_R67.md
             docs/RUNTIME_R136.md
+            docs/RUNTIME_R137.md
           if-no-files-found: error
