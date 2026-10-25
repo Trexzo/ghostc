@@ -2015,8 +2015,8 @@ class ForgeWiring(unittest.TestCase):
     def test_legacy_status_hud_storage_remains_backward_compatible(self):
         store=content("src/main/java/dev/ghostfusion/ui/UiSettingsStore.java")
         state=content("src/main/java/dev/ghostfusion/ui/UiState.java")
-        self.assertIn('p.getProperty("hud.x")',store)
-        self.assertIn('p.getProperty("hud.y")',store)
+        self.assertIn('p.getProperty("hud.x", Double.toString(UiState.DEFAULT_HUD_X))',store)
+        self.assertIn('p.getProperty("hud.y", Double.toString(UiState.DEFAULT_HUD_Y))',store)
         self.assertIn('p.setProperty("hud.x"',store)
         self.assertIn('p.setProperty("hud.y"',store)
         self.assertIn("public void position(double x, double y)",state)
