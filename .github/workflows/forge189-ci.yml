@@ -106,8 +106,10 @@ jobs:
           VERSION=$(awk -F"'" '/^version = / {print $2; exit}' forge189/build.gradle)
           REVISION=$(git rev-parse HEAD)
           python3 tools/test_forge_build_manifest.py
+          python3 tools/test_audit_native_acceptance.py
           python3 tools/forge_build_manifest.py create --jar "$JAR" --version "$VERSION" --sha256sums forge189/build/libs/SHA256SUMS.txt --manifest forge189/build/libs/GHOSTC_BUILD_MANIFEST.json --revision "$REVISION" --platform linux
           python3 tools/forge_build_manifest.py verify --jar "$JAR" --sha256sums forge189/build/libs/SHA256SUMS.txt --manifest forge189/build/libs/GHOSTC_BUILD_MANIFEST.json --revision "$REVISION" --platform linux
+          python3 tools/audit_native_acceptance.py --jar "$JAR" --manifest forge189/build/libs/GHOSTC_BUILD_MANIFEST.json --sha256sums forge189/build/libs/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
           name: ghostc-forge189-unverified-ingame
@@ -116,6 +118,7 @@ jobs:
             forge189/build/libs/SHA256SUMS.txt
             forge189/build/libs/GHOSTC_BUILD_MANIFEST.json
             tools/forge_build_manifest.py
+            tools/audit_native_acceptance.py
             tools/verify_forge_jar.py
             tools/Invoke-GhostCAcceptance.ps1
             docs/RUNTIME_R10.md
@@ -133,6 +136,7 @@ jobs:
             docs/RUNTIME_R22.md
             docs/RUNTIME_R23.md
             docs/RUNTIME_R67.md
+            docs/RUNTIME_R136.md
           if-no-files-found: error
 
   windows-forge189:
@@ -196,6 +200,8 @@ jobs:
           $ErrorActionPreference = 'Stop'
           python tools/test_forge_build_manifest.py
           if ($LASTEXITCODE -ne 0) { throw 'Provenance self-tests failed' }
+          python tools/test_audit_native_acceptance.py
+          if ($LASTEXITCODE -ne 0) { throw 'Native acceptance audit self-tests failed' }
           $config = Get-Content -LiteralPath forge189/build.gradle -Raw
           $version = ([regex]::Match($config, "(?m)^version = '([^']+)'")).Groups[1].Value
           if (!$version) { throw 'Missing Forge artifact version' }
@@ -207,6 +213,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Windows provenance generation failed' }
           python tools/forge_build_manifest.py verify --jar $file --sha256sums $sums --manifest $manifest --revision $revision --platform windows
           if ($LASTEXITCODE -ne 0) { throw 'Windows provenance verification failed' }
+          python tools/audit_native_acceptance.py --jar $file --manifest $manifest --sha256sums $sums
+          if ($LASTEXITCODE -ne 0) { throw 'Windows package identity audit failed' }
       - name: Transactional install/collect/rollback rehearsal (fake profile, NO game launch)
         shell: pwsh
         run: |
@@ -535,6 +543,7 @@ jobs:
             forge189/build/libs/SHA256SUMS.txt
             forge189/build/libs/GHOSTC_BUILD_MANIFEST.json
             tools/forge_build_manifest.py
+            tools/audit_native_acceptance.py
             tools/verify_forge_jar.py
             tools/Invoke-GhostCAcceptance.ps1
             docs/RUNTIME_R10.md
@@ -542,4 +551,5 @@ jobs:
             docs/RUNTIME_R16.md
             docs/RUNTIME_R23.md
             docs/RUNTIME_R67.md
+            docs/RUNTIME_R136.md
           if-no-files-found: error
