@@ -10,8 +10,10 @@ import java.util.Locale;
 public final class UiState {
     public enum Layout { COMPACT, WIDE }
     public enum Theme { GRAPHITE, INDIGO }
-    private Layout layout = Layout.WIDE;
-    private Theme theme = Theme.INDIGO;
+    public static final Layout DEFAULT_LAYOUT = Layout.WIDE;
+    public static final Theme DEFAULT_THEME = Theme.INDIGO;
+    private Layout layout = DEFAULT_LAYOUT;
+    private Theme theme = DEFAULT_THEME;
     private String query = "";
     private final HudPositions widgets = new HudPositions();
     private GhostModule.Category category;

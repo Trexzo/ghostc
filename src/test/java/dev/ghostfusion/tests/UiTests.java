@@ -1,11 +1,13 @@
 package dev.ghostfusion.tests;
 
 import dev.ghostfusion.core.GameEvent;
+import dev.ghostfusion.core.ConfigIntegrity;
 import dev.ghostfusion.core.GhostModule;
 import dev.ghostfusion.core.ModuleRegistry;
 import dev.ghostfusion.core.Setting;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.ui.UiActions;
+import dev.ghostfusion.ui.HudPositions;
 import dev.ghostfusion.ui.NumericSliderScale;
 import dev.ghostfusion.ui.UiSettingsStore;
 import dev.ghostfusion.ui.UiState;
@@ -216,6 +218,125 @@ public final class UiTests {
         ok(rejected, "unknown theme rejected");
         ok(ui.theme() == UiState.Theme.GRAPHITE, "corrupt theme leaves state");
     }
+    /**
+     * R3.19: missing legacy layout/theme/status-HUD anchor fields cannot
+     * inherit live settings from a previously loaded profile.
+     */
+    private static void sparsePreferences() throws Exception {
+        Path dir=Files.createTempDirectory("ghostc-ui-r319-sparse");
+        Path primary=dir.resolve("ui.properties");
+        Path backup=dir.resolve("ui.properties.bak");
+        UiState ui=new UiState();
+        UiSettingsStore store=new UiSettingsStore(dir,ui);
+        HudPositions.Widget widget=HudPositions.Widget.CPS;
+        for(int i=0;i<1024;i++){
+            int mask=i&15;
+            Properties p=new Properties();
+            p.setProperty("schema","1");
+            if((mask&1)!=0)p.setProperty("layout","COMPACT");
+            if((mask&2)!=0)p.setProperty("theme","GRAPHITE");
+            if((mask&4)!=0)p.setProperty("hud.x","0.71");
+            if((mask&8)!=0)p.setProperty("hud.y","0.29");
+            if((i&16)!=0)ConfigIntegrity.seal(p);
+            try(OutputStream out=Files.newOutputStream(primary)){
+                p.store(out,"R3.19 sparse legacy UI");
+            }
+            // Always mutate the live UI before loading to catch accidental
+            // fallbacks to values left by a previous profile.
+            ui.layout(UiState.Layout.COMPACT);
+            ui.theme(UiState.Theme.GRAPHITE);
+            ui.position(.93,.94);
+            ui.widgets().position(widget,.33,.44);
+            store.load();
+            ok(ui.layout()==((mask&1)!=0?
+                UiState.Layout.COMPACT:UiState.DEFAULT_LAYOUT),
+                "missing/explicit sparse layout "+i);
+            ok(ui.theme()==((mask&2)!=0?
+                UiState.Theme.GRAPHITE:UiState.DEFAULT_THEME),
+                "missing/explicit sparse theme "+i);
+            ok(ui.hudX()==((mask&4)!=0?.71:UiState.DEFAULT_HUD_X) &&
+               ui.hudY()==((mask&8)!=0?.29:UiState.DEFAULT_HUD_Y),
+               "sparse status HUD anchors use immutable defaults "+i);
+            ok(ui.widgets().x(widget)==1.0 && ui.widgets().y(widget)==1.0,
+               "sparse movable HUD keeps its immutable defaults "+i);
+            ok(ConfigIntegrity.verify(ConfigIntegrity.read(primary))==((i&16)!=0),
+               "sealed and unsealed sparse loading both accepted "+i);
+        }
+
+        String[] badFields={"layout","theme","hud.x","hud.y",
+                            "hud.x","hud.y","layout","theme"};
+        String[] badValues={"NOT_A_LAYOUT","NO_THEME","NaN",
+                            "-0.01","Infinity","1.01",""," "};
+        for(int i=0;i<badFields.length*128;i++){
+            Properties p=new Properties();
+            p.setProperty("schema","1");
+            p.setProperty(badFields[i%badFields.length],
+                          badValues[i%badValues.length]);
+            if((i&1)==0)ConfigIntegrity.seal(p);
+            try(OutputStream out=Files.newOutputStream(primary)){
+                p.store(out,"R3.19 malformed UI");
+            }
+            ui.layout(UiState.Layout.COMPACT);
+            ui.theme(UiState.Theme.GRAPHITE);
+            ui.position(.73,.84);
+            ui.widgets().position(widget,.32,.43);
+            boolean refused=false;
+            try{store.load();}catch(IllegalArgumentException expected){refused=true;}
+            ok(refused,"explicitly invalid sparse UI field rejected "+i);
+            ok(ui.layout()==UiState.Layout.COMPACT &&
+               ui.theme()==UiState.Theme.GRAPHITE &&
+               ui.hudX()==.73 && ui.hudY()==.84 &&
+               ui.widgets().x(widget)==.32 && ui.widgets().y(widget)==.43,
+               "invalid sparse UI never partially applies "+i);
+        }
+
+        // Backup admission must accept a sealed, typed-valid sparse snapshot.
+        Properties sparseBackup=new Properties();
+        sparseBackup.setProperty("schema","1");
+        sparseBackup.setProperty("layout","COMPACT");
+        sparseBackup.setProperty("hud.x","0.63");
+        ConfigIntegrity.seal(sparseBackup);
+        try(OutputStream out=Files.newOutputStream(backup)){
+            sparseBackup.store(out,"sealed sparse backup");
+        }
+        Properties malformed=new Properties();
+        malformed.setProperty("schema","1");
+        malformed.setProperty("theme","NOT_A_THEME");
+        ConfigIntegrity.seal(malformed);
+        try(OutputStream out=Files.newOutputStream(primary)){
+            malformed.store(out,"invalid typed primary");
+        }
+        byte[] original=Files.readAllBytes(primary);
+        ui.layout(UiState.Layout.COMPACT);
+        ui.theme(UiState.Theme.GRAPHITE);
+        ui.position(.84,.91);
+        ok(store.loadRecovering(),"typed-sparse verified backup promoted");
+        ok(ui.layout()==UiState.Layout.COMPACT &&
+           ui.theme()==UiState.DEFAULT_THEME &&
+           ui.hudX()==.63 && ui.hudY()==UiState.DEFAULT_HUD_Y,
+           "recovery fills only genuinely absent fields");
+        ok(java.util.Arrays.equals(original,Files.readAllBytes(
+            dir.resolve("ui.properties.corrupt"))),
+           "typed-invalid original retained unchanged after recovery");
+        ok(ConfigIntegrity.verify(ConfigIntegrity.read(primary)),
+           "promoted sparse backup remains sealed");
+
+        // A real HostRuntime constructor must accept a minimal schema-1 UI.
+        Path hostDir=Files.createTempDirectory("ghostc-r319-host-sparse-ui");
+        Properties minimal=new Properties();
+        minimal.setProperty("schema","1");
+        ConfigIntegrity.seal(minimal);
+        try(OutputStream out=Files.newOutputStream(hostDir.resolve("ui.properties"))){
+            minimal.store(out,"minimal legacy UI startup");
+        }
+        HostRuntime host=new HostRuntime(hostDir);
+        ok(host.ui().layout()==UiState.DEFAULT_LAYOUT &&
+           host.ui().theme()==UiState.DEFAULT_THEME &&
+           host.ui().hudX()==UiState.DEFAULT_HUD_X &&
+           host.ui().hudY()==UiState.DEFAULT_HUD_Y,
+           "minimal sparse UI restores correct defaults at real host startup");
+        host.close();
+    }
     private static void hostIntegration() throws Exception {
         Path dir = Files.createTempDirectory("ghostc-ui-host-");
         HostRuntime host = new HostRuntime(dir);
@@ -249,6 +370,7 @@ public final class UiTests {
         numericNoopWrites();
         geometry();
         preferences();
+        sparsePreferences();
         hostIntegration();
         ok(count > 300, "meaningful UI regression coverage");
         System.out.println("UI_REGRESSION_PASS assertions=" + count);

@@ -66,10 +66,16 @@ public final class UiSettingsStore {
     }
     private Staged stage(Properties p) {
         if (!"1".equals(p.getProperty("schema"))) throw new IllegalArgumentException("Invalid UI schema");
-        final UiState.Layout layout = UiState.Layout.valueOf(p.getProperty("layout"));
-        final UiState.Theme theme = UiState.Theme.valueOf(p.getProperty("theme"));
-        final double x = Double.parseDouble(p.getProperty("hud.x"));
-        final double y = Double.parseDouble(p.getProperty("hud.y"));
+        // Missing legacy schema-1 fields must use stable constructor defaults.
+        // Never borrow potentially edited values from the current live UI.
+        final UiState.Layout layout = UiState.Layout.valueOf(
+            p.getProperty("layout", UiState.DEFAULT_LAYOUT.name()));
+        final UiState.Theme theme = UiState.Theme.valueOf(
+            p.getProperty("theme", UiState.DEFAULT_THEME.name()));
+        final double x = Double.parseDouble(
+            p.getProperty("hud.x", Double.toString(UiState.DEFAULT_HUD_X)));
+        final double y = Double.parseDouble(
+            p.getProperty("hud.y", Double.toString(UiState.DEFAULT_HUD_Y)));
         if (!Double.isFinite(x) || !Double.isFinite(y) || x < 0 || x > 1 || y < 0 || y > 1)
             throw new IllegalArgumentException("Invalid HUD coordinates");
         final HudPositions.Widget[] widgets=HudPositions.Widget.values();
