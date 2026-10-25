@@ -130,7 +130,10 @@ public final class HostRuntime {
     private boolean disconnectReported = true;
     // One host event batch owns lifecycle authority through ingress drain,
     // direct tick/render and transition/disconnect module callbacks.
-    private boolean hostDispatching, closing;
+    private boolean hostDispatching;
+    // Visible to producer threads as well as shutdown callbacks. This is an
+    // early denial, not a replacement for BoundedIngress's atomic seal.
+    private volatile boolean closing;
     private volatile boolean closed;
     private boolean worldPresent;
     private boolean inputBlocked;
@@ -244,7 +247,9 @@ public final class HostRuntime {
     public String faultWarning() { modules.assertOwnerThread(); return featureFaults.latestFaultWarning(); }
     /** Visual/sprint callbacks are isolated per module; a failing module is disabled and persisted. */
     public boolean runFeature(String id, Runnable callback) {
-        if (!active() || !worldPresent) return false;
+        // onDisable callbacks run before closed becomes true. Never execute
+        // another feature through the still-enabled part of that snapshot.
+        if (!active() || closing || !worldPresent) return false;
         return featureFaults.execute(id, callback);
     }
     public FeatureFaultGuard featureFaults() { modules.assertOwnerThread(); return featureFaults; }
@@ -377,7 +382,9 @@ public final class HostRuntime {
     public boolean enqueue(GameEvent.Kind kind) {
         if (kind != GameEvent.Kind.CLIENT_TICK && kind != GameEvent.Kind.RENDER_2D)
             throw new IllegalArgumentException("owner-only lifecycle event");
-        if (closed) return false;
+        // Avoid even reserving a producer event ID once close has started.
+        // The ingress seal remains the final atomic publication authority.
+        if (closed || closing) return false;
         return ingress.submit(event(kind));
     }
     private void assertHostEventBoundary() {
@@ -443,7 +450,7 @@ public final class HostRuntime {
     }
     /** Focus transition resets stale key-down state (GUI, chat, alt-tab). */
     public void inputFocus(boolean blocked) {
-        if (!active()) return;
+        if (!active() || closing) return;
         if (blocked != inputBlocked) {
             diagnostics.record(blocked ? Counter.FOCUS_LOST : Counter.FOCUS_GAINED);
             if (blocked) input.clearPressed();
@@ -453,7 +460,7 @@ public final class HostRuntime {
         inputBlocked = blocked;
     }
     public void key(int keycode, boolean pressed, boolean textFieldOrMenuFocused) {
-        if (!active()) return;
+        if (!active() || closing) return;
         inputFocus(textFieldOrMenuFocused);
         // No fresh full-registry List on every physical key press/release.
         ModuleRegistry.Entry changed = modules.boundToKey(keycode);

@@ -66,6 +66,8 @@ jobs:
           grep -Eq '^CORE_REGRESSION_PASS assertions=[0-9]+$' .build/test.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HostRuntimeTests | tee .build/host.log
           grep -q 'HOST_REGRESSION_PASS' .build/host.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.HostCloseInputFenceTests | tee .build/close-input-fence.log
+          grep -q 'HOST_CLOSE_INPUT_FENCE_PASS' .build/close-input-fence.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.IngressDrainReentryTests | tee .build/ingress-drain-reentry.log
           grep -q 'INGRESS_DRAIN_REENTRY_PASS' .build/ingress-drain-reentry.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.StartupPersistenceFenceTests | tee .build/startup-persistence-fence.log
