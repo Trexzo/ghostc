@@ -215,6 +215,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Windows provenance generation failed' }
           python tools/forge_build_manifest.py verify --jar $file --sha256sums $sums --manifest $manifest --revision $revision --platform windows
           if ($LASTEXITCODE -ne 0) { throw 'Windows provenance verification failed' }
+          python tools/audit_native_acceptance.py --jar $file --manifest $manifest --sha256sums $sums
+          if ($LASTEXITCODE -ne 0) { throw 'Windows package identity audit failed' }
       - name: Pinned Windows acceptance preflight and safe isolated Prepare rehearsal (NO Minecraft)
         shell: pwsh
         run: |
@@ -247,8 +249,6 @@ jobs:
             throw 'Isolated native preflight rollback left active client or transaction state'
           }
           Write-Output 'GHOSTC_NATIVE_PREFLIGHT_ISOLATED_ROLLBACK_PASS'
-          python tools/audit_native_acceptance.py --jar $file --manifest $manifest --sha256sums $sums
-          if ($LASTEXITCODE -ne 0) { throw 'Windows package identity audit failed' }
       - name: Transactional install/collect/rollback rehearsal (fake profile, NO game launch)
         shell: pwsh
         run: |
