@@ -492,11 +492,14 @@ public final class HostRuntime {
             hostDispatching=false;
         }
     }
+    /** External saves are forbidden while shutdown callbacks execute.
+     * close() itself takes one trusted checkpoint before disabling modules. */
     public void persist() {
-        if (!active()) return;
-        // Never overwrite an unreadable primary and its last backup with
-        // untrusted defaults just because the owner clicked a GUI control
-        // or closed Minecraft. The other config remains independently writable.
+        if (!active() || closing) return;
+        saveProfileFile();
+    }
+    private void saveProfileFile() {
+        // Do not overwrite an unreadable primary with fallback defaults.
         if (profileLoadFailed) return;
         try { profiles.save("default"); profileWarning = ""; }
         catch (IOException | IllegalArgumentException e) {
@@ -504,7 +507,10 @@ public final class HostRuntime {
         }
     }
     public void persistUi() {
-        if (!active()) return;
+        if (!active() || closing) return;
+        saveUiFile();
+    }
+    private void saveUiFile() {
         if (uiLoadFailed) return;
         try { uiStore.save(); uiWarning = ""; }
         catch (IOException | IllegalArgumentException e) {
@@ -525,8 +531,11 @@ public final class HostRuntime {
         // so no event can be admitted during the shutdown window.
         ingress.seal();
         try {
-            persist();
-            persistUi();
+            // One final owner checkpoint while modules are still enabled.
+            // Do not route this through public persistence: those entry
+            // points are fenced from reentrant onDisable callbacks.
+            saveProfileFile();
+            saveUiFile();
             exportDiagnostics();
             input.clearPressed();
             modules.shutdown();

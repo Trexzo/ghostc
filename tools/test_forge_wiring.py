@@ -2185,6 +2185,17 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.BackupRotationTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_shutdown_persists_only_before_module_callbacks(self):
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/HostRuntimeTests.java")
+        self.assertIn("if (!active() || closing) return;",host)
+        close=host.split("public void close() {",1)[1]
+        self.assertLess(close.index("saveProfileFile();"),close.index("modules.shutdown();"))
+        self.assertLess(close.index("saveUiFile();"),close.index("modules.shutdown();"))
+        self.assertNotIn("persist();",close)
+        self.assertNotIn("persistUi();",close)
+        self.assertIn("testClosePersistenceReentryFence(dir.resolve(",tests)
+
     def test_forge_project_version_matches_mod_annotation(self):
         gradle=content("forge189/build.gradle")
         match=re.search(r"(?m)^version = '([0-9]+\.[0-9]+\.[0-9]+)'",gradle)

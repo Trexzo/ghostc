@@ -637,6 +637,83 @@ public final class HostRuntimeTests {
             "single owner world notification can use the final positive ID");
         single.close();
     }
+    /** R3.22: onDisable callbacks cannot overwrite the once-saved shutdown
+     * checkpoint with partially disabled modules or post-save UI edits. */
+    private static void testClosePersistenceReentryFence(Path root) throws Exception {
+        for(int i=0;i<96;i++) {
+            Path config=root.resolve("trial-"+i);
+            final HostRuntime host=new HostRuntime(config);
+            final Path profile=config.resolve("default.properties");
+            final Path uiFile=config.resolve("ui.properties");
+            final byte[][] snapshot=new byte[4][];
+            final int[] callbackCount={0};
+            GhostModule adversarial=new GhostModule() {
+                public String id(){return "test.close_saver";}
+                public String displayName(){return "Close-time Saver";}
+                public Category category(){return Category.UTILITY;}
+                public void onEnable(){}
+                public void onDisable(){
+                    callbackCount[0]++;
+                    try {
+                        // This executes AFTER the status HUD's onDisable,
+                        // so a stray reentrant profile save would store it
+                        // as disabled even though it was enabled pre-close.
+                        snapshot[0]=Files.readAllBytes(profile);
+                        snapshot[1]=Files.readAllBytes(uiFile);
+                        snapshot[2]=Files.readAllBytes(config.resolve(
+                            "default.properties.bak"));
+                        snapshot[3]=Files.readAllBytes(config.resolve(
+                            "ui.properties.bak"));
+                        host.ui().position(.93,.94);
+                        for(int j=0;j<4;j++) {
+                            host.persist();
+                            host.persistUi();
+                        }
+                    } catch(java.io.IOException ex) {
+                        throw new IllegalStateException("fixture read failure",ex);
+                    }
+                }
+                public void onEvent(GameEvent e){}
+            };
+            host.modules().register(adversarial,0);
+            host.modules().setEnabled(adversarial.id(),true);
+            host.ui().position(.17,.26);
+            host.persist();
+            host.persistUi();
+            // Both .bak snapshots exist so close's trusted checkpoint
+            // cannot be mistaken for a missing recovery backup.
+            host.persist();host.persistUi();
+            ok(host.modules().get("hud.status").state()==ModuleRegistry.State.ENABLED,
+               "status HUD enabled before closing "+i);
+            host.close();
+            ok(host.isClosed() && callbackCount[0]==1 &&
+               host.modules().get(adversarial.id()).state()==ModuleRegistry.State.DISABLED,
+               "cleanup ran exactly once, without callback fault "+i);
+            ok(snapshot[0]!=null && snapshot[1]!=null &&
+               snapshot[2]!=null && snapshot[3]!=null,
+               "the trusted close checkpoint preceded callback "+i);
+            ok(java.util.Arrays.equals(snapshot[0],Files.readAllBytes(profile)) &&
+               java.util.Arrays.equals(snapshot[1],Files.readAllBytes(uiFile)),
+               "reentrant saves cannot rewrite shutdown checkpoint "+i);
+            ok(java.util.Arrays.equals(snapshot[2],Files.readAllBytes(
+                   config.resolve("default.properties.bak"))) &&
+               java.util.Arrays.equals(snapshot[3],Files.readAllBytes(
+                   config.resolve("ui.properties.bak"))),
+               "reentrant saves cannot rotate either last-known-good backup "+i);
+            java.util.Properties read=new java.util.Properties();
+            try(java.io.InputStream in=Files.newInputStream(profile)) {
+                read.load(in);
+            }
+            ok("true".equals(read.getProperty("module.hud.status.enabled")) &&
+               "true".equals(read.getProperty("module.test.close_saver.enabled")),
+               "close persisted live modules before shutdown started "+i);
+            HostRuntime resumed=new HostRuntime(config);
+            ok(resumed.modules().get("hud.status").state()==ModuleRegistry.State.ENABLED &&
+               resumed.ui().hudX()==.17 && resumed.ui().hudY()==.26,
+               "new host loads pre-shutdown HUD state, not callback mutations "+i);
+            resumed.close();
+        }
+    }
     private static void testCorruptProfile(Path config) throws Exception {
         Path file = config.resolve("default.properties");
         Files.createDirectories(config);
@@ -654,6 +731,7 @@ public final class HostRuntimeTests {
         testQueuedEventsAndThread(dir.resolve("queues"));
         testIngressShutdownAdmissionFence(dir.resolve("shutdown-ingress"));
         testClosePreflightDuringModuleLifecycle(dir.resolve("lifecycle-close"));
+        testClosePersistenceReentryFence(dir.resolve("close-persist-fence"));
         testIngressSessionFence(dir.resolve("epoch"));
         testHostEventReentryFence(dir.resolve("host-reentry"));
         testProducerLifecycleAuthority(dir.resolve("producer-lifecycle"));
