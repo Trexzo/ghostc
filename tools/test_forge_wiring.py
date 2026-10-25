@@ -1236,7 +1236,7 @@ class ForgeWiring(unittest.TestCase):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         telemetry=content("src/main/java/dev/ghostfusion/host/SnapshotTelemetry.java")
         diagnostics=content("src/main/java/dev/ghostfusion/host/RuntimeDiagnostics.java")
-        self.assertIn("return active() && worldPresent && !inputBlocked && diagnosticsEnabled();",host)
+        self.assertIn("return active() && !closing && worldPresent && !inputBlocked &&",host)
         self.assertIn("if(!snapshotProfilingEnabled())return;",host)
         self.assertIn("demand.needVisible,demand.needUnfiltered);",self.adapter)
         self.assertIn("lastSnapshotMode=mode;",host)
