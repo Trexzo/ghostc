@@ -30,6 +30,7 @@ public final class HostCloseInputFenceTests {
     }
     private static void closeCallbackInputIsInert() throws Exception {
         for(int i=0;i<192;i++) {
+            final int iteration=i;
             Path folder=Files.createTempDirectory("ghostc-r328-close-input");
             HostRuntime host=new HostRuntime(folder);
             Probe attacker=new Probe("test.close_attacker");
@@ -66,7 +67,7 @@ public final class HostCloseInputFenceTests {
             attacker.disable=()->{
                 seen[0]++;
                 ok(host.modules().get(peer.id()).state()==ModuleRegistry.State.ENABLED,
-                   "peer is still enabled during earlier disable callback "+i);
+                   "peer is still enabled during earlier disable callback "+iteration);
                 host.inputFocus(true);
                 host.key(91,true,false);
                 host.key(91,false,false);
