@@ -67,8 +67,9 @@ public final class DiagnosticsBackupIntegrityTests {
                "new report publishes only safe counters "+i);
             clean(folder);
             d.save(folder);
-            ok(Arrays.equals(Files.readAllBytes(primary),Files.readAllBytes(backup)),
-               "healthy identical report can checkpoint itself again "+i);
+            ok(ConfigIntegrity.read(primary).equals(ConfigIntegrity.read(backup)) &&
+               "1".equals(ConfigIntegrity.read(backup).getProperty("count.extra_attack")),
+               "healthy report values checkpoint again despite timestamp comments "+i);
         }
     }
     private static void symlinkCannotLeakUnrelatedContents() throws Exception {
