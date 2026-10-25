@@ -282,6 +282,7 @@ public final class FeatureFaultTests {
      * must not leak an unrelated cleanup exception or report a false quarantine. */
     private static void shutdownAndLifecycleFaultContainment() throws Exception {
         for(int i=0;i<1000;i++) {
+            final int iteration=i;
             ModuleRegistry registry=new ModuleRegistry();
             TestModule damaged=new TestModule("hud.shutdown");
             TestModule peer=new TestModule("hud.other");
@@ -298,7 +299,7 @@ public final class FeatureFaultTests {
             });
             ok(!guard.execute(damaged.id(),()->{
                 registry.shutdown();
-                throw new IllegalArgumentException("SENSITIVE PLAYER ACCOUNT "+i);
+                throw new IllegalArgumentException("SENSITIVE PLAYER ACCOUNT "+iteration);
             }),"callback shutdown then exception remains quarantined "+i);
             ok(registry.get(damaged.id()).state()==ModuleRegistry.State.DISABLED &&
                registry.get(peer.id()).state()==ModuleRegistry.State.DISABLED &&
