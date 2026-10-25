@@ -68,6 +68,8 @@ jobs:
           grep -q 'HOST_REGRESSION_PASS' .build/host.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HostCloseInputFenceTests | tee .build/close-input-fence.log
           grep -q 'HOST_CLOSE_INPUT_FENCE_PASS' .build/close-input-fence.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.HostClosingEligibilityTests | tee .build/closing-eligibility.log
+          grep -q 'HOST_CLOSING_ELIGIBILITY_PASS' .build/closing-eligibility.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.IngressDrainReentryTests | tee .build/ingress-drain-reentry.log
           grep -q 'INGRESS_DRAIN_REENTRY_PASS' .build/ingress-drain-reentry.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.StartupPersistenceFenceTests | tee .build/startup-persistence-fence.log
