@@ -136,6 +136,10 @@ public final class HostRuntime {
     private boolean inputBlocked;
     private String profileWarning = "";
     private String uiWarning = "";
+    // A failed startup load must not become an implicit reset when hotkeys,
+    // GUI actions or close() call persist. Fence each independent file until
+    // the operator repairs/removes it and starts a new session.
+    private boolean profileLoadFailed, uiLoadFailed;
     private String diagnosticsWarning = "";
  
     public HostRuntime(Path configDirectory) {
@@ -175,13 +179,19 @@ public final class HostRuntime {
         try {
             if(uiStore.loadRecovering())
                 uiWarning="UI preferences recovered from backup";
-        } catch(Exception e) {uiWarning="UI preferences: "+e.getClass().getSimpleName();}
+        } catch(Exception e) {
+            uiLoadFailed=true;
+            uiWarning="UI preferences: "+e.getClass().getSimpleName()+" (save blocked)";
+        }
         if (Files.exists(configDirectory.resolve("default.properties")) ||
             Files.exists(configDirectory.resolve("default.properties.bak"))) {
             try {
                 if(profiles.loadRecovering("default"))
                     profileWarning="Profile recovered from backup";
-            } catch(Exception e) {profileWarning="Profile load: "+e.getClass().getSimpleName();}
+            } catch(Exception e) {
+                profileLoadFailed=true;
+                profileWarning="Profile load: "+e.getClass().getSimpleName()+" (save blocked)";
+            }
         }
     }
     public ModuleRegistry modules() { return modules; }
@@ -484,6 +494,10 @@ public final class HostRuntime {
     }
     public void persist() {
         if (!active()) return;
+        // Never overwrite an unreadable primary and its last backup with
+        // untrusted defaults just because the owner clicked a GUI control
+        // or closed Minecraft. The other config remains independently writable.
+        if (profileLoadFailed) return;
         try { profiles.save("default"); profileWarning = ""; }
         catch (IOException | IllegalArgumentException e) {
             profileWarning = "Profile save: " + e.getClass().getSimpleName();
@@ -491,6 +505,7 @@ public final class HostRuntime {
     }
     public void persistUi() {
         if (!active()) return;
+        if (uiLoadFailed) return;
         try { uiStore.save(); uiWarning = ""; }
         catch (IOException | IllegalArgumentException e) {
             uiWarning = "UI save: " + e.getClass().getSimpleName();
