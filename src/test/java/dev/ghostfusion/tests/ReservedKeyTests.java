@@ -124,8 +124,12 @@ public final class ReservedKeyTests {
         ok(!gate.allowed(1,true,true,false,false,-100,-99),"release admission");
         ok(!gate.allowed(1,true,true,false,true,ReservedKeys.CLICK_GUI,-99),
            "F7 never becomes physical attack");
+        ok(!gate.allowed(1,true,true,false,true,-100,-99),
+           "mapping away from F7 does not bypass release gate");
+        ok(!gate.allowed(1,true,true,false,false,-100,-99),
+           "release observed after F7 mapping change");
         ok(gate.allowed(1,true,true,false,true,-100,-99),
-           "normal mouse attack remains valid after release");
+           "normal mouse attack remains valid after fresh release");
     }
     private static void randomizedRebinds() {
         ModuleRegistry r=new ModuleRegistry();

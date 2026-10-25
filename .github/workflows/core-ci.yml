@@ -157,6 +157,8 @@ jobs:
           grep -q 'COMPACT_GUI_PASS' .build/compact-gui.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.ReservedKeyTests | tee .build/reserved-key.log
           grep -q 'RESERVED_KEY_PASS' .build/reserved-key.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.PhysicalInputBindingTests | tee .build/physical-input-binding.log
+          grep -q 'PHYSICAL_INPUT_BINDING_PASS' .build/physical-input-binding.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudPlacementTests | tee .build/hud-placement.log
           grep -q 'HUD_PLACEMENT_PASS' .build/hud-placement.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudPreviewTests | tee .build/hud-preview.log
