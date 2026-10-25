@@ -267,6 +267,114 @@ public final class SettingDefaultResetTests {
            "recovered primary remains sealed");
         registry.shutdown();
     }
+    /** Missing enable flags respect startup policy, not prior loaded profiles. */
+    private static void sparseProfileEnabledDefaults() throws Exception {
+        Path dir=Files.createTempDirectory("ghostc-r315-enabled-defaults");
+        ModuleRegistry registry=new ModuleRegistry();
+        registry.register(new Dummy(),44);
+        GhostModule peer=new GhostModule(){
+            public String id(){return "test.off.peer";}
+            public String displayName(){return "Initially disabled peer";}
+            public Category category(){return Category.UTILITY;}
+            public void onEnable(){}
+            public void onDisable(){}
+            public void onEvent(GameEvent event){}
+        };
+        registry.register(peer,52);
+        registry.setEnabled("test.defaults",true);
+        ProfileStore store=new ProfileStore(dir,registry);
+        Path primary=dir.resolve("enabled-sparse.properties");
+        for(int i=0;i<512;i++){
+            int variant=i%8;
+            java.util.Properties p=new java.util.Properties();
+            p.setProperty("schema","1");
+            if(variant==1 || variant==3 || variant==5)
+                p.setProperty("module.test.defaults.enabled","false");
+            if(variant==4)
+                p.setProperty("module.test.defaults.enabled","true");
+            if(variant==2 || variant==3)
+                p.setProperty("module.test.off.peer.enabled","true");
+            if(variant==4 || variant==5)
+                p.setProperty("module.test.off.peer.enabled","false");
+            if(variant==6)
+                p.setProperty("module.test.defaults.enabled","FALSE");
+            if(variant==7)
+                p.setProperty("module.test.off.peer.enabled","yes");
+            if((i&1)==0)ConfigIntegrity.seal(p);
+            try(java.io.OutputStream out=Files.newOutputStream(primary)){
+                p.store(out,"sparse enabled policy");
+            }
+            registry.setEnabled("test.defaults",false);
+            registry.setEnabled("test.off.peer",true);
+            if(variant>=6){
+                boolean rejected=false;
+                try { store.load("enabled-sparse"); }
+                catch(IllegalArgumentException expected){rejected=true;}
+                ok(rejected,"invalid enabled flag rejected before apply "+i);
+                ok(registry.get("test.defaults").state()==ModuleRegistry.State.DISABLED &&
+                   registry.get("test.off.peer").state()==ModuleRegistry.State.ENABLED,
+                   "malformed sparse profile cannot mutate live state "+i);
+                continue;
+            }
+            store.load("enabled-sparse");
+            boolean expectedA=variant!=1 && variant!=3 && variant!=5;
+            boolean expectedB=variant==2 || variant==3;
+            ok((registry.get("test.defaults").state()==ModuleRegistry.State.ENABLED)==expectedA &&
+               (registry.get("test.off.peer").state()==ModuleRegistry.State.ENABLED)==expectedB,
+               "sparse enables restore immutable startup defaults "+i);
+            ok(registry.get("test.defaults").keybind()==44 &&
+               registry.get("test.off.peer").keybind()==52,
+               "sparse enable load preserves key defaults "+i);
+        }
+        // The same baseline must be used after validated backup recovery.
+        java.util.Properties backup=new java.util.Properties();
+        backup.setProperty("schema","1");
+        backup.setProperty("module.test.off.peer.enabled","true");
+        ConfigIntegrity.seal(backup);
+        try(java.io.OutputStream out=Files.newOutputStream(
+                dir.resolve("enabled-restore.properties.bak"))){
+            backup.store(out,"sparse trusted backup");
+        }
+        Files.write(dir.resolve("enabled-restore.properties"),
+            "schema=1\nmodule.test.defaults.enabled=invalid\n".getBytes(
+                java.nio.charset.StandardCharsets.ISO_8859_1));
+        registry.setEnabled("test.defaults",false);
+        registry.setEnabled("test.off.peer",false);
+        ok(store.loadRecovering("enabled-restore"),
+           "verified backup recovery of sparse enable profile");
+        ok(registry.get("test.defaults").state()==ModuleRegistry.State.ENABLED &&
+           registry.get("test.off.peer").state()==ModuleRegistry.State.ENABLED,
+           "sparse recovery reuses startup enable policy");
+        registry.shutdown();
+
+        // Real host constructor enables Status HUD before opening the store.
+        Path hostDir=Files.createTempDirectory("ghostc-r315-host-default");
+        java.util.Properties sparse=new java.util.Properties();
+        sparse.setProperty("schema","1");
+        ConfigIntegrity.seal(sparse);
+        try(java.io.OutputStream out=Files.newOutputStream(
+                hostDir.resolve("default.properties"))){
+            sparse.store(out,"legacy sparse startup");
+        }
+        HostRuntime host=new HostRuntime(hostDir);
+        ok(host.modules().get("hud.status").state()==ModuleRegistry.State.ENABLED,
+           "sparse startup keeps default-on Status HUD enabled");
+        ok(host.modules().get("hud.status").keybind()==HostRuntime.DEFAULT_STATUS_KEY,
+           "sparse startup preserves default F8 status binding");
+        host.close();
+
+        Path explicit=Files.createTempDirectory("ghostc-r315-host-explicit");
+        sparse.setProperty("module.hud.status.enabled","false");
+        ConfigIntegrity.seal(sparse);
+        try(java.io.OutputStream out=Files.newOutputStream(
+                explicit.resolve("default.properties"))){
+            sparse.store(out,"explicit disabled status");
+        }
+        HostRuntime disabled=new HostRuntime(explicit);
+        ok(disabled.modules().get("hud.status").state()==ModuleRegistry.State.DISABLED,
+           "explicit disabled status overrides startup default");
+        disabled.close();
+    }
     private static void profileRoundTrip()throws Exception{
         Path dir=Files.createTempDirectory("ghostc-r265-default");
         HostRuntime host=new HostRuntime(dir);
@@ -298,7 +406,7 @@ public final class SettingDefaultResetTests {
     }
     public static void main(String[] args)throws Exception {
         typedGateway();randomized();sparseProfileDefaults();
-        sparseProfileKeyDefaults();profileRoundTrip();
+        sparseProfileKeyDefaults();sparseProfileEnabledDefaults();profileRoundTrip();
         ok(checks>120000,"typed default restores deeply covered");
         System.out.println("SETTING_DEFAULT_RESET_PASS checks="+checks);
     }
