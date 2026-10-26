@@ -209,6 +209,8 @@ public final class ForgeCombatController {
                                     !host.hitRequireTarget() || validTarget,
                                     target == null ? 0 : target.hurtTime,
                                     host.hitMaxHurtTime(), host.hitGapTicks(),
+                                    player.hurtTime, host.hitMode(),
+                                    host.hitTradeMinSelfHurt(),
                                     session.tick(), session.generation());
                             }
                         });
@@ -240,6 +242,7 @@ public final class ForgeCombatController {
                     if (!blockHit.due(true, held, useHeld || player.isUsingItem(),
                         sword, validTarget, host.blockRequireTarget(),
                         extraAttackQueued[0], host.blockIntervalTicks(),
+                        player.hurtTime, host.blockMode(),
                         session.tick(), session.generation())) return;
                     session.actions().request(BLOCK_ID, ActionCoordinator.Type.USE,
                         ActionCoordinator.Phase.OUTPUT, 0, 10,
