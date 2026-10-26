@@ -691,6 +691,24 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('getStringWidth(fitted)',self.feature)
         self.assertNotIn('label=label.substring(0,label.length()-1)',self.feature)
 
+    def test_hud_quick_layout_presets_do_not_change_combat_or_visual_preferences(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        policy=content("src/main/java/dev/ghostfusion/ui/HudLayoutPresets.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/HudLayoutPresetsTests.java")
+        self.assertIn("HudLayoutPresets.buttonAt(x,side,y,h,mx,my)",gui)
+        self.assertIn("private void applyHudLayoutPreset(Preset preset)",gui)
+        self.assertIn("HudLayoutPresets.apply(ui,preset)",gui)
+        self.assertIn('host.uiActions().reset("hud.modulelist","position")',gui)
+        self.assertIn('host.uiActions().choiceEdge("hud.modulelist","position",true)',gui)
+        self.assertIn("Keyboard.KEY_NUMPAD3",gui)
+        self.assertIn("drawHudPresetSidebar();",gui)
+        self.assertIn("if(changed)host.persistUi();",gui)
+        self.assertIn("enum Preset",policy)
+        self.assertIn("matchesAnchors(ui,preset)",policy)
+        self.assertIn("same layout is idempotent",tests)
+        self.assertIn("original layout survives full roundtrip",tests)
+        self.assertIn("HUD_LAYOUT_PRESETS_PASS",content(".github/workflows/core-ci.yml"))
+
     def test_hud_editor_keyboard_scale_is_persisted_via_validated_ui_actions(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         editor=content("src/main/java/dev/ghostfusion/ui/HudScaleEditor.java")

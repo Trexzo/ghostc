@@ -26,6 +26,8 @@ import dev.ghostfusion.ui.ModuleListLayout;
 import dev.ghostfusion.ui.HudFootprints;
 import dev.ghostfusion.ui.HudScaleLayout;
 import dev.ghostfusion.ui.HudScaleEditor;
+import dev.ghostfusion.ui.HudLayoutPresets;
+import dev.ghostfusion.ui.HudLayoutPresets.Preset;
 import dev.ghostfusion.ui.HudTextFit;
 import dev.ghostfusion.ui.GuiSliderDrag;
 import dev.ghostfusion.ui.NumericSliderScale;
@@ -478,9 +480,37 @@ public final class GhostClickGui extends GuiScreen {
             rect(bounds.x+bounds.width-1,bounds.y,1,bounds.height,miniatureTheme.accent);
         }
     }
+    /** F7 preset actions intentionally change HUD anchors only. */
+    private void applyHudLayoutPreset(Preset preset) {
+        finishHudDrag();
+        moduleListFrameCache=null;
+        boolean changed=HudLayoutPresets.apply(ui,preset);
+        if(!preset.listPosition.equals(host.moduleListPosition())) {
+            if("top_right".equals(preset.listPosition))
+                host.uiActions().reset("hud.modulelist","position");
+            else
+                host.uiActions().choiceEdge("hud.modulelist","position",true);
+        }
+        if(changed)host.persistUi();
+        message="";
+    }
+    private void drawHudPresetSidebar() {
+        if(h<320||side<85)return;
+        label("LAYOUTS",x+10,y+h-130,palette().muted);
+        for(Preset preset:Preset.values()) {
+            int top=HudLayoutPresets.buttonY(y,h,preset);
+            boolean selected=HudLayoutPresets.matches(ui,preset,host.moduleListPosition());
+            rect(x+6,top,side-12,18,
+                selected?palette().selectedCategory:palette().idleModule);
+            if(selected)rect(x+6,top,2,18,palette().accent);
+            label(preset.label,x+13,top+5,
+                selected?palette().text:palette().muted);
+        }
+    }
     private void drawHudEditor(int mx, int my) {
         if (previewW<1 || previewH<1) return;
         label("HUD POSITION EDITOR",x+side+12,y+49,accent());
+        drawHudPresetSidebar();
         // Display the scale of the selected widget in a fixed, readable place.
         String editorModule=HudScaleEditor.moduleId(hudControls.selected());
         dev.ghostfusion.core.Setting.Number zoom=
@@ -539,7 +569,7 @@ public final class GhostClickGui extends GuiScreen {
         }
         label(trim(hudOverlaps
             ?"HUD overlap detected | Drag to separate | R: Reset"
-            :"Drag: Snap/Alt | Arrows: move | [ ]: resize | Shift: fast | 0: 1x | R: position",
+            :"1 Default 2 PvP 3 Stream | [ ] Resize | Alt: Free | 0: 1x | R: Position",
             w-side-20),
             previewX,previewY+previewH+8,0xFFBEC6D9);
     }
@@ -664,6 +694,8 @@ public final class GhostClickGui extends GuiScreen {
         }
         if (hudPage) {
             if (previewW<1 || previewH<1) return;
+            Preset preset=HudLayoutPresets.buttonAt(x,side,y,h,mx,my);
+            if(preset!=null) { applyHudLayoutPreset(preset); return; }
             HudEditorControls.Item picked=HudEditorControls.tabAt(
                 x+side+12,y+62,w-side-24,mx,my);
             if(picked!=null) {
@@ -869,6 +901,20 @@ public final class GhostClickGui extends GuiScreen {
             mc.displayGuiScreen(null); return;
         }
         if (hudPage) {
+            // Quick layouts are F7-only shortcuts; modules never see these keys.
+            if(keyCode==Keyboard.KEY_1 || keyCode==Keyboard.KEY_2 ||
+               keyCode==Keyboard.KEY_3 ||
+               keyCode==Keyboard.KEY_NUMPAD1 ||
+               keyCode==Keyboard.KEY_NUMPAD2 ||
+               keyCode==Keyboard.KEY_NUMPAD3) {
+                if(Keyboard.isRepeatEvent())return;
+                Preset preset=(keyCode==Keyboard.KEY_1 ||
+                               keyCode==Keyboard.KEY_NUMPAD1)?Preset.DEFAULT:
+                              (keyCode==Keyboard.KEY_2 ||
+                               keyCode==Keyboard.KEY_NUMPAD2)?Preset.PVP:Preset.STREAM;
+                applyHudLayoutPreset(preset);
+                return;
+            }
             // Scale the selected live widget, never the preview illustration only.
             if(keyCode==Keyboard.KEY_LBRACKET || keyCode==Keyboard.KEY_RBRACKET ||
                keyCode==Keyboard.KEY_0) {

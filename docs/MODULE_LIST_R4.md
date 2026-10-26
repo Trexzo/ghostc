@@ -134,3 +134,21 @@ shows the selected live widget's scale value. These actions use existing
 typed/validated `UiActions` mutations and profile persistence, not new
 render-only transforms. Drag capture is finalized before changing a widget's
 actual footprint; unchanged endpoint presses do not write profiles.
+
+## F7 quick HUD layout presets
+The F7 HUD editor has three explicit, opt-in one-click presets in its sidebar,
+also accessible with `1`, `2`, `3` or the corresponding numpad keys:
+**Default** restores all five exact original normalized HUD anchors and the
+original Module List `top_right` corner mode; **PvP** puts Keystrokes bottom-left,
+CPS above and the Target HUD centrally below, with Module List custom top-right;
+**Stream** separates key/CPS previews and keeps the Target HUD low and central.
+The presets are position-only: they never change module enablement, combat,
+theme, scale, font, transparency or other HUD preferences.
+
+A preset reports true only if normalized anchor bytes changed; repeated
+selection does not rewrite `ui.properties`. Module List mode uses the existing
+validated typed setting gateway and persists independently. Sidebar choices
+are shown only where enough height exists to avoid colliding with filters.
+A headless 20k-case replay checks bounds, idempotence, unchanged visual
+preferences, and exact profile/UI restart behavior, including restoring legacy
+defaults. Existing drag, snapping, scale and reset controls remain available.
