@@ -41,8 +41,10 @@ public final class ReservedKeyTests {
     }
 
     private static void registryAndRouter() {
-        ok(ReservedKeys.CLICK_GUI==65,"F7 is LWJGL 2 keycode 65");
-        ok(ReservedKeys.reserved(65) && !ReservedKeys.reserved(66) &&
+        ok(ReservedKeys.CLICK_GUI==65 && ReservedKeys.PANIC==64,
+           "F7/F6 exactly map to dedicated LWJGL 2 keys");
+        ok(ReservedKeys.reserved(65) && ReservedKeys.reserved(64) &&
+           !ReservedKeys.reserved(66) &&
            !ReservedKeys.reserved(0),"exact reservation");
         ModuleRegistry registry=new ModuleRegistry();
         Dummy status=new Dummy("hud.status"),other=new Dummy("test.other");
@@ -50,6 +52,7 @@ public final class ReservedKeyTests {
         registry.register(other,30);
         ok(registry.get("hud.status").keybind()==66,"F8 status remains valid");
         rejects(()->ModuleRegistry.validateKey(65),"F7 rejected at central validation");
+        rejects(()->ModuleRegistry.validateKey(64),"F6 Panic rejected at central validation");
         rejects(()->registry.register(new Dummy("test.bad"),65),"new module cannot reserve F7");
         rejects(()->registry.bind("test.other",65),"rebind cannot reserve F7");
         ok(registry.get("test.other").keybind()==30,"failed rebind leaves previous key");
@@ -57,6 +60,8 @@ public final class ReservedKeyTests {
         InputRouter router=new InputRouter(registry);
         router.keyEvent(65,true,false);
         router.keyEvent(65,false,false);
+        router.keyEvent(64,true,false);
+        router.keyEvent(64,false,false);
         ok(status.enabled==0 && other.enabled==0,"F7 cannot toggle modules");
         router.keyEvent(66,true,false);
         ok(status.enabled==1,"F8 status still toggles");
@@ -139,7 +144,7 @@ public final class ReservedKeyTests {
         for(int i=0;i<10000;i++) {
             int key=random.nextInt(256);
             int before=r.get("test.extra").keybind();
-            boolean shouldReject=key==ReservedKeys.CLICK_GUI || key==66;
+            boolean shouldReject=ReservedKeys.reserved(key) || key==66;
             if(shouldReject) {
                 rejects(()->r.bind("test.extra",key),"reserved/duplicate random key "+i);
                 ok(r.get("test.extra").keybind()==before,"rejection atomic "+i);

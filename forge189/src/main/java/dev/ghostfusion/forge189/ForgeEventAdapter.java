@@ -1,6 +1,7 @@
 package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.host.HostRuntime;
+import dev.ghostfusion.host.PanicController;
 import dev.ghostfusion.services.WorldSnapshot;
 import dev.ghostfusion.ui.StatusHudLayout;
 import dev.ghostfusion.services.WorldIdentityTracker;
@@ -36,6 +37,7 @@ public final class ForgeEventAdapter {
     private final HostRuntime host;
     private final ForgeFeatureDriver features;
     private final ForgeCombatController combat;
+    private final ForgeBridgeAssistController bridge;
     private final WorldIdentityTracker worldIdentity = new WorldIdentityTracker();
     // Two capped, owner-thread groups are reused every tick. Every raw
     // EntityPlayer reference is released before publishing an immutable
@@ -52,6 +54,7 @@ public final class ForgeEventAdapter {
         this.host = host;
         this.features = new ForgeFeatureDriver(minecraft,host);
         this.combat = new ForgeCombatController(minecraft,host);
+        this.bridge = new ForgeBridgeAssistController(minecraft,host);
     }
 
     @SubscribeEvent
@@ -69,17 +72,22 @@ public final class ForgeEventAdapter {
             host.worldPresence(false);
             features.reset();
             combat.reset();
+            bridge.reset();
         }
         if (transition == WorldIdentityTracker.Transition.ENTER ||
             transition == WorldIdentityTracker.Transition.SWITCH) {
             host.worldPresence(true);
             features.reset();
             combat.reset();
+            bridge.reset();
         }
         // Keep the standard presence reconciliation for starting menus.
         host.worldPresence(worldReady);
         host.tick();
-        if (!worldReady || focusBlocked) features.reset();
+        if (!worldReady || focusBlocked) {
+            features.reset();
+            bridge.reset();
+        }
         // Read-only player snapshot published before the single combat intent bridge runs.
         if (host.services().connected() && minecraft.theWorld != null && minecraft.thePlayer != null &&
             WorldSnapshot.validPlayerPose(minecraft.thePlayer.posX,minecraft.thePlayer.posY,
@@ -202,6 +210,9 @@ public final class ForgeEventAdapter {
         }
         features.tick();
         combat.tick();
+        // Edge movement owns only the native sneak key; its controller
+        // independently rejects GUI, focus, world and module-disabled frames.
+        bridge.tick();
     }
 
     @SubscribeEvent
@@ -211,6 +222,19 @@ public final class ForgeEventAdapter {
         // Event code 0 means no keyboard key; no keybind should fire.
         if (code == 0) return;
 
+        // F6 Panic/Disable All, with immediate release of owned Bridge Assist
+        // Sneak state. The same physical key can remain pressed by the player.
+        if (code == Keyboard.KEY_F6) {
+            if (Keyboard.getEventKeyState() && !Keyboard.isRepeatEvent() &&
+                minecraft.currentScreen == null && minecraft.inGameHasFocus &&
+                worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) {
+                PanicController.disableAll(host);
+                bridge.reset();
+                features.reset();
+                combat.reset();
+            }
+            return;
+        }
         if (code == Keyboard.KEY_F7 && Keyboard.getEventKeyState() &&
             !Keyboard.isRepeatEvent() && minecraft.currentScreen == null && minecraft.inGameHasFocus) {
             host.inputFocus(true);
@@ -380,6 +404,7 @@ public final class ForgeEventAdapter {
                 worldIdentity.reset();
                 features.reset();
                 combat.reset();
+                bridge.reset();
             }
         });
     }

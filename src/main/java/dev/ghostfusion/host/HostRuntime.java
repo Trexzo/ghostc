@@ -53,6 +53,12 @@ public final class HostRuntime {
     private final Setting.Bool keysJump = new Setting.Bool("show_jump", true);
     private final Setting.Bool keysSneak = new Setting.Bool("show_sneak", true);
     private final Setting.Bool cpsRight = new Setting.Bool("show_right", true);
+    // Visual track from PR #164; classic behavior remains the default.
+    private final Setting.Choice keysAppearance =
+        new Setting.Choice("appearance","classic","classic","minimal","nebula");
+    private final Setting.Choice cpsAppearance =
+        new Setting.Choice("appearance","classic","classic","minimal","nebula");
+    private final Setting.Bool targetMotion = new Setting.Bool("motion", true);
     private final Setting.Number targetRange = new Setting.Number("range", 8.0, 2.0, 24.0);
     private final Setting.Bool targetVisible = new Setting.Bool("visible_only", true);
     private final Setting.Bool targetHealth = new Setting.Bool("show_health", true);
@@ -66,7 +72,7 @@ public final class HostRuntime {
         new Setting.Choice("selection","nearest","nearest","crosshair");
     // Opt-in alternative palette; old profiles remain pixel-identical classic.
     private final Setting.Choice targetSkin =
-        new Setting.Choice("skin","classic","classic","glass");
+        new Setting.Choice("skin","classic","classic","glass","minimal","nebula");
     // Old profiles preserve values; percent is an optional narrower readout.
     private final Setting.Choice targetHealthText =
         new Setting.Choice("health_text","values","values","percent");
@@ -109,13 +115,53 @@ public final class HostRuntime {
     private final Setting.Number aimSpeed = new Setting.Number("degrees_per_tick", 4.0, 0.5, 15.0);
     private final Setting.Bool aimVisible = new Setting.Bool("visible_only", true);
     private final Setting.Bool aimRequireClick = new Setting.Bool("require_click", true);
+    // Default fractions preserve the original combined angular-speed policy.
+    private final Setting.Number aimHorizontal = new Setting.Number("horizontal_fraction", 1.0, 0.1, 1.0);
+    private final Setting.Number aimVertical = new Setting.Number("vertical_fraction", 1.0, 0.1, 1.0);
+    private final Setting.Number aimTargetHeight = new Setting.Number("target_height", 1.25, 0.4, 1.7);
+    private final Setting.Bool aimLockTarget = new Setting.Bool("lock_target", false);
+    private final Setting.Choice aimPriority = new Setting.Choice(
+        "target_priority", "angular", "angular", "distance");
     private final Setting.Number clickRate = new Setting.Number("cps", 10.0, 4.0, 15.0);
     private final Setting.Bool clickEntitiesOnly = new Setting.Bool("entity_only", true);
+    // Fixed mode is the unchanged legacy default; nonfixed uses a bounded
+    // minimum/maximum CPS range with no extra queued bursts.
+    private final Setting.Choice clickPattern = new Setting.Choice(
+        "pattern", "fixed", "fixed", "balanced", "range");
+    private final Setting.Number clickMinCps = new Setting.Number("min_cps", 8.0, 4.0, 15.0);
+    private final Setting.Number clickMaxCps = new Setting.Number("max_cps", 12.0, 4.0, 15.0);
     private final Setting.Number blockInterval = new Setting.Number("interval_ticks", 4, 2, 10);
     private final Setting.Bool blockRequireTarget = new Setting.Bool("require_target", true);
+    private final Setting.Choice blockMode = new Setting.Choice(
+        "mode", "interval", "interval", "post_attack", "on_damage");
     private final Setting.Number hitMaxHurt = new Setting.Number("max_hurt_time", 2, 0, 10);
     private final Setting.Number hitGap = new Setting.Number("min_gap_ticks", 2, 1, 8);
     private final Setting.Bool hitRequireTarget = new Setting.Bool("require_target", true);
+    private final Setting.Choice hitMode = new Setting.Choice(
+        "mode", "normal", "normal", "ready", "trade");
+    private final Setting.Number hitTradeMinSelfHurt = new Setting.Number(
+        "trade_min_self_hurt", 1, 1, 10);
+    // Opt-in, native sneak-key-only Bridge Assist. No packet movement edits.
+    private final Setting.Number bridgeLookahead = new Setting.Number(
+        "lookahead", 0.75, 0.35, 1.20);
+    private final Setting.Number bridgeReleaseDelay = new Setting.Number(
+        "release_delay_ticks", 2, 0, 8);
+    private final Setting.Bool bridgeRequireBlocks = new Setting.Bool(
+        "require_blocks", true);
+    private final Setting.Bool bridgeAllowSideways = new Setting.Bool(
+        "allow_sideways", false);
+    // Visual Module List is a real Forge render feature, not only a GUI preview.
+    private final Setting.Choice moduleListPosition = new Setting.Choice("position", "top_right",
+        "top_right", "top_left", "bottom_right", "bottom_left", "custom");
+    private final Setting.Choice moduleListOrder = new Setting.Choice("sort", "width",
+        "width", "alphabetical");
+    private final Setting.Number moduleListRows = new Setting.Number("max_rows", 10, 1, 24);
+    private final Setting.Bool moduleListRender = new Setting.Bool("show_render", false);
+    private final Setting.Bool moduleListBackground = new Setting.Bool("background", true);
+    private final Setting.Bool moduleListAccent = new Setting.Bool("accent", true);
+    private final Setting.Choice moduleListAppearance =
+        new Setting.Choice("appearance","classic","classic","minimal","nebula");
+    private final Setting.Bool moduleListCompact = new Setting.Bool("compact",false);
     private final UiState ui = new UiState();
     private final UiSettingsStore uiStore;
     private final UiActions uiActions;
@@ -155,11 +201,11 @@ public final class HostRuntime {
         modules.register(overlay, DEFAULT_STATUS_KEY, statusScale, statusStyle, statusShadow);
         modules.register(metrics, 0, showFps, showCoordinates, showPing);
         modules.register(new FeatureModule("hud.keystrokes", "Keystrokes", GhostModule.Category.RENDER),
-            0, keysJump, keysSneak);
+            0, keysJump, keysSneak, keysAppearance);
         modules.register(new FeatureModule("hud.cps", "CPS Counter", GhostModule.Category.RENDER),
-            0, cpsRight);
+            0, cpsRight, cpsAppearance);
         modules.register(new FeatureModule("hud.target", "Target HUD", GhostModule.Category.RENDER),
-            0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin, targetSelection, targetDistance, targetIgnoreTeammates);
+            0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin, targetSelection, targetDistance, targetIgnoreTeammates, targetMotion);
         modules.register(new FeatureModule("render.esp", "Player ESP", GhostModule.Category.RENDER),
             0, espRange, espVisible, espIgnoreTeammates, espWalls, espWidth, espStyle, espHealth,
             espHealthSide, espHealthGap,
@@ -167,16 +213,24 @@ public final class HostRuntime {
             espDistanceFade, espFadeStart, espFadeMinimum, espDrawLimit);
         modules.register(new FeatureModule("movement.sprint", "Auto Sprint", GhostModule.Category.MOVEMENT),
             0);
+        modules.register(new FeatureModule("movement.bridgeassist", "Bridge Assist",
+            GhostModule.Category.MOVEMENT), 0,
+            bridgeLookahead, bridgeReleaseDelay, bridgeRequireBlocks, bridgeAllowSideways);
         modules.register(new FeatureModule("combat.aimassist", "Aim Assist", GhostModule.Category.COMBAT),
-            0, aimRange, aimFov, aimSpeed, aimVisible, aimRequireClick);
+            0, aimRange, aimFov, aimSpeed, aimVisible, aimRequireClick,
+            aimHorizontal, aimVertical, aimTargetHeight, aimLockTarget, aimPriority);
         modules.register(new FeatureModule("combat.clicker", "AutoClicker", GhostModule.Category.COMBAT),
-            0, clickRate, clickEntitiesOnly);
+            0, clickRate, clickEntitiesOnly, clickPattern, clickMinCps, clickMaxCps);
         modules.register(new FeatureModule("combat.blockhit", "Block Hit", GhostModule.Category.COMBAT),
-            0, blockInterval, blockRequireTarget);
+            0, blockInterval, blockRequireTarget, blockMode);
         modules.register(new FeatureModule("combat.hitselect", "Hit Select", GhostModule.Category.COMBAT),
-            0, hitMaxHurt, hitGap, hitRequireTarget);
+            0, hitMaxHurt, hitGap, hitRequireTarget, hitMode, hitTradeMinSelfHurt);
         modules.register(new FeatureModule("hud.diagnostics", "Runtime Diagnostics", GhostModule.Category.RENDER),
             0);
+        modules.register(new FeatureModule("hud.modulelist", "Module List", GhostModule.Category.RENDER),
+            0, moduleListPosition, moduleListOrder, moduleListRows,
+            moduleListRender, moduleListBackground, moduleListAccent,
+            moduleListAppearance, moduleListCompact);
         modules.setEnabled(overlay.id(), true);
         profiles = new ProfileStore(configDirectory, modules);
         uiStore = new UiSettingsStore(configDirectory, ui);
@@ -296,6 +350,16 @@ public final class HostRuntime {
     public boolean keysJump() { modules.assertOwnerThread(); return keysJump.get(); }
     public boolean keysSneak() { modules.assertOwnerThread(); return keysSneak.get(); }
     public boolean cpsRight() { modules.assertOwnerThread(); return cpsRight.get(); }
+    public String keysAppearance() { modules.assertOwnerThread(); return keysAppearance.get(); }
+    public String cpsAppearance() { modules.assertOwnerThread(); return cpsAppearance.get(); }
+    public String moduleListPosition() { modules.assertOwnerThread(); return moduleListPosition.get(); }
+    public String moduleListOrder() { modules.assertOwnerThread(); return moduleListOrder.get(); }
+    public int moduleListMaxRows() { modules.assertOwnerThread(); return moduleListRows.get().intValue(); }
+    public boolean moduleListShowRender() { modules.assertOwnerThread(); return moduleListRender.get(); }
+    public boolean moduleListBackground() { modules.assertOwnerThread(); return moduleListBackground.get(); }
+    public boolean moduleListAccent() { modules.assertOwnerThread(); return moduleListAccent.get(); }
+    public String moduleListAppearance() { modules.assertOwnerThread(); return moduleListAppearance.get(); }
+    public boolean moduleListCompact() { modules.assertOwnerThread(); return moduleListCompact.get(); }
     public double targetRange() { modules.assertOwnerThread(); return targetRange.get(); }
     public boolean targetVisible() { modules.assertOwnerThread(); return targetVisible.get(); }
     public boolean targetHealth() { modules.assertOwnerThread(); return targetHealth.get(); }
@@ -306,6 +370,7 @@ public final class HostRuntime {
     public String targetHealthText() {
         modules.assertOwnerThread(); return targetHealthText.get();
     }
+    public boolean targetMotion() { modules.assertOwnerThread(); return targetMotion.get(); }
     public String targetSkin() {
         modules.assertOwnerThread(); return targetSkin.get();
     }
@@ -356,13 +421,38 @@ public final class HostRuntime {
     public double aimDegreesPerTick() { modules.assertOwnerThread(); return aimSpeed.get(); }
     public boolean aimVisibleOnly() { modules.assertOwnerThread(); return aimVisible.get(); }
     public boolean aimRequireClick() { modules.assertOwnerThread(); return aimRequireClick.get(); }
+    public double aimHorizontalFraction() { modules.assertOwnerThread(); return aimHorizontal.get(); }
+    public double aimVerticalFraction() { modules.assertOwnerThread(); return aimVertical.get(); }
+    public double aimTargetHeight() { modules.assertOwnerThread(); return aimTargetHeight.get(); }
+    public boolean aimLockTarget() { modules.assertOwnerThread(); return aimLockTarget.get(); }
+    public String aimTargetPriority() { modules.assertOwnerThread(); return aimPriority.get(); }
     public double clickCps() { modules.assertOwnerThread(); return clickRate.get(); }
     public boolean clickEntityOnly() { modules.assertOwnerThread(); return clickEntitiesOnly.get(); }
+    public String clickPattern() { modules.assertOwnerThread(); return clickPattern.get(); }
+    public double clickMinCps() { modules.assertOwnerThread(); return clickMinCps.get(); }
+    public double clickMaxCps() { modules.assertOwnerThread(); return clickMaxCps.get(); }
     public int blockIntervalTicks() { modules.assertOwnerThread(); return (int)Math.round(blockInterval.get()); }
     public boolean blockRequireTarget() { modules.assertOwnerThread(); return blockRequireTarget.get(); }
+    public String blockMode() { modules.assertOwnerThread(); return blockMode.get(); }
     public int hitMaxHurtTime() { modules.assertOwnerThread(); return (int)Math.round(hitMaxHurt.get()); }
     public int hitGapTicks() { modules.assertOwnerThread(); return (int)Math.round(hitGap.get()); }
     public boolean hitRequireTarget() { modules.assertOwnerThread(); return hitRequireTarget.get(); }
+    public double bridgeLookahead() {
+        modules.assertOwnerThread();return bridgeLookahead.get();
+    }
+    public int bridgeReleaseDelayTicks() {
+        modules.assertOwnerThread();return (int)Math.round(bridgeReleaseDelay.get());
+    }
+    public boolean bridgeRequireBlocks() {
+        modules.assertOwnerThread();return bridgeRequireBlocks.get();
+    }
+    public boolean bridgeAllowSideways() {
+        modules.assertOwnerThread();return bridgeAllowSideways.get();
+    }
+    public String hitMode() { modules.assertOwnerThread(); return hitMode.get(); }
+    public int hitTradeMinSelfHurt() {
+        modules.assertOwnerThread(); return (int)Math.round(hitTradeMinSelfHurt.get());
+    }
     public String profileWarning() { return profileWarning; }
     public boolean worldPresent() { return worldPresent; }
     public int pendingEvents() { return ingress.pending(); }

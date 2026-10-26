@@ -58,6 +58,41 @@ public final class AimAssistPolicy {
     public Suggestion suggest(WorldSnapshot world, double sourceEyeHeight,
                               double targetHeight, double range, double fov,
                               double maximumDegreesPerTick, boolean visibleOnly) {
+        return suggest(world, sourceEyeHeight, targetHeight, range, fov,
+            maximumDegreesPerTick, visibleOnly, 1.0, 1.0);
+    }
+
+    /**
+     * Independently controls yaw/pitch participation in the already bounded
+     * camera step. Fractions cannot overshoot the intended target angle.
+     * The default 1.0/1.0 exactly retains the original selection/geometry.
+     */
+    public Suggestion suggest(WorldSnapshot world, double sourceEyeHeight,
+                              double targetHeight, double range, double fov,
+                              double maximumDegreesPerTick, boolean visibleOnly,
+                              double horizontalFraction, double verticalFraction) {
+        return suggest(world, sourceEyeHeight, targetHeight, range, fov,
+            maximumDegreesPerTick, visibleOnly, horizontalFraction, verticalFraction,
+            -1, "angular");
+    }
+
+    /**
+     * Target retention and ranking change only which eligible entity is
+     * selected. They never bypass range, combined FOV or visibility gates.
+     * The caller must independently verify a retained ID's native UUID.
+     */
+    public Suggestion suggest(WorldSnapshot world, double sourceEyeHeight,
+                              double targetHeight, double range, double fov,
+                              double maximumDegreesPerTick, boolean visibleOnly,
+                              double horizontalFraction, double verticalFraction,
+                              int preferredEntityId, String priority) {
+        if (priority == null ||
+            (!"angular".equals(priority) && !"distance".equals(priority)))
+            throw new IllegalArgumentException("aim priority");
+        if (!finite(horizontalFraction) || !finite(verticalFraction) ||
+            horizontalFraction <= 0 || horizontalFraction > 1.0 ||
+            verticalFraction <= 0 || verticalFraction > 1.0)
+            throw new IllegalArgumentException("aim axis fractions");
         if (world == null || !finite(sourceEyeHeight) || sourceEyeHeight < 0 ||
             !finite(targetHeight) || targetHeight < 0 || !finite(range) || range<=0 ||
             !finite(fov) || fov<=0 || fov>180 || !finite(maximumDegreesPerTick) ||
@@ -86,19 +121,37 @@ public final class AimAssistPolicy {
             double error=Math.hypot(deltaYaw,deltaPitch);
             if (error>fov) continue;
             double distance=dx*dx+dy*dy+dz*dz;
-            if (best==null || error<bestError-0.000000001 ||
-                (Math.abs(error-bestError)<=0.000000001 &&
-                (distance<bestDistance-0.000000001 ||
-                (Math.abs(distance-bestDistance)<=0.000000001 && e.id<best.id)))) {
+            final boolean preferred = preferredEntityId >= 0 &&
+                e.id == preferredEntityId;
+            final boolean bestPreferred = best != null &&
+                preferredEntityId >= 0 && best.id == preferredEntityId;
+            boolean better = best == null || (preferred && !bestPreferred);
+            if (!better && !bestPreferred && !preferred) {
+                if ("distance".equals(priority)) {
+                    better = distance < bestDistance - 0.000000001 ||
+                        (Math.abs(distance-bestDistance)<=0.000000001 &&
+                        (error < bestError - 0.000000001 ||
+                        (Math.abs(error-bestError)<=0.000000001 && e.id < best.id)));
+                } else {
+                    better = error < bestError - 0.000000001 ||
+                        (Math.abs(error-bestError)<=0.000000001 &&
+                        (distance < bestDistance - 0.000000001 ||
+                        (Math.abs(distance-bestDistance)<=0.000000001 && e.id < best.id)));
+                }
+            }
+            if (better) {
                 best=e;bestError=error;bestDistance=distance;
                 bestYaw=deltaYaw;bestPitch=deltaPitch;
             }
         }
         if (best==null) return null;
-        double factor=bestError<=maximumDegreesPerTick || bestError==0 ? 1.0 :
-            maximumDegreesPerTick/bestError;
+        double stepYaw = bestYaw * horizontalFraction;
+        double stepPitch = bestPitch * verticalFraction;
+        double stepLength = Math.hypot(stepYaw, stepPitch);
+        double factor = stepLength <= maximumDegreesPerTick || stepLength == 0 ?
+            1.0 : maximumDegreesPerTick / stepLength;
         return new Suggestion(world,best,sourceEyeHeight,
-            (float)(world.playerYaw+bestYaw*factor),
-            clampPitch(world.playerPitch+bestPitch*factor), bestError);
+            (float)(world.playerYaw+stepYaw*factor),
+            clampPitch(world.playerPitch+stepPitch*factor), bestError);
     }
 }

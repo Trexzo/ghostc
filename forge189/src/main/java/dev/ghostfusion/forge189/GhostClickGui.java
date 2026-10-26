@@ -7,6 +7,7 @@ import dev.ghostfusion.core.Setting;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.ui.UiState;
+import dev.ghostfusion.ui.GuiThemePalette;
 import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiHitZones;
 import dev.ghostfusion.ui.GuiChrome;
@@ -17,6 +18,8 @@ import dev.ghostfusion.ui.GuiSearchFocus;
 import dev.ghostfusion.ui.GuiKeybindCapture;
 import dev.ghostfusion.ui.HudPositions.Widget;
 import dev.ghostfusion.ui.HudPreviewGeometry;
+import dev.ghostfusion.ui.HudSnapPolicy;
+import dev.ghostfusion.ui.ModuleListLayout;
 import dev.ghostfusion.ui.HudFootprints;
 import dev.ghostfusion.ui.HudTextFit;
 import dev.ghostfusion.ui.GuiSliderDrag;
@@ -53,6 +56,7 @@ public final class GhostClickGui extends GuiScreen {
     private String message = "";
     private boolean hudPage;
     private boolean hudDragging;
+    private int snapGuideX=HudSnapPolicy.NO_GUIDE,snapGuideY=HudSnapPolicy.NO_GUIDE;
     private final HudDragCapture hudCapture = new HudDragCapture();
     private Widget draggingWidget; // null means the original Status HUD
     private final HudEditorControls hudControls = new HudEditorControls();
@@ -116,9 +120,10 @@ public final class GhostClickGui extends GuiScreen {
         searchPositionX=g.searchX; searchPositionY=g.searchY;
         searchPositionWidth=g.searchWidth;
     }
-    private int bg() { return ui.theme() == UiState.Theme.INDIGO ? 0xF3161A2C : 0xF31A1C20; }
-    private int panel() { return ui.theme() == UiState.Theme.INDIGO ? 0xFF22283E : 0xFF303339; }
-    private int accent() { return ui.theme() == UiState.Theme.INDIGO ? 0xFF9A8CFF : 0xFF69D9C6; }
+    private GuiThemePalette palette() { return GuiThemePalette.of(ui.theme()); }
+    private int bg() { return palette().background; }
+    private int panel() { return palette().panel; }
+    private int accent() { return palette().accent; }
     private static boolean inside(int mx, int my, int px, int py, int pw, int ph) {
         return mx >= px && my >= py && mx < px + pw && my < py + ph;
     }
@@ -147,8 +152,10 @@ public final class GhostClickGui extends GuiScreen {
                 x+8,y+Math.min(18,Math.max(0,h-1)),accent());
             return;
         }
+        final GuiThemePalette theme=palette();
         rect(x, y, side, h, panel());
-        rect(x, y, w, 30, 0xBB080C1A);
+        rect(x, y, w, 30, theme.header);
+        if(theme.nebula)drawNebulaChrome(theme);
         label("GHOSTC", x + 10, y + 10, accent());
         int menuX = x + side + 8;
         label(hudPage ? "MODULES" : "[MODULES]", menuX, y + 11, hudPage ? 0xFFB5B6C1 : 0xFFFFFFFF);
@@ -156,7 +163,7 @@ public final class GhostClickGui extends GuiScreen {
         rect(x + w - 99, y + 6, 40, 17, panel());
         rect(x + w - 55, y + 6, 50, 17, panel());
         label(ui.layout() == UiState.Layout.WIDE ? "WIDE" : "SMALL", x + w - 96, y + 10, 0xFFF2F3FF);
-        label(ui.theme() == UiState.Theme.INDIGO ? "INDIGO" : "MINT", x + w - 52, y + 10, accent());
+        label(theme.label, x + w - 52, y + 10, accent());
         if (hudPage) drawHudEditor(mx, my);
         else drawModules(mx, my);
         // Errors own the footer and must never draw beyond the content panel.
@@ -166,6 +173,25 @@ public final class GhostClickGui extends GuiScreen {
             label(trim(footerWarning,GuiFooterText.pixelBudget(w,side)),
                 x + side + 11,y + h - 13,0xFFFFB3A6);
     }
+    /** A deliberate, low-cost Nebula surface treatment; no new hit zones. */
+    private void drawNebulaChrome(GuiThemePalette theme) {
+        // Subtle border and section separator establish hierarchy without glow.
+        rect(x,y,w,1,theme.frame);
+        rect(x,y+h-1,w,1,theme.frame);
+        rect(x,y,1,h,theme.frame);
+        rect(x+w-1,y,1,h,theme.frame);
+        rect(x+side-1,y+30,1,Math.max(0,h-31),theme.frame);
+        rect(x+side+1,y+29,Math.max(0,w-side-2),1,theme.divider);
+        // Short twin aurora lines echo the Nebula in-game Target HUD.
+        int segment=Math.max(0,Math.min(44,w-side-30));
+        rect(x+side+9,y+29,segment,1,theme.accent);
+        rect(x+side+9+segment,y+29,Math.min(20,Math.max(0,w-side-30-segment)),
+            1,theme.secondary);
+        rect(x+5,y+9,2,12,theme.accent);
+        rect(x+5,y+21,2,2,theme.secondary);
+        // Distinguish title, controls, and content without texture allocations.
+        rect(x+w-108,y+3,Math.min(100,w-109),1,theme.sheen);
+    }
     private void drawSidebar() {
         int yy = y + 47;
         label("FILTER", x + 10, yy, 0xFF979DAF);
@@ -174,7 +200,11 @@ public final class GhostClickGui extends GuiScreen {
         for (int i = 0; i < names.length; i++) {
             GhostModule.Category c = i == 0 ? null : GhostModule.Category.valueOf(names[i]);
             boolean active = ui.category() == c;
-            if (active) rect(x + 4, yy - 3, side - 8, 19, 0x556B83EA);
+            if (active) {
+                rect(x + 4, yy - 3, side - 8, 19,
+                    palette().nebula?palette().selectedCategory:0x556B83EA);
+                if(palette().nebula)rect(x+4,yy-3,2,19,palette().accent);
+            }
             if (yy < y + h - 48) label(names[i], x + 12, yy + 1,
                 active ? accent() : 0xFFD4D7E0);
             yy += 23;
@@ -208,7 +238,12 @@ public final class GhostClickGui extends GuiScreen {
             int ry = listY + (i - scroll) * 28;
             if (ry + 27 > listY + listH) break;
             boolean focused = e.module().id().equals(selected);
-            rect(x + side + 9, ry, w - side - 20, 25, focused ? 0x664B597D : 0x442D344A);
+            GuiThemePalette style=palette();
+            rect(x + side + 9, ry, w - side - 20, 25,
+                style.nebula?(focused?style.selectedModule:style.idleModule)
+                            :(focused?0x664B597D:0x442D344A));
+            if(style.nebula && focused)
+                rect(x+side+9,ry,2,25,style.accent);
             label(trim(e.module().displayName(), Math.max(60, w - side - 97)),
                     x + side + 15, ry + 8, focused ? 0xFFFFFFFF : 0xFFE4E7F0);
             boolean enabled = e.state() == ModuleRegistry.State.ENABLED;
@@ -222,7 +257,7 @@ public final class GhostClickGui extends GuiScreen {
                 enabled && !faulted ? 0xFF101320 : 0xFFFFFFFF);
         }
         int sy = listY + listH + 5;
-        rect(x + side + 9, sy - 4, w - side - 20, 1, 0x557E879D);
+        rect(x + side + 9, sy - 4, w - side - 20, 1, palette().divider);
         if (selected == null) {
             keyboardSetting=-1;
             label("No matching modules", x + side + 13, sy + 5, 0xFFBAC1D3);
@@ -237,7 +272,8 @@ public final class GhostClickGui extends GuiScreen {
         else
             label("SETTINGS  " + e.module().displayName(), x + side + 13, sy + 4, accent());
         int bindY = sy + 22;
-        rect(x + side + 11, bindY, w - side - 26, 18, 0x66394359);
+        rect(x + side + 11, bindY, w - side - 26, 18,
+            palette().nebula?palette().idleSetting:0x66394359);
         String keyText = capture != null && capture.equals(selected) ? "Press key (ESC cancel / BACKSPACE clear)" :
             "KEYBIND [B]: " + (e.keybind() == 0 ? "NONE" : Keyboard.getKeyName(e.keybind()));
         label(trim(keyText, w - side - 39), x + side + 16, bindY + 5, 0xFFEAECF5);
@@ -250,8 +286,11 @@ public final class GhostClickGui extends GuiScreen {
         for (int i = settingScroll; i < settings.size() && i < settingScroll + available; i++) {
             Map.Entry<String, Setting<?>> kv = settings.get(i);
             Setting<?> setting = kv.getValue();
+            GuiThemePalette settingsTheme=palette();
             rect(x + side + 11, sY, w - side - 26, 19,
-                i==keyboardSetting ? 0x886A588D : 0x443B465C);
+                settingsTheme.nebula?(i==keyboardSetting
+                    ?settingsTheme.selectedSetting:settingsTheme.idleSetting)
+                    :(i==keyboardSetting ? 0x886A588D : 0x443B465C));
             label(trim(setting.id(), Math.max(30, (w - side) / 2 - 14)), x + side + 15, sY + 5, 0xFFE0E4EF);
             int right = x + w - 17;
             if (setting instanceof Setting.Number) {
@@ -259,7 +298,7 @@ public final class GhostClickGui extends GuiScreen {
                 double fraction = NumericSliderScale.fraction(
                     number.get(),number.min(),number.max());
                 int barWidth = Math.max(33, (w - side) / 3);
-                rect(right - barWidth, sY + 7, barWidth, 6, 0xFF525A6C);
+                rect(right - barWidth, sY + 7, barWidth, 6, palette().barTrack);
                 rect(right - barWidth, sY + 7, (int) (barWidth * fraction), 6, accent());
                 label(String.format(java.util.Locale.ROOT, "%.2f", number.get()), right - barWidth - 37, sY + 5, 0xFFC6CBD7);
             } else {
@@ -291,11 +330,52 @@ public final class GhostClickGui extends GuiScreen {
     private HudPreviewGeometry previewGeometry() {
         return new HudPreviewGeometry(previewX,previewY,previewW,previewH,width,height);
     }
+    /** Use the same enabled module names/font metrics as the actual in-game list. */
+    private ModuleListLayout.Frame listFootprint() {
+        String position=host.moduleListPosition();
+        // Custom coordinates affect only placement, not a single pixel of size.
+        return ModuleListLayout.calculate(host.modules(),width,height,
+            fontRendererObj.FONT_HEIGHT,host.moduleListMaxRows(),
+            host.moduleListShowRender(),"custom".equals(position)?"top_right":position,
+            host.moduleListOrder(),guiFontWidths,host.moduleListCompact());
+    }
     private int hudWidth(Widget widget) {
+        if(widget==Widget.MODULE_LIST) {
+            int measured=listFootprint().width;
+            return measured>0?measured:HudFootprints.width(widget);
+        }
         return HudFootprints.width(widget);
     }
     private int hudHeight(Widget widget) {
+        if(widget==Widget.MODULE_LIST) {
+            int measured=listFootprint().height;
+            return measured>0?measured:HudFootprints.height(widget,true,true,true);
+        }
         return HudFootprints.height(widget,host.keysJump(),host.keysSneak(),host.targetHealth());
+    }
+    /** Preset corners are previewed at their real frame position; dragging uses saved anchors. */
+    private Rect hudPreviewRect(HudPreviewGeometry geometry,Widget widget) {
+        if(widget==Widget.MODULE_LIST &&
+           !hudDragging && !"custom".equals(host.moduleListPosition())) {
+            ModuleListLayout.Frame frame=listFootprint();
+            int actualW=hudWidth(widget),actualH=hudHeight(widget);
+            if(frame.width<=0||frame.height<=0) {
+                double xx=host.moduleListPosition().endsWith("_right")?1.0:0.0;
+                double yy=host.moduleListPosition().startsWith("bottom_")?1.0:0.0;
+                return geometry.at(xx,yy,actualW,actualH);
+            }
+            return geometry.at((double)frame.x/Math.max(1,width-frame.width),
+                (double)frame.y/Math.max(1,height-frame.height),actualW,actualH);
+        }
+        return geometry.widget(ui.widgets(),widget,hudWidth(widget),hudHeight(widget));
+    }
+    /** Make the rendered corner the drag origin without pre-saving a new profile. */
+    private void captureModuleListOrigin(HudPreviewGeometry geometry,Rect visible) {
+        if("custom".equals(host.moduleListPosition()))return;
+        Rect canvas=geometry.canvas;
+        ui.widgets().position(Widget.MODULE_LIST,
+            (double)(visible.x-canvas.x)/Math.max(1,canvas.width-visible.width),
+            (double)(visible.y-canvas.y)/Math.max(1,canvas.height-visible.height));
     }
     private StatusHudLayout statusFootprint() {
         boolean status=host.featureEnabled("hud.status");
@@ -350,15 +430,24 @@ public final class GhostClickGui extends GuiScreen {
             label("Status",status.x+2,status.y+2,0xFFFFFFFF);
 
         for(Widget widget:Widget.values()) {
-            Rect r=geometry.widget(ui.widgets(),widget,hudWidth(widget),hudHeight(widget));
+            Rect r=hudPreviewRect(geometry,widget);
             rect(r.x,r.y,r.width,r.height,
                 hudControls.selected()==HudEditorControls.itemFor(widget) ?
                     0xFF8376CD : 0xFF384B66);
-            String tag=widget==Widget.KEYSTROKES?"K":widget==Widget.CPS?"C":"T";
+            String tag=widget==Widget.KEYSTROKES?"K":widget==Widget.CPS?"C":
+                widget==Widget.TARGET?"T":"M";
             if(r.width>=8 && r.height>=10)
                 label(tag,r.x+1,r.y+1,0xFFFFFFFF);
         }
-        label(trim("Arrows: 1px | Shift+Arrow: 10px | R: Reset",w-side-20),
+        if(hudDragging) {
+            if(snapGuideX!=HudSnapPolicy.NO_GUIDE)
+                rect(Math.min(canvas.x+canvas.width-1,Math.max(canvas.x,snapGuideX)),
+                    canvas.y,1,canvas.height,0x9966DDD0);
+            if(snapGuideY!=HudSnapPolicy.NO_GUIDE)
+                rect(canvas.x,Math.min(canvas.y+canvas.height-1,
+                    Math.max(canvas.y,snapGuideY)),canvas.width,1,0x9966DDD0);
+        }
+        label(trim("Drag: Snap on | Alt: free | Arrows: 1px | Shift+Arrows: 10px | R: Reset",w-side-20),
             previewX,previewY+previewH+8,0xFFBEC6D9);
     }
     /** A capture is tied to a stable setting, never the currently scrolled row. */
@@ -385,9 +474,15 @@ public final class GhostClickGui extends GuiScreen {
      * Returning to the original anchor has no persistence side effect. */
     private boolean finishHudDrag() {
         if(!hudDragging)return false;
+        boolean listMoved=draggingWidget==Widget.MODULE_LIST;
         boolean changed=hudCapture.finish(ui);
         hudDragging=false;draggingWidget=null;
-        if(changed)host.persistUi();
+        snapGuideX=HudSnapPolicy.NO_GUIDE;snapGuideY=HudSnapPolicy.NO_GUIDE;
+        if(changed) {
+            // Position setting changes once at commit, never for intermediate motion.
+            if(listMoved)host.uiActions().choiceEdge("hud.modulelist","position",true);
+            host.persistUi();
+        }
         return changed;
     }
     private void adjustHudDrag(int mx,int my) {
@@ -396,7 +491,10 @@ public final class GhostClickGui extends GuiScreen {
            !GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout())))return;
         // A pointer round-trip must restore the original *serialized*
         // normalized anchor, not quantize it through preview pixels.
-        if(hudCapture.restoreAtPointerOrigin(ui,mx,my))return;
+        if(hudCapture.restoreAtPointerOrigin(ui,mx,my)) {
+            snapGuideX=HudSnapPolicy.NO_GUIDE;snapGuideY=HudSnapPolicy.NO_GUIDE;
+            return;
+        }
         HudPreviewGeometry geometry=previewGeometry();
         if(draggingWidget==null)
             geometry.moveStatus(ui,statusPreviewWidth(),statusPreviewHeight(),
@@ -404,6 +502,35 @@ public final class GhostClickGui extends GuiScreen {
         else
             geometry.moveWidget(ui.widgets(),draggingWidget,mx,my,dragX,dragY,
                 hudWidth(draggingWidget),hudHeight(draggingWidget));
+        snapGuideX=HudSnapPolicy.NO_GUIDE;
+        snapGuideY=HudSnapPolicy.NO_GUIDE;
+        if(Keyboard.isKeyDown(Keyboard.KEY_LMENU) ||
+           Keyboard.isKeyDown(Keyboard.KEY_RMENU))return;
+        Rect active=draggingWidget==null
+            ? geometry.status(ui,statusPreviewWidth(),statusPreviewHeight())
+            : hudPreviewRect(geometry,draggingWidget);
+        Rect[] neighbors=new Rect[Widget.values().length+1];
+        int count=0;
+        if(draggingWidget!=null)
+            neighbors[count++]=geometry.status(ui,statusPreviewWidth(),statusPreviewHeight());
+        for(Widget widget:Widget.values())
+            if(widget!=draggingWidget)
+                neighbors[count++]=hudPreviewRect(geometry,widget);
+        HudSnapPolicy.Result snapped=HudSnapPolicy.snap(geometry.canvas,active,
+            java.util.Arrays.copyOf(neighbors,count),HudSnapPolicy.DEFAULT_TOLERANCE);
+        snapGuideX=snapped.guideX;
+        snapGuideY=snapped.guideY;
+        // Project the snapped preview position through the same screen-aspect
+        // geometry as pointer dragging, never directly to stored fractions.
+        if(snapped.x!=active.x || snapped.y!=active.y) {
+            if(draggingWidget==null)
+                geometry.moveStatus(ui,statusPreviewWidth(),statusPreviewHeight(),
+                    snapped.x,snapped.y,0,0);
+            else
+                geometry.moveWidget(ui.widgets(),draggingWidget,
+                    snapped.x,snapped.y,0,0,
+                    hudWidth(draggingWidget),hudHeight(draggingWidget));
+        }
     }
     @Override protected void mouseClicked(int mx, int my, int button) throws IOException {
         finishSliderDrag();
@@ -426,7 +553,7 @@ public final class GhostClickGui extends GuiScreen {
             host.persistUi(); return;
         }
         if (header==GuiChrome.Header.THEME) {
-            ui.theme(ui.theme() == UiState.Theme.INDIGO ? UiState.Theme.GRAPHITE : UiState.Theme.INDIGO);
+            ui.theme(GuiThemePalette.next(ui.theme()));
             host.persistUi(); return;
         }
         if (header==GuiChrome.Header.MODULES) { hudPage = false; return; }
@@ -447,9 +574,11 @@ public final class GhostClickGui extends GuiScreen {
             Widget[] all=Widget.values();
             for(int i=all.length-1;i>=0;i--) {
                 Widget widget=all[i];
-                Rect r=geometry.widget(ui.widgets(),widget,hudWidth(widget),hudHeight(widget));
+                Rect r=hudPreviewRect(geometry,widget);
                 if(r.contains(mx,my)) {
                     hudControls.select(HudEditorControls.itemFor(widget));
+                    if(widget==Widget.MODULE_LIST)
+                        captureModuleListOrigin(geometry,r);
                     hudCapture.begin(ui,widget,width,height,mx,my);
                     hudDragging=true;draggingWidget=widget;
                     dragX=mx-r.x;dragY=my-r.y;
@@ -637,7 +766,10 @@ public final class GhostClickGui extends GuiScreen {
         }
         if (hudPage) {
             if (keyCode==Keyboard.KEY_R) {
-                if(hudControls.resetIfChanged(ui))host.persistUi();
+                boolean changed=hudControls.resetIfChanged(ui);
+                if(hudControls.selected()==HudEditorControls.Item.MODULE_LIST)
+                    host.uiActions().reset("hud.modulelist","position");
+                if(changed)host.persistUi();
                 return;
             }
             int dx=0,dy=0;
@@ -653,8 +785,18 @@ public final class GhostClickGui extends GuiScreen {
                     statusPreviewWidth():hudWidth(item.widget);
                 int ch=item==HudEditorControls.Item.STATUS ?
                     statusPreviewHeight():hudHeight(item.widget);
+                if(item==HudEditorControls.Item.MODULE_LIST &&
+                   !"custom".equals(host.moduleListPosition())) {
+                    HudPreviewGeometry geometry=previewGeometry();
+                    captureModuleListOrigin(geometry,
+                        hudPreviewRect(geometry,Widget.MODULE_LIST));
+                }
                 if(hudControls.nudgeIfChanged(ui,dx*step,dy*step,
-                                               width,height,cw,ch))host.persistUi();
+                                               width,height,cw,ch)) {
+                    if(item==HudEditorControls.Item.MODULE_LIST)
+                        host.uiActions().choiceEdge("hud.modulelist","position",true);
+                    host.persistUi();
+                }
                 return;
             }
         }
