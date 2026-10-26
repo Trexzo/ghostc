@@ -356,7 +356,8 @@ public final class GhostClickGui extends GuiScreen {
     /** Preset corners are previewed at their real frame position; dragging uses saved anchors. */
     private Rect hudPreviewRect(HudPreviewGeometry geometry,Widget widget) {
         if(widget==Widget.MODULE_LIST &&
-           !hudDragging && !"custom".equals(host.moduleListPosition())) {
+           !(hudDragging && draggingWidget==Widget.MODULE_LIST) &&
+           !"custom".equals(host.moduleListPosition())) {
             ModuleListLayout.Frame frame=listFootprint();
             int actualW=hudWidth(widget),actualH=hudHeight(widget);
             if(frame.width<=0||frame.height<=0) {

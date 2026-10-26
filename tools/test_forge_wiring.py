@@ -2204,6 +2204,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('MODULE_LIST(HudPositions.Widget.MODULE_LIST,"List")',controls)
         self.assertIn('"bottom_left", "custom");',host)
         self.assertIn("private Rect hudPreviewRect(",gui)
+        self.assertIn("!(hudDragging && draggingWidget==Widget.MODULE_LIST)",gui)
         self.assertIn("captureModuleListOrigin(geometry,r)",gui)
         self.assertIn('host.uiActions().choiceEdge("hud.modulelist","position",true)',gui)
         self.assertIn('host.uiActions().reset("hud.modulelist","position")',gui)
@@ -2211,6 +2212,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("host.ui().widgets().x(Widget.MODULE_LIST)",driver)
         self.assertIn('if(!"custom".equals(position)',layout)
         self.assertIn("custom bottom-right snaps to screen edge",tests)
+        self.assertIn("MODULE_LIST_EDITOR_PASS",content(".github/workflows/core-ci.yml"))
         self.assertIn("if(changed)host.persistUi();",gui)
         self.assertIn('case MODULE_LIST: return widget.height;',content(
             "src/main/java/dev/ghostfusion/ui/HudFootprints.java"))

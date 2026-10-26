@@ -60,6 +60,15 @@ public final class HudPreviewTests {
             "zero editor width rejected");
         rejects(()->new HudPreviewGeometry(0,0,300,300,0,1080),
             "zero scaled screen rejected");
+        HudPreviewGeometry.Rect atCenter=g.at(0.5,0.5,160,43);
+        ok(Math.abs((2*atCenter.x+atCenter.width)-
+            (2*g.canvas.x+g.canvas.width))<=1,"normalized center preview parity");
+        HudPreviewGeometry.Rect atEnd=g.at(1.0,1.0,160,43);
+        ok(atEnd.x+atEnd.width==g.canvas.x+g.canvas.width &&
+           atEnd.y+atEnd.height==g.canvas.y+g.canvas.height,
+           "normalized lower right touches editor bounds");
+        rejects(()->g.at(Double.NaN,0.5,160,43),
+            "nonfinite direct preview anchors rejected");
         rejects(()->g.displayWidth(0),"zero element width rejected");
         rejects(()->g.displayHeight(-5),"negative element height rejected");
         rejects(()->g.widget(null,HudPositions.Widget.CPS),"null anchors rejected");
