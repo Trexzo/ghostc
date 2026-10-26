@@ -121,6 +121,10 @@ public final class HostRuntime {
     private final UiActions uiActions;
     private final InputRouter input = new InputRouter(modules);
     private final BoundedIngress ingress = new BoundedIngress(256);
+    // Producer admission and world-transition sequence fences share one short
+    // monitor. Never hold it while invoking module or packet callbacks.
+    private final Object ingressEpochLock = new Object();
+    private boolean ingressEpochTransition;
     private final AtomicLong sequence = new AtomicLong();
     // Exclusive queue fence: late-published events from an older world are
     // discarded even if their producer reserved a queue slot before a switch.
@@ -392,10 +396,29 @@ public final class HostRuntime {
     public boolean enqueue(GameEvent.Kind kind) {
         if (kind != GameEvent.Kind.CLIENT_TICK && kind != GameEvent.Kind.RENDER_2D)
             throw new IllegalArgumentException("owner-only lifecycle event");
-        // Avoid even reserving a producer event ID once close has started.
-        // The ingress seal remains the final atomic publication authority.
-        if (closed || closing) return false;
-        return ingress.submit(event(kind));
+        synchronized (ingressEpochLock) {
+            // Stamp and publish together. Otherwise a worker can reserve a
+            // NEW sequence just after the world fence but before that world
+            // finishes transitioning, leaking an old-world event into the
+            // next session. Reject during the bounded transition window.
+            if (closed || closing || ingressEpochTransition) return false;
+            return ingress.submit(event(kind));
+        }
+    }
+    private void beginIngressEpochTransition() {
+        synchronized (ingressEpochLock) {
+            if (ingressEpochTransition)
+                throw new IllegalStateException("Ingress epoch already transitioning");
+            ingressEpochTransition = true;
+            // Every admitted producer published before this fence. New
+            // producer events are refused until the lifecycle completes.
+            ingressExpiredThroughSequence = sequence.get();
+        }
+    }
+    private void endIngressEpochTransition() {
+        synchronized (ingressEpochLock) {
+            ingressEpochTransition = false;
+        }
     }
     private void assertHostEventBoundary() {
         if(hostDispatching || closing)
@@ -437,16 +460,21 @@ public final class HostRuntime {
         if (!active()) return;
         assertHostEventBoundary();
         if(worldPresent==present)return;
-        applyWorldPresence(present,event(GameEvent.Kind.WORLD_CHANGE));
+        GameEvent transition=event(GameEvent.Kind.WORLD_CHANGE);
+        beginIngressEpochTransition();
+        try {
+            applyWorldPresence(present,transition);
+        } finally {
+            endIngressEpochTransition();
+        }
     }
     /** The caller reserves the event before any irreversible session mutation.
      * Disconnect uses this path with an atomically reserved two-event pair. */
     private void applyWorldPresence(boolean present,GameEvent worldEvent) {
         hostDispatching=true;
         try {
-            // Capture all event sequences assigned before this world transition.
-            // In-flight producers may add them later; the consumer checks stamps.
-            ingressExpiredThroughSequence = sequence.get();
+            // The ingress epoch fence was captured before this lifecycle
+            // callback, while producer publication was atomically embargoed.
             services.world(present);
             framePerformance.suspend();
             diagnostics.record(present ? Counter.WORLD_ENTER : Counter.WORLD_LEAVE);
@@ -492,21 +520,24 @@ public final class HostRuntime {
             new GameEvent(GameEvent.Kind.WORLD_CHANGE,prior+1):null;
         GameEvent disconnectEvent=new GameEvent(GameEvent.Kind.SESSION_DISCONNECT,
             prior+(leaving?2:1));
-        // The world-leave callback has its own bounded dispatch window.
-        // No user callback executes between its return and sealing this
-        // disconnect; SESSION_DISCONNECT gets a separate guarded window.
-        if(leaving)applyWorldPresence(false,worldEvent);
-        hostDispatching=true;
+        // Cover BOTH world-leave and disconnect callbacks with a single
+        // ingress embargo; a worker may otherwise publish between them.
+        beginIngressEpochTransition();
         try {
-            ingressExpiredThroughSequence = sequence.get();
-            disconnectReported = true;
-            input.clearPressed();
-            services.disconnect();
-            diagnostics.record(Counter.DISCONNECT);
-            modules.dispatch(disconnectEvent);
-            exportDiagnostics();
+            if(leaving)applyWorldPresence(false,worldEvent);
+            hostDispatching=true;
+            try {
+                disconnectReported = true;
+                input.clearPressed();
+                services.disconnect();
+                diagnostics.record(Counter.DISCONNECT);
+                modules.dispatch(disconnectEvent);
+                exportDiagnostics();
+            } finally {
+                hostDispatching=false;
+            }
         } finally {
-            hostDispatching=false;
+            endIngressEpochTransition();
         }
     }
     /** External saves are forbidden while shutdown callbacks execute.
