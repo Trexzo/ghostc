@@ -107,6 +107,8 @@ public final class ChestStealerTests {
             confirm=pending>=0 && rng.nextInt(3)==0;
             if(confirm) slots[pending]=false;
             int selected=next(p,slots,confirm,tick,window,epoch);
+            ok(selected==-1 || (selected>=0 && selected<slots.length),
+               "32k every tick returns only a bounded source slot or no-op");
             // Model one in-flight request and exact pacing. Failed
             // confirmation blocks the whole window by 12 ticks.
             if(open) {
