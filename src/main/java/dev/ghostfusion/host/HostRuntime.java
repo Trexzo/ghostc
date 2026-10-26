@@ -53,6 +53,11 @@ public final class HostRuntime {
     private final Setting.Bool keysJump = new Setting.Bool("show_jump", true);
     private final Setting.Bool keysSneak = new Setting.Bool("show_sneak", true);
     private final Setting.Bool cpsRight = new Setting.Bool("show_right", true);
+    // Legacy HUDs keep their exact colors until a user chooses another skin.
+    private final Setting.Choice keysAppearance =
+        new Setting.Choice("appearance","classic","classic","minimal","nebula");
+    private final Setting.Choice cpsAppearance =
+        new Setting.Choice("appearance","classic","classic","minimal","nebula");
     private final Setting.Bool targetMotion = new Setting.Bool("motion", true);
     private final Setting.Number targetRange = new Setting.Number("range", 8.0, 2.0, 24.0);
     private final Setting.Bool targetVisible = new Setting.Bool("visible_only", true);
@@ -168,9 +173,9 @@ public final class HostRuntime {
         modules.register(overlay, DEFAULT_STATUS_KEY, statusScale, statusStyle, statusShadow);
         modules.register(metrics, 0, showFps, showCoordinates, showPing);
         modules.register(new FeatureModule("hud.keystrokes", "Keystrokes", GhostModule.Category.RENDER),
-            0, keysJump, keysSneak);
+            0, keysJump, keysSneak, keysAppearance);
         modules.register(new FeatureModule("hud.cps", "CPS Counter", GhostModule.Category.RENDER),
-            0, cpsRight);
+            0, cpsRight, cpsAppearance);
         modules.register(new FeatureModule("hud.target", "Target HUD", GhostModule.Category.RENDER),
             0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin, targetSelection, targetDistance, targetIgnoreTeammates, targetMotion);
         modules.register(new FeatureModule("render.esp", "Player ESP", GhostModule.Category.RENDER),
@@ -313,6 +318,8 @@ public final class HostRuntime {
     public boolean keysJump() { modules.assertOwnerThread(); return keysJump.get(); }
     public boolean keysSneak() { modules.assertOwnerThread(); return keysSneak.get(); }
     public boolean cpsRight() { modules.assertOwnerThread(); return cpsRight.get(); }
+    public String keysAppearance() { modules.assertOwnerThread(); return keysAppearance.get(); }
+    public String cpsAppearance() { modules.assertOwnerThread(); return cpsAppearance.get(); }
     public String moduleListPosition() { modules.assertOwnerThread(); return moduleListPosition.get(); }
     public String moduleListOrder() { modules.assertOwnerThread(); return moduleListOrder.get(); }
     public int moduleListMaxRows() { modules.assertOwnerThread(); return moduleListRows.get().intValue(); }

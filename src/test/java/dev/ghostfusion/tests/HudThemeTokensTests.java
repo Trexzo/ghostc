@@ -36,7 +36,28 @@ public final class HudThemeTokensTests {
         HostRuntime reopened=new HostRuntime(dir);
         ok("nebula".equals(reopened.moduleListAppearance()) &&
            reopened.moduleListCompact(),"style and compact persisted");
+        reopened.uiActions().cycle("hud.keystrokes","appearance");
+        reopened.uiActions().cycle("hud.keystrokes","appearance");
+        reopened.uiActions().cycle("hud.cps","appearance");
+        ok("nebula".equals(reopened.keysAppearance()) &&
+           "minimal".equals(reopened.cpsAppearance()),
+           "first-party Keystrokes and CPS style choices can differ");
+        reopened.persist();
         reopened.close();
+        HostRuntime again=new HostRuntime(dir);
+        ok("nebula".equals(again.keysAppearance()) &&
+           "minimal".equals(again.cpsAppearance()),
+           "Keystrokes/CPS styles survive profile restoration");
+        again.uiActions().cycle("hud.cps","appearance");
+        ok("nebula".equals(again.cpsAppearance()),
+           "CPS supports Nebula");
+        again.close();
+        Path original=Files.createTempDirectory("ghostc-legacy-hud-");
+        HostRuntime legacy=new HostRuntime(original);
+        ok("classic".equals(legacy.keysAppearance()) &&
+           "classic".equals(legacy.cpsAppearance()),
+           "unchanged installations keep their Classic key/CPS visuals");
+        legacy.close();
         System.out.println("HUD_THEME_TOKENS_PASS checks="+checked);
     }
 }

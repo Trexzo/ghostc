@@ -162,13 +162,30 @@ public final class ForgeFeatureDriver {
             display.toUpperCase(java.util.Locale.ROOT);
     }
     private void key(String label, int x,int y,int width,boolean pressed) {
-        Gui.drawRect(x,y,x+width,y+17,pressed ? 0xCBA8A9FF : 0xB3171C30);
-        // Measure Minecraft's active font and clip on Unicode boundaries.
+        final String appearance=host.keysAppearance();
+        if("classic".equals(appearance)) {
+            // Preserve legacy key panels and colors byte-for-byte by default.
+            Gui.drawRect(x,y,x+width,y+17,pressed ? 0xCBA8A9FF : 0xB3171C30);
+            String fitted=HudTextFit.fit(label,Math.max(0,width-5),targetFontWidths);
+            if(fitted.isEmpty())return;
+            int textWidth=mc.fontRendererObj.getStringWidth(fitted);
+            mc.fontRendererObj.drawStringWithShadow(fitted,
+                x+(width-textWidth)/2,y+5,pressed ? 0xFF121629 : 0xFFF0F0FF);
+            return;
+        }
+        HudThemeTokens theme=HudThemeTokens.of(appearance);
+        Gui.drawRect(x,y,x+width,y+17,pressed?theme.accent:theme.panel);
+        if("nebula".equals(appearance)) {
+            // A restrained one-pixel aurora line, never text-obscuring full glow.
+            Gui.drawRect(x,y,x+width,y+1,pressed?theme.secondary:theme.frame);
+            if(!pressed)Gui.drawRect(x+1,y+15,x+width-1,y+16,theme.sheen);
+        }
         String fitted=HudTextFit.fit(label,Math.max(0,width-5),targetFontWidths);
         if(fitted.isEmpty())return;
         int textWidth=mc.fontRendererObj.getStringWidth(fitted);
         mc.fontRendererObj.drawStringWithShadow(fitted,
-            x+(width-textWidth)/2,y+5,pressed ? 0xFF121629 : 0xFFF0F0FF);
+            x+(width-textWidth)/2,y+5,
+            pressed?0xFF121629:theme.text);
     }
     private void drawKeys(int sw,int sh) {
         // Do not draw a partial Keystrokes grid into a smaller scaled viewport.
@@ -197,9 +214,21 @@ public final class ForgeFeatureDriver {
         long now=System.nanoTime();
         int l=cps.left(now),r=cps.right(now);
         String text=HudTextFit.cps(l,r,host.cpsRight(),textBudget,targetFontWidths);
-        Gui.drawRect(x-2,y-2,right,bottom,0xBE131927);
-        if(!text.isEmpty())
-            mc.fontRendererObj.drawStringWithShadow(text,x,y+1,0xFFE3E9FF);
+        final String appearance=host.cpsAppearance();
+        if("classic".equals(appearance)) {
+            Gui.drawRect(x-2,y-2,right,bottom,0xBE131927);
+            if(!text.isEmpty())
+                mc.fontRendererObj.drawStringWithShadow(text,x,y+1,0xFFE3E9FF);
+        } else {
+            HudThemeTokens theme=HudThemeTokens.of(appearance);
+            Gui.drawRect(x-2,y-2,right,bottom,theme.panel);
+            // Keep the same bounded 103x17 card; no extra HUD footprint.
+            Gui.drawRect(x-2,y-2,x-1,bottom,theme.accent);
+            if("nebula".equals(appearance) && right>x)
+                Gui.drawRect(x-1,y-2,right,y-1,theme.sheen);
+            if(!text.isEmpty())
+                mc.fontRendererObj.drawStringWithShadow(text,x,y+1,theme.text);
+        }
     }
     private void drawDiagnosticText(String value,int x,int y,int maxWidth,int color) {
         String fitted=mc.fontRendererObj.trimStringToWidth(value,maxWidth);

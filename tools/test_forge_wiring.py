@@ -2192,6 +2192,20 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.HudEditorControlsTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_keystrokes_and_cps_new_styles_keep_original_classic_pixels(self):
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        driver=(FORGE/"ForgeFeatureDriver.java").read_text(encoding="utf-8")
+        tests=content("src/test/java/dev/ghostfusion/tests/HudThemeTokensTests.java")
+        self.assertIn('new Setting.Choice("appearance","classic","classic","minimal","nebula")',host)
+        self.assertIn("public String keysAppearance()",host)
+        self.assertIn("public String cpsAppearance()",host)
+        self.assertIn('if("classic".equals(appearance))',driver)
+        self.assertIn("0xCBA8A9FF : 0xB3171C30",driver)
+        self.assertIn("0xBE131927",driver)
+        self.assertIn("HudThemeTokens.of(appearance)",driver)
+        self.assertIn("Keystrokes and CPS style choices can differ",tests)
+        self.assertIn("HUD_THEME_TOKENS_PASS",content(".github/workflows/core-ci.yml"))
+
     def test_hud_snap_policy_has_opt_out_and_preview_only_guides(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         snap=content("src/main/java/dev/ghostfusion/ui/HudSnapPolicy.java")

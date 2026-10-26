@@ -57,3 +57,11 @@ from immutable, shared `HudThemeTokens`; no shader, native code, packet or comba
   once on release if its serialized normalized anchor actually changed.
 - Pointer-return restores original normalized coordinates exactly, even during snapping.
 - Tested with seeded extreme aspect ratios and 26,000 randomized snap cases.
+
+## R4 Keystrokes and CPS visual cohesion
+Keystrokes and CPS now each expose `appearance` (Classic/Minimal/Nebula) in the
+existing ClickGUI. Both default to Classic and retain the original pixel colors
+unless the user explicitly chooses a new style. Minimal uses subdued graphite
+panels; Nebula reuses the immutable aurora tokens. The Minecraft-scaled geometry,
+text fitting, key-state readouts, physical CPS collection and drawing budgets are
+unchanged. Profile roundtrips and original visual constants are regression tested.
