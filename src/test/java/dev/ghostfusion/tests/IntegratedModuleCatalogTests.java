@@ -19,7 +19,7 @@ public final class IntegratedModuleCatalogTests {
         HostRuntime host=new HostRuntime(root);
         String[] modules={
             "combat.aimassist","combat.clicker","combat.blockhit","combat.hitselect",
-            "combat.velocity",
+            "combat.velocity","combat.wtap",
             "movement.bridgeassist","movement.sprint",
             "hud.modulelist","hud.target","hud.keystrokes","hud.cps","render.esp"
         };
@@ -38,6 +38,8 @@ public final class IntegratedModuleCatalogTests {
             "event-mode Block Hit registered");
         ok(host.modules().get("combat.hitselect").settings().containsKey("trade_min_self_hurt"),
             "trading Hit Select registered");
+        ok(host.modules().get("combat.wtap").settings().containsKey("reset_ticks"),
+           "actual WTap sprint reset module and delay setting registered");
         ok(host.modules().get("combat.velocity").settings().containsKey("horizontal_percent") &&
            host.modules().get("combat.velocity").settings().containsKey("vertical_percent"),
            "native Velocity horizontal and vertical percentages are true module settings");
@@ -61,6 +63,7 @@ public final class IntegratedModuleCatalogTests {
         host.uiActions().cycle("hud.modulelist","appearance");
         host.uiActions().cycle("hud.keystrokes","appearance");
         host.uiActions().fraction("movement.bridgeassist","lookahead",0.7);
+        host.uiActions().fraction("combat.wtap","reset_ticks",1.0);
         host.uiActions().fraction("combat.velocity","horizontal_percent",0.7);
         host.uiActions().fraction("combat.velocity","vertical_percent",0.9);
         for(String id:modules) {
@@ -77,6 +80,7 @@ public final class IntegratedModuleCatalogTests {
         final double lookahead=host.bridgeLookahead();
         final double velocityHorizontal=host.velocityHorizontalPercent();
         final double velocityVertical=host.velocityVerticalPercent();
+        ok(host.wtapDelayTicks()==3,"actual native attack WTap reset timing configured");
         ok(velocityHorizontal==70 && velocityVertical==90,
            "true native Velocity axes are configurable with module enabled");
         ok(lookahead>0.75,"native edge projection setting accepts UI edits");
@@ -96,6 +100,8 @@ public final class IntegratedModuleCatalogTests {
         ok("minimal".equals(loaded.targetSkin()),"Target HUD style survived Panic");
         ok("minimal".equals(loaded.moduleListAppearance()),"Module List style survived Panic");
         ok(loaded.bridgeLookahead()==lookahead,"Bridge Assist lookahead survived Panic");
+        ok(loaded.wtapDelayTicks()==3,
+           "Panic preserves WTap module timing but not enabled state");
         ok(loaded.velocityHorizontalPercent()==velocityHorizontal &&
            loaded.velocityVerticalPercent()==velocityVertical,
            "Velocity axis settings survive Panic without re-enabling motion writes");
@@ -103,6 +109,7 @@ public final class IntegratedModuleCatalogTests {
         ok(loaded.featureEnabled("combat.aimassist"),"explicit reenable after Panic works");
         loaded.close();
         VelocityTests.main(args);
+        WTapTests.main(args);
         ok(count>65,"real integrated module and persisted profile coverage");
         System.out.println("INTEGRATED_MODULE_CATALOG_PASS assertions="+count);
     }
