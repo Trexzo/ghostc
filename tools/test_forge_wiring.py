@@ -856,10 +856,15 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("75000;i++",suite)
         self.assertIn("choiceDirections();",suite)
         key=gui.index("@Override protected void keyTyped")
-        self.assertLess(gui.index("GuiSearchFocus.route(",key),
-                        gui.index("host.uiActions().choiceEdge(",key))
-        self.assertLess(gui.index("if (capture != null)",key),
-                        gui.index("host.uiActions().choiceEdge(",key))
+        # HUD editor's custom module-list keyboard shortcut intentionally
+        # precedes search handling, but module SETTINGS must never consume
+        # keys before keybind capture and focused search have declined them.
+        search=gui.index("GuiSearchFocus.route(",key)
+        settings_choice=gui.index("host.uiActions().choiceEdge(",search)
+        self.assertLess(search,settings_choice)
+        self.assertLess(gui.index("if (capture != null)",key),settings_choice)
+        self.assertIn('host.uiActions().choiceEdge("hud.modulelist","position",true);',
+                      gui[key:search])
 
     def test_keyboard_help_is_contextual_and_not_overlaid_on_keybind_row(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
@@ -2278,7 +2283,11 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("if(hudDragging && (!hudCapture.sameViewport(width,height)",gui)
         self.assertIn("finishHudDrag();",gui)
         self.assertIn("if(state==0)adjustHudDrag(mx,my);",gui)
-        self.assertIn("if(hudControls.resetIfChanged(ui))host.persistUi();",gui)
+        # Custom Module List reset persists the module option separately
+        # while owner UI coordinates are persisted only when actually changed.
+        self.assertIn("boolean changed=hudControls.resetIfChanged(ui);",gui)
+        self.assertIn("if(changed)host.persistUi();",gui)
+        self.assertIn('host.uiActions().reset("hud.modulelist","position");',gui)
         self.assertIn("if(hudControls.nudgeIfChanged(ui,dx*step,dy*step,",gui)
         self.assertIn("if(!endedHudDrag)host.persistUi();",gui)
         self.assertIn("Double.compare(initialX,x(ui,widget))!=0",capture)
