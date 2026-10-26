@@ -115,10 +115,9 @@ public final class ForgeCombatController {
                     // die, become invisible or move before the camera write.
                     // Validate the current-world entity and same-tick pose.
                     Entity live=mc.theWorld.getEntityByID(suggestion.entityId);
-                    if(!(live instanceof EntityPlayer)) {
-                        aimLock.clear();
-                        return;
-                    }
+                    // Missing live target is a strict no-write veto. The
+                    // retained hint is independently UUID-checked next tick.
+                    if(!(live instanceof EntityPlayer))return;
                     EntityPlayer candidate=(EntityPlayer)live;
                     if(!LiveCombatTargetGate.eligible(candidate,
                             mc.theWorld.getEntityByID(candidate.getEntityId()),player,
