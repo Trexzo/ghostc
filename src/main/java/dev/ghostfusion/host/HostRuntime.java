@@ -126,6 +126,9 @@ public final class HostRuntime {
     private final Setting.Bool moduleListRender = new Setting.Bool("show_render", false);
     private final Setting.Bool moduleListBackground = new Setting.Bool("background", true);
     private final Setting.Bool moduleListAccent = new Setting.Bool("accent", true);
+    private final Setting.Choice moduleListAppearance =
+        new Setting.Choice("appearance","classic","classic","minimal","nebula");
+    private final Setting.Bool moduleListCompact = new Setting.Bool("compact",false);
     private final UiState ui = new UiState();
     private final UiSettingsStore uiStore;
     private final UiActions uiActions;
@@ -189,7 +192,8 @@ public final class HostRuntime {
             0);
         modules.register(new FeatureModule("hud.modulelist", "Module List", GhostModule.Category.RENDER),
             0, moduleListPosition, moduleListOrder, moduleListRows,
-            moduleListRender, moduleListBackground, moduleListAccent);
+            moduleListRender, moduleListBackground, moduleListAccent,
+            moduleListAppearance, moduleListCompact);
         modules.setEnabled(overlay.id(), true);
         profiles = new ProfileStore(configDirectory, modules);
         uiStore = new UiSettingsStore(configDirectory, ui);
@@ -315,6 +319,8 @@ public final class HostRuntime {
     public boolean moduleListShowRender() { modules.assertOwnerThread(); return moduleListRender.get(); }
     public boolean moduleListBackground() { modules.assertOwnerThread(); return moduleListBackground.get(); }
     public boolean moduleListAccent() { modules.assertOwnerThread(); return moduleListAccent.get(); }
+    public String moduleListAppearance() { modules.assertOwnerThread(); return moduleListAppearance.get(); }
+    public boolean moduleListCompact() { modules.assertOwnerThread(); return moduleListCompact.get(); }
     public double targetRange() { modules.assertOwnerThread(); return targetRange.get(); }
     public boolean targetVisible() { modules.assertOwnerThread(); return targetVisible.get(); }
     public boolean targetHealth() { modules.assertOwnerThread(); return targetHealth.get(); }

@@ -67,6 +67,14 @@ public final class ModuleListLayout {
                                   int fontH,int maxRows,boolean showRender,
                                   String position,String ordering,
                                   ToIntFunction<String> fontWidth) {
+        return calculate(registry,viewportW,viewportH,fontH,maxRows,showRender,
+            position,ordering,fontWidth,false);
+    }
+    /** Compact option reduces vertical gaps, without changing existing callers. */
+    public static Frame calculate(ModuleRegistry registry,int viewportW,int viewportH,
+                                  int fontH,int maxRows,boolean showRender,
+                                  String position,String ordering,
+                                  ToIntFunction<String> fontWidth,boolean compact) {
         if(registry==null || fontWidth==null || viewportW<1 || viewportH<1 ||
            fontH<1 || maxRows<1 || maxRows>MAX_ROWS ||
            position==null || ordering==null)
@@ -80,7 +88,7 @@ public final class ModuleListLayout {
         if(!ordering.equals("width")&&!ordering.equals("alphabetical"))
             throw new IllegalArgumentException("Module List sort");
         // Height/width admission occurs BEFORE reading registry or measuring font.
-        final int rowH=fontH+ROW_GAP;
+        final int rowH=fontH+(compact?2:ROW_GAP);
         final int visibleByHeight=(viewportH-2*MARGIN)/rowH;
         final int textBudget=viewportW-2*MARGIN-2*TEXT_PAD;
         if(visibleByHeight<=0 || textBudget<=0)return empty();

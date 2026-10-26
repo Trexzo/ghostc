@@ -41,3 +41,9 @@ The live target identity is verified before drawing; health interpolation cannot
 The `hud.target.motion` toggle defaults to true but only affects the opt-in Nebula skin.
 Classic, Glass, and Minimal retain their original painter and defaults. The Forge reset clears Nebula
 animation state on world/session transition. Pixel appearance still requires Minecraft visual acceptance.
+
+## Matching Module List appearance
+The in-game Module List now exposes Classic (unchanged), Minimal, and Nebula appearances,
+plus opt-in compact row spacing. Nebula uses the same violet/cyan hierarchy as the
+Target HUD and a one-pixel sheen rather than expensive glow. All palette values come
+from immutable, shared `HudThemeTokens`; no shader, native code, packet or combat changes.

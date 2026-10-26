@@ -71,6 +71,11 @@ public final class ModuleListLayoutTests {
                row.y>=0 && row.y+row.height<=20,"tiny viewport bounds");
         ok(make(r,5,2,24,true,"top_left","width").rows.isEmpty(),
             "too-small viewport skips all font work");
+        ModuleListLayout.Frame compact=ModuleListLayout.calculate(r,200,100,9,
+            10,true,"top_right","width",FONT,true);
+        ok(compact.rows.size()==4 && compact.rows.get(0).height==11,
+            "compact spacing changes only row pitch");
+        ok(width.rows.get(0).height==13,"default spacing retains legacy pixels");
         r.setEnabled("combat.z",false);
         ok(make(r,200,100,10,false,"top_left","alphabetical").rows.size()==2,
             "disabled modules immediately disappear");
