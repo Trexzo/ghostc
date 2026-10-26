@@ -2028,6 +2028,21 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("eventFailureCleanupReentry();",suite)
         self.assertIn("longSession();",suite)
 
+    def test_feature_fault_reports_only_guard_owned_quarantine(self):
+        guard=content("src/main/java/dev/ghostfusion/host/FeatureFaultGuard.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/FeatureFaultLifecycleReportingTests.java")
+        original=content("src/test/java/dev/ghostfusion/tests/FeatureFaultTests.java")
+        core=content(".github/workflows/core-ci.yml")
+        self.assertIn("if(entry.state() != ModuleRegistry.State.ENABLED) {",guard)
+        self.assertIn("if(entry.state() == ModuleRegistry.State.FAULTED) {",guard)
+        self.assertIn("clearWarning(stableId);",guard)
+        self.assertIn("completedLifecycleHasNoFakeReport();",suite)
+        self.assertIn("disableFailurePreservesRegistryFault();",suite)
+        self.assertIn("oldWarningClearsAfterVoluntaryShutdown();",suite)
+        self.assertIn("realHostCloseDoesNotIncrementFaults();",suite)
+        self.assertIn("shutdown cannot synthesize a fresh fault warning",original)
+        self.assertIn("FeatureFaultLifecycleReportingTests",core)
+
     def test_latest_feature_fault_is_bounded_by_last_occurrence(self):
         guard=content("src/main/java/dev/ghostfusion/host/FeatureFaultGuard.java")
         tests=content("src/test/java/dev/ghostfusion/tests/FeatureFaultTests.java")

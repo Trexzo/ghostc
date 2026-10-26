@@ -278,8 +278,8 @@ public final class FeatureFaultTests {
            "recovery does not increment fault diagnostic counters");
         host.close();
     }
-    /** R3.21: shutdown and module lifecycle changes during a render fault
-     * must not leak an unrelated cleanup exception or report a false quarantine. */
+    /** R3.21 / R3.30: shutdown and lifecycle changes during a render fault
+     * must not leak cleanup exceptions or record fictitious quarantine. */
     private static void shutdownAndLifecycleFaultContainment() throws Exception {
         for(int i=0;i<1000;i++) {
             final int iteration=i;
@@ -305,11 +305,9 @@ public final class FeatureFaultTests {
                registry.get(peer.id()).state()==ModuleRegistry.State.DISABLED &&
                damaged.disabled==1 && peer.disabled==1,
                "shutdown cleanup executes once for each feature "+i);
-            ok(reports[0]==1 &&
-               guard.latestFaultWarning().contains("IllegalArgumentException") &&
-               !guard.latestFaultWarning().contains("SENSITIVE") &&
-               !guard.recentFaults().toString().contains("PLAYER"),
-               "shutdown records only safe fault metadata "+i);
+            ok(reports[0]==0 && guard.latestFaultWarning().isEmpty() &&
+               guard.recentFaults().isEmpty(),
+               "completed shutdown cannot synthesize a fresh fault warning "+i);
             ok(!guard.execute(damaged.id(),()->{
                 throw new AssertionError("disabled callback should never run");
             }),"disabled shutdown feature stays inert "+i);
@@ -327,9 +325,10 @@ public final class FeatureFaultTests {
             stopped.setEnabled(self.id(),false);
             throw new IllegalArgumentException("private payload");
         }),"previously disabled module fault returns false");
-        ok(self.disabled==1 && selfReports[0]==1 &&
-           stopped.get(self.id()).state()==ModuleRegistry.State.DISABLED,
-           "quarantine does not re-disable a module that self-disabled");
+        ok(self.disabled==1 && selfReports[0]==0 &&
+           stopped.get(self.id()).state()==ModuleRegistry.State.DISABLED &&
+           guard.latestFaultWarning().isEmpty(),
+           "completed self-disable creates no duplicate fault report");
         stopped.shutdown();
 
         // Real HostRuntime closure from an already-active feature callback.
@@ -342,10 +341,9 @@ public final class FeatureFaultTests {
             host.close();
             throw new IllegalArgumentException("PRIVATE DISCONNECT EVENT");
         }),"render fault after host closure returns false");
-        ok(host.isClosed() && host.faultWarning().contains("hud.cps") &&
-           host.faultWarning().contains("IllegalArgumentException") &&
-           !host.faultWarning().contains("PRIVATE"),
-           "closed host shows safe original error class without propagating");
+        ok(host.isClosed() && host.faultWarning().isEmpty() &&
+           host.diagnostics().count(RuntimeDiagnostics.Counter.FEATURE_FAULT)==0,
+           "closed host cannot report a new fault after successful shutdown");
         ok(!host.runFeature("hud.cps",()->{
             throw new AssertionError("closed host must be inert");
         }),"closed host never reruns renderer");
