@@ -60,7 +60,7 @@ public final class PanicTests {
         s.packets().submit("test.panic_probe",PacketCoordinator.Direction.OUTBOUND,
             new byte[]{1,2,3},epoch,new PacketCoordinator.Completion() {
                 public void complete(PacketCoordinator.Result result) {
-                    ok(result==PacketCoordinator.Result.CANCELLED,
+                    ok(result==PacketCoordinator.Result.STALE_SESSION,
                        "panic cancels pending packet with a terminal receipt");
                     try { registry.setEnabled("combat.clicker",true); }
                     catch(IllegalStateException expected){callbackBlocked.set(true);}
