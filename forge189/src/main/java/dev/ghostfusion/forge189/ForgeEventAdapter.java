@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
+import net.minecraftforge.event.entity.player.AttackEntityEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.InputEvent;
@@ -39,6 +40,7 @@ public final class ForgeEventAdapter {
     private final ForgeCombatController combat;
     private final ForgeBridgeAssistController bridge;
     private final ForgeVelocityController velocity;
+    private final ForgeWTapController wtap;
     private final WorldIdentityTracker worldIdentity = new WorldIdentityTracker();
     // Two capped, owner-thread groups are reused every tick. Every raw
     // EntityPlayer reference is released before publishing an immutable
@@ -57,6 +59,7 @@ public final class ForgeEventAdapter {
         this.combat = new ForgeCombatController(minecraft,host);
         this.bridge = new ForgeBridgeAssistController(minecraft,host);
         this.velocity = new ForgeVelocityController(minecraft,host);
+        this.wtap = new ForgeWTapController(minecraft,host);
     }
 
     @SubscribeEvent
@@ -76,6 +79,7 @@ public final class ForgeEventAdapter {
             combat.reset();
             bridge.reset();
             velocity.reset();
+            wtap.reset();
         }
         if (transition == WorldIdentityTracker.Transition.ENTER ||
             transition == WorldIdentityTracker.Transition.SWITCH) {
@@ -84,6 +88,7 @@ public final class ForgeEventAdapter {
             combat.reset();
             bridge.reset();
             velocity.reset();
+            wtap.reset();
         }
         // Keep the standard presence reconciliation for starting menus.
         host.worldPresence(worldReady);
@@ -92,6 +97,7 @@ public final class ForgeEventAdapter {
             features.reset();
             bridge.reset();
             velocity.reset();
+            wtap.reset();
         }
         // Read-only player snapshot published before the single combat intent bridge runs.
         if (host.services().connected() && minecraft.theWorld != null && minecraft.thePlayer != null &&
@@ -219,6 +225,16 @@ public final class ForgeEventAdapter {
         // independently rejects GUI, focus, world and module-disabled frames.
         bridge.tick();
         velocity.tick();
+        wtap.tick();
+    }
+
+    @SubscribeEvent
+    public void onAttackEntity(AttackEntityEvent event) {
+        // This is a native combat event, not merely a queued click intent.
+        // World/player identity is checked at the native event boundary.
+        if(event.entityPlayer!=minecraft.thePlayer ||
+           !worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) return;
+        wtap.attack(event.target);
     }
 
     @SubscribeEvent
@@ -237,6 +253,7 @@ public final class ForgeEventAdapter {
                 PanicController.disableAll(host);
                 bridge.reset();
                 velocity.reset();
+                wtap.reset();
                 features.reset();
                 combat.reset();
             }
@@ -413,6 +430,7 @@ public final class ForgeEventAdapter {
                 combat.reset();
                 bridge.reset();
                 velocity.reset();
+                wtap.reset();
             }
         });
     }
