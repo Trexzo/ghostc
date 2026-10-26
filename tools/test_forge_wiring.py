@@ -2300,6 +2300,19 @@ class ForgeWiring(unittest.TestCase):
         self.assertNotIn("persistUi();",close)
         self.assertIn("testClosePersistenceReentryFence(dir.resolve(",tests)
 
+    def test_ingress_epoch_admission_is_atomic(self):
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/IngressEpochAdmissionTests.java")
+        core=content(".github/workflows/core-ci.yml")
+        self.assertIn("private final Object ingressEpochLock = new Object();",host)
+        self.assertIn("if (closed || closing || ingressEpochTransition) return false;",host)
+        self.assertIn("return ingress.submit(event(kind));",host)
+        self.assertIn("beginIngressEpochTransition();",host)
+        self.assertIn("endIngressEpochTransition();",host)
+        self.assertIn("transitionAdmission();",suite)
+        self.assertIn("INGRESS_EPOCH_ADMISSION_PASS",suite)
+        self.assertIn("dev.ghostfusion.tests.IngressEpochAdmissionTests",core)
+
     def test_forge_project_version_matches_mod_annotation(self):
         gradle=content("forge189/build.gradle")
         match=re.search(r"(?m)^version = '([0-9]+\.[0-9]+\.[0-9]+)'",gradle)
