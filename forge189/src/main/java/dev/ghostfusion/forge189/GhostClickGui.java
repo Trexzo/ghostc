@@ -362,9 +362,11 @@ public final class GhostClickGui extends GuiScreen {
         }
         if(hudDragging) {
             if(snapGuideX!=HudSnapPolicy.NO_GUIDE)
-                rect(snapGuideX,canvas.y,1,canvas.height,0x9966DDD0);
+                rect(Math.min(canvas.x+canvas.width-1,Math.max(canvas.x,snapGuideX)),
+                    canvas.y,1,canvas.height,0x9966DDD0);
             if(snapGuideY!=HudSnapPolicy.NO_GUIDE)
-                rect(canvas.x,snapGuideY,canvas.width,1,0x9966DDD0);
+                rect(canvas.x,Math.min(canvas.y+canvas.height-1,
+                    Math.max(canvas.y,snapGuideY)),canvas.width,1,0x9966DDD0);
         }
         label(trim("Drag: Snap on | Alt: free | Arrows: 1px | Shift+Arrows: 10px | R: Reset",w-side-20),
             previewX,previewY+previewH+8,0xFFBEC6D9);

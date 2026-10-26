@@ -47,7 +47,7 @@ public final class HudSnapPolicyTests {
            align.y==270 && align.guideY==270,"peer left and adjacency align");
         HudSnapPolicy.Result noMove=HudSnapPolicy.snap(canvas,rect(164,279,40,20),
             new HudPreviewGeometry.Rect[]{neighbor},0);
-        ok(noMove.x==164 && noMove.y==274,"zero tolerance preserves drag");
+        ok(noMove.x==164 && noMove.y==279,"zero tolerance preserves drag");
         fails(()->HudSnapPolicy.snap(canvas,rect(104,260,40,20),none,-1),
             "negative snap tolerance");
         fails(()->HudSnapPolicy.snap(canvas,rect(104,260,40,20),none,25),
