@@ -42,6 +42,7 @@ public final class ForgeEventAdapter {
     private final ForgeVelocityController velocity;
     private final ForgeWTapController wtap;
     private final ForgeChestStealerController chestStealer;
+    private final ForgeInventoryManagerController inventoryManager;
     private final WorldIdentityTracker worldIdentity = new WorldIdentityTracker();
     // Two capped, owner-thread groups are reused every tick. Every raw
     // EntityPlayer reference is released before publishing an immutable
@@ -62,6 +63,7 @@ public final class ForgeEventAdapter {
         this.velocity = new ForgeVelocityController(minecraft,host);
         this.wtap = new ForgeWTapController(minecraft,host);
         this.chestStealer = new ForgeChestStealerController(minecraft,host);
+        this.inventoryManager = new ForgeInventoryManagerController(minecraft,host);
     }
 
     @SubscribeEvent
@@ -83,6 +85,7 @@ public final class ForgeEventAdapter {
             velocity.reset();
             wtap.reset();
             chestStealer.reset();
+            inventoryManager.reset();
         }
         if (transition == WorldIdentityTracker.Transition.ENTER ||
             transition == WorldIdentityTracker.Transition.SWITCH) {
@@ -93,6 +96,7 @@ public final class ForgeEventAdapter {
             velocity.reset();
             wtap.reset();
             chestStealer.reset();
+            inventoryManager.reset();
         }
         // Keep the standard presence reconciliation for starting menus.
         host.worldPresence(worldReady);
@@ -103,6 +107,7 @@ public final class ForgeEventAdapter {
             velocity.reset();
             wtap.reset();
             chestStealer.reset();
+            inventoryManager.reset();
         }
         // Read-only player snapshot published before the single combat intent bridge runs.
         if (host.services().connected() && minecraft.theWorld != null && minecraft.thePlayer != null &&
@@ -234,6 +239,9 @@ public final class ForgeEventAdapter {
         // Unlike combat, Chest Stealer intentionally runs while GuiChest is
         // open (Minecraft does not mark inGameHasFocus during GUI screens).
         chestStealer.tick();
+        // Inventory Manager is mutually GUI-isolated from Chest Stealer:
+        // it only operates inside the owner's real GuiInventory screen.
+        inventoryManager.tick();
     }
 
     @SubscribeEvent
@@ -263,6 +271,7 @@ public final class ForgeEventAdapter {
                 velocity.reset();
                 wtap.reset();
                 chestStealer.reset();
+                inventoryManager.reset();
                 features.reset();
                 combat.reset();
             }
@@ -441,6 +450,7 @@ public final class ForgeEventAdapter {
                 velocity.reset();
                 wtap.reset();
                 chestStealer.reset();
+                inventoryManager.reset();
             }
         });
     }
