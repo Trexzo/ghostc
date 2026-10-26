@@ -141,6 +141,14 @@ public final class HostRuntime {
         "mode", "normal", "normal", "ready", "trade");
     private final Setting.Number hitTradeMinSelfHurt = new Setting.Number(
         "trade_min_self_hurt", 1, 1, 10);
+    // Explicitly opt-in GUI inventory automation: no disguised/custom menus
+    // unless allowed and all transfers use native single-flight window clicks.
+    private final Setting.Number chestOpenDelay = new Setting.Number(
+        "open_delay_ticks",6.0,2.0,20.0);
+    private final Setting.Number chestClickDelay = new Setting.Number(
+        "click_delay_ticks",4.0,2.0,20.0);
+    private final Setting.Bool chestAllowCustom = new Setting.Bool(
+        "allow_custom_names",false);
     private final Setting.Number wtapDelay = new Setting.Number(
         "reset_ticks",1.0,1.0,3.0);
     // Damage-edge Velocity tuning is disabled and vanilla 100%/100% by default.
@@ -236,6 +244,9 @@ public final class HostRuntime {
             0, velocityHorizontal, velocityVertical);
         modules.register(new FeatureModule("combat.wtap", "WTap / Sprint Reset", GhostModule.Category.COMBAT),
             0, wtapDelay);
+        modules.register(new FeatureModule("inventory.cheststealer", "Chest Stealer",
+            GhostModule.Category.PLAYER), 0,
+            chestOpenDelay, chestClickDelay, chestAllowCustom);
         modules.register(new FeatureModule("hud.diagnostics", "Runtime Diagnostics", GhostModule.Category.RENDER),
             0);
         modules.register(new FeatureModule("hud.modulelist", "Module List", GhostModule.Category.RENDER),
@@ -448,6 +459,15 @@ public final class HostRuntime {
     public int hitMaxHurtTime() { modules.assertOwnerThread(); return (int)Math.round(hitMaxHurt.get()); }
     public int hitGapTicks() { modules.assertOwnerThread(); return (int)Math.round(hitGap.get()); }
     public boolean hitRequireTarget() { modules.assertOwnerThread(); return hitRequireTarget.get(); }
+    public int chestStealerOpenDelay() {
+        modules.assertOwnerThread();return (int)Math.round(chestOpenDelay.get());
+    }
+    public int chestStealerClickDelay() {
+        modules.assertOwnerThread();return (int)Math.round(chestClickDelay.get());
+    }
+    public boolean chestStealerAllowCustom() {
+        modules.assertOwnerThread();return chestAllowCustom.get();
+    }
     public int wtapDelayTicks() {
         modules.assertOwnerThread();return (int)Math.round(wtapDelay.get());
     }
