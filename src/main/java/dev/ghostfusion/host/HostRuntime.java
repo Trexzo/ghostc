@@ -126,9 +126,15 @@ public final class HostRuntime {
     private final Setting.Number clickMaxCps = new Setting.Number("max_cps", 12.0, 4.0, 15.0);
     private final Setting.Number blockInterval = new Setting.Number("interval_ticks", 4, 2, 10);
     private final Setting.Bool blockRequireTarget = new Setting.Bool("require_target", true);
+    private final Setting.Choice blockMode = new Setting.Choice(
+        "mode", "interval", "interval", "post_attack", "on_damage");
     private final Setting.Number hitMaxHurt = new Setting.Number("max_hurt_time", 2, 0, 10);
     private final Setting.Number hitGap = new Setting.Number("min_gap_ticks", 2, 1, 8);
     private final Setting.Bool hitRequireTarget = new Setting.Bool("require_target", true);
+    private final Setting.Choice hitMode = new Setting.Choice(
+        "mode", "normal", "normal", "ready", "trade");
+    private final Setting.Number hitTradeMinSelfHurt = new Setting.Number(
+        "trade_min_self_hurt", 1, 1, 10);
     private final UiState ui = new UiState();
     private final UiSettingsStore uiStore;
     private final UiActions uiActions;
@@ -186,9 +192,9 @@ public final class HostRuntime {
         modules.register(new FeatureModule("combat.clicker", "AutoClicker", GhostModule.Category.COMBAT),
             0, clickRate, clickEntitiesOnly, clickPattern, clickMinCps, clickMaxCps);
         modules.register(new FeatureModule("combat.blockhit", "Block Hit", GhostModule.Category.COMBAT),
-            0, blockInterval, blockRequireTarget);
+            0, blockInterval, blockRequireTarget, blockMode);
         modules.register(new FeatureModule("combat.hitselect", "Hit Select", GhostModule.Category.COMBAT),
-            0, hitMaxHurt, hitGap, hitRequireTarget);
+            0, hitMaxHurt, hitGap, hitRequireTarget, hitMode, hitTradeMinSelfHurt);
         modules.register(new FeatureModule("hud.diagnostics", "Runtime Diagnostics", GhostModule.Category.RENDER),
             0);
         modules.setEnabled(overlay.id(), true);
@@ -382,9 +388,14 @@ public final class HostRuntime {
     public double clickMaxCps() { modules.assertOwnerThread(); return clickMaxCps.get(); }
     public int blockIntervalTicks() { modules.assertOwnerThread(); return (int)Math.round(blockInterval.get()); }
     public boolean blockRequireTarget() { modules.assertOwnerThread(); return blockRequireTarget.get(); }
+    public String blockMode() { modules.assertOwnerThread(); return blockMode.get(); }
     public int hitMaxHurtTime() { modules.assertOwnerThread(); return (int)Math.round(hitMaxHurt.get()); }
     public int hitGapTicks() { modules.assertOwnerThread(); return (int)Math.round(hitGap.get()); }
     public boolean hitRequireTarget() { modules.assertOwnerThread(); return hitRequireTarget.get(); }
+    public String hitMode() { modules.assertOwnerThread(); return hitMode.get(); }
+    public int hitTradeMinSelfHurt() {
+        modules.assertOwnerThread(); return (int)Math.round(hitTradeMinSelfHurt.get());
+    }
     public String profileWarning() { return profileWarning; }
     public boolean worldPresent() { return worldPresent; }
     public int pendingEvents() { return ingress.pending(); }
