@@ -6,7 +6,8 @@ public final class HudEditorControls {
         STATUS(null,"Status"),
         KEYS(HudPositions.Widget.KEYSTROKES,"Keys"),
         CPS(HudPositions.Widget.CPS,"CPS"),
-        TARGET(HudPositions.Widget.TARGET,"Target");
+        TARGET(HudPositions.Widget.TARGET,"Target"),
+        MODULE_LIST(HudPositions.Widget.MODULE_LIST,"List");
         public final HudPositions.Widget widget;
         public final String label;
         Item(HudPositions.Widget widget,String label) {
@@ -24,22 +25,25 @@ public final class HudEditorControls {
         for(Item item:Item.values())if(widget==item.widget)return item;
         throw new IllegalArgumentException("HUD widget");
     }
-    /** Four equal segments, the last accepting the remainder pixel. */
+    /** Equal segments for the live number of HUD tabs, including Module List. */
     public static Item tabAt(int left,int top,int width,int mx,int my) {
         if(width<40||mx<left||my<top||my>=top+17||mx>=left+width)
             return null;
-        int slot=(int)((long)(mx-left)*4/width);
-        return Item.values()[Math.min(3,slot)];
+        int count=Item.values().length;
+        int slot=(int)((long)(mx-left)*count/width);
+        return Item.values()[Math.min(count-1,slot)];
     }
     public static int tabLeft(int left,int width,Item item) {
         if(item==null||width<40)throw new IllegalArgumentException("HUD tabs");
-        return left+(int)(((long)width*item.ordinal()+3)/4);
+        int count=Item.values().length;
+        return left+(int)(((long)width*item.ordinal()+count-1)/count);
     }
     public static int tabWidth(int width,Item item) {
         if(item==null||width<40)throw new IllegalArgumentException("HUD tabs");
         int index=item.ordinal();
-        return (int)(((long)width*(index+1)+3)/4)-
-            (int)(((long)width*index+3)/4);
+        int count=Item.values().length;
+        return (int)(((long)width*(index+1)+count-1)/count)-
+            (int)(((long)width*index+count-1)/count);
     }
     public void reset(UiState ui) {
         resetIfChanged(ui);

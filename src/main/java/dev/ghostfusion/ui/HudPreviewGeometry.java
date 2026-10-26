@@ -48,6 +48,14 @@ public final class HudPreviewGeometry {
         return Math.max(1,Math.min(canvas.height,
             (int)Math.round((double)realHeight*canvas.height/screenHeight)));
     }
+    /** Match normalized in-game anchors without changing persisted UI state. */
+    public Rect at(double normalizedX,double normalizedY,int actualWidth,int actualHeight) {
+        double x=UiState.clamp(normalizedX,0,1);
+        double y=UiState.clamp(normalizedY,0,1);
+        int dw=displayWidth(actualWidth),dh=displayHeight(actualHeight);
+        return new Rect(canvas.x+(int)Math.round(x*Math.max(0,canvas.width-dw)),
+            canvas.y+(int)Math.round(y*Math.max(0,canvas.height-dh)),dw,dh);
+    }
     public Rect widget(HudPositions anchors,HudPositions.Widget widget) {
         if(widget==null)throw new IllegalArgumentException("HUD widget");
         return widget(anchors,widget,widget.width,widget.height);

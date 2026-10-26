@@ -71,6 +71,18 @@ public final class ModuleListLayoutTests {
                row.y>=0 && row.y+row.height<=20,"tiny viewport bounds");
         ok(make(r,5,2,24,true,"top_left","width").rows.isEmpty(),
             "too-small viewport skips all font work");
+        ModuleListLayout.Frame custom=ModuleListLayout.calculate(r,200,100,9,
+            10,true,"custom","width",FONT,false,0.4,0.6);
+        ok(custom.rows.size()==4 && custom.x>=0 && custom.y>=0 &&
+           custom.x+custom.width<=200 && custom.y+custom.height<=100,
+           "custom anchor resolves to a contained frame");
+        ModuleListLayout.Frame far=ModuleListLayout.calculate(r,200,100,9,
+            10,true,"custom","width",FONT,false,1,1);
+        ok(far.x+far.width==200 && far.y+far.height==100,
+            "custom bottom-right snaps to screen edge");
+        rejects(()->ModuleListLayout.calculate(r,200,100,9,10,true,
+            "custom","width",FONT,false,Double.NaN,0.5),
+            "custom nonfinite anchor must fail closed");
         ModuleListLayout.Frame compact=ModuleListLayout.calculate(r,200,100,9,
             10,true,"top_right","width",FONT,true);
         ok(compact.rows.size()==4 && compact.rows.get(0).height==11,

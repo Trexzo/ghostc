@@ -128,7 +128,9 @@ public final class ForgeFeatureDriver {
         ModuleListLayout.Frame frame=ModuleListLayout.calculate(host.modules(),sw,sh,
             mc.fontRendererObj.FONT_HEIGHT,host.moduleListMaxRows(),
             host.moduleListShowRender(),host.moduleListPosition(),
-            host.moduleListOrder(),targetFontWidths,host.moduleListCompact());
+            host.moduleListOrder(),targetFontWidths,host.moduleListCompact(),
+            host.ui().widgets().x(Widget.MODULE_LIST),
+            host.ui().widgets().y(Widget.MODULE_LIST));
         if(frame.rows.isEmpty())return;
         final String appearance=host.moduleListAppearance();
         final HudThemeTokens theme=HudThemeTokens.of(appearance);

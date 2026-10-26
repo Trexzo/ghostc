@@ -152,7 +152,7 @@ public final class HostRuntime {
         "allow_sideways", false);
     // Visual Module List is a real Forge render feature, not only a GUI preview.
     private final Setting.Choice moduleListPosition = new Setting.Choice("position", "top_right",
-        "top_right", "top_left", "bottom_right", "bottom_left");
+        "top_right", "top_left", "bottom_right", "bottom_left", "custom");
     private final Setting.Choice moduleListOrder = new Setting.Choice("sort", "width",
         "width", "alphabetical");
     private final Setting.Number moduleListRows = new Setting.Number("max_rows", 10, 1, 24);

@@ -68,22 +68,34 @@ public final class ModuleListLayout {
                                   String position,String ordering,
                                   ToIntFunction<String> fontWidth) {
         return calculate(registry,viewportW,viewportH,fontH,maxRows,showRender,
-            position,ordering,fontWidth,false);
+            position,ordering,fontWidth,false,1.0,0.0);
     }
     /** Compact option reduces vertical gaps, without changing existing callers. */
     public static Frame calculate(ModuleRegistry registry,int viewportW,int viewportH,
                                   int fontH,int maxRows,boolean showRender,
                                   String position,String ordering,
                                   ToIntFunction<String> fontWidth,boolean compact) {
+        return calculate(registry,viewportW,viewportH,fontH,maxRows,showRender,
+            position,ordering,fontWidth,compact,1.0,0.0);
+    }
+    /** Custom anchors use the same normalized persistence as all other HUD widgets. */
+    public static Frame calculate(ModuleRegistry registry,int viewportW,int viewportH,
+                                  int fontH,int maxRows,boolean showRender,
+                                  String position,String ordering,
+                                  ToIntFunction<String> fontWidth,boolean compact,
+                                  double anchorX,double anchorY) {
+        if(!Double.isFinite(anchorX)||!Double.isFinite(anchorY)||
+           anchorX<0||anchorX>1||anchorY<0||anchorY>1)
+            throw new IllegalArgumentException("Module List custom anchor");
         if(registry==null || fontWidth==null || viewportW<1 || viewportH<1 ||
            fontH<1 || maxRows<1 || maxRows>MAX_ROWS ||
            position==null || ordering==null)
             throw new IllegalArgumentException("Module List inputs");
         boolean right=position.endsWith("_right"),left=position.endsWith("_left");
         boolean top=position.startsWith("top_"),bottom=position.startsWith("bottom_");
-        if((!left&&!right) || (!top&&!bottom) ||
+        if(!"custom".equals(position) && ((!left&&!right) || (!top&&!bottom) ||
            !(position.equals("top_right") || position.equals("top_left") ||
-             position.equals("bottom_right") || position.equals("bottom_left")))
+             position.equals("bottom_right") || position.equals("bottom_left"))))
             throw new IllegalArgumentException("Module List position");
         if(!ordering.equals("width")&&!ordering.equals("alphabetical"))
             throw new IllegalArgumentException("Module List sort");
@@ -114,8 +126,12 @@ public final class ModuleListLayout {
         for(int i=0;i<count;i++)measuredW=Math.max(measuredW,candidates.get(i).width);
         final int panelW=measuredW+2*TEXT_PAD;
         final int panelH=count*rowH;
-        final int x=right?viewportW-MARGIN-panelW:MARGIN;
-        final int y=bottom?viewportH-MARGIN-panelH:MARGIN;
+        final int x="custom".equals(position)
+            ?(int)Math.round(anchorX*Math.max(0,viewportW-panelW))
+            :(right?viewportW-MARGIN-panelW:MARGIN);
+        final int y="custom".equals(position)
+            ?(int)Math.round(anchorY*Math.max(0,viewportH-panelH))
+            :(bottom?viewportH-MARGIN-panelH:MARGIN);
         List<Row> rows=new ArrayList<Row>(count);
         for(int i=0;i<count;i++) {
             int rowY=y+i*rowH;
