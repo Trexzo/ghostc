@@ -2192,6 +2192,22 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.HudEditorControlsTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_hud_snap_policy_has_opt_out_and_preview_only_guides(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        snap=content("src/main/java/dev/ghostfusion/ui/HudSnapPolicy.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/HudSnapPolicyTests.java")
+        self.assertIn("HudSnapPolicy.snap(geometry.canvas,active,",gui)
+        self.assertIn("Keyboard.KEY_LMENU",gui)
+        self.assertIn("Keyboard.KEY_RMENU",gui)
+        self.assertIn("snapGuideX=HudSnapPolicy.NO_GUIDE",gui)
+        self.assertIn("snapGuideY=HudSnapPolicy.NO_GUIDE",gui)
+        self.assertIn("java.util.Arrays.copyOf(neighbors,count)",gui)
+        self.assertIn("if(hudCapture.restoreAtPointerOrigin(ui,mx,my))",gui)
+        self.assertIn("if(changed)host.persistUi();",gui)
+        self.assertIn("private static final class Axis",snap)
+        self.assertIn("snap never teleports more than threshold",tests)
+        self.assertIn("HUD_SNAP_POLICY_PASS",content(".github/workflows/core-ci.yml"))
+
     def test_hud_editor_drag_capture_saves_only_final_changed_anchor(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         capture=content("src/main/java/dev/ghostfusion/ui/HudDragCapture.java")

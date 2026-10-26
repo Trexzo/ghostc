@@ -183,6 +183,8 @@ jobs:
           grep -q 'PHYSICAL_INPUT_BINDING_PASS' .build/physical-input-binding.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudPlacementTests | tee .build/hud-placement.log
           grep -q 'HUD_PLACEMENT_PASS' .build/hud-placement.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudSnapPolicyTests | tee .build/hud-snap.log
+          grep -q 'HUD_SNAP_POLICY_PASS' .build/hud-snap.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudPreviewTests | tee .build/hud-preview.log
           grep -q 'HUD_PREVIEW_PASS' .build/hud-preview.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudEditorControlsTests | tee .build/hud-editor-controls.log

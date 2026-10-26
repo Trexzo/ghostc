@@ -47,3 +47,13 @@ The in-game Module List now exposes Classic (unchanged), Minimal, and Nebula app
 plus opt-in compact row spacing. Nebula uses the same violet/cyan hierarchy as the
 Target HUD and a one-pixel sheen rather than expensive glow. All palette values come
 from immutable, shared `HudThemeTokens`; no shader, native code, packet or combat changes.
+
+## R4 HUD Editor snap and alignment guides
+- F7 HUD drag now magnetically aligns to viewport edges, centers and adjacent HUD widgets
+  within five *preview pixels*, with visible cyan alignment guides.
+- Hold either Alt key while dragging for precise free movement.
+- Pure geometry and bounded snapping; unaffected HUD anchors and combat remain unchanged.
+- Keyboard 1/10-pixel nudge and reset-to-default are unchanged, and a drag persists only
+  once on release if its serialized normalized anchor actually changed.
+- Pointer-return restores original normalized coordinates exactly, even during snapping.
+- Tested with seeded extreme aspect ratios and 26,000 randomized snap cases.
