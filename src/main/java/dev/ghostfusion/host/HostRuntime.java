@@ -245,7 +245,7 @@ public final class HostRuntime {
         modules.register(new FeatureModule("combat.wtap", "WTap / Sprint Reset", GhostModule.Category.COMBAT),
             0, wtapDelay);
         modules.register(new FeatureModule("inventory.cheststealer", "Chest Stealer",
-            GhostModule.Category.PLAYER), 0,
+            GhostModule.Category.UTILITY), 0,
             chestOpenDelay, chestClickDelay, chestAllowCustom);
         modules.register(new FeatureModule("hud.diagnostics", "Runtime Diagnostics", GhostModule.Category.RENDER),
             0);
