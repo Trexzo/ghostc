@@ -71,6 +71,24 @@ public final class AimAssistPolicy {
                               double targetHeight, double range, double fov,
                               double maximumDegreesPerTick, boolean visibleOnly,
                               double horizontalFraction, double verticalFraction) {
+        return suggest(world, sourceEyeHeight, targetHeight, range, fov,
+            maximumDegreesPerTick, visibleOnly, horizontalFraction, verticalFraction,
+            -1, "angular");
+    }
+
+    /**
+     * Target retention and ranking change only which eligible entity is
+     * selected. They never bypass range, combined FOV or visibility gates.
+     * The caller must independently verify a retained ID's native UUID.
+     */
+    public Suggestion suggest(WorldSnapshot world, double sourceEyeHeight,
+                              double targetHeight, double range, double fov,
+                              double maximumDegreesPerTick, boolean visibleOnly,
+                              double horizontalFraction, double verticalFraction,
+                              int preferredEntityId, String priority) {
+        if (priority == null ||
+            (!"angular".equals(priority) && !"distance".equals(priority)))
+            throw new IllegalArgumentException("aim priority");
         if (!finite(horizontalFraction) || !finite(verticalFraction) ||
             horizontalFraction <= 0 || horizontalFraction > 1.0 ||
             verticalFraction <= 0 || verticalFraction > 1.0)
@@ -103,10 +121,25 @@ public final class AimAssistPolicy {
             double error=Math.hypot(deltaYaw,deltaPitch);
             if (error>fov) continue;
             double distance=dx*dx+dy*dy+dz*dz;
-            if (best==null || error<bestError-0.000000001 ||
-                (Math.abs(error-bestError)<=0.000000001 &&
-                (distance<bestDistance-0.000000001 ||
-                (Math.abs(distance-bestDistance)<=0.000000001 && e.id<best.id)))) {
+            final boolean preferred = preferredEntityId >= 0 &&
+                e.id == preferredEntityId;
+            final boolean bestPreferred = best != null &&
+                preferredEntityId >= 0 && best.id == preferredEntityId;
+            boolean better = best == null || (preferred && !bestPreferred);
+            if (!better && !bestPreferred && !preferred) {
+                if ("distance".equals(priority)) {
+                    better = distance < bestDistance - 0.000000001 ||
+                        (Math.abs(distance-bestDistance)<=0.000000001 &&
+                        (error < bestError - 0.000000001 ||
+                        (Math.abs(error-bestError)<=0.000000001 && e.id < best.id)));
+                } else {
+                    better = error < bestError - 0.000000001 ||
+                        (Math.abs(error-bestError)<=0.000000001 &&
+                        (distance < bestDistance - 0.000000001 ||
+                        (Math.abs(distance-bestDistance)<=0.000000001 && e.id < best.id)));
+                }
+            }
+            if (better) {
                 best=e;bestError=error;bestDistance=distance;
                 bestYaw=deltaYaw;bestPitch=deltaPitch;
             }
