@@ -19,6 +19,7 @@ public final class HudLayoutPresets {
             this.label=label;this.listPosition=listPosition;
         }
     }
+    private static final HudPositions.Widget[] WIDGETS=HudPositions.Widget.values();
     // Immutable private tables: one Status pair, then widget pairs in enum
     // order. F7 redraw/active-preset detection requires zero object creation.
     private static final double[][] DEFAULT_COORDS={
@@ -46,7 +47,7 @@ public final class HudLayoutPresets {
         if(matchesAnchors(ui,preset))return false;
         double[][] coords=coordinates(preset);
         ui.position(coords[0][0],coords[0][1]);
-        for(HudPositions.Widget widget:HudPositions.Widget.values()) {
+        for(HudPositions.Widget widget:WIDGETS) {
             double[] desired=coords[widget.ordinal()+1];
             ui.widgets().position(widget,desired[0],desired[1]);
         }
@@ -60,7 +61,7 @@ public final class HudLayoutPresets {
     private static boolean matchesAnchors(UiState ui,Preset preset) {
         double[][] coords=coordinates(preset);
         if(ui.hudX()!=coords[0][0]||ui.hudY()!=coords[0][1])return false;
-        for(HudPositions.Widget widget:HudPositions.Widget.values()) {
+        for(HudPositions.Widget widget:WIDGETS) {
             double[] desired=coords[widget.ordinal()+1];
             if(ui.widgets().x(widget)!=desired[0] ||
                ui.widgets().y(widget)!=desired[1])return false;
