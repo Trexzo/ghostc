@@ -281,6 +281,9 @@ public final class CoreTests {
         testRegistry(); testAllocationFreeHotkeyLookup();
         testPrimitiveKeyboardBitmap();
         testSettingsAndProfiles(); testIngressAndThread();
+        // Included under the original Core CI runner; no changes to the
+        // workflow shared with the parallel combat and Module List PRs.
+        PanicTests.main(args);
         check(assertions>48000,"48,000 dynamic hotkey lookup checks executed");
         System.out.println("CORE_REGRESSION_PASS assertions=" + assertions);
     }
