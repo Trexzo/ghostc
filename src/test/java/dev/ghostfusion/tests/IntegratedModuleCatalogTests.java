@@ -21,6 +21,7 @@ public final class IntegratedModuleCatalogTests {
             "combat.aimassist","combat.clicker","combat.blockhit","combat.hitselect",
             "combat.velocity","combat.wtap",
             "movement.bridgeassist","movement.sprint",
+            "inventory.cheststealer",
             "hud.modulelist","hud.target","hud.keystrokes","hud.cps","render.esp"
         };
         for(String id:modules) {
@@ -45,6 +46,9 @@ public final class IntegratedModuleCatalogTests {
            "native Velocity horizontal and vertical percentages are true module settings");
         ok(host.modules().get("movement.bridgeassist").settings().containsKey("lookahead"),
             "native Bridge Assist lookahead registered");
+        ok(host.modules().get("inventory.cheststealer").settings().containsKey("open_delay_ticks") &&
+           host.modules().get("inventory.cheststealer").settings().containsKey("allow_custom_names"),
+           "actual Chest Stealer GUI module has safe open/transfer controls");
         ok(host.modules().get("hud.modulelist").settings().containsKey("appearance"),
             "in-game Module List skin registered");
         ok(host.modules().get("hud.target").settings().containsKey("motion"),
@@ -63,6 +67,7 @@ public final class IntegratedModuleCatalogTests {
         host.uiActions().cycle("hud.modulelist","appearance");
         host.uiActions().cycle("hud.keystrokes","appearance");
         host.uiActions().fraction("movement.bridgeassist","lookahead",0.7);
+        host.uiActions().fraction("inventory.cheststealer","click_delay_ticks",0.5);
         host.uiActions().fraction("combat.wtap","reset_ticks",1.0);
         host.uiActions().fraction("combat.velocity","horizontal_percent",0.7);
         host.uiActions().fraction("combat.velocity","vertical_percent",0.9);
@@ -77,6 +82,9 @@ public final class IntegratedModuleCatalogTests {
         ok("minimal".equals(host.targetSkin()),"real minimal Target HUD skin live");
         ok("minimal".equals(host.moduleListAppearance()),"real Module List appearance live");
         ok("minimal".equals(host.keysAppearance()),"real Keystrokes skin live");
+        final int chestDelay=host.chestStealerClickDelay();
+        ok(chestDelay>=2 && chestDelay<=20,
+            "real chest click delay selectable through typed GUI");
         final double lookahead=host.bridgeLookahead();
         final double velocityHorizontal=host.velocityHorizontalPercent();
         final double velocityVertical=host.velocityVerticalPercent();
@@ -100,6 +108,8 @@ public final class IntegratedModuleCatalogTests {
         ok("minimal".equals(loaded.targetSkin()),"Target HUD style survived Panic");
         ok("minimal".equals(loaded.moduleListAppearance()),"Module List style survived Panic");
         ok(loaded.bridgeLookahead()==lookahead,"Bridge Assist lookahead survived Panic");
+        ok(loaded.chestStealerClickDelay()==chestDelay,
+           "Chest Stealer timing persists through F6 Panic without rearming");
         ok(loaded.wtapDelayTicks()==3,
            "Panic preserves WTap module timing but not enabled state");
         ok(loaded.velocityHorizontalPercent()==velocityHorizontal &&
@@ -110,6 +120,7 @@ public final class IntegratedModuleCatalogTests {
         loaded.close();
         VelocityTests.main(args);
         WTapTests.main(args);
+        ChestStealerTests.main(args);
         ok(count>65,"real integrated module and persisted profile coverage");
         System.out.println("INTEGRATED_MODULE_CATALOG_PASS assertions="+count);
     }

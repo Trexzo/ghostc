@@ -41,6 +41,7 @@ public final class ForgeEventAdapter {
     private final ForgeBridgeAssistController bridge;
     private final ForgeVelocityController velocity;
     private final ForgeWTapController wtap;
+    private final ForgeChestStealerController chestStealer;
     private final WorldIdentityTracker worldIdentity = new WorldIdentityTracker();
     // Two capped, owner-thread groups are reused every tick. Every raw
     // EntityPlayer reference is released before publishing an immutable
@@ -60,6 +61,7 @@ public final class ForgeEventAdapter {
         this.bridge = new ForgeBridgeAssistController(minecraft,host);
         this.velocity = new ForgeVelocityController(minecraft,host);
         this.wtap = new ForgeWTapController(minecraft,host);
+        this.chestStealer = new ForgeChestStealerController(minecraft,host);
     }
 
     @SubscribeEvent
@@ -80,6 +82,7 @@ public final class ForgeEventAdapter {
             bridge.reset();
             velocity.reset();
             wtap.reset();
+            chestStealer.reset();
         }
         if (transition == WorldIdentityTracker.Transition.ENTER ||
             transition == WorldIdentityTracker.Transition.SWITCH) {
@@ -89,6 +92,7 @@ public final class ForgeEventAdapter {
             bridge.reset();
             velocity.reset();
             wtap.reset();
+            chestStealer.reset();
         }
         // Keep the standard presence reconciliation for starting menus.
         host.worldPresence(worldReady);
@@ -98,6 +102,7 @@ public final class ForgeEventAdapter {
             bridge.reset();
             velocity.reset();
             wtap.reset();
+            chestStealer.reset();
         }
         // Read-only player snapshot published before the single combat intent bridge runs.
         if (host.services().connected() && minecraft.theWorld != null && minecraft.thePlayer != null &&
@@ -226,6 +231,9 @@ public final class ForgeEventAdapter {
         bridge.tick();
         velocity.tick();
         wtap.tick();
+        // Unlike combat, Chest Stealer intentionally runs while GuiChest is
+        // open (Minecraft does not mark inGameHasFocus during GUI screens).
+        chestStealer.tick();
     }
 
     @SubscribeEvent
@@ -254,6 +262,7 @@ public final class ForgeEventAdapter {
                 bridge.reset();
                 velocity.reset();
                 wtap.reset();
+                chestStealer.reset();
                 features.reset();
                 combat.reset();
             }
@@ -431,6 +440,7 @@ public final class ForgeEventAdapter {
                 bridge.reset();
                 velocity.reset();
                 wtap.reset();
+                chestStealer.reset();
             }
         });
     }
