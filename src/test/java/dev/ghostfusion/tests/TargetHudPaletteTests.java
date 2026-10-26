@@ -41,6 +41,12 @@ public final class TargetHudPaletteTests {
            (glass.accent>>>24)==0xFF &&
            (glass.outline>>>24)>0,
            "glass overlay colors retain visible ARGB channels");
+        TargetHudPalette minimal=TargetHudPalette.of("minimal");
+        TargetHudPalette nebula=TargetHudPalette.of("nebula");
+        ok(minimal!=classic && nebula!=glass && minimal!=nebula,
+            "modern skins retain separate immutable color identity");
+        ok(minimal.secondary!=0 && nebula.secondary!=0,
+            "modern skins have distinct secondary accents");
         invalid(null);invalid("");invalid("GLASS");invalid("default");
         Random random=new Random(2562026L);
         for(int i=0;i<100000;i++){
@@ -63,8 +69,21 @@ public final class TargetHudPaletteTests {
         HostRuntime loaded=new HostRuntime(path);
         ok("glass".equals(loaded.targetSkin()),"glass skin survives profile restoration");
         loaded.uiActions().cycle("hud.target","skin");
+        ok("minimal".equals(loaded.targetSkin()),"GUI selects Minimal");
+        loaded.uiActions().cycle("hud.target","skin");
+        ok("nebula".equals(loaded.targetSkin()),"GUI selects Nebula");
+        loaded.uiActions().cycle("hud.target","skin");
         ok("classic".equals(loaded.targetSkin()),"GUI cycles back to classic");
+        // Persist Nebula independently to confirm new choice roundtrips safely.
+        loaded.uiActions().cycle("hud.target","skin");
+        loaded.uiActions().cycle("hud.target","skin");
+        loaded.uiActions().cycle("hud.target","skin");
+        ok("nebula".equals(loaded.targetSkin()),"reselect Nebula through GUI");
         loaded.persist();loaded.close();
+        HostRuntime nebula=new HostRuntime(path);
+        ok("nebula".equals(nebula.targetSkin()),"Nebula survives profile reload");
+        nebula.uiActions().cycle("hud.target","skin");
+        nebula.persist();nebula.close();
         HostRuntime classic=new HostRuntime(path);
         ok("classic".equals(classic.targetSkin()),"restored classic remains stable");
         classic.close();

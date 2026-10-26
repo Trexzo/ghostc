@@ -4,6 +4,8 @@ package dev.ghostfusion.core;
 public final class ReservedKeys {
     /** LWJGL 2 Keyboard.KEY_F7 in the Minecraft 1.8.9 Forge client. */
     public static final int CLICK_GUI = 65;
+    /** LWJGL 2 Keyboard.KEY_F6, dedicated to reversible Disable All. */
+    public static final int PANIC = 64;
     private ReservedKeys() {}
-    public static boolean reserved(int key) { return key == CLICK_GUI; }
+    public static boolean reserved(int key) { return key == CLICK_GUI || key == PANIC; }
 }

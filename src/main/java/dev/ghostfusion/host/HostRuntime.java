@@ -53,6 +53,12 @@ public final class HostRuntime {
     private final Setting.Bool keysJump = new Setting.Bool("show_jump", true);
     private final Setting.Bool keysSneak = new Setting.Bool("show_sneak", true);
     private final Setting.Bool cpsRight = new Setting.Bool("show_right", true);
+    // Visual track from PR #164; classic behavior remains the default.
+    private final Setting.Choice keysAppearance =
+        new Setting.Choice("appearance","classic","classic","minimal","nebula");
+    private final Setting.Choice cpsAppearance =
+        new Setting.Choice("appearance","classic","classic","minimal","nebula");
+    private final Setting.Bool targetMotion = new Setting.Bool("motion", true);
     private final Setting.Number targetRange = new Setting.Number("range", 8.0, 2.0, 24.0);
     private final Setting.Bool targetVisible = new Setting.Bool("visible_only", true);
     private final Setting.Bool targetHealth = new Setting.Bool("show_health", true);
@@ -66,7 +72,7 @@ public final class HostRuntime {
         new Setting.Choice("selection","nearest","nearest","crosshair");
     // Opt-in alternative palette; old profiles remain pixel-identical classic.
     private final Setting.Choice targetSkin =
-        new Setting.Choice("skin","classic","classic","glass");
+        new Setting.Choice("skin","classic","classic","glass","minimal","nebula");
     // Old profiles preserve values; percent is an optional narrower readout.
     private final Setting.Choice targetHealthText =
         new Setting.Choice("health_text","values","values","percent");
@@ -144,6 +150,18 @@ public final class HostRuntime {
         "require_blocks", true);
     private final Setting.Bool bridgeAllowSideways = new Setting.Bool(
         "allow_sideways", false);
+    // Visual Module List is a real Forge render feature, not only a GUI preview.
+    private final Setting.Choice moduleListPosition = new Setting.Choice("position", "top_right",
+        "top_right", "top_left", "bottom_right", "bottom_left");
+    private final Setting.Choice moduleListOrder = new Setting.Choice("sort", "width",
+        "width", "alphabetical");
+    private final Setting.Number moduleListRows = new Setting.Number("max_rows", 10, 1, 24);
+    private final Setting.Bool moduleListRender = new Setting.Bool("show_render", false);
+    private final Setting.Bool moduleListBackground = new Setting.Bool("background", true);
+    private final Setting.Bool moduleListAccent = new Setting.Bool("accent", true);
+    private final Setting.Choice moduleListAppearance =
+        new Setting.Choice("appearance","classic","classic","minimal","nebula");
+    private final Setting.Bool moduleListCompact = new Setting.Bool("compact",false);
     private final UiState ui = new UiState();
     private final UiSettingsStore uiStore;
     private final UiActions uiActions;
@@ -183,11 +201,11 @@ public final class HostRuntime {
         modules.register(overlay, DEFAULT_STATUS_KEY, statusScale, statusStyle, statusShadow);
         modules.register(metrics, 0, showFps, showCoordinates, showPing);
         modules.register(new FeatureModule("hud.keystrokes", "Keystrokes", GhostModule.Category.RENDER),
-            0, keysJump, keysSneak);
+            0, keysJump, keysSneak, keysAppearance);
         modules.register(new FeatureModule("hud.cps", "CPS Counter", GhostModule.Category.RENDER),
-            0, cpsRight);
+            0, cpsRight, cpsAppearance);
         modules.register(new FeatureModule("hud.target", "Target HUD", GhostModule.Category.RENDER),
-            0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin, targetSelection, targetDistance, targetIgnoreTeammates);
+            0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin, targetSelection, targetDistance, targetIgnoreTeammates, targetMotion);
         modules.register(new FeatureModule("render.esp", "Player ESP", GhostModule.Category.RENDER),
             0, espRange, espVisible, espIgnoreTeammates, espWalls, espWidth, espStyle, espHealth,
             espHealthSide, espHealthGap,
@@ -209,6 +227,10 @@ public final class HostRuntime {
             0, hitMaxHurt, hitGap, hitRequireTarget, hitMode, hitTradeMinSelfHurt);
         modules.register(new FeatureModule("hud.diagnostics", "Runtime Diagnostics", GhostModule.Category.RENDER),
             0);
+        modules.register(new FeatureModule("hud.modulelist", "Module List", GhostModule.Category.RENDER),
+            0, moduleListPosition, moduleListOrder, moduleListRows,
+            moduleListRender, moduleListBackground, moduleListAccent,
+            moduleListAppearance, moduleListCompact);
         modules.setEnabled(overlay.id(), true);
         profiles = new ProfileStore(configDirectory, modules);
         uiStore = new UiSettingsStore(configDirectory, ui);
@@ -328,6 +350,16 @@ public final class HostRuntime {
     public boolean keysJump() { modules.assertOwnerThread(); return keysJump.get(); }
     public boolean keysSneak() { modules.assertOwnerThread(); return keysSneak.get(); }
     public boolean cpsRight() { modules.assertOwnerThread(); return cpsRight.get(); }
+    public String keysAppearance() { modules.assertOwnerThread(); return keysAppearance.get(); }
+    public String cpsAppearance() { modules.assertOwnerThread(); return cpsAppearance.get(); }
+    public String moduleListPosition() { modules.assertOwnerThread(); return moduleListPosition.get(); }
+    public String moduleListOrder() { modules.assertOwnerThread(); return moduleListOrder.get(); }
+    public int moduleListMaxRows() { modules.assertOwnerThread(); return moduleListRows.get().intValue(); }
+    public boolean moduleListShowRender() { modules.assertOwnerThread(); return moduleListRender.get(); }
+    public boolean moduleListBackground() { modules.assertOwnerThread(); return moduleListBackground.get(); }
+    public boolean moduleListAccent() { modules.assertOwnerThread(); return moduleListAccent.get(); }
+    public String moduleListAppearance() { modules.assertOwnerThread(); return moduleListAppearance.get(); }
+    public boolean moduleListCompact() { modules.assertOwnerThread(); return moduleListCompact.get(); }
     public double targetRange() { modules.assertOwnerThread(); return targetRange.get(); }
     public boolean targetVisible() { modules.assertOwnerThread(); return targetVisible.get(); }
     public boolean targetHealth() { modules.assertOwnerThread(); return targetHealth.get(); }
@@ -338,6 +370,7 @@ public final class HostRuntime {
     public String targetHealthText() {
         modules.assertOwnerThread(); return targetHealthText.get();
     }
+    public boolean targetMotion() { modules.assertOwnerThread(); return targetMotion.get(); }
     public String targetSkin() {
         modules.assertOwnerThread(); return targetSkin.get();
     }

@@ -1,6 +1,7 @@
 package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.host.HostRuntime;
+import dev.ghostfusion.host.PanicController;
 import dev.ghostfusion.services.WorldSnapshot;
 import dev.ghostfusion.ui.StatusHudLayout;
 import dev.ghostfusion.services.WorldIdentityTracker;
@@ -221,6 +222,19 @@ public final class ForgeEventAdapter {
         // Event code 0 means no keyboard key; no keybind should fire.
         if (code == 0) return;
 
+        // F6 Panic/Disable All, with immediate release of owned Bridge Assist
+        // Sneak state. The same physical key can remain pressed by the player.
+        if (code == Keyboard.KEY_F6) {
+            if (Keyboard.getEventKeyState() && !Keyboard.isRepeatEvent() &&
+                minecraft.currentScreen == null && minecraft.inGameHasFocus &&
+                worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) {
+                PanicController.disableAll(host);
+                bridge.reset();
+                features.reset();
+                combat.reset();
+            }
+            return;
+        }
         if (code == Keyboard.KEY_F7 && Keyboard.getEventKeyState() &&
             !Keyboard.isRepeatEvent() && minecraft.currentScreen == null && minecraft.inGameHasFocus) {
             host.inputFocus(true);

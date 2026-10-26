@@ -6,6 +6,8 @@ import dev.ghostfusion.ui.HudFootprints;
 import dev.ghostfusion.ui.HudWidgetViewport;
 import dev.ghostfusion.ui.DiagnosticsHudLayout;
 import dev.ghostfusion.ui.HudTextFit;
+import dev.ghostfusion.ui.ModuleListLayout;
+import dev.ghostfusion.ui.HudThemeTokens;
 import dev.ghostfusion.features.SprintPolicy;
 import dev.ghostfusion.features.TargetHudPolicy;
 import dev.ghostfusion.features.HudLiveTargetGate;
@@ -13,6 +15,8 @@ import dev.ghostfusion.features.TargetHudTextLayout;
 import dev.ghostfusion.features.TargetHudDistanceText;
 import dev.ghostfusion.features.EspTeamPolicy;
 import dev.ghostfusion.features.TargetHudPalette;
+import dev.ghostfusion.features.TargetHudModernLayout;
+import dev.ghostfusion.features.TargetHudMotion;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.services.WorldSnapshot;
@@ -37,6 +41,7 @@ public final class ForgeFeatureDriver {
     private final HostRuntime host;
     private final CpsMeter cps = new CpsMeter();
     private final TargetHudPolicy targets = new TargetHudPolicy();
+    private final TargetHudMotion targetMotion = new TargetHudMotion();
     // Reused, client-thread-only admission for snapshot IDs. No per-frame
     // predicate allocations; no extra LOS rays or snapshot construction.
     private final java.util.function.IntPredicate nonTeammate =
@@ -86,7 +91,7 @@ public final class ForgeFeatureDriver {
         boolean focused = mc.currentScreen == null && mc.inGameHasFocus && host.worldPresent();
         cps.mouse(button, Mouse.getEventButtonState(), System.nanoTime(), focused);
     }
-    void reset() { cps.clear(); }
+    void reset() { cps.clear(); targetMotion.reset(); }
     void render3d(final float partialTicks) {
         host.runFeature("render.esp", new Runnable() {
             public void run() { esp.draw(partialTicks); }
@@ -114,6 +119,40 @@ public final class ForgeFeatureDriver {
         drawFeature("hud.diagnostics", new Runnable() {
             public void run() { drawDiagnostics(sw,sh); }
         });
+        drawFeature("hud.modulelist", new Runnable() {
+            public void run() { drawEnabledModules(sw,sh); }
+        });
+    }
+    private void drawEnabledModules(int sw,int sh) {
+        // Shared Minecraft font measurement, no new snapshot or LOS work.
+        ModuleListLayout.Frame frame=ModuleListLayout.calculate(host.modules(),sw,sh,
+            mc.fontRendererObj.FONT_HEIGHT,host.moduleListMaxRows(),
+            host.moduleListShowRender(),host.moduleListPosition(),
+            host.moduleListOrder(),targetFontWidths,host.moduleListCompact());
+        if(frame.rows.isEmpty())return;
+        final String appearance=host.moduleListAppearance();
+        final HudThemeTokens theme=HudThemeTokens.of(appearance);
+        final boolean background=host.moduleListBackground();
+        final boolean stripe=host.moduleListAccent();
+        // Classic remains pixel-identical, including the original UI-theme override.
+        final int classicAccent=host.ui().theme()==dev.ghostfusion.ui.UiState.Theme.GRAPHITE
+            ? 0xFFB9C5D6 : 0xFFA59AFF;
+        final int accent="classic".equals(appearance)?classicAccent:theme.accent;
+        for(ModuleListLayout.Row row:frame.rows) {
+            if(background){
+                Gui.drawRect(row.x,row.y,row.x+row.width,row.y+row.height,theme.panel);
+                if("nebula".equals(appearance))
+                    Gui.drawRect(row.x+3,row.y,row.x+row.width,row.y+1,theme.sheen);
+            }
+            if(stripe){
+                Gui.drawRect(row.x,row.y,row.x+2,row.y+row.height,accent);
+                if("nebula".equals(appearance) && row.height>=4)
+                    Gui.drawRect(row.x,row.y+row.height-2,row.x+2,row.y+row.height,
+                        theme.secondary);
+            }
+            mc.fontRendererObj.drawStringWithShadow(row.label,row.textX,row.textY,
+                theme.text);
+        }
     }
     private String keyName(KeyBinding binding) {
         int code = binding.getKeyCode();
@@ -123,13 +162,30 @@ public final class ForgeFeatureDriver {
             display.toUpperCase(java.util.Locale.ROOT);
     }
     private void key(String label, int x,int y,int width,boolean pressed) {
-        Gui.drawRect(x,y,x+width,y+17,pressed ? 0xCBA8A9FF : 0xB3171C30);
-        // Measure Minecraft's active font and clip on Unicode boundaries.
+        final String appearance=host.keysAppearance();
+        if("classic".equals(appearance)) {
+            // Preserve legacy key panels and colors byte-for-byte by default.
+            Gui.drawRect(x,y,x+width,y+17,pressed ? 0xCBA8A9FF : 0xB3171C30);
+            String fitted=HudTextFit.fit(label,Math.max(0,width-5),targetFontWidths);
+            if(fitted.isEmpty())return;
+            int textWidth=mc.fontRendererObj.getStringWidth(fitted);
+            mc.fontRendererObj.drawStringWithShadow(fitted,
+                x+(width-textWidth)/2,y+5,pressed ? 0xFF121629 : 0xFFF0F0FF);
+            return;
+        }
+        HudThemeTokens theme=HudThemeTokens.of(appearance);
+        Gui.drawRect(x,y,x+width,y+17,pressed?theme.accent:theme.panel);
+        if("nebula".equals(appearance)) {
+            // A restrained one-pixel aurora line, never text-obscuring full glow.
+            Gui.drawRect(x,y,x+width,y+1,pressed?theme.secondary:theme.frame);
+            if(!pressed)Gui.drawRect(x+1,y+15,x+width-1,y+16,theme.sheen);
+        }
         String fitted=HudTextFit.fit(label,Math.max(0,width-5),targetFontWidths);
         if(fitted.isEmpty())return;
         int textWidth=mc.fontRendererObj.getStringWidth(fitted);
         mc.fontRendererObj.drawStringWithShadow(fitted,
-            x+(width-textWidth)/2,y+5,pressed ? 0xFF121629 : 0xFFF0F0FF);
+            x+(width-textWidth)/2,y+5,
+            pressed?0xFF121629:theme.text);
     }
     private void drawKeys(int sw,int sh) {
         // Do not draw a partial Keystrokes grid into a smaller scaled viewport.
@@ -158,9 +214,21 @@ public final class ForgeFeatureDriver {
         long now=System.nanoTime();
         int l=cps.left(now),r=cps.right(now);
         String text=HudTextFit.cps(l,r,host.cpsRight(),textBudget,targetFontWidths);
-        Gui.drawRect(x-2,y-2,right,bottom,0xBE131927);
-        if(!text.isEmpty())
-            mc.fontRendererObj.drawStringWithShadow(text,x,y+1,0xFFE3E9FF);
+        final String appearance=host.cpsAppearance();
+        if("classic".equals(appearance)) {
+            Gui.drawRect(x-2,y-2,right,bottom,0xBE131927);
+            if(!text.isEmpty())
+                mc.fontRendererObj.drawStringWithShadow(text,x,y+1,0xFFE3E9FF);
+        } else {
+            HudThemeTokens theme=HudThemeTokens.of(appearance);
+            Gui.drawRect(x-2,y-2,right,bottom,theme.panel);
+            // Keep the same bounded 103x17 card; no extra HUD footprint.
+            Gui.drawRect(x-2,y-2,x-1,bottom,theme.accent);
+            if("nebula".equals(appearance) && right>x)
+                Gui.drawRect(x-1,y-2,right,y-1,theme.sheen);
+            if(!text.isEmpty())
+                mc.fontRendererObj.drawStringWithShadow(text,x,y+1,theme.text);
+        }
     }
     private void drawDiagnosticText(String value,int x,int y,int maxWidth,int color) {
         String fitted=mc.fontRendererObj.trimStringToWidth(value,maxWidth);
@@ -257,6 +325,106 @@ public final class ForgeFeatureDriver {
                 layout.rowY(slot),layout.textWidth,0xFFC9D1DF);
         // Focus/suppression remains in the saved local report.
     }
+    /**
+     * Opt-in visual-only styles. Keeps the legacy Classic/Glass paint path
+     * untouched and never modifies targeting, rotation or packet state.
+     */
+    private void drawModernTarget(int x,int y,int width,int height,boolean health,
+                                  TargetHudTextLayout.Result labels,TargetHudPalette palette,
+                                  TargetHudModernLayout style,EntityPlayer player) {
+        final int fontHeight=mc.fontRendererObj.FONT_HEIGHT;
+        if(!style.fits(width,height,fontHeight,health))return;
+        Gui.drawRect(x,y,x+width,y+height,palette.background);
+        // A one-pixel translucent frame provides definition without GL shaders.
+        Gui.drawRect(x,y,x+width,y+1,palette.outline);
+        Gui.drawRect(x,y+height-1,x+width,y+height,palette.outline);
+        // Minimal is the only consumer of this restrained alternative painter.
+        Gui.drawRect(x+1,y+1,x+3,y+height-1,palette.accent);
+        Gui.drawRect(x+3,y+height-2,x+width-1,y+height-1,palette.secondary);
+        mc.fontRendererObj.drawStringWithShadow(labels.name,x+9,
+            y+style.nameY,palette.name);
+        if(health) {
+            final int barLeft=x+9,barRight=x+width-9;
+            final int barTop=y+style.trackY;
+            Gui.drawRect(barLeft,barTop,barRight,
+                barTop+style.trackHeight,palette.track);
+            int filled=(int)Math.round((barRight-barLeft)*labels.healthFraction);
+            if(filled>0)
+                Gui.drawRect(barLeft,barTop,barLeft+filled,
+                    barTop+style.trackHeight,palette.accent);
+            mc.fontRendererObj.drawStringWithShadow(labels.healthLabel,
+                x+width-9-labels.healthLabelWidth,y+style.healthLabelY,palette.healthText);
+        }
+        if(host.targetDistance()) {
+            final int distanceY=y+(health
+                ?style.distanceWithHealthY:style.distanceWithoutHealthY);
+            String text=TargetHudDistanceText.format(
+                player.posX,player.posY,player.posZ,
+                mc.thePlayer.posX,mc.thePlayer.posY,mc.thePlayer.posZ,
+                host.targetRange(),width-18,targetFontWidths);
+            if(!text.isEmpty())
+                mc.fontRendererObj.drawStringWithShadow(text,
+                    x+width-9-mc.fontRendererObj.getStringWidth(text),distanceY,
+                    palette.secondary);
+        }
+    }
+    /**
+     * Nebula v2: its own aurora-inspired composition, not a recolored Minimal.
+     * No textures, shaders, caches or simulated targets.
+     */
+    private void drawNebulaTarget(int x,int y,int width,int height,boolean health,
+                                  TargetHudTextLayout.Result labels,EntityPlayer player) {
+        TargetHudModernLayout layout=TargetHudModernLayout.of("nebula");
+        if(!layout.fits(width,height,mc.fontRendererObj.FONT_HEIGHT,health))return;
+        targetMotion.update(player,System.nanoTime(),labels.healthFraction,host.targetMotion());
+        double alpha=targetMotion.opacity();
+        final HudThemeTokens theme=HudThemeTokens.of("nebula");
+        // Deep midnight base with low-contrast inset and a contained four-sided frame.
+        Gui.drawRect(x,y,x+width,y+height,TargetHudMotion.fade(theme.panel,alpha));
+        int edge=TargetHudMotion.fade(theme.frame,alpha);
+        Gui.drawRect(x,y,x+width,y+1,edge);
+        Gui.drawRect(x,y+height-1,x+width,y+height,edge);
+        Gui.drawRect(x,y,x+1,y+height,edge);
+        Gui.drawRect(x+width-1,y,x+width,y+height,edge);
+        Gui.drawRect(x+2,y+2,x+width-2,y+5,
+            TargetHudMotion.fade(theme.sheen,alpha));
+        // A short, subdued violet-to-cyan aurora. No bright full-width RGB frame.
+        Gui.drawRect(x+8,y+3,x+width/2,y+4,
+            TargetHudMotion.fade(theme.accent,alpha));
+        Gui.drawRect(x+width/2,y+3,x+width-16,y+4,
+            TargetHudMotion.fade(theme.secondary,alpha*0.65));
+        Gui.drawRect(x+2,y+7,x+4,y+height-7,
+            TargetHudMotion.fade(theme.accent,alpha));
+        Gui.drawRect(x+width-4,y+height-10,x+width-2,y+height-4,
+            TargetHudMotion.fade(theme.secondary,alpha));
+        mc.fontRendererObj.drawStringWithShadow(labels.name,x+9,
+            y+layout.nameY,TargetHudMotion.fade(theme.text,alpha));
+        if(health) {
+            int l=x+9,r=x+width-9,t=y+layout.trackY,h=layout.trackHeight;
+            Gui.drawRect(l,t,r,t+h,TargetHudMotion.fade(theme.track,alpha));
+            int filled=(int)Math.round((r-l)*targetMotion.health());
+            if(filled>0) {
+                Gui.drawRect(l,t,l+filled,t+h,TargetHudMotion.fade(theme.accent,alpha));
+                if(filled>=5)
+                    Gui.drawRect(l+filled-2,t,l+filled,t+h,
+                        TargetHudMotion.fade(theme.secondary,alpha));
+            }
+            mc.fontRendererObj.drawStringWithShadow(labels.healthLabel,
+                x+width-9-labels.healthLabelWidth,y+layout.healthLabelY,
+                TargetHudMotion.fade(theme.muted,alpha));
+        }
+        if(host.targetDistance()) {
+            int distY=y+(health?layout.distanceWithHealthY:layout.distanceWithoutHealthY);
+            String distance=TargetHudDistanceText.format(
+                player.posX,player.posY,player.posZ,
+                mc.thePlayer.posX,mc.thePlayer.posY,mc.thePlayer.posZ,
+                host.targetRange(),width-18,targetFontWidths);
+            if(!distance.isEmpty())
+                mc.fontRendererObj.drawStringWithShadow(distance,
+                    x+width-9-mc.fontRendererObj.getStringWidth(distance),
+                    distY,TargetHudMotion.fade(theme.muted,alpha));
+        }
+    }
     private void drawTarget(int sw,int sh) {
         final boolean health=host.targetHealth();
         // Skip target selection/world lookup when no full card can be shown.
@@ -285,7 +453,7 @@ public final class ForgeFeatureDriver {
                 selection,crosshairId,nonTeammate)
             :targets.select(w,host.targetRange(),host.targetVisible(),
                 selection,crosshairId);
-        if (target==null) return;
+        if (target==null) { targetMotion.reset(); return; }
         Entity e=mc.theWorld.getEntityByID(target.id);
         if (!(e instanceof EntityPlayer) || e == mc.thePlayer) return;
         EntityPlayer player=(EntityPlayer)e;
@@ -309,7 +477,17 @@ public final class ForgeFeatureDriver {
         TargetHudTextLayout.Result labels=TargetHudTextLayout.layout(
             name,target.id,health,host.targetHealthText(),liveHealth,
             player.getMaxHealth(),width,targetFontWidths);
-        TargetHudPalette palette=TargetHudPalette.of(host.targetSkin());
+        final String skin=host.targetSkin();
+        TargetHudPalette palette=TargetHudPalette.of(skin);
+        if("nebula".equals(skin)) {
+            drawNebulaTarget(x,y,width,height,health,labels,player);
+            return;
+        }
+        if("minimal".equals(skin)) {
+            drawModernTarget(x,y,width,height,health,labels,palette,
+                TargetHudModernLayout.of(skin),player);
+            return;
+        }
         Gui.drawRect(x,y,x+width,y+height,palette.background);
         if(palette.outline!=0) {
             Gui.drawRect(x,y,x+width,y+1,palette.outline);

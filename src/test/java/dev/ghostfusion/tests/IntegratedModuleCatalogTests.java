@@ -1,0 +1,95 @@
+package dev.ghostfusion.tests;
+
+import dev.ghostfusion.core.ModuleRegistry;
+import dev.ghostfusion.host.HostRuntime;
+import dev.ghostfusion.host.PanicController;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+/** R3.35: all integrated gameplay and visual module registrations, settings
+ * and reversible F6 Panic run in one genuine HostRuntime/profile lifecycle.
+ * Native Forge gameplay still requires a real Minecraft 1.8.9 acceptance run. */
+public final class IntegratedModuleCatalogTests {
+    private static int count;
+    private static void ok(boolean good,String message) {
+        count++;if(!good)throw new AssertionError(message);
+    }
+    public static void main(String[] args) throws Exception {
+        Path root=Files.createTempDirectory("ghostc-r335-integrated-");
+        HostRuntime host=new HostRuntime(root);
+        String[] modules={
+            "combat.aimassist","combat.clicker","combat.blockhit","combat.hitselect",
+            "movement.bridgeassist","movement.sprint",
+            "hud.modulelist","hud.target","hud.keystrokes","hud.cps","render.esp"
+        };
+        for(String id:modules) {
+            ok(host.modules().get(id)!=null,"integrated concrete module "+id);
+            ok(host.modules().get(id).state()==ModuleRegistry.State.DISABLED,
+                "new profile opts out of "+id);
+        }
+        ok(host.modules().get("combat.aimassist").settings().containsKey("lock_target"),
+            "opt-in Aim Assist live UUID target lock registered");
+        ok(host.modules().get("combat.aimassist").settings().containsKey("target_priority"),
+            "selectable Aim Assist angular/distance priority registered");
+        ok(host.modules().get("combat.clicker").settings().containsKey("pattern"),
+            "actual AutoClicker pattern mode registered");
+        ok(host.modules().get("combat.blockhit").settings().containsKey("mode"),
+            "event-mode Block Hit registered");
+        ok(host.modules().get("combat.hitselect").settings().containsKey("trade_min_self_hurt"),
+            "trading Hit Select registered");
+        ok(host.modules().get("movement.bridgeassist").settings().containsKey("lookahead"),
+            "native Bridge Assist lookahead registered");
+        ok(host.modules().get("hud.modulelist").settings().containsKey("appearance"),
+            "in-game Module List skin registered");
+        ok(host.modules().get("hud.target").settings().containsKey("motion"),
+            "Target HUD opt-in motion registered");
+        ok(host.modules().get("hud.keystrokes").settings().containsKey("appearance"),
+            "Keystrokes theme registered");
+        ok(host.modules().get("hud.cps").settings().containsKey("appearance"),
+            "CPS card theme registered");
+        host.worldPresence(true);
+        host.uiActions().cycle("combat.aimassist","target_priority");
+        host.uiActions().cycle("combat.clicker","pattern");
+        host.uiActions().cycle("combat.blockhit","mode");
+        host.uiActions().cycle("combat.hitselect","mode");
+        host.uiActions().cycle("hud.target","skin");
+        host.uiActions().cycle("hud.target","skin");
+        host.uiActions().cycle("hud.modulelist","appearance");
+        host.uiActions().cycle("hud.keystrokes","appearance");
+        host.uiActions().fraction("movement.bridgeassist","lookahead",0.7);
+        for(String id:modules) {
+            host.uiActions().toggle(id);
+            ok(host.featureEnabled(id),"integrated module can enable "+id);
+        }
+        ok("distance".equals(host.aimTargetPriority()),"actual distance ranking setting live");
+        ok("balanced".equals(host.clickPattern()),"actual patterned click scheduler setting live");
+        ok("post_attack".equals(host.blockMode()),"actual post-hit block mode live");
+        ok("ready".equals(host.hitMode()),"actual ready hit select live");
+        ok("minimal".equals(host.targetSkin()),"real minimal Target HUD skin live");
+        ok("minimal".equals(host.moduleListAppearance()),"real Module List appearance live");
+        ok("minimal".equals(host.keysAppearance()),"real Keystrokes skin live");
+        final double lookahead=host.bridgeLookahead();
+        ok(lookahead>0.75,"native edge projection setting accepts UI edits");
+        int disabled=PanicController.disableAll(host);
+        ok(disabled>=modules.length,"Panic disables every integrated module");
+        for(String id:modules)
+            ok(!host.featureEnabled(id),"Panic leaves module disabled "+id);
+        host.close();
+        HostRuntime loaded=new HostRuntime(root);
+        loaded.worldPresence(true);
+        for(String id:modules)
+            ok(!loaded.featureEnabled(id),"Panic persisted disabled state "+id);
+        ok("distance".equals(loaded.aimTargetPriority()),"Aim ranking survived Panic");
+        ok("balanced".equals(loaded.clickPattern()),"Click timing survived Panic");
+        ok("post_attack".equals(loaded.blockMode()),"Block mode survived Panic");
+        ok("ready".equals(loaded.hitMode()),"HitSelect mode survived Panic");
+        ok("minimal".equals(loaded.targetSkin()),"Target HUD style survived Panic");
+        ok("minimal".equals(loaded.moduleListAppearance()),"Module List style survived Panic");
+        ok(loaded.bridgeLookahead()==lookahead,"Bridge Assist lookahead survived Panic");
+        loaded.uiActions().toggle("combat.aimassist");
+        ok(loaded.featureEnabled("combat.aimassist"),"explicit reenable after Panic works");
+        loaded.close();
+        ok(count>65,"real integrated module and persisted profile coverage");
+        System.out.println("INTEGRATED_MODULE_CATALOG_PASS assertions="+count);
+    }
+}
