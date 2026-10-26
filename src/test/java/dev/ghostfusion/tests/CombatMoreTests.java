@@ -190,6 +190,8 @@ public final class CombatMoreTests {
     }
     public static void main(String[] args) throws Exception {
         hitSelect(); blockHit(); sharedCoordinator(); profiles();
+        // Run opt-in event mode tests through the existing Core CI runner.
+        CombatModesTests.main(args);
         ok(n>12000,"large independent deterministic regression");
         System.out.println("COMBAT_MORE_REGRESSION_PASS assertions="+n);
     }
