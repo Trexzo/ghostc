@@ -90,6 +90,7 @@ public final class GhostClickGui extends GuiScreen {
         }
     };
     private ModuleListLayout.Frame moduleListFrameCache;
+    private static final Preset[] HUD_PRESETS=Preset.values();
     // Reuse the active Minecraft font when measuring GUI labels, without
     // allocating a new callback on each rendered row or each frame.
     private final java.util.function.ToIntFunction<String> guiFontWidths =
@@ -497,7 +498,7 @@ public final class GhostClickGui extends GuiScreen {
     private void drawHudPresetSidebar() {
         if(h<320||side<85)return;
         label("LAYOUTS",x+10,y+h-130,palette().muted);
-        for(Preset preset:Preset.values()) {
+        for(Preset preset:HUD_PRESETS) {
             int top=HudLayoutPresets.buttonY(y,h,preset);
             boolean selected=HudLayoutPresets.matches(ui,preset,host.moduleListPosition());
             rect(x+6,top,side-12,18,

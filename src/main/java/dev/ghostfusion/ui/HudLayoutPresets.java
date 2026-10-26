@@ -20,6 +20,7 @@ public final class HudLayoutPresets {
         }
     }
     private static final HudPositions.Widget[] WIDGETS=HudPositions.Widget.values();
+    private static final Preset[] PRESETS=Preset.values();
     // Immutable private tables: one Status pair, then widget pairs in enum
     // order. F7 redraw/active-preset detection requires zero object creation.
     private static final double[][] DEFAULT_COORDS={
@@ -30,7 +31,7 @@ public final class HudLayoutPresets {
         {0.025,0.055},{0.025,0.90},{0.025,0.70},{0.50,0.87},{1.0,0.02}
     };
     private static final double[][] STREAM_COORDS={
-        {0.025,0.055},{0.02,0.90},{0.42,0.99},{0.5,0.98},{0.98,0.08}
+        {0.025,0.055},{0.02,0.90},{0.98,0.99},{0.5,0.98},{0.98,0.08}
     };
     private static double[][] coordinates(Preset preset) {
         switch(preset) {
@@ -80,7 +81,7 @@ public final class HudLayoutPresets {
                                   int guiY,int guiHeight,int mx,int my) {
         if(sidebarWidth<85||guiHeight<320 ||
            mx<sidebarX+6||mx>=sidebarX+sidebarWidth-6)return null;
-        for(Preset preset:Preset.values()) {
+        for(Preset preset:PRESETS) {
             int top=buttonY(guiY,guiHeight,preset);
             if(my>=top&&my<top+18)return preset;
         }

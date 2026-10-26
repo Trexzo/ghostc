@@ -152,3 +152,10 @@ are shown only where enough height exists to avoid colliding with filters.
 A headless 20k-case replay checks bounds, idempotence, unchanged visual
 preferences, and exact profile/UI restart behavior, including restoring legacy
 defaults. Existing drag, snapping, scale and reset controls remain available.
+
+### Preset clearance and low-allocation rendering
+The Stream layout places CPS in the lower-right rather than beside the centered
+Target HUD. At default scales, independent collision tests verify all five HUD
+footprints are non-overlapping for PvP/Stream at 640×360, 1280×720 and
+1920×1080. The sidebar caches preset enumeration and uses static normalized
+coordinate tables, avoiding temporary per-frame preset anchor objects.

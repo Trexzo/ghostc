@@ -2,6 +2,8 @@ package dev.ghostfusion.tests;
 import dev.ghostfusion.ui.HudLayoutPresets;
 import dev.ghostfusion.ui.HudLayoutPresets.Preset;
 import dev.ghostfusion.ui.HudPositions;
+import dev.ghostfusion.ui.HudOverlapPolicy;
+import dev.ghostfusion.ui.HudPreviewGeometry;
 import dev.ghostfusion.ui.UiState;
 import dev.ghostfusion.host.HostRuntime;
 import java.nio.file.Files;
@@ -21,6 +23,30 @@ public final class HudLayoutPresetsTests {
             dst[2+2*w.ordinal()]=ui.widgets().x(w);
             dst[3+2*w.ordinal()]=ui.widgets().y(w);
         }
+    }
+    private static HudPreviewGeometry.Rect rect(int x,int y,int w,int h) {
+        return new HudPreviewGeometry(x,y,w,h,w,h).canvas;
+    }
+    /** Standard 16:9 resolutions should have distinct, non-overlapping blocks. */
+    private static void layoutClearance(UiState ui,Preset preset,int screenW,int screenH) {
+        HudLayoutPresets.apply(ui,preset);
+        HudPreviewGeometry.Rect[] rects=new HudPreviewGeometry.Rect[5];
+        rects[0]=rect(ui.pixelX(screenW,124),ui.pixelY(screenH,22),124,22);
+        HudPositions.Widget[] widgets=HudPositions.Widget.values();
+        for(HudPositions.Widget widget:widgets) {
+            int iw=widget.width,ih=widget==HudPositions.Widget.KEYSTROKES?77:
+                widget==HudPositions.Widget.CPS?17:
+                widget==HudPositions.Widget.TARGET?43:36;
+            // Module List uses the conservative placeholder, not unknown live rows.
+            if(widget==HudPositions.Widget.MODULE_LIST)iw=128;
+            rects[widget.ordinal()+1]=rect(
+                ui.widgets().pixelX(widget,screenW,iw),
+                ui.widgets().pixelY(widget,screenH,ih),iw,ih);
+        }
+        for(int i=0;i<rects.length;i++)
+            for(int j=i+1;j<rects.length;j++)
+                ok(!HudOverlapPolicy.overlaps(rects[i],rects[j]),
+                   "no default-scale overlap "+preset+" "+screenW+" "+i+"/"+j);
     }
     public static void main(String[] args)throws Exception {
         UiState ui=new UiState();
@@ -44,7 +70,7 @@ public final class HudLayoutPresetsTests {
         ok(HudLayoutPresets.apply(ui,Preset.STREAM),"stream moves widgets");
         ok(HudLayoutPresets.matches(ui,Preset.STREAM,"custom"),
            "stream layout matches complete anchors");
-        eq(ui.widgets().x(HudPositions.Widget.CPS),.42,"stream CPS placement");
+        eq(ui.widgets().x(HudPositions.Widget.CPS),.98,"stream CPS placement");
         double[] original=new double[2+2*HudPositions.Widget.values().length];
         snapshot(ui,original);
         boolean rejected=false;
@@ -86,6 +112,11 @@ public final class HudLayoutPresetsTests {
             ok(HudLayoutPresets.matches(ui,preset,preset.listPosition),
                 "randomized exact match "+i);
             ok(!HudLayoutPresets.apply(ui,preset),"no-op repeat "+i);
+        }
+        for(int sw:new int[]{640,1280,1920}) {
+            int sh=sw*9/16;
+            layoutClearance(ui,Preset.PVP,sw,sh);
+            layoutClearance(ui,Preset.STREAM,sw,sh);
         }
         Path dir=Files.createTempDirectory("ghostc-layout-presets");
         HostRuntime host=new HostRuntime(dir);
