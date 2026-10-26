@@ -141,7 +141,7 @@ final class ForgeInventoryManagerController {
         } else {
             // All other player items are protected from selection and from
             // destination overwrite even when upgrade is enabled.
-            return new InventoryManagerPolicy.Slot(InventoryManagerPolicy.EMPTY,0);
+            return new InventoryManagerPolicy.Slot(InventoryManagerPolicy.OTHER,0);
         }
         if(stack.isItemStackDamageable() && stack.getMaxDamage()>0) {
             quality+=0.01*Math.max(0.0,
