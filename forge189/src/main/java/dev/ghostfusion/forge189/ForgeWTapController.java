@@ -38,10 +38,11 @@ final class ForgeWTapController {
         boolean healthy=host.runFeature(MODULE,new Runnable() {
             public void run() {
                 final EntityPlayerSP p=mc.thePlayer;
-                if(policy.attack(true,eligible(p),p.isSprinting(),
+                // Deliberately only RECORD native attack. The original
+                // sprint-hit bonus must be computed before any sprint write.
+                policy.attack(true,eligible(p),p.isSprinting(),
                     host.wtapDelayTicks(),host.services().tick(),
-                    host.services().generation()))
-                    p.setSprinting(false);
+                    host.services().generation());
             }
         });
         if(!healthy)reset();
@@ -58,7 +59,8 @@ final class ForgeWTapController {
                 WTapPolicy.Decision result=policy.tick(
                     true,eligible(p),host.services().tick(),
                     host.services().generation());
-                if(result==WTapPolicy.Decision.HOLD)
+                if(result==WTapPolicy.Decision.RESET ||
+                   result==WTapPolicy.Decision.HOLD)
                     p.setSprinting(false);
                 else if(result==WTapPolicy.Decision.RESTORE)
                     p.setSprinting(true);
