@@ -29,22 +29,30 @@ public final class WTapTests {
         ok(!p.attack(true,true,false,1,0,1),"non-sprinting player not forced to reset");
         ok(!p.attack(false,true,true,1,0,1),"disabled combat cannot reset sprint");
         ok(!p.attack(true,false,true,1,0,1),"blocked movement cannot reset sprint");
-        ok(p.attack(true,true,true,2,1,1),"real native eligible attack resets sprint");
+        ok(p.attack(true,true,true,2,1,1),"native eligible attack only records intent");
         ok(!p.attack(true,true,true,2,1,1),"same-tick duplicate attack rejected");
-        ok(p.tick(true,true,1,1)==Decision.HOLD,"attack tick holds sprint off");
-        ok(p.tick(true,true,2,1)==Decision.HOLD,"configured one extra tick off");
-        ok(p.tick(true,true,3,1)==Decision.RESTORE,"reengage sprint at exactly tick+2");
-        ok(p.tick(true,true,3,1)==Decision.NONE,"restoration cannot replay");
-        ok(p.attack(true,true,true,1,4,1),"next attack after restoration allowed");
-        ok(p.tick(true,false,5,1)==Decision.NONE,"releasing forward cancels restore");
-        ok(p.tick(true,true,6,1)==Decision.NONE,"forward reentry never replays old event");
-        ok(p.attack(true,true,true,1,6,1),"eligible attack can re-arm");
-        ok(p.tick(false,true,7,1)==Decision.NONE,"disable resets pending action");
-        ok(p.tick(true,true,8,1)==Decision.NONE,"reenable cannot synthesize a new attack");
-        ok(p.attack(true,true,true,3,9,1),"third window arms");
-        ok(p.tick(true,true,1,2)==Decision.NONE,"world change cancels original pending sprint");
-        ok(p.attack(true,true,true,1,2,2),"new world can receive genuine fresh attack");
-        ok(p.tick(true,true,3,2)==Decision.RESTORE,"world2 reengages independently");
+        ok(p.tick(true,true,1,1)==Decision.NONE,
+            "attack transaction keeps native sprint until original hit is computed");
+        ok(p.tick(true,true,2,1)==Decision.RESET,
+            "first subsequent client tick performs sprint OFF");
+        ok(p.tick(true,true,2,1)==Decision.HOLD,"repeat tick remains off");
+        ok(p.tick(true,true,3,1)==Decision.HOLD,"configured extra tick stays off");
+        ok(p.tick(true,true,4,1)==Decision.RESTORE,"reengage at delayed tick after reset");
+        ok(p.tick(true,true,4,1)==Decision.NONE,"restoration cannot replay");
+        ok(p.attack(true,true,true,1,5,1),"next attack after restoration allowed");
+        ok(p.tick(true,false,6,1)==Decision.NONE,"releasing forward cancels reset");
+        ok(p.tick(true,true,7,1)==Decision.NONE,"forward reentry never replays event");
+        ok(p.attack(true,true,true,1,7,1),"eligible attack can re-arm");
+        ok(p.tick(false,true,8,1)==Decision.NONE,"disable resets pending action");
+        ok(p.tick(true,true,9,1)==Decision.NONE,"reenable cannot synthesize new attack");
+        ok(p.attack(true,true,true,3,10,1),"third window arms");
+        ok(p.tick(true,true,1,2)==Decision.NONE,"world change cancels pending sprint");
+        ok(p.attack(true,true,true,1,2,2),"new world can receive genuine attack");
+        ok(p.tick(true,true,2,2)==Decision.NONE,
+            "same-tick attack event never changes sprint state");
+        ok(p.tick(true,true,3,2)==Decision.RESET,
+            "world2 resets sprint after native attack tick");
+        ok(p.tick(true,true,4,2)==Decision.RESTORE,"world2 restoration independent");
         rejects(()->p.attack(true,true,true,0,4,2),"zero delay rejected");
         rejects(()->p.attack(true,true,true,4,4,2),"too-long delay rejected");
         rejects(()->p.attack(true,true,true,1,-1,2),"negative tick rejected");
@@ -59,15 +67,22 @@ public final class WTapTests {
         for(int seed=0;seed<65;seed++) {
             Random rng=new Random(3372026L+seed*41);
             WTapPolicy p=new WTapPolicy();
-            long restoreAt=-1,lastAttack=-1;
+            long resetAt=-1,restoreAt=-1,lastAttack=-1;
             for(long tick=0;tick<400;tick++) {
                 boolean active=rng.nextInt(10)!=0;
                 boolean eligible=rng.nextInt(8)!=0;
                 int delay=1+rng.nextInt(3);
                 Decision expected;
                 if(!active || !eligible) {
-                    restoreAt=-1;expected=Decision.NONE;
-                } else if(restoreAt<0) expected=Decision.NONE;
+                    resetAt=-1;restoreAt=-1;expected=Decision.NONE;
+                } else if(resetAt>=0) {
+                    if(tick<resetAt)expected=Decision.NONE;
+                    else if(tick>resetAt) {
+                        resetAt=-1;restoreAt=-1;expected=Decision.NONE;
+                    } else {
+                        resetAt=-1;expected=Decision.RESET;
+                    }
+                } else if(restoreAt<0)expected=Decision.NONE;
                 else if(tick<restoreAt)expected=Decision.HOLD;
                 else {
                     restoreAt=-1;expected=Decision.RESTORE;
@@ -82,7 +97,9 @@ public final class WTapTests {
                     boolean got=p.attack(active,eligible,sprinting,delay,tick,1);
                     ok(got==accept,"native attack eligibility and cooldown "+seed+"/"+tick);
                     if(got) {
-                        restoreAt=tick+delay;lastAttack=tick;
+                        resetAt=tick+1;restoreAt=resetAt+delay;lastAttack=tick;
+                        ok(p.tick(active,eligible,tick,1)==Decision.NONE,
+                            "no immediate sprint writes from original attack callback");
                         ok(!p.attack(active,eligible,sprinting,delay,tick,1),
                             "duplicate native attack cannot restart same tick");
                     }
