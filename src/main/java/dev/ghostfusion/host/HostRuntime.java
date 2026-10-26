@@ -66,7 +66,7 @@ public final class HostRuntime {
         new Setting.Choice("selection","nearest","nearest","crosshair");
     // Opt-in alternative palette; old profiles remain pixel-identical classic.
     private final Setting.Choice targetSkin =
-        new Setting.Choice("skin","classic","classic","glass");
+        new Setting.Choice("skin","classic","classic","glass","minimal","nebula");
     // Old profiles preserve values; percent is an optional narrower readout.
     private final Setting.Choice targetHealthText =
         new Setting.Choice("health_text","values","values","percent");

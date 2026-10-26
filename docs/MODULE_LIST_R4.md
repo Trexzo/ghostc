@@ -23,3 +23,13 @@ or conflicts with other installed Minecraft mods. Those require native acceptanc
 Do not automatically merge this branch while the concurrent R4 combat PR edits HostRuntime.
 The only shared core file this change needs is HostRuntime, for independent settings and
 module registration; preserve both feature sets when rebasing.
+
+## Additional Target HUD visual variants
+
+- The original Classic and Glass paint paths and profile defaults remain unchanged.
+- Two opt-in skins: **Minimal** (graphite surface, narrow HP bar, reduced visual noise)
+  and **Nebula** (violet/cyan twin accents, detailed frame and elevated HP bar).
+- The original 160x43 full Target HUD and 160x29 compact Target HUD geometry is retained.
+- Player/health/distance information comes from the existing live target gates.
+- Independent pure Java geometry checks and profile roundtrip tests are included;
+  shaders or injector changes are deliberately excluded.

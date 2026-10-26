@@ -50,6 +50,8 @@ jobs:
           grep -q 'TARGET_HUD_TEAM_FILTER_PASS' .build/target-hud-team.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudSelectionTests | tee .build/target-hud-selection.log
           grep -q 'TARGET_HUD_SELECTION_PASS' .build/target-hud-selection.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudModernLayoutTests | tee .build/target-hud-modern.log
+          grep -q 'TARGET_HUD_MODERN_LAYOUT_PASS' .build/target-hud-modern.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudPaletteTests | tee .build/target-hud-palette.log
           grep -q 'TARGET_HUD_PALETTE_PASS' .build/target-hud-palette.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSearchFocusTests | tee .build/gui-search-focus.log

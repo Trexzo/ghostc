@@ -14,6 +14,7 @@ import dev.ghostfusion.features.TargetHudTextLayout;
 import dev.ghostfusion.features.TargetHudDistanceText;
 import dev.ghostfusion.features.EspTeamPolicy;
 import dev.ghostfusion.features.TargetHudPalette;
+import dev.ghostfusion.features.TargetHudModernLayout;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.services.WorldSnapshot;
@@ -280,6 +281,57 @@ public final class ForgeFeatureDriver {
                 layout.rowY(slot),layout.textWidth,0xFFC9D1DF);
         // Focus/suppression remains in the saved local report.
     }
+    /**
+     * Opt-in visual-only styles. Keeps the legacy Classic/Glass paint path
+     * untouched and never modifies targeting, rotation or packet state.
+     */
+    private void drawModernTarget(int x,int y,int width,int height,boolean health,
+                                  TargetHudTextLayout.Result labels,TargetHudPalette palette,
+                                  TargetHudModernLayout style,EntityPlayer player) {
+        final int fontHeight=mc.fontRendererObj.FONT_HEIGHT;
+        if(!style.fits(width,height,fontHeight,health))return;
+        Gui.drawRect(x,y,x+width,y+height,palette.background);
+        // A one-pixel translucent frame provides definition without GL shaders.
+        Gui.drawRect(x,y,x+width,y+1,palette.outline);
+        Gui.drawRect(x,y+height-1,x+width,y+height,palette.outline);
+        if(style.topBand) {
+            // Nebula: twin accent stripes, slight depth, no per-frame texture allocations.
+            Gui.drawRect(x+1,y+1,x+width-1,y+3,palette.accent);
+            Gui.drawRect(x+1,y+3,x+width-1,y+4,0x574F75B7);
+            Gui.drawRect(x+width-3,y+4,x+width-1,y+height-1,palette.secondary);
+            Gui.drawRect(x+1,y+height-2,x+width-1,y+height-1,0x725FE4DA);
+        } else {
+            // Minimal: monochromatic side stroke and subdued bottom separator.
+            Gui.drawRect(x+1,y+1,x+3,y+height-1,palette.accent);
+            Gui.drawRect(x+3,y+height-2,x+width-1,y+height-1,palette.secondary);
+        }
+        mc.fontRendererObj.drawStringWithShadow(labels.name,x+9,
+            y+style.nameY,palette.name);
+        if(health) {
+            final int barLeft=x+9,barRight=x+width-9;
+            final int barTop=y+style.trackY;
+            Gui.drawRect(barLeft,barTop,barRight,
+                barTop+style.trackHeight,palette.track);
+            int filled=(int)Math.round((barRight-barLeft)*labels.healthFraction);
+            if(filled>0)
+                Gui.drawRect(barLeft,barTop,barLeft+filled,
+                    barTop+style.trackHeight,palette.accent);
+            mc.fontRendererObj.drawStringWithShadow(labels.healthLabel,
+                x+width-9-labels.healthLabelWidth,y+style.healthLabelY,palette.healthText);
+        }
+        if(host.targetDistance()) {
+            final int distanceY=y+(health
+                ?style.distanceWithHealthY:style.distanceWithoutHealthY);
+            String text=TargetHudDistanceText.format(
+                player.posX,player.posY,player.posZ,
+                mc.thePlayer.posX,mc.thePlayer.posY,mc.thePlayer.posZ,
+                host.targetRange(),width-18,targetFontWidths);
+            if(!text.isEmpty())
+                mc.fontRendererObj.drawStringWithShadow(text,
+                    x+width-9-mc.fontRendererObj.getStringWidth(text),distanceY,
+                    palette.secondary);
+        }
+    }
     private void drawTarget(int sw,int sh) {
         final boolean health=host.targetHealth();
         // Skip target selection/world lookup when no full card can be shown.
@@ -332,7 +384,13 @@ public final class ForgeFeatureDriver {
         TargetHudTextLayout.Result labels=TargetHudTextLayout.layout(
             name,target.id,health,host.targetHealthText(),liveHealth,
             player.getMaxHealth(),width,targetFontWidths);
-        TargetHudPalette palette=TargetHudPalette.of(host.targetSkin());
+        final String skin=host.targetSkin();
+        TargetHudPalette palette=TargetHudPalette.of(skin);
+        if("minimal".equals(skin)||"nebula".equals(skin)) {
+            drawModernTarget(x,y,width,height,health,labels,palette,
+                TargetHudModernLayout.of(skin),player);
+            return;
+        }
         Gui.drawRect(x,y,x+width,y+height,palette.background);
         if(palette.outline!=0) {
             Gui.drawRect(x,y,x+width,y+1,palette.outline);
