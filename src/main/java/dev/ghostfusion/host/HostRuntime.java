@@ -113,6 +113,9 @@ public final class HostRuntime {
     private final Setting.Number aimHorizontal = new Setting.Number("horizontal_fraction", 1.0, 0.1, 1.0);
     private final Setting.Number aimVertical = new Setting.Number("vertical_fraction", 1.0, 0.1, 1.0);
     private final Setting.Number aimTargetHeight = new Setting.Number("target_height", 1.25, 0.4, 1.7);
+    private final Setting.Bool aimLockTarget = new Setting.Bool("lock_target", false);
+    private final Setting.Choice aimPriority = new Setting.Choice(
+        "target_priority", "angular", "angular", "distance");
     private final Setting.Number clickRate = new Setting.Number("cps", 10.0, 4.0, 15.0);
     private final Setting.Bool clickEntitiesOnly = new Setting.Bool("entity_only", true);
     // Fixed mode is the unchanged legacy default; nonfixed uses a bounded
@@ -179,7 +182,7 @@ public final class HostRuntime {
             0);
         modules.register(new FeatureModule("combat.aimassist", "Aim Assist", GhostModule.Category.COMBAT),
             0, aimRange, aimFov, aimSpeed, aimVisible, aimRequireClick,
-            aimHorizontal, aimVertical, aimTargetHeight);
+            aimHorizontal, aimVertical, aimTargetHeight, aimLockTarget, aimPriority);
         modules.register(new FeatureModule("combat.clicker", "AutoClicker", GhostModule.Category.COMBAT),
             0, clickRate, clickEntitiesOnly, clickPattern, clickMinCps, clickMaxCps);
         modules.register(new FeatureModule("combat.blockhit", "Block Hit", GhostModule.Category.COMBAT),
@@ -370,6 +373,8 @@ public final class HostRuntime {
     public double aimHorizontalFraction() { modules.assertOwnerThread(); return aimHorizontal.get(); }
     public double aimVerticalFraction() { modules.assertOwnerThread(); return aimVertical.get(); }
     public double aimTargetHeight() { modules.assertOwnerThread(); return aimTargetHeight.get(); }
+    public boolean aimLockTarget() { modules.assertOwnerThread(); return aimLockTarget.get(); }
+    public String aimTargetPriority() { modules.assertOwnerThread(); return aimPriority.get(); }
     public double clickCps() { modules.assertOwnerThread(); return clickRate.get(); }
     public boolean clickEntityOnly() { modules.assertOwnerThread(); return clickEntitiesOnly.get(); }
     public String clickPattern() { modules.assertOwnerThread(); return clickPattern.get(); }
