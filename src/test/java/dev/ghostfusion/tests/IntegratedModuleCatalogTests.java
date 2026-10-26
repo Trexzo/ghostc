@@ -19,6 +19,7 @@ public final class IntegratedModuleCatalogTests {
         HostRuntime host=new HostRuntime(root);
         String[] modules={
             "combat.aimassist","combat.clicker","combat.blockhit","combat.hitselect",
+            "combat.velocity",
             "movement.bridgeassist","movement.sprint",
             "hud.modulelist","hud.target","hud.keystrokes","hud.cps","render.esp"
         };
@@ -37,6 +38,9 @@ public final class IntegratedModuleCatalogTests {
             "event-mode Block Hit registered");
         ok(host.modules().get("combat.hitselect").settings().containsKey("trade_min_self_hurt"),
             "trading Hit Select registered");
+        ok(host.modules().get("combat.velocity").settings().containsKey("horizontal_percent") &&
+           host.modules().get("combat.velocity").settings().containsKey("vertical_percent"),
+           "native Velocity horizontal and vertical percentages are true module settings");
         ok(host.modules().get("movement.bridgeassist").settings().containsKey("lookahead"),
             "native Bridge Assist lookahead registered");
         ok(host.modules().get("hud.modulelist").settings().containsKey("appearance"),
@@ -57,6 +61,8 @@ public final class IntegratedModuleCatalogTests {
         host.uiActions().cycle("hud.modulelist","appearance");
         host.uiActions().cycle("hud.keystrokes","appearance");
         host.uiActions().fraction("movement.bridgeassist","lookahead",0.7);
+        host.uiActions().fraction("combat.velocity","horizontal_percent",0.7);
+        host.uiActions().fraction("combat.velocity","vertical_percent",0.9);
         for(String id:modules) {
             host.uiActions().toggle(id);
             ok(host.featureEnabled(id),"integrated module can enable "+id);
@@ -69,6 +75,10 @@ public final class IntegratedModuleCatalogTests {
         ok("minimal".equals(host.moduleListAppearance()),"real Module List appearance live");
         ok("minimal".equals(host.keysAppearance()),"real Keystrokes skin live");
         final double lookahead=host.bridgeLookahead();
+        final double velocityHorizontal=host.velocityHorizontalPercent();
+        final double velocityVertical=host.velocityVerticalPercent();
+        ok(velocityHorizontal==70 && velocityVertical==90,
+           "true native Velocity axes are configurable with module enabled");
         ok(lookahead>0.75,"native edge projection setting accepts UI edits");
         int disabled=PanicController.disableAll(host);
         ok(disabled>=modules.length,"Panic disables every integrated module");
@@ -86,9 +96,13 @@ public final class IntegratedModuleCatalogTests {
         ok("minimal".equals(loaded.targetSkin()),"Target HUD style survived Panic");
         ok("minimal".equals(loaded.moduleListAppearance()),"Module List style survived Panic");
         ok(loaded.bridgeLookahead()==lookahead,"Bridge Assist lookahead survived Panic");
+        ok(loaded.velocityHorizontalPercent()==velocityHorizontal &&
+           loaded.velocityVerticalPercent()==velocityVertical,
+           "Velocity axis settings survive Panic without re-enabling motion writes");
         loaded.uiActions().toggle("combat.aimassist");
         ok(loaded.featureEnabled("combat.aimassist"),"explicit reenable after Panic works");
         loaded.close();
+        VelocityTests.main(args);
         ok(count>65,"real integrated module and persisted profile coverage");
         System.out.println("INTEGRATED_MODULE_CATALOG_PASS assertions="+count);
     }

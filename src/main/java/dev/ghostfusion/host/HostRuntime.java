@@ -141,6 +141,11 @@ public final class HostRuntime {
         "mode", "normal", "normal", "ready", "trade");
     private final Setting.Number hitTradeMinSelfHurt = new Setting.Number(
         "trade_min_self_hurt", 1, 1, 10);
+    // Damage-edge Velocity tuning is disabled and vanilla 100%/100% by default.
+    private final Setting.Number velocityHorizontal = new Setting.Number(
+        "horizontal_percent",100.0,0.0,100.0);
+    private final Setting.Number velocityVertical = new Setting.Number(
+        "vertical_percent",100.0,0.0,100.0);
     // Opt-in, native sneak-key-only Bridge Assist. No packet movement edits.
     private final Setting.Number bridgeLookahead = new Setting.Number(
         "lookahead", 0.75, 0.35, 1.20);
@@ -225,6 +230,8 @@ public final class HostRuntime {
             0, blockInterval, blockRequireTarget, blockMode);
         modules.register(new FeatureModule("combat.hitselect", "Hit Select", GhostModule.Category.COMBAT),
             0, hitMaxHurt, hitGap, hitRequireTarget, hitMode, hitTradeMinSelfHurt);
+        modules.register(new FeatureModule("combat.velocity", "Velocity", GhostModule.Category.COMBAT),
+            0, velocityHorizontal, velocityVertical);
         modules.register(new FeatureModule("hud.diagnostics", "Runtime Diagnostics", GhostModule.Category.RENDER),
             0);
         modules.register(new FeatureModule("hud.modulelist", "Module List", GhostModule.Category.RENDER),
@@ -437,6 +444,12 @@ public final class HostRuntime {
     public int hitMaxHurtTime() { modules.assertOwnerThread(); return (int)Math.round(hitMaxHurt.get()); }
     public int hitGapTicks() { modules.assertOwnerThread(); return (int)Math.round(hitGap.get()); }
     public boolean hitRequireTarget() { modules.assertOwnerThread(); return hitRequireTarget.get(); }
+    public double velocityHorizontalPercent() {
+        modules.assertOwnerThread();return velocityHorizontal.get();
+    }
+    public double velocityVerticalPercent() {
+        modules.assertOwnerThread();return velocityVertical.get();
+    }
     public double bridgeLookahead() {
         modules.assertOwnerThread();return bridgeLookahead.get();
     }

@@ -38,6 +38,7 @@ public final class ForgeEventAdapter {
     private final ForgeFeatureDriver features;
     private final ForgeCombatController combat;
     private final ForgeBridgeAssistController bridge;
+    private final ForgeVelocityController velocity;
     private final WorldIdentityTracker worldIdentity = new WorldIdentityTracker();
     // Two capped, owner-thread groups are reused every tick. Every raw
     // EntityPlayer reference is released before publishing an immutable
@@ -55,6 +56,7 @@ public final class ForgeEventAdapter {
         this.features = new ForgeFeatureDriver(minecraft,host);
         this.combat = new ForgeCombatController(minecraft,host);
         this.bridge = new ForgeBridgeAssistController(minecraft,host);
+        this.velocity = new ForgeVelocityController(minecraft,host);
     }
 
     @SubscribeEvent
@@ -73,6 +75,7 @@ public final class ForgeEventAdapter {
             features.reset();
             combat.reset();
             bridge.reset();
+            velocity.reset();
         }
         if (transition == WorldIdentityTracker.Transition.ENTER ||
             transition == WorldIdentityTracker.Transition.SWITCH) {
@@ -80,6 +83,7 @@ public final class ForgeEventAdapter {
             features.reset();
             combat.reset();
             bridge.reset();
+            velocity.reset();
         }
         // Keep the standard presence reconciliation for starting menus.
         host.worldPresence(worldReady);
@@ -87,6 +91,7 @@ public final class ForgeEventAdapter {
         if (!worldReady || focusBlocked) {
             features.reset();
             bridge.reset();
+            velocity.reset();
         }
         // Read-only player snapshot published before the single combat intent bridge runs.
         if (host.services().connected() && minecraft.theWorld != null && minecraft.thePlayer != null &&
@@ -213,6 +218,7 @@ public final class ForgeEventAdapter {
         // Edge movement owns only the native sneak key; its controller
         // independently rejects GUI, focus, world and module-disabled frames.
         bridge.tick();
+        velocity.tick();
     }
 
     @SubscribeEvent
@@ -230,6 +236,7 @@ public final class ForgeEventAdapter {
                 worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) {
                 PanicController.disableAll(host);
                 bridge.reset();
+                velocity.reset();
                 features.reset();
                 combat.reset();
             }
@@ -405,6 +412,7 @@ public final class ForgeEventAdapter {
                 features.reset();
                 combat.reset();
                 bridge.reset();
+                velocity.reset();
             }
         });
     }
