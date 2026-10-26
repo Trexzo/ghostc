@@ -124,7 +124,7 @@ public final class HostRuntime {
     private final Setting.Bool hitRequireTarget = new Setting.Bool("require_target", true);
     // Standalone enabled-module overlay: unlike GUI previews this is an opt-in in-game HUD.
     private final Setting.Choice moduleListPosition = new Setting.Choice("position", "top_right",
-        "top_right", "top_left", "bottom_right", "bottom_left");
+        "top_right", "top_left", "bottom_right", "bottom_left", "custom");
     private final Setting.Choice moduleListOrder = new Setting.Choice("sort", "width",
         "width", "alphabetical");
     private final Setting.Number moduleListRows = new Setting.Number("max_rows", 10, 1, 24);

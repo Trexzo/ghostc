@@ -14,6 +14,8 @@ public final class HudFootprints {
             case KEYSTROKES: return 37+(jump?20:0)+(sneak?20:0);
             case CPS: return 17;
             case TARGET: return targetHealth?43:29;
+            // Safe fallback; the F7 editor derives the actual current list size.
+            case MODULE_LIST: return widget.height;
             default: throw new IllegalArgumentException("widget");
         }
     }

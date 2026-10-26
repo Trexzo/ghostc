@@ -27,7 +27,7 @@ public final class HudPlacementTests {
         HudPositions anchors=state.widgets();
         ok(state.hudX()==0.025 && state.hudY()==0.055,"legacy status HUD untouched");
         HudPositions.Widget[] names=HudPositions.Widget.values();
-        ok(names.length==3,"three independent added widgets");
+        ok(names.length==4,"four independent added widgets including Module List");
         for(HudPositions.Widget name:names) {
             ok(anchors.x(name)>=0&&anchors.x(name)<=1&&
                 anchors.y(name)>=0&&anchors.y(name)<=1,"default anchor valid");

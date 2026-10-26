@@ -75,3 +75,13 @@ No hit zones, capture modes, settings logic or module input behaviors changed.
 The old two themes retain their exact original base colors and keep Indigo as default.
 Theme persistence uses the same validated atomic schema-1 UI settings file;
 unknown themes remain invalid. Tests cover persistence, palette parity and cycling.
+
+## F7 Module List positioning
+The Module List now has its own fifth F7 HUD editor tab (List). Drag or keyboard
+nudge the widget to select an explicitly persisted `custom` positioning option;
+old profiles and their four corner presets continue to render unchanged. The
+custom anchor uses the existing schema-1 `hud.modulelist.x/y` keys and normalized
+bounds, and dynamically sized frames follow the actual enabled-module labels.
+Reset restores the original top-right preset; snapping, Alt bypass and one-save-on-
+release remain shared with the other HUD widgets. Core regressions cover legacy
+profile compatibility, custom bounds, anchor rejection and dynamic layout.

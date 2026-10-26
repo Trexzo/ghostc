@@ -4,14 +4,15 @@ import java.util.EnumMap;
 import java.util.Locale;
 
 /**
- * Independent, resolution-neutral anchors for the three movable feature HUDs.
+ * Independent, resolution-neutral anchors for movable feature HUDs.
  * Status HUD keeps its existing UiState.position/hud.x/hud.y contract.
  */
 public final class HudPositions {
     public enum Widget {
         KEYSTROKES("keystrokes", 83, 83, 1.0, 0.86),
         CPS("cps", 103, 17, 1.0, 1.0),
-        TARGET("target", 160, 43, 0.5, 0.93);
+        TARGET("target", 160, 43, 0.5, 0.93),
+        MODULE_LIST("modulelist", 128, 36, 1.0, 0.0);
         public final String storageId;
         public final int width, height;
         final double defaultX, defaultY;
