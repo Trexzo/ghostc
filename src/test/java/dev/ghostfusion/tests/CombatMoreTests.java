@@ -192,6 +192,9 @@ public final class CombatMoreTests {
         hitSelect(); blockHit(); sharedCoordinator(); profiles();
         // Run opt-in event mode tests through the existing Core CI runner.
         CombatModesTests.main(args);
+        // Movement Bridge Assist has its own deterministic 24k trace and
+        // persisted owner-thread profile suite, run under unchanged Core CI.
+        BridgeAssistTests.main(args);
         ok(n>12000,"large independent deterministic regression");
         System.out.println("COMBAT_MORE_REGRESSION_PASS assertions="+n);
     }

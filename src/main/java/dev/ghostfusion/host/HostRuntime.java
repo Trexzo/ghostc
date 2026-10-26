@@ -135,6 +135,15 @@ public final class HostRuntime {
         "mode", "normal", "normal", "ready", "trade");
     private final Setting.Number hitTradeMinSelfHurt = new Setting.Number(
         "trade_min_self_hurt", 1, 1, 10);
+    // Opt-in, native sneak-key-only Bridge Assist. No packet movement edits.
+    private final Setting.Number bridgeLookahead = new Setting.Number(
+        "lookahead", 0.75, 0.35, 1.20);
+    private final Setting.Number bridgeReleaseDelay = new Setting.Number(
+        "release_delay_ticks", 2, 0, 8);
+    private final Setting.Bool bridgeRequireBlocks = new Setting.Bool(
+        "require_blocks", true);
+    private final Setting.Bool bridgeAllowSideways = new Setting.Bool(
+        "allow_sideways", false);
     private final UiState ui = new UiState();
     private final UiSettingsStore uiStore;
     private final UiActions uiActions;
@@ -186,6 +195,9 @@ public final class HostRuntime {
             espDistanceFade, espFadeStart, espFadeMinimum, espDrawLimit);
         modules.register(new FeatureModule("movement.sprint", "Auto Sprint", GhostModule.Category.MOVEMENT),
             0);
+        modules.register(new FeatureModule("movement.bridgeassist", "Bridge Assist",
+            GhostModule.Category.MOVEMENT), 0,
+            bridgeLookahead, bridgeReleaseDelay, bridgeRequireBlocks, bridgeAllowSideways);
         modules.register(new FeatureModule("combat.aimassist", "Aim Assist", GhostModule.Category.COMBAT),
             0, aimRange, aimFov, aimSpeed, aimVisible, aimRequireClick,
             aimHorizontal, aimVertical, aimTargetHeight, aimLockTarget, aimPriority);
@@ -392,6 +404,18 @@ public final class HostRuntime {
     public int hitMaxHurtTime() { modules.assertOwnerThread(); return (int)Math.round(hitMaxHurt.get()); }
     public int hitGapTicks() { modules.assertOwnerThread(); return (int)Math.round(hitGap.get()); }
     public boolean hitRequireTarget() { modules.assertOwnerThread(); return hitRequireTarget.get(); }
+    public double bridgeLookahead() {
+        modules.assertOwnerThread();return bridgeLookahead.get();
+    }
+    public int bridgeReleaseDelayTicks() {
+        modules.assertOwnerThread();return (int)Math.round(bridgeReleaseDelay.get());
+    }
+    public boolean bridgeRequireBlocks() {
+        modules.assertOwnerThread();return bridgeRequireBlocks.get();
+    }
+    public boolean bridgeAllowSideways() {
+        modules.assertOwnerThread();return bridgeAllowSideways.get();
+    }
     public String hitMode() { modules.assertOwnerThread(); return hitMode.get(); }
     public int hitTradeMinSelfHurt() {
         modules.assertOwnerThread(); return (int)Math.round(hitTradeMinSelfHurt.get());
