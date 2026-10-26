@@ -9,12 +9,12 @@ package dev.ghostfusion.features;
  * two-slot change suspends the window rather than blindly retrying clicks.
  */
 public final class InventoryManagerPolicy {
-    public static final int EMPTY=0, SWORD=1, PICKAXE=2, AXE=3, SHOVEL=4;
+    public static final int EMPTY=0, SWORD=1, PICKAXE=2, AXE=3, SHOVEL=4, OTHER=5;
     public static final class Slot {
         public final int kind;
         public final double quality;
         public Slot(int kind,double quality) {
-            if(kind<EMPTY || kind>SHOVEL || !Double.isFinite(quality) ||
+            if(kind<EMPTY || kind>OTHER || !Double.isFinite(quality) ||
                quality<0 || (kind==EMPTY && quality!=0))
                 throw new IllegalArgumentException("invalid inventory slot score");
             this.kind=kind;this.quality=quality;
