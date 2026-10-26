@@ -114,6 +114,7 @@ public final class CombatDepthTests {
     private static void profileSettings() throws Exception {
         Path dir=Files.createTempDirectory("ghostc-r332-combat-");
         HostRuntime host=new HostRuntime(dir);
+        host.worldPresence(true);
         String click="combat.clicker", aim="combat.aimassist";
         ok("fixed".equals(host.clickPattern()) && host.clickCps()==10,
            "fixed clicker and legacy 10 CPS default retained");
