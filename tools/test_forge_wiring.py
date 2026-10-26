@@ -2192,6 +2192,29 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.HudEditorControlsTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_module_list_is_native_draggable_and_presets_remain_compatible(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        driver=(FORGE/"ForgeFeatureDriver.java").read_text(encoding="utf-8")
+        layout=content("src/main/java/dev/ghostfusion/ui/ModuleListLayout.java")
+        positions=content("src/main/java/dev/ghostfusion/ui/HudPositions.java")
+        controls=content("src/main/java/dev/ghostfusion/ui/HudEditorControls.java")
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/ModuleListLayoutTests.java")
+        self.assertIn('MODULE_LIST("modulelist"',positions)
+        self.assertIn('MODULE_LIST(HudPositions.Widget.MODULE_LIST,"List")',controls)
+        self.assertIn('"bottom_left", "custom");',host)
+        self.assertIn("private Rect hudPreviewRect(",gui)
+        self.assertIn("captureModuleListOrigin(geometry,r)",gui)
+        self.assertIn('host.uiActions().choiceEdge("hud.modulelist","position",true)',gui)
+        self.assertIn('host.uiActions().reset("hud.modulelist","position")',gui)
+        self.assertIn("ModuleListLayout.calculate(host.modules(),width,height",gui)
+        self.assertIn("host.ui().widgets().x(Widget.MODULE_LIST)",driver)
+        self.assertIn('if(!"custom".equals(position)',layout)
+        self.assertIn("custom bottom-right snaps to screen edge",tests)
+        self.assertIn("if(changed)host.persistUi();",gui)
+        self.assertIn('case MODULE_LIST: return widget.height;',content(
+            "src/main/java/dev/ghostfusion/ui/HudFootprints.java"))
+
     def test_nebula_clickgui_theme_is_persistent_and_visual_only(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         palette=content("src/main/java/dev/ghostfusion/ui/GuiThemePalette.java")

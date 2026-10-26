@@ -19,6 +19,7 @@ import dev.ghostfusion.ui.GuiKeybindCapture;
 import dev.ghostfusion.ui.HudPositions.Widget;
 import dev.ghostfusion.ui.HudPreviewGeometry;
 import dev.ghostfusion.ui.HudSnapPolicy;
+import dev.ghostfusion.ui.ModuleListLayout;
 import dev.ghostfusion.ui.HudFootprints;
 import dev.ghostfusion.ui.HudTextFit;
 import dev.ghostfusion.ui.GuiSliderDrag;
@@ -329,11 +330,52 @@ public final class GhostClickGui extends GuiScreen {
     private HudPreviewGeometry previewGeometry() {
         return new HudPreviewGeometry(previewX,previewY,previewW,previewH,width,height);
     }
+    /** Use the same enabled module names/font metrics as the actual in-game list. */
+    private ModuleListLayout.Frame listFootprint() {
+        String position=host.moduleListPosition();
+        // Custom coordinates affect only placement, not a single pixel of size.
+        return ModuleListLayout.calculate(host.modules(),width,height,
+            fontRendererObj.FONT_HEIGHT,host.moduleListMaxRows(),
+            host.moduleListShowRender(),"custom".equals(position)?"top_right":position,
+            host.moduleListOrder(),guiFontWidths,host.moduleListCompact());
+    }
     private int hudWidth(Widget widget) {
+        if(widget==Widget.MODULE_LIST) {
+            int measured=listFootprint().width;
+            return measured>0?measured:HudFootprints.width(widget);
+        }
         return HudFootprints.width(widget);
     }
     private int hudHeight(Widget widget) {
+        if(widget==Widget.MODULE_LIST) {
+            int measured=listFootprint().height;
+            return measured>0?measured:HudFootprints.height(widget,true,true,true);
+        }
         return HudFootprints.height(widget,host.keysJump(),host.keysSneak(),host.targetHealth());
+    }
+    /** Preset corners are previewed at their real frame position; dragging uses saved anchors. */
+    private Rect hudPreviewRect(HudPreviewGeometry geometry,Widget widget) {
+        if(widget==Widget.MODULE_LIST &&
+           !hudDragging && !"custom".equals(host.moduleListPosition())) {
+            ModuleListLayout.Frame frame=listFootprint();
+            int actualW=hudWidth(widget),actualH=hudHeight(widget);
+            if(frame.width<=0||frame.height<=0) {
+                double xx=host.moduleListPosition().endsWith("_right")?1.0:0.0;
+                double yy=host.moduleListPosition().startsWith("bottom_")?1.0:0.0;
+                return geometry.at(xx,yy,actualW,actualH);
+            }
+            return geometry.at((double)frame.x/Math.max(1,width-frame.width),
+                (double)frame.y/Math.max(1,height-frame.height),actualW,actualH);
+        }
+        return geometry.widget(ui.widgets(),widget,hudWidth(widget),hudHeight(widget));
+    }
+    /** Make the rendered corner the drag origin without pre-saving a new profile. */
+    private void captureModuleListOrigin(HudPreviewGeometry geometry,Rect visible) {
+        if("custom".equals(host.moduleListPosition()))return;
+        Rect canvas=geometry.canvas;
+        ui.widgets().position(Widget.MODULE_LIST,
+            (double)(visible.x-canvas.x)/Math.max(1,canvas.width-visible.width),
+            (double)(visible.y-canvas.y)/Math.max(1,canvas.height-visible.height));
     }
     private StatusHudLayout statusFootprint() {
         boolean status=host.featureEnabled("hud.status");
@@ -388,11 +430,12 @@ public final class GhostClickGui extends GuiScreen {
             label("Status",status.x+2,status.y+2,0xFFFFFFFF);
 
         for(Widget widget:Widget.values()) {
-            Rect r=geometry.widget(ui.widgets(),widget,hudWidth(widget),hudHeight(widget));
+            Rect r=hudPreviewRect(geometry,widget);
             rect(r.x,r.y,r.width,r.height,
                 hudControls.selected()==HudEditorControls.itemFor(widget) ?
                     0xFF8376CD : 0xFF384B66);
-            String tag=widget==Widget.KEYSTROKES?"K":widget==Widget.CPS?"C":"T";
+            String tag=widget==Widget.KEYSTROKES?"K":widget==Widget.CPS?"C":
+                widget==Widget.TARGET?"T":"M";
             if(r.width>=8 && r.height>=10)
                 label(tag,r.x+1,r.y+1,0xFFFFFFFF);
         }
@@ -431,10 +474,15 @@ public final class GhostClickGui extends GuiScreen {
      * Returning to the original anchor has no persistence side effect. */
     private boolean finishHudDrag() {
         if(!hudDragging)return false;
+        boolean listMoved=draggingWidget==Widget.MODULE_LIST;
         boolean changed=hudCapture.finish(ui);
         hudDragging=false;draggingWidget=null;
         snapGuideX=HudSnapPolicy.NO_GUIDE;snapGuideY=HudSnapPolicy.NO_GUIDE;
-        if(changed)host.persistUi();
+        if(changed) {
+            // Position setting changes once at commit, never for intermediate motion.
+            if(listMoved)host.uiActions().choiceEdge("hud.modulelist","position",true);
+            host.persistUi();
+        }
         return changed;
     }
     private void adjustHudDrag(int mx,int my) {
@@ -460,16 +508,14 @@ public final class GhostClickGui extends GuiScreen {
            Keyboard.isKeyDown(Keyboard.KEY_RMENU))return;
         Rect active=draggingWidget==null
             ? geometry.status(ui,statusPreviewWidth(),statusPreviewHeight())
-            : geometry.widget(ui.widgets(),draggingWidget,
-                hudWidth(draggingWidget),hudHeight(draggingWidget));
+            : hudPreviewRect(geometry,draggingWidget);
         Rect[] neighbors=new Rect[Widget.values().length+1];
         int count=0;
         if(draggingWidget!=null)
             neighbors[count++]=geometry.status(ui,statusPreviewWidth(),statusPreviewHeight());
         for(Widget widget:Widget.values())
             if(widget!=draggingWidget)
-                neighbors[count++]=geometry.widget(ui.widgets(),widget,
-                    hudWidth(widget),hudHeight(widget));
+                neighbors[count++]=hudPreviewRect(geometry,widget);
         HudSnapPolicy.Result snapped=HudSnapPolicy.snap(geometry.canvas,active,
             java.util.Arrays.copyOf(neighbors,count),HudSnapPolicy.DEFAULT_TOLERANCE);
         snapGuideX=snapped.guideX;
@@ -528,9 +574,11 @@ public final class GhostClickGui extends GuiScreen {
             Widget[] all=Widget.values();
             for(int i=all.length-1;i>=0;i--) {
                 Widget widget=all[i];
-                Rect r=geometry.widget(ui.widgets(),widget,hudWidth(widget),hudHeight(widget));
+                Rect r=hudPreviewRect(geometry,widget);
                 if(r.contains(mx,my)) {
                     hudControls.select(HudEditorControls.itemFor(widget));
+                    if(widget==Widget.MODULE_LIST)
+                        captureModuleListOrigin(geometry,r);
                     hudCapture.begin(ui,widget,width,height,mx,my);
                     hudDragging=true;draggingWidget=widget;
                     dragX=mx-r.x;dragY=my-r.y;
@@ -718,7 +766,10 @@ public final class GhostClickGui extends GuiScreen {
         }
         if (hudPage) {
             if (keyCode==Keyboard.KEY_R) {
-                if(hudControls.resetIfChanged(ui))host.persistUi();
+                boolean changed=hudControls.resetIfChanged(ui);
+                if(hudControls.selected()==HudEditorControls.Item.MODULE_LIST)
+                    host.uiActions().reset("hud.modulelist","position");
+                if(changed)host.persistUi();
                 return;
             }
             int dx=0,dy=0;
@@ -734,8 +785,18 @@ public final class GhostClickGui extends GuiScreen {
                     statusPreviewWidth():hudWidth(item.widget);
                 int ch=item==HudEditorControls.Item.STATUS ?
                     statusPreviewHeight():hudHeight(item.widget);
+                if(item==HudEditorControls.Item.MODULE_LIST &&
+                   !"custom".equals(host.moduleListPosition())) {
+                    HudPreviewGeometry geometry=previewGeometry();
+                    captureModuleListOrigin(geometry,
+                        hudPreviewRect(geometry,Widget.MODULE_LIST));
+                }
                 if(hudControls.nudgeIfChanged(ui,dx*step,dy*step,
-                                               width,height,cw,ch))host.persistUi();
+                                               width,height,cw,ch)) {
+                    if(item==HudEditorControls.Item.MODULE_LIST)
+                        host.uiActions().choiceEdge("hud.modulelist","position",true);
+                    host.persistUi();
+                }
                 return;
             }
         }
