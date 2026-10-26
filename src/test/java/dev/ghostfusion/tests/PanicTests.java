@@ -101,8 +101,35 @@ public final class PanicTests {
         final double original=host.aimDegreesPerTick();
         rejects(()->host.modules().bind("combat.aimassist",64),
             "F6 cannot be assigned to another feature");
-        rejects(()->host.key(64,true,false),
-            "not expected");
+        host.key(64,true,false);
+        host.key(64,false,false);
+        ok(host.modules().get("combat.clicker").state()==ModuleRegistry.State.ENABLED,
+            "dedicated F6 cannot toggle a module through core keybind routing");
+        int disabled=PanicController.disableAll(host);
+        ok(disabled>=3 && !host.featureEnabled("combat.clicker") &&
+           !host.featureEnabled("combat.aimassist"),
+           "Panic suppresses both combat features in a live world");
+        ok(host.aimDegreesPerTick()==original,
+           "Panic preserves the existing aim slider settings");
+        ok(Files.exists(folder.resolve("default.properties")),
+           "Panic persists an ordinary profile; never erases it");
+        host.close();
+        HostRuntime restored=new HostRuntime(folder);
+        ok(restored.aimDegreesPerTick()==original &&
+           restored.modules().get("combat.clicker").state()==ModuleRegistry.State.DISABLED &&
+           restored.modules().get("combat.aimassist").state()==ModuleRegistry.State.DISABLED,
+           "disabling survives profile reload while numerical tuning survives");
+        restored.worldPresence(true);
+        ok(!restored.featureEnabled("combat.clicker"),
+           "rejoining a world does not silently reenable the client");
+        restored.modules().setEnabled("combat.clicker",true);
+        ok(restored.featureEnabled("combat.clicker"),
+           "explicit user re-enable after Panic is supported");
+        restored.key(HostRuntime.DEFAULT_STATUS_KEY,true,false);
+        restored.key(HostRuntime.DEFAULT_STATUS_KEY,false,false);
+        ok(restored.modules().get("hud.status").state()==ModuleRegistry.State.ENABLED,
+           "normal F8 and module hotkeys remain usable after Panic");
+        restored.close();
     }
     public static void main(String[] args) throws Exception {
         lifecycleAndPackets();
