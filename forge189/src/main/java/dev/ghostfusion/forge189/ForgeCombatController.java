@@ -2,6 +2,7 @@ package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.features.AimAssistPolicy;
 import dev.ghostfusion.features.FixedClickScheduler;
+import dev.ghostfusion.features.PatternClickScheduler;
 import dev.ghostfusion.features.HitSelectPolicy;
 import dev.ghostfusion.features.BlockHitPolicy;
 import dev.ghostfusion.features.PhysicalInputGate;
@@ -41,6 +42,7 @@ public final class ForgeCombatController {
     private final HostRuntime host;
     private final AimAssistPolicy aim = new AimAssistPolicy();
     private final FixedClickScheduler scheduler = new FixedClickScheduler();
+    private final PatternClickScheduler patternScheduler = new PatternClickScheduler();
     private final HitSelectPolicy hitSelect = new HitSelectPolicy();
     private final BlockHitPolicy blockHit = new BlockHitPolicy();
     private final PhysicalInputGate physicalInput = new PhysicalInputGate();
@@ -81,9 +83,10 @@ public final class ForgeCombatController {
                 public void run() {
                     if (host.aimRequireClick() && !held) return;
                     AimAssistPolicy.Suggestion suggestion = aim.suggest(
-                        snapshot, player.getEyeHeight(), 1.25,
+                        snapshot, player.getEyeHeight(), host.aimTargetHeight(),
                         host.aimRange(), host.aimFov(), host.aimDegreesPerTick(),
-                        host.aimVisibleOnly());
+                        host.aimVisibleOnly(), host.aimHorizontalFraction(),
+                        host.aimVerticalFraction());
                     if (suggestion == null) return;
                     // A snapshot is immutable, but its player can despawn,
                     // die, become invisible or move before the camera write.
@@ -143,8 +146,23 @@ public final class ForgeCombatController {
                 public void run() {
                     boolean eligible = !useHeld && !player.isUsingItem() &&
                         (!host.clickEntityOnly() || validTarget);
-                    if (!scheduler.due(System.nanoTime(), eligible, held, host.clickCps()))
-                        return;
+                    // Fixed is bit-for-bit the original timing path; optional
+                    // balanced/range schedules remain single-pulse only.
+                    final long now = System.nanoTime();
+                    final boolean due;
+                    if ("fixed".equals(host.clickPattern())) {
+                        patternScheduler.reset();
+                        due = scheduler.due(now, eligible, held, host.clickCps());
+                    } else {
+                        scheduler.reset();
+                        double first = host.clickMinCps(), second = host.clickMaxCps();
+                        // GUI sliders are independent; a temporary min/max
+                        // crossing is canonicalized, not a module fault.
+                        due = patternScheduler.due(now, eligible, held,
+                            Math.min(first, second), Math.max(first, second),
+                            host.clickPattern());
+                    }
+                    if (!due) return;
                     final boolean[] allowed = {true};
                     if (host.featureEnabled(HIT_ID)) {
                         allowed[0] = false;
@@ -169,12 +187,14 @@ public final class ForgeCombatController {
             });
             if (!healthy) {
                 scheduler.reset();
+                patternScheduler.reset();
                 hitSelect.reset();
                 extraAttackQueued[0] = false;
                 session.actions().cancelOwner(CLICK_ID);
             }
         } else {
             scheduler.reset();
+            patternScheduler.reset();
             session.actions().cancelOwner(CLICK_ID);
         }
 
@@ -234,6 +254,7 @@ public final class ForgeCombatController {
     /** Clears timers and all pending owned intents on world or focus change. */
     void reset() {
         scheduler.reset();
+        patternScheduler.reset();
         physicalInput.reset();
         hitSelect.reset();
         blockHit.reset();
