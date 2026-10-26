@@ -738,7 +738,12 @@ class ForgeWiring(unittest.TestCase):
         self.assertGreaterEqual(self.gl.count("GL11.glPopMatrix()"),2)
         self.assertIn("GL11.glPopAttrib()",self.gl)
         self.assertIn("finally",self.gl)
-        self.assertEqual(self.feature.count('drawFeature("hud.'),4)
+        hud_ids=('keystrokes','cps','target','diagnostics','modulelist')
+        self.assertEqual(self.feature.count('drawFeature("hud.'),len(hud_ids))
+        for module_id in hud_ids:
+            self.assertEqual(self.feature.count('drawFeature("hud.'+module_id+'"'),1)
+        self.assertIn('ModuleListLayout.calculate(',self.feature)
+        self.assertIn('RenderStateGuard.draw(painter);',self.feature)
 
     def test_fault_warning_tracks_only_unresolved_feature_failures(self):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
