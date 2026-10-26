@@ -1,4 +1,6 @@
-# GhostC R0.6 — Aim Assist and AutoClicker (still supported in R0.7)
+# GhostC Combat — legacy R0.6/R0.7 baseline
+
+**New in Draft R3.32:** configurable click `fixed / balanced / range` patterns, independent min/max CPS, Aim Assist axis fractions and configurable target height. Details and the still-required original-game acceptance are in [R3.32 combat depth](RUNTIME_R152.md). The text below describes the old fixed-mode baseline and is retained for backward compatibility.
 
 **Implementation:** Two opt-in first-party Minecraft 1.8.9 features in R0.6; Block Hit and Hit Select were added in R0.7. Both are **disabled by default**, exposed under the F7 COMBAT category, saved by the existing profile store, and require a valid focused game world. Forge client-tick is the single consumer; Minecraft, network and render objects never enter pure Java policy classes.
 
