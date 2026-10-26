@@ -141,6 +141,13 @@ public final class HostRuntime {
         "mode", "normal", "normal", "ready", "trade");
     private final Setting.Number hitTradeMinSelfHurt = new Setting.Number(
         "trade_min_self_hurt", 1, 1, 10);
+    // Inventory Manager sorts only in GuiInventory, with no trash/drop actions.
+    private final Setting.Number inventoryManagerOpenDelay = new Setting.Number(
+        "open_delay_ticks",6.0,2.0,20.0);
+    private final Setting.Number inventoryManagerClickDelay = new Setting.Number(
+        "click_delay_ticks",5.0,2.0,20.0);
+    private final Setting.Bool inventoryManagerUpgrade = new Setting.Bool(
+        "upgrade_existing",false);
     // Explicitly opt-in GUI inventory automation: no disguised/custom menus
     // unless allowed and all transfers use native single-flight window clicks.
     private final Setting.Number chestOpenDelay = new Setting.Number(
@@ -244,6 +251,9 @@ public final class HostRuntime {
             0, velocityHorizontal, velocityVertical);
         modules.register(new FeatureModule("combat.wtap", "WTap / Sprint Reset", GhostModule.Category.COMBAT),
             0, wtapDelay);
+        modules.register(new FeatureModule("inventory.manager", "Inventory Manager",
+            GhostModule.Category.UTILITY), 0,
+            inventoryManagerOpenDelay,inventoryManagerClickDelay,inventoryManagerUpgrade);
         modules.register(new FeatureModule("inventory.cheststealer", "Chest Stealer",
             GhostModule.Category.UTILITY), 0,
             chestOpenDelay, chestClickDelay, chestAllowCustom);
@@ -459,6 +469,15 @@ public final class HostRuntime {
     public int hitMaxHurtTime() { modules.assertOwnerThread(); return (int)Math.round(hitMaxHurt.get()); }
     public int hitGapTicks() { modules.assertOwnerThread(); return (int)Math.round(hitGap.get()); }
     public boolean hitRequireTarget() { modules.assertOwnerThread(); return hitRequireTarget.get(); }
+    public int inventoryManagerOpenDelay() {
+        modules.assertOwnerThread();return (int)Math.round(inventoryManagerOpenDelay.get());
+    }
+    public int inventoryManagerClickDelay() {
+        modules.assertOwnerThread();return (int)Math.round(inventoryManagerClickDelay.get());
+    }
+    public boolean inventoryManagerUpgrade() {
+        modules.assertOwnerThread();return inventoryManagerUpgrade.get();
+    }
     public int chestStealerOpenDelay() {
         modules.assertOwnerThread();return (int)Math.round(chestOpenDelay.get());
     }
