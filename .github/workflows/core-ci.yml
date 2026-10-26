@@ -72,6 +72,8 @@ jobs:
           grep -q 'HOST_CLOSING_ELIGIBILITY_PASS' .build/closing-eligibility.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.IngressDrainReentryTests | tee .build/ingress-drain-reentry.log
           grep -q 'INGRESS_DRAIN_REENTRY_PASS' .build/ingress-drain-reentry.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.IngressEpochAdmissionTests | tee .build/ingress-epoch-admission.log
+          grep -q 'INGRESS_EPOCH_ADMISSION_PASS' .build/ingress-epoch-admission.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.StartupPersistenceFenceTests | tee .build/startup-persistence-fence.log
           grep -q 'STARTUP_PERSISTENCE_FENCE_PASS' .build/startup-persistence-fence.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.UiTests | tee .build/ui.log

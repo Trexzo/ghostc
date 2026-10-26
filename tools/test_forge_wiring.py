@@ -225,7 +225,7 @@ class ForgeWiring(unittest.TestCase):
         tests=content("src/test/java/dev/ghostfusion/tests/HostCloseInputFenceTests.java")
         workflow=content(".github/workflows/core-ci.yml")
         self.assertIn("private volatile boolean closing;",host)
-        self.assertIn("if (closed || closing) return false;",host)
+        self.assertIn("if (closed || closing || ingressEpochTransition) return false;",host)
         self.assertIn("if (!active() || closing || !worldPresent) return false;",host)
         self.assertIn("public void inputFocus(boolean blocked) {\n        if (!active() || closing) return;",host)
         self.assertIn("public void key(int keycode, boolean pressed, boolean textFieldOrMenuFocused) {\n        if (!active() || closing) return;",host)
@@ -581,7 +581,8 @@ class ForgeWiring(unittest.TestCase):
         ingress=content("src/main/java/dev/ghostfusion/core/BoundedIngress.java")
         tests=content("src/test/java/dev/ghostfusion/tests/HostRuntimeTests.java")
         self.assertIn("ingressExpiredThroughSequence = sequence.get();",host)
-        self.assertGreaterEqual(host.count("ingressExpiredThroughSequence = sequence.get();"),2)
+        self.assertEqual(host.count("ingressExpiredThroughSequence = sequence.get();"),1)
+        self.assertIn("synchronized (ingressEpochLock) {",host)
         self.assertIn("ingress.drainAfter(modules, MAX_EVENTS_PER_TICK, ingressExpiredThroughSequence)",host)
         self.assertIn("public int drainAfter(ModuleRegistry target, int limit, long expiredThroughSequence)",ingress)
         self.assertIn("polled < limit",ingress)
@@ -2299,6 +2300,19 @@ class ForgeWiring(unittest.TestCase):
         self.assertNotIn("persist();",close)
         self.assertNotIn("persistUi();",close)
         self.assertIn("testClosePersistenceReentryFence(dir.resolve(",tests)
+
+    def test_ingress_epoch_admission_is_atomic(self):
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        suite=content("src/test/java/dev/ghostfusion/tests/IngressEpochAdmissionTests.java")
+        core=content(".github/workflows/core-ci.yml")
+        self.assertIn("private final Object ingressEpochLock = new Object();",host)
+        self.assertIn("if (closed || closing || ingressEpochTransition) return false;",host)
+        self.assertIn("return ingress.submit(event(kind));",host)
+        self.assertIn("beginIngressEpochTransition();",host)
+        self.assertIn("endIngressEpochTransition();",host)
+        self.assertIn("transitionAdmission();",suite)
+        self.assertIn("INGRESS_EPOCH_ADMISSION_PASS",suite)
+        self.assertIn("dev.ghostfusion.tests.IngressEpochAdmissionTests",core)
 
     def test_forge_project_version_matches_mod_annotation(self):
         gradle=content("forge189/build.gradle")
