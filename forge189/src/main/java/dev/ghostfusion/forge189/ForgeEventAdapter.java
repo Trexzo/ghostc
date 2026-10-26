@@ -1,6 +1,7 @@
 package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.host.HostRuntime;
+import dev.ghostfusion.host.PanicController;
 import dev.ghostfusion.services.WorldSnapshot;
 import dev.ghostfusion.ui.StatusHudLayout;
 import dev.ghostfusion.services.WorldIdentityTracker;
@@ -211,6 +212,19 @@ public final class ForgeEventAdapter {
         // Event code 0 means no keyboard key; no keybind should fire.
         if (code == 0) return;
 
+        // F6 Panic: explicit, reversible Disable All. Restrict to a focused
+        // world with a stable native player identity, never fire on repeats.
+        // Native Minecraft's own input bindings are not modified.
+        if (code == Keyboard.KEY_F6) {
+            if (Keyboard.getEventKeyState() && !Keyboard.isRepeatEvent() &&
+                minecraft.currentScreen == null && minecraft.inGameHasFocus &&
+                worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) {
+                PanicController.disableAll(host);
+                features.reset();
+                combat.reset();
+            }
+            return;
+        }
         if (code == Keyboard.KEY_F7 && Keyboard.getEventKeyState() &&
             !Keyboard.isRepeatEvent() && minecraft.currentScreen == null && minecraft.inGameHasFocus) {
             host.inputFocus(true);

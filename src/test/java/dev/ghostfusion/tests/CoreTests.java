@@ -136,7 +136,7 @@ public final class CoreTests {
      * for the complete 16-bit key space, including chat, repeats and resets. */
     private static void testPrimitiveKeyboardBitmap() throws Exception {
         ModuleRegistry r=new ModuleRegistry();
-        int[] keys={1,63,64,66,127,128,303,65535};
+        int[] keys={1,62,63,66,127,128,303,65535};
         Fake[] modules=new Fake[keys.length];
         boolean[] enabled=new boolean[keys.length];
         for(int i=0;i<keys.length;i++) {
@@ -159,7 +159,7 @@ public final class CoreTests {
                 router.clearPressed();
                 reference.clear();
             }
-            if(key!=0 && key!=65) {
+            if(key!=0 && !ReservedKeys.reserved(key)) {
                 if(down) {
                     boolean first=reference.add(key);
                     if(first && !modal)
@@ -173,7 +173,7 @@ public final class CoreTests {
                     "key state matches old reference "+i+"/"+n);
         }
         router.clearPressed();
-        int[] edges={63,64,127,128,65535};
+        int[] edges={62,63,127,128,65535};
         for(int key:edges) {
             ModuleRegistry.Entry bound=r.boundToKey(key);
             ModuleRegistry.State before=bound.state();
@@ -281,6 +281,9 @@ public final class CoreTests {
         testRegistry(); testAllocationFreeHotkeyLookup();
         testPrimitiveKeyboardBitmap();
         testSettingsAndProfiles(); testIngressAndThread();
+        // Included under the original Core CI runner; no changes to the
+        // workflow shared with the parallel combat and Module List PRs.
+        PanicTests.main(args);
         check(assertions>48000,"48,000 dynamic hotkey lookup checks executed");
         System.out.println("CORE_REGRESSION_PASS assertions=" + assertions);
     }

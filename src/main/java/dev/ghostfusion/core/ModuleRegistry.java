@@ -38,6 +38,8 @@ public final class ModuleRegistry {
     // loop must not allocate or iterate a map being changed by user callbacks.
     private Entry[] dispatchEntries = new Entry[0];
     private boolean dispatching;
+    // A global Panic pass rejects module re-enables from onDisable or packet callbacks.
+    private boolean panicDisabling;
     private boolean shutdown;
     private int lifecycleCallbacks;
     private void beginLifecycle(Entry e) {
@@ -106,6 +108,8 @@ public final class ModuleRegistry {
     }
     public void setEnabled(String id, boolean enabled) {
         assertLive(); Entry e = get(id);
+        if(enabled && panicDisabling)
+            throw new IllegalStateException("Panic admission blocks module enable");
         // State is not committed until a lifecycle callback returns.
         // Re-entering it while pending would otherwise recurse indefinitely.
         if(e.transitioning) throw new IllegalStateException("Recursive module lifecycle: " + id);
@@ -126,6 +130,35 @@ public final class ModuleRegistry {
                     catch (Throwable ex) { fault(e, ex, false); }
                 } finally { endLifecycle(e); }
             } else if (e.state == State.FAULTED) { e.state = State.DISABLED; e.lastFault = ""; }
+        }
+    }
+    /**
+     * Global Panic admission: disable all enabled features in one owner-thread
+     * pass and retain the enable embargo through cleanup of pending intents.
+     * Cleanup can cancel network work with arbitrary completion callbacks;
+     * those callbacks cannot re-arm any module while the embargo is active.
+     * Does not reset saved settings, erase files or suppress fault evidence.
+     */
+    public int disableAllForPanic(Runnable cleanup) {
+        assertLive();
+        if(cleanup==null)throw new IllegalArgumentException("panic cleanup");
+        if(dispatching || lifecycleCallbacks!=0 || panicDisabling)
+            throw new IllegalStateException("Panic during module lifecycle");
+        panicDisabling=true;
+        try {
+            int disabled=0;
+            for(Entry e:dispatchEntries) {
+                if(e.state==State.ENABLED) {
+                    setEnabled(e.module.id(),false);
+                    disabled++;
+                }
+            }
+            // The caller's action/rotation/packet/inventory cleanup is
+            // executed BEFORE module admission reopens.
+            cleanup.run();
+            return disabled;
+        } finally {
+            panicDisabling=false;
         }
     }
     public void toggleKey(int key) {
