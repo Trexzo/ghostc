@@ -18,6 +18,8 @@ import dev.ghostfusion.ui.GuiSearchFocus;
 import dev.ghostfusion.ui.GuiKeybindCapture;
 import dev.ghostfusion.ui.HudPositions.Widget;
 import dev.ghostfusion.ui.HudPreviewGeometry;
+import dev.ghostfusion.ui.HudPreviewArt;
+import dev.ghostfusion.ui.HudThemeTokens;
 import dev.ghostfusion.ui.HudSnapPolicy;
 import dev.ghostfusion.ui.HudOverlapPolicy;
 import dev.ghostfusion.ui.ModuleListLayout;
@@ -70,6 +72,20 @@ public final class GhostClickGui extends GuiScreen {
     private int previewX, previewY, previewW, previewH;
     private static final int HUD_WIDTH = 124;
     private static final int HUD_HEIGHT = 22;
+    // One reusable sink paints schematic HUD thumbnails without allocating
+    // lambdas, arrays or per-widget scene graphs on each editor frame.
+    private HudThemeTokens miniatureTheme=HudThemeTokens.of("classic");
+    private final HudPreviewArt.Sink miniaturePainter=new HudPreviewArt.Sink(){
+        public void box(int px,int py,int pw,int ph,int role) {
+            int color=role==HudPreviewArt.PANEL?miniatureTheme.panel:
+                role==HudPreviewArt.PRIMARY?miniatureTheme.accent:
+                role==HudPreviewArt.SECONDARY?miniatureTheme.secondary:
+                role==HudPreviewArt.TRACK?miniatureTheme.track:
+                miniatureTheme.muted;
+            rect(px,py,pw,ph,color);
+        }
+    };
+    private ModuleListLayout.Frame moduleListFrameCache;
     // Reuse the active Minecraft font when measuring GUI labels, without
     // allocating a new callback on each rendered row or each frame.
     private final java.util.function.ToIntFunction<String> guiFontWidths =
@@ -84,6 +100,7 @@ public final class GhostClickGui extends GuiScreen {
         this.host = host; ui = host.ui();
     }
     @Override public void initGui() {
+        moduleListFrameCache=null;
         Keyboard.enableRepeatEvents(true);
         rebuild();
         host.inputFocus(true);
@@ -146,6 +163,8 @@ public final class GhostClickGui extends GuiScreen {
         });
     }
     private void drawUi(int mx, int my) {
+        // Cache the live font-measured Module List once per GUI frame.
+        moduleListFrameCache=null;
         rect(0, 0, width, height, 0x99060B13);
         rect(x, y, w, h, bg());
         if (!GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout()))) {
@@ -333,12 +352,14 @@ public final class GhostClickGui extends GuiScreen {
     }
     /** Use the same enabled module names/font metrics as the actual in-game list. */
     private ModuleListLayout.Frame listFootprint() {
+        if(moduleListFrameCache!=null)return moduleListFrameCache;
         String position=host.moduleListPosition();
         // Custom coordinates affect only placement, not a single pixel of size.
-        return ModuleListLayout.calculate(host.modules(),width,height,
+        moduleListFrameCache=ModuleListLayout.calculate(host.modules(),width,height,
             fontRendererObj.FONT_HEIGHT,host.moduleListMaxRows(),
             host.moduleListShowRender(),"custom".equals(position)?"top_right":position,
             host.moduleListOrder(),guiFontWidths,host.moduleListCompact());
+        return moduleListFrameCache;
     }
     private int hudWidth(Widget widget) {
         if(widget==Widget.MODULE_LIST) {
@@ -405,6 +426,36 @@ public final class GhostClickGui extends GuiScreen {
     }
     private int statusPreviewWidth() { return statusFootprint().measuredWidth; }
     private int statusPreviewHeight() { return statusFootprint().measuredHeight; }
+    /** Match the chosen skin of each on-screen HUD, not the editor's selection. */
+    private HudThemeTokens miniatureThemeFor(Widget widget) {
+        String appearance;
+        if(widget==null) {
+            appearance=ui.theme()==UiState.Theme.NEBULA?"nebula":"classic";
+        } else {
+            switch(widget) {
+                case KEYSTROKES: appearance=host.keysAppearance();break;
+                case CPS: appearance=host.cpsAppearance();break;
+                case TARGET:
+                    appearance=host.targetSkin();
+                    if("glass".equals(appearance))appearance="classic";
+                    break;
+                case MODULE_LIST: appearance=host.moduleListAppearance();break;
+                default: appearance="classic";
+            }
+        }
+        return HudThemeTokens.of(appearance);
+    }
+    private void drawHudMiniature(Rect bounds,Widget widget,boolean selected) {
+        miniatureTheme=miniatureThemeFor(widget);
+        HudPreviewArt.paint(bounds,widget,miniaturePainter);
+        if(selected) {
+            // Preview-only selection outline. The collision-warning outline wins later.
+            rect(bounds.x,bounds.y,bounds.width,1,miniatureTheme.accent);
+            rect(bounds.x,bounds.y+bounds.height-1,bounds.width,1,miniatureTheme.accent);
+            rect(bounds.x,bounds.y,1,bounds.height,miniatureTheme.accent);
+            rect(bounds.x+bounds.width-1,bounds.y,1,bounds.height,miniatureTheme.accent);
+        }
+    }
     private void drawHudEditor(int mx, int my) {
         if (previewW<1 || previewH<1) return;
         label("HUD POSITION EDITOR",x+side+12,y+49,accent());
@@ -426,20 +477,12 @@ public final class GhostClickGui extends GuiScreen {
             rect(canvas.x,gy,canvas.width,1,0x304E5D75);
 
         Rect status=geometry.status(ui,statusPreviewWidth(),statusPreviewHeight());
-        rect(status.x,status.y,status.width,status.height,
-            hudControls.selected()==HudEditorControls.Item.STATUS ? 0xFF8376CD : 0xFF444C78);
-        if(status.width>=30 && status.height>=12)
-            label("Status",status.x+2,status.y+2,0xFFFFFFFF);
+        drawHudMiniature(status,null,hudControls.selected()==HudEditorControls.Item.STATUS);
 
         for(Widget widget:Widget.values()) {
             Rect r=hudPreviewRect(geometry,widget);
-            rect(r.x,r.y,r.width,r.height,
-                hudControls.selected()==HudEditorControls.itemFor(widget) ?
-                    0xFF8376CD : 0xFF384B66);
-            String tag=widget==Widget.KEYSTROKES?"K":widget==Widget.CPS?"C":
-                widget==Widget.TARGET?"T":"M";
-            if(r.width>=8 && r.height>=10)
-                label(tag,r.x+1,r.y+1,0xFFFFFFFF);
+            drawHudMiniature(r,widget,
+                hudControls.selected()==HudEditorControls.itemFor(widget));
         }
         // Highlight only collisions involving the selected HUD; no automatic moves.
         Rect selectedRect=hudControls.selected()==HudEditorControls.Item.STATUS
@@ -562,6 +605,7 @@ public final class GhostClickGui extends GuiScreen {
         }
     }
     @Override protected void mouseClicked(int mx, int my, int button) throws IOException {
+        moduleListFrameCache=null;
         finishSliderDrag();
         finishHudDrag();
         // Pointer focus takes precedence over a pending keybind editor.
@@ -683,6 +727,7 @@ public final class GhostClickGui extends GuiScreen {
         }
     }
     @Override protected void mouseClickMove(int mx,int my,int button,long timeSinceLastClick) {
+        moduleListFrameCache=null;
         if(sliderDrag.active()) {
             if(button==0 && !hudPage &&
                sliderDrag.sameViewport(width,height) &&
@@ -697,6 +742,7 @@ public final class GhostClickGui extends GuiScreen {
         }
     }
     @Override protected void mouseReleased(int mx,int my,int state) {
+        moduleListFrameCache=null;
         super.mouseReleased(mx,my,state);
         if(sliderDrag.active()) {
             if(state==0 && sliderDrag.sameViewport(width,height))adjustSliderDrag(mx);

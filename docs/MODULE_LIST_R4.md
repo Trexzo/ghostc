@@ -92,3 +92,19 @@ restrained warning border and contextual footer. It uses read-only half-open
 pixel geometry and never automatically relocates widgets, rewrites settings or
 interferes with native Minecraft input. The overlap policy has deterministic
 24k-variant regression coverage, including touching-edge noncollisions.
+
+## R4 editor previews — readable silhouettes instead of placeholder tiles
+The F7 editor now paints miniature, bounded, representative shapes for Status,
+Keystrokes (WASD), CPS, Target HUD (HP bar) and Module List (enabled rows),
+colored by the user's actual style choice (Classic, Minimal or Nebula).
+These are deliberately **schematic**, not actual combat/health data; they use
+the existing authoritative hitboxes and no shaders, textures or new inputs.
+`HudPreviewArt` has a callback-style, allocation-free painter with integer
+fraction geometry and 30,000 seeded clipping/bounds test cases. One reusable
+sink in Forge avoids making per-frame scene graphs or lambdas.
+
+Also, F7 caches the font-measured Module List frame **once per GUI frame**
+and invalidates it on input; repeated preview width/height and collision/snap
+queries no longer re-sort all enabled modules within a single paint.
+This only optimizes the F7 editor. It does not assert improvements to
+Minecraft gameplay FPS or change the independent runtime render loop.

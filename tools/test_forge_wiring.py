@@ -2246,6 +2246,23 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("Keystrokes and CPS style choices can differ",tests)
         self.assertIn("HUD_THEME_TOKENS_PASS",content(".github/workflows/core-ci.yml"))
 
+    def test_skin_aware_hud_editor_miniatures_and_per_frame_list_cache(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        model=content("src/main/java/dev/ghostfusion/ui/HudPreviewArt.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/HudPreviewArtTests.java")
+        self.assertIn("HudPreviewArt.paint(bounds,widget,miniaturePainter);",gui)
+        self.assertIn("miniatureTheme=miniatureThemeFor(widget);",gui)
+        self.assertIn("private final HudPreviewArt.Sink miniaturePainter",gui)
+        self.assertIn("drawHudMiniature(status,null,",gui)
+        self.assertIn("drawHudMiniature(r,widget,",gui)
+        self.assertIn("moduleListFrameCache=null;",gui)
+        self.assertIn("if(moduleListFrameCache!=null)return moduleListFrameCache;",gui)
+        self.assertIn("case MODULE_LIST:",model)
+        self.assertIn("case KEYSTROKES:",model)
+        self.assertIn("case TARGET:",model)
+        self.assertIn("strict preview clipping",tests)
+        self.assertIn("HUD_PREVIEW_ART_PASS",content(".github/workflows/core-ci.yml"))
+
     def test_hud_editor_overlap_feedback_does_not_move_widgets(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         overlap=content("src/main/java/dev/ghostfusion/ui/HudOverlapPolicy.java")
