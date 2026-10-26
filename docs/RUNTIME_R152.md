@@ -12,6 +12,12 @@ This milestone follows the source comparison with recovered Slinky and Vape V4.2
 - Pure Java `PatternClickScheduler` has bounded memory, no background thread, per-owner seeded state, no extra press on arm/release/rearm, no catch-up queue after low FPS, no more than one pulse per game tick, explicit mode/interval reset, and opt-in-only behavior.
 - The same original `PhysicalInputGate`, `ActionCoordinator`, vanilla `KeyBinding.onTick`, target/focus/use conditions and world lifecycle cancellation remain mandatory. These modes do **not** implement actual independent hardware mouse-down/up events, fake human input or anti-cheat bypass.
 
+**Aim Assist — selection persistence and priority (parallel continuation)**
+- `lock_target=false` is the unchanged default. When enabled, GhostC retains the **last successfully applied** target between client ticks, provided the same native player UUID is still attached to that entity ID, and the snapshot target still satisfies all normal range, visibility and FOV gates. A lost/ineligible/despawned target falls back to fresh ranking; world epoch, focus, GUI and held-input invalidation reset the hint.
+- `target_priority=angular` is the unchanged default. `distance` optionally prioritizes the nearest in-range eligible target with deterministic angular-error and entity-ID tie-breaks. These rankings never relax the current native target identity/source-pose safety checks.
+- Selection is deterministic without allocating a sorted list, and only a successful owner `CAMERA` decision updates the lock. No silent rotations, attack manipulation or bypass mechanism is introduced.
+- The independent `CombatDepthTests` now include 20,000 additional shuffled target-order deterministic assertions, UUID reuse, epoch changes, rearming, FOV/LOS/range vetoes and persisted GUI configuration.
+
 **Aim Assist — adjustable axis participation and target point**
 - `horizontal_fraction=1.0` and `vertical_fraction=1.0` defaults; each slider ranges 0.1–1.0.
 - `target_height=1.25` is now adjustable 0.4–1.7 blocks above target feet.
