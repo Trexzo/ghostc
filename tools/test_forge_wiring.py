@@ -2246,6 +2246,17 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("Keystrokes and CPS style choices can differ",tests)
         self.assertIn("HUD_THEME_TOKENS_PASS",content(".github/workflows/core-ci.yml"))
 
+    def test_hud_editor_overlap_feedback_does_not_move_widgets(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        overlap=content("src/main/java/dev/ghostfusion/ui/HudOverlapPolicy.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/HudOverlapPolicyTests.java")
+        self.assertIn("HudOverlapPolicy.overlaps(selectedRect,other)",gui)
+        self.assertIn("hudConflictOutline(selectedRect);",gui)
+        self.assertIn("HUD overlap detected | Drag to separate",gui)
+        self.assertIn("public static boolean overlaps(",overlap)
+        self.assertIn("collision query never mutates UI anchors",tests)
+        self.assertIn("HUD_OVERLAP_POLICY_PASS",content(".github/workflows/core-ci.yml"))
+
     def test_hud_snap_policy_has_opt_out_and_preview_only_guides(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         snap=content("src/main/java/dev/ghostfusion/ui/HudSnapPolicy.java")

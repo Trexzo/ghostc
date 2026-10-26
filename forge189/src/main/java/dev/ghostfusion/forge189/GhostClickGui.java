@@ -19,6 +19,7 @@ import dev.ghostfusion.ui.GuiKeybindCapture;
 import dev.ghostfusion.ui.HudPositions.Widget;
 import dev.ghostfusion.ui.HudPreviewGeometry;
 import dev.ghostfusion.ui.HudSnapPolicy;
+import dev.ghostfusion.ui.HudOverlapPolicy;
 import dev.ghostfusion.ui.ModuleListLayout;
 import dev.ghostfusion.ui.HudFootprints;
 import dev.ghostfusion.ui.HudTextFit;
@@ -440,6 +441,22 @@ public final class GhostClickGui extends GuiScreen {
             if(r.width>=8 && r.height>=10)
                 label(tag,r.x+1,r.y+1,0xFFFFFFFF);
         }
+        // Highlight only collisions involving the selected HUD; no automatic moves.
+        Rect selectedRect=hudControls.selected()==HudEditorControls.Item.STATUS
+            ?status:hudPreviewRect(geometry,hudControls.selected().widget);
+        boolean hudOverlaps=false;
+        if(HudOverlapPolicy.overlaps(selectedRect,status) &&
+           hudControls.selected()!=HudEditorControls.Item.STATUS) {
+            hudConflictOutline(status);hudOverlaps=true;
+        }
+        for(Widget peer:Widget.values()) {
+            if(peer==hudControls.selected().widget)continue;
+            Rect other=hudPreviewRect(geometry,peer);
+            if(HudOverlapPolicy.overlaps(selectedRect,other)) {
+                hudConflictOutline(other);hudOverlaps=true;
+            }
+        }
+        if(hudOverlaps)hudConflictOutline(selectedRect);
         if(hudDragging) {
             if(snapGuideX!=HudSnapPolicy.NO_GUIDE)
                 rect(Math.min(canvas.x+canvas.width-1,Math.max(canvas.x,snapGuideX)),
@@ -448,8 +465,19 @@ public final class GhostClickGui extends GuiScreen {
                 rect(canvas.x,Math.min(canvas.y+canvas.height-1,
                     Math.max(canvas.y,snapGuideY)),canvas.width,1,0x9966DDD0);
         }
-        label(trim("Drag: Snap on | Alt: free | Arrows: 1px | Shift+Arrows: 10px | R: Reset",w-side-20),
+        label(trim(hudOverlaps
+            ?"HUD overlap detected | Drag to separate | R: Reset"
+            :"Drag: Snap on | Alt: free | Arrows: 1px | Shift+Arrows: 10px | R: Reset",
+            w-side-20),
             previewX,previewY+previewH+8,0xFFBEC6D9);
+    }
+    /** Compact outline used only for editor feedback; never affects live HUD paint. */
+    private void hudConflictOutline(Rect r) {
+        final int warning=0xFFED9B8A;
+        rect(r.x,r.y,r.width,1,warning);
+        rect(r.x,r.y+r.height-1,r.width,1,warning);
+        rect(r.x,r.y,1,r.height,warning);
+        rect(r.x+r.width-1,r.y,1,r.height,warning);
     }
     /** A capture is tied to a stable setting, never the currently scrolled row. */
     private void adjustSliderDrag(int mouseX) {

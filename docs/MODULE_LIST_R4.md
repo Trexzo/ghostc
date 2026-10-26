@@ -85,3 +85,10 @@ bounds, and dynamically sized frames follow the actual enabled-module labels.
 Reset restores the original top-right preset; snapping, Alt bypass and one-save-on-
 release remain shared with the other HUD widgets. Core regressions cover legacy
 profile compatibility, custom bounds, anchor rejection and dynamic layout.
+
+## HUD editor collision visibility
+The F7 preview now outlines collisions involving the selected HUD widget with a
+restrained warning border and contextual footer. It uses read-only half-open
+pixel geometry and never automatically relocates widgets, rewrites settings or
+interferes with native Minecraft input. The overlap policy has deterministic
+24k-variant regression coverage, including touching-edge noncollisions.
