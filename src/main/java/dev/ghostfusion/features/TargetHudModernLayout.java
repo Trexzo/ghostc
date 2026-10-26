@@ -13,7 +13,7 @@ public final class TargetHudModernLayout {
     private static final TargetHudModernLayout MINIMAL=new TargetHudModernLayout(
         6,6,37,3,21,18,0,false);
     private static final TargetHudModernLayout NEBULA=new TargetHudModernLayout(
-        8,8,25,5,33,18,3,true);
+        7,7,25,5,33,18,3,true);
 
     private TargetHudModernLayout(int nameY,int healthLabelY,int trackY,int trackHeight,
                                   int distanceWithHealthY,int distanceWithoutHealthY,

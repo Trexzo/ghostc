@@ -15,6 +15,7 @@ import dev.ghostfusion.features.TargetHudDistanceText;
 import dev.ghostfusion.features.EspTeamPolicy;
 import dev.ghostfusion.features.TargetHudPalette;
 import dev.ghostfusion.features.TargetHudModernLayout;
+import dev.ghostfusion.features.TargetHudMotion;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.services.WorldSnapshot;
@@ -39,6 +40,7 @@ public final class ForgeFeatureDriver {
     private final HostRuntime host;
     private final CpsMeter cps = new CpsMeter();
     private final TargetHudPolicy targets = new TargetHudPolicy();
+    private final TargetHudMotion targetMotion = new TargetHudMotion();
     // Reused, client-thread-only admission for snapshot IDs. No per-frame
     // predicate allocations; no extra LOS rays or snapshot construction.
     private final java.util.function.IntPredicate nonTeammate =
@@ -88,7 +90,7 @@ public final class ForgeFeatureDriver {
         boolean focused = mc.currentScreen == null && mc.inGameHasFocus && host.worldPresent();
         cps.mouse(button, Mouse.getEventButtonState(), System.nanoTime(), focused);
     }
-    void reset() { cps.clear(); }
+    void reset() { cps.clear(); targetMotion.reset(); }
     void render3d(final float partialTicks) {
         host.runFeature("render.esp", new Runnable() {
             public void run() { esp.draw(partialTicks); }
@@ -294,17 +296,9 @@ public final class ForgeFeatureDriver {
         // A one-pixel translucent frame provides definition without GL shaders.
         Gui.drawRect(x,y,x+width,y+1,palette.outline);
         Gui.drawRect(x,y+height-1,x+width,y+height,palette.outline);
-        if(style.topBand) {
-            // Nebula: twin accent stripes, slight depth, no per-frame texture allocations.
-            Gui.drawRect(x+1,y+1,x+width-1,y+3,palette.accent);
-            Gui.drawRect(x+1,y+3,x+width-1,y+4,0x574F75B7);
-            Gui.drawRect(x+width-3,y+4,x+width-1,y+height-1,palette.secondary);
-            Gui.drawRect(x+1,y+height-2,x+width-1,y+height-1,0x725FE4DA);
-        } else {
-            // Minimal: monochromatic side stroke and subdued bottom separator.
-            Gui.drawRect(x+1,y+1,x+3,y+height-1,palette.accent);
-            Gui.drawRect(x+3,y+height-2,x+width-1,y+height-1,palette.secondary);
-        }
+        // Minimal is the only consumer of this restrained alternative painter.
+        Gui.drawRect(x+1,y+1,x+3,y+height-1,palette.accent);
+        Gui.drawRect(x+3,y+height-2,x+width-1,y+height-1,palette.secondary);
         mc.fontRendererObj.drawStringWithShadow(labels.name,x+9,
             y+style.nameY,palette.name);
         if(health) {
@@ -330,6 +324,62 @@ public final class ForgeFeatureDriver {
                 mc.fontRendererObj.drawStringWithShadow(text,
                     x+width-9-mc.fontRendererObj.getStringWidth(text),distanceY,
                     palette.secondary);
+        }
+    }
+    /**
+     * Nebula v2: its own aurora-inspired composition, not a recolored Minimal.
+     * No textures, shaders, caches or simulated targets.
+     */
+    private void drawNebulaTarget(int x,int y,int width,int height,boolean health,
+                                  TargetHudTextLayout.Result labels,EntityPlayer player) {
+        TargetHudModernLayout layout=TargetHudModernLayout.of("nebula");
+        if(!layout.fits(width,height,mc.fontRendererObj.FONT_HEIGHT,health))return;
+        targetMotion.update(player,System.nanoTime(),labels.healthFraction,host.targetMotion());
+        double alpha=targetMotion.opacity();
+        // Deep midnight base with low-contrast inset and a contained four-sided frame.
+        Gui.drawRect(x,y,x+width,y+height,TargetHudMotion.fade(0xE2151526,alpha));
+        int edge=TargetHudMotion.fade(0x995C537F,alpha);
+        Gui.drawRect(x,y,x+width,y+1,edge);
+        Gui.drawRect(x,y+height-1,x+width,y+height,edge);
+        Gui.drawRect(x,y,x+1,y+height,edge);
+        Gui.drawRect(x+width-1,y,x+width,y+height,edge);
+        Gui.drawRect(x+2,y+2,x+width-2,y+5,
+            TargetHudMotion.fade(0x573A3159,alpha));
+        // A short, subdued violet-to-cyan aurora. No bright full-width RGB frame.
+        Gui.drawRect(x+8,y+3,x+width/2,y+4,
+            TargetHudMotion.fade(0xFF9C8BFF,alpha));
+        Gui.drawRect(x+width/2,y+3,x+width-16,y+4,
+            TargetHudMotion.fade(0xA566DDD0,alpha));
+        Gui.drawRect(x+2,y+7,x+4,y+height-7,
+            TargetHudMotion.fade(0xFF9C8BFF,alpha));
+        Gui.drawRect(x+width-4,y+height-10,x+width-2,y+height-4,
+            TargetHudMotion.fade(0xFF66DDD0,alpha));
+        mc.fontRendererObj.drawStringWithShadow(labels.name,x+9,
+            y+layout.nameY,TargetHudMotion.fade(0xFFF5F3FF,alpha));
+        if(health) {
+            int l=x+9,r=x+width-9,t=y+layout.trackY,h=layout.trackHeight;
+            Gui.drawRect(l,t,r,t+h,TargetHudMotion.fade(0xFF303048,alpha));
+            int filled=(int)Math.round((r-l)*targetMotion.health());
+            if(filled>0) {
+                Gui.drawRect(l,t,l+filled,t+h,TargetHudMotion.fade(0xFF9C8BFF,alpha));
+                if(filled>=5)
+                    Gui.drawRect(l+filled-2,t,l+filled,t+h,
+                        TargetHudMotion.fade(0xFF66DDD0,alpha));
+            }
+            mc.fontRendererObj.drawStringWithShadow(labels.healthLabel,
+                x+width-9-labels.healthLabelWidth,y+layout.healthLabelY,
+                TargetHudMotion.fade(0xFFC5C3DF,alpha));
+        }
+        if(host.targetDistance()) {
+            int distY=y+(health?layout.distanceWithHealthY:layout.distanceWithoutHealthY);
+            String distance=TargetHudDistanceText.format(
+                player.posX,player.posY,player.posZ,
+                mc.thePlayer.posX,mc.thePlayer.posY,mc.thePlayer.posZ,
+                host.targetRange(),width-18,targetFontWidths);
+            if(!distance.isEmpty())
+                mc.fontRendererObj.drawStringWithShadow(distance,
+                    x+width-9-mc.fontRendererObj.getStringWidth(distance),
+                    distY,TargetHudMotion.fade(0xFFC5C3DF,alpha));
         }
     }
     private void drawTarget(int sw,int sh) {
@@ -360,7 +410,7 @@ public final class ForgeFeatureDriver {
                 selection,crosshairId,nonTeammate)
             :targets.select(w,host.targetRange(),host.targetVisible(),
                 selection,crosshairId);
-        if (target==null) return;
+        if (target==null) { targetMotion.reset(); return; }
         Entity e=mc.theWorld.getEntityByID(target.id);
         if (!(e instanceof EntityPlayer) || e == mc.thePlayer) return;
         EntityPlayer player=(EntityPlayer)e;
@@ -386,7 +436,11 @@ public final class ForgeFeatureDriver {
             player.getMaxHealth(),width,targetFontWidths);
         final String skin=host.targetSkin();
         TargetHudPalette palette=TargetHudPalette.of(skin);
-        if("minimal".equals(skin)||"nebula".equals(skin)) {
+        if("nebula".equals(skin)) {
+            drawNebulaTarget(x,y,width,height,health,labels,player);
+            return;
+        }
+        if("minimal".equals(skin)) {
             drawModernTarget(x,y,width,height,health,labels,palette,
                 TargetHudModernLayout.of(skin),player);
             return;

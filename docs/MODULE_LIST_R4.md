@@ -33,3 +33,11 @@ module registration; preserve both feature sets when rebasing.
 - Player/health/distance information comes from the existing live target gates.
 - Independent pure Java geometry checks and profile roundtrip tests are included;
   shaders or injector changes are deliberately excluded.
+
+## Nebula R4 redesign
+Nebula now has a distinct painter and restrained aurora composition with a four-sided frame,
+low-contrast inset, two-tone health fill and a small energy marker rather than full-width neon stripes.
+The live target identity is verified before drawing; health interpolation cannot reuse the previous target.
+The `hud.target.motion` toggle defaults to true but only affects the opt-in Nebula skin.
+Classic, Glass, and Minimal retain their original painter and defaults. The Forge reset clears Nebula
+animation state on world/session transition. Pixel appearance still requires Minecraft visual acceptance.

@@ -53,6 +53,7 @@ public final class HostRuntime {
     private final Setting.Bool keysJump = new Setting.Bool("show_jump", true);
     private final Setting.Bool keysSneak = new Setting.Bool("show_sneak", true);
     private final Setting.Bool cpsRight = new Setting.Bool("show_right", true);
+    private final Setting.Bool targetMotion = new Setting.Bool("motion", true);
     private final Setting.Number targetRange = new Setting.Number("range", 8.0, 2.0, 24.0);
     private final Setting.Bool targetVisible = new Setting.Bool("visible_only", true);
     private final Setting.Bool targetHealth = new Setting.Bool("show_health", true);
@@ -168,7 +169,7 @@ public final class HostRuntime {
         modules.register(new FeatureModule("hud.cps", "CPS Counter", GhostModule.Category.RENDER),
             0, cpsRight);
         modules.register(new FeatureModule("hud.target", "Target HUD", GhostModule.Category.RENDER),
-            0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin, targetSelection, targetDistance, targetIgnoreTeammates);
+            0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin, targetSelection, targetDistance, targetIgnoreTeammates, targetMotion);
         modules.register(new FeatureModule("render.esp", "Player ESP", GhostModule.Category.RENDER),
             0, espRange, espVisible, espIgnoreTeammates, espWalls, espWidth, espStyle, espHealth,
             espHealthSide, espHealthGap,
@@ -324,6 +325,7 @@ public final class HostRuntime {
     public String targetHealthText() {
         modules.assertOwnerThread(); return targetHealthText.get();
     }
+    public boolean targetMotion() { modules.assertOwnerThread(); return targetMotion.get(); }
     public String targetSkin() {
         modules.assertOwnerThread(); return targetSkin.get();
     }
