@@ -349,39 +349,40 @@ public final class ForgeFeatureDriver {
         if(!layout.fits(width,height,mc.fontRendererObj.FONT_HEIGHT,health))return;
         targetMotion.update(player,System.nanoTime(),labels.healthFraction,host.targetMotion());
         double alpha=targetMotion.opacity();
+        final HudThemeTokens theme=HudThemeTokens.of("nebula");
         // Deep midnight base with low-contrast inset and a contained four-sided frame.
-        Gui.drawRect(x,y,x+width,y+height,TargetHudMotion.fade(0xE2151526,alpha));
-        int edge=TargetHudMotion.fade(0x995C537F,alpha);
+        Gui.drawRect(x,y,x+width,y+height,TargetHudMotion.fade(theme.panel,alpha));
+        int edge=TargetHudMotion.fade(theme.frame,alpha);
         Gui.drawRect(x,y,x+width,y+1,edge);
         Gui.drawRect(x,y+height-1,x+width,y+height,edge);
         Gui.drawRect(x,y,x+1,y+height,edge);
         Gui.drawRect(x+width-1,y,x+width,y+height,edge);
         Gui.drawRect(x+2,y+2,x+width-2,y+5,
-            TargetHudMotion.fade(0x573A3159,alpha));
+            TargetHudMotion.fade(theme.sheen,alpha));
         // A short, subdued violet-to-cyan aurora. No bright full-width RGB frame.
         Gui.drawRect(x+8,y+3,x+width/2,y+4,
-            TargetHudMotion.fade(0xFF9C8BFF,alpha));
+            TargetHudMotion.fade(theme.accent,alpha));
         Gui.drawRect(x+width/2,y+3,x+width-16,y+4,
-            TargetHudMotion.fade(0xA566DDD0,alpha));
+            TargetHudMotion.fade(theme.secondary,alpha*0.65));
         Gui.drawRect(x+2,y+7,x+4,y+height-7,
-            TargetHudMotion.fade(0xFF9C8BFF,alpha));
+            TargetHudMotion.fade(theme.accent,alpha));
         Gui.drawRect(x+width-4,y+height-10,x+width-2,y+height-4,
-            TargetHudMotion.fade(0xFF66DDD0,alpha));
+            TargetHudMotion.fade(theme.secondary,alpha));
         mc.fontRendererObj.drawStringWithShadow(labels.name,x+9,
-            y+layout.nameY,TargetHudMotion.fade(0xFFF5F3FF,alpha));
+            y+layout.nameY,TargetHudMotion.fade(theme.text,alpha));
         if(health) {
             int l=x+9,r=x+width-9,t=y+layout.trackY,h=layout.trackHeight;
-            Gui.drawRect(l,t,r,t+h,TargetHudMotion.fade(0xFF303048,alpha));
+            Gui.drawRect(l,t,r,t+h,TargetHudMotion.fade(theme.track,alpha));
             int filled=(int)Math.round((r-l)*targetMotion.health());
             if(filled>0) {
-                Gui.drawRect(l,t,l+filled,t+h,TargetHudMotion.fade(0xFF9C8BFF,alpha));
+                Gui.drawRect(l,t,l+filled,t+h,TargetHudMotion.fade(theme.accent,alpha));
                 if(filled>=5)
                     Gui.drawRect(l+filled-2,t,l+filled,t+h,
-                        TargetHudMotion.fade(0xFF66DDD0,alpha));
+                        TargetHudMotion.fade(theme.secondary,alpha));
             }
             mc.fontRendererObj.drawStringWithShadow(labels.healthLabel,
                 x+width-9-labels.healthLabelWidth,y+layout.healthLabelY,
-                TargetHudMotion.fade(0xFFC5C3DF,alpha));
+                TargetHudMotion.fade(theme.muted,alpha));
         }
         if(host.targetDistance()) {
             int distY=y+(health?layout.distanceWithHealthY:layout.distanceWithoutHealthY);
@@ -392,7 +393,7 @@ public final class ForgeFeatureDriver {
             if(!distance.isEmpty())
                 mc.fontRendererObj.drawStringWithShadow(distance,
                     x+width-9-mc.fontRendererObj.getStringWidth(distance),
-                    distY,TargetHudMotion.fade(0xFFC5C3DF,alpha));
+                    distY,TargetHudMotion.fade(theme.muted,alpha));
         }
     }
     private void drawTarget(int sw,int sh) {

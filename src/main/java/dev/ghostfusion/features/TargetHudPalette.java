@@ -1,5 +1,7 @@
 package dev.ghostfusion.features;
 
+import dev.ghostfusion.ui.HudThemeTokens;
+
 /**
  * First-party Target HUD appearance tokens. No Minecraft objects or GL state.
  * Classic retains exact pre-R2.56 ARGB values; glass is opt-in via the
@@ -15,7 +17,10 @@ public final class TargetHudPalette {
     private static final TargetHudPalette MINIMAL=new TargetHudPalette(
         0xE0151921,0xFFE1E5EF,0xFF384250,0xFFF8F9FC,0xFFB8C2D0,0xAA5C6776,0xFF8CA2C5);
     private static final TargetHudPalette NEBULA=new TargetHudPalette(
-        0xE0191630,0xFFA88AFF,0xFF353457,0xFFF8F5FF,0xFFCDC5E8,0xA8544E96,0xFF5FE4DA);
+        HudThemeTokens.of("nebula").panel,HudThemeTokens.of("nebula").accent,
+        HudThemeTokens.of("nebula").track,HudThemeTokens.of("nebula").text,
+        HudThemeTokens.of("nebula").muted,HudThemeTokens.of("nebula").frame,
+        HudThemeTokens.of("nebula").secondary);
     public final int secondary;
     private TargetHudPalette(int background,int accent,int track,int name,
                              int healthText,int outline) {

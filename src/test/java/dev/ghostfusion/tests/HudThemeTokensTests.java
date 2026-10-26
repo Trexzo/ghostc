@@ -12,11 +12,15 @@ public final class HudThemeTokensTests {
         HudThemeTokens minimal=HudThemeTokens.of("minimal");
         HudThemeTokens nebula=HudThemeTokens.of("nebula");
         ok(classic!=minimal && minimal!=nebula && nebula!=classic,"independent themes");
-        ok(nebula.accent!=nebula.secondary && nebula.sheen!=0,
+        ok(nebula.accent!=nebula.secondary && nebula.sheen!=0 &&
+            nebula.track!=nebula.panel && nebula.frame!=nebula.sheen,
             "Nebula keeps subtle accent hierarchy");
         for(int i=0;i<20000;i++)
             ok(HudThemeTokens.of(i%2==0?"nebula":"minimal")==
                 (i%2==0?nebula:minimal),"allocation-free palette lookup "+i);
+        ok(dev.ghostfusion.features.TargetHudPalette.of("nebula").background==nebula.panel &&
+            dev.ghostfusion.features.TargetHudPalette.of("nebula").accent==nebula.accent,
+            "Target HUD and Module List derive the same Nebula palette");
         boolean refused=false;
         try{HudThemeTokens.of("unknown");}catch(IllegalArgumentException expected){refused=true;}
         ok(refused,"reject invalid style");
