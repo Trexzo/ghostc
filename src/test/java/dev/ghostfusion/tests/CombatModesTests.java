@@ -66,11 +66,20 @@ public final class CombatModesTests {
         ok(!block(p,"post_attack",0,false,0,1),"arm before expiry scenario");
         ok(!block(p,"post_attack",0,true,1,1),"arm post attack");
         ok(block(p,"post_attack",0,false,2,1),"first trigger");
-        ok(!block(p,"post_attack",0,true,3,1),"another attack event starts cooldown");
-        ok(!block(p,"post_attack",0,false,4,1),"cooldown t4");
-        ok(!block(p,"post_attack",0,false,5,1),"cooldown t5");
-        ok(!block(p,"post_attack",0,false,6,1),"expired pending does not get replayed");
-        ok(!block(p,"post_attack",0,false,10,1),"expired pending remains suppressed");
+        // Change the configured interval after the first successful pulse:
+        // the pending event must expire, not fire after a long cooldown.
+        ok(!p.due(true,true,false,true,true,true,
+            true,10,0,"post_attack",3,1),"another attack starts a long cooldown");
+        ok(!p.due(true,true,false,true,true,true,
+            false,10,0,"post_attack",4,1),"cooldown t4");
+        ok(!p.due(true,true,false,true,true,true,
+            false,10,0,"post_attack",5,1),"cooldown t5");
+        ok(!p.due(true,true,false,true,true,true,
+            false,10,0,"post_attack",6,1),"cooldown t6");
+        ok(!p.due(true,true,false,true,true,true,
+            false,10,0,"post_attack",7,1),"event older than three ticks expires");
+        ok(!p.due(true,true,false,true,true,true,
+            false,10,0,"post_attack",12,1),"expired pending remains suppressed");
 
         p.reset();
         ok(!block(p,"post_attack",0,false,0,1),"starting post-attack");
