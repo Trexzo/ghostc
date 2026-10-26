@@ -24,6 +24,7 @@ import dev.ghostfusion.ui.HudSnapPolicy;
 import dev.ghostfusion.ui.HudOverlapPolicy;
 import dev.ghostfusion.ui.ModuleListLayout;
 import dev.ghostfusion.ui.HudFootprints;
+import dev.ghostfusion.ui.HudScaleLayout;
 import dev.ghostfusion.ui.HudTextFit;
 import dev.ghostfusion.ui.GuiSliderDrag;
 import dev.ghostfusion.ui.NumericSliderScale;
@@ -355,25 +356,42 @@ public final class GhostClickGui extends GuiScreen {
         if(moduleListFrameCache!=null)return moduleListFrameCache;
         String position=host.moduleListPosition();
         // Custom coordinates affect only placement, not a single pixel of size.
-        moduleListFrameCache=ModuleListLayout.calculate(host.modules(),width,height,
+        double scale=host.moduleListScale();
+        int virtualW=scale==1.0?width:HudScaleLayout.logicalViewport(width,scale);
+        int virtualH=scale==1.0?height:HudScaleLayout.logicalViewport(height,scale);
+        moduleListFrameCache=ModuleListLayout.calculate(host.modules(),virtualW,virtualH,
             fontRendererObj.FONT_HEIGHT,host.moduleListMaxRows(),
             host.moduleListShowRender(),"custom".equals(position)?"top_right":position,
             host.moduleListOrder(),guiFontWidths,host.moduleListCompact());
         return moduleListFrameCache;
     }
+    private double hudWidgetScale(Widget widget) {
+        switch(widget) {
+            case KEYSTROKES: return host.keysScale();
+            case CPS: return host.cpsScale();
+            case TARGET: return host.targetScale();
+            case MODULE_LIST: return host.moduleListScale();
+            default: throw new IllegalArgumentException("HUD scale widget");
+        }
+    }
     private int hudWidth(Widget widget) {
         if(widget==Widget.MODULE_LIST) {
             int measured=listFootprint().width;
-            return measured>0?measured:HudFootprints.width(widget);
+            return HudScaleLayout.extent(
+                measured>0?measured:HudFootprints.width(widget),hudWidgetScale(widget));
         }
-        return HudFootprints.width(widget);
+        return HudScaleLayout.extent(HudFootprints.width(widget),hudWidgetScale(widget));
     }
     private int hudHeight(Widget widget) {
         if(widget==Widget.MODULE_LIST) {
             int measured=listFootprint().height;
-            return measured>0?measured:HudFootprints.height(widget,true,true,true);
+            return HudScaleLayout.extent(
+                measured>0?measured:HudFootprints.height(widget,true,true,true),
+                hudWidgetScale(widget));
         }
-        return HudFootprints.height(widget,host.keysJump(),host.keysSneak(),host.targetHealth());
+        return HudScaleLayout.extent(
+            HudFootprints.height(widget,host.keysJump(),host.keysSneak(),
+                host.targetHealth()),hudWidgetScale(widget));
     }
     /** Preset corners are previewed at their real frame position; dragging uses saved anchors. */
     private Rect hudPreviewRect(HudPreviewGeometry geometry,Widget widget) {
@@ -387,8 +405,11 @@ public final class GhostClickGui extends GuiScreen {
                 double yy=host.moduleListPosition().startsWith("bottom_")?1.0:0.0;
                 return geometry.at(xx,yy,actualW,actualH);
             }
-            return geometry.at((double)frame.x/Math.max(1,width-frame.width),
-                (double)frame.y/Math.max(1,height-frame.height),actualW,actualH);
+            double scale=host.moduleListScale();
+            int logicalW=scale==1.0?width:HudScaleLayout.logicalViewport(width,scale);
+            int logicalH=scale==1.0?height:HudScaleLayout.logicalViewport(height,scale);
+            return geometry.at((double)frame.x/Math.max(1,logicalW-frame.width),
+                (double)frame.y/Math.max(1,logicalH-frame.height),actualW,actualH);
         }
         return geometry.widget(ui.widgets(),widget,hudWidth(widget),hudHeight(widget));
     }

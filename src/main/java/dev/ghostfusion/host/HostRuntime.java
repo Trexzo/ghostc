@@ -52,12 +52,15 @@ public final class HostRuntime {
     private final Setting.Bool showPing = new Setting.Bool("show_ping", false);
     private final Setting.Bool keysJump = new Setting.Bool("show_jump", true);
     private final Setting.Bool keysSneak = new Setting.Bool("show_sneak", true);
+    private final Setting.Number keysScale = new Setting.Number("scale",1.0,0.75,1.75);
     private final Setting.Bool cpsRight = new Setting.Bool("show_right", true);
+    private final Setting.Number cpsScale = new Setting.Number("scale",1.0,0.75,1.75);
     // Legacy HUDs keep their exact colors until a user chooses another skin.
     private final Setting.Choice keysAppearance =
         new Setting.Choice("appearance","classic","classic","minimal","nebula");
     private final Setting.Choice cpsAppearance =
         new Setting.Choice("appearance","classic","classic","minimal","nebula");
+    private final Setting.Number targetScale = new Setting.Number("scale",1.0,0.75,1.75);
     private final Setting.Bool targetMotion = new Setting.Bool("motion", true);
     private final Setting.Number targetRange = new Setting.Number("range", 8.0, 2.0, 24.0);
     private final Setting.Bool targetVisible = new Setting.Bool("visible_only", true);
@@ -134,6 +137,7 @@ public final class HostRuntime {
     private final Setting.Choice moduleListAppearance =
         new Setting.Choice("appearance","classic","classic","minimal","nebula");
     private final Setting.Bool moduleListCompact = new Setting.Bool("compact",false);
+    private final Setting.Number moduleListScale = new Setting.Number("scale",1.0,0.75,1.75);
     private final UiState ui = new UiState();
     private final UiSettingsStore uiStore;
     private final UiActions uiActions;
@@ -173,11 +177,11 @@ public final class HostRuntime {
         modules.register(overlay, DEFAULT_STATUS_KEY, statusScale, statusStyle, statusShadow);
         modules.register(metrics, 0, showFps, showCoordinates, showPing);
         modules.register(new FeatureModule("hud.keystrokes", "Keystrokes", GhostModule.Category.RENDER),
-            0, keysJump, keysSneak, keysAppearance);
+            0, keysJump, keysSneak, keysAppearance, keysScale);
         modules.register(new FeatureModule("hud.cps", "CPS Counter", GhostModule.Category.RENDER),
-            0, cpsRight, cpsAppearance);
+            0, cpsRight, cpsAppearance, cpsScale);
         modules.register(new FeatureModule("hud.target", "Target HUD", GhostModule.Category.RENDER),
-            0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin, targetSelection, targetDistance, targetIgnoreTeammates, targetMotion);
+            0, targetRange, targetVisible, targetHealth, targetHealthText, targetSkin, targetSelection, targetDistance, targetIgnoreTeammates, targetMotion, targetScale);
         modules.register(new FeatureModule("render.esp", "Player ESP", GhostModule.Category.RENDER),
             0, espRange, espVisible, espIgnoreTeammates, espWalls, espWidth, espStyle, espHealth,
             espHealthSide, espHealthGap,
@@ -198,7 +202,7 @@ public final class HostRuntime {
         modules.register(new FeatureModule("hud.modulelist", "Module List", GhostModule.Category.RENDER),
             0, moduleListPosition, moduleListOrder, moduleListRows,
             moduleListRender, moduleListBackground, moduleListAccent,
-            moduleListAppearance, moduleListCompact);
+            moduleListAppearance, moduleListCompact, moduleListScale);
         modules.setEnabled(overlay.id(), true);
         profiles = new ProfileStore(configDirectory, modules);
         uiStore = new UiSettingsStore(configDirectory, ui);
@@ -317,6 +321,10 @@ public final class HostRuntime {
     }
     public boolean keysJump() { modules.assertOwnerThread(); return keysJump.get(); }
     public boolean keysSneak() { modules.assertOwnerThread(); return keysSneak.get(); }
+    public double keysScale() { modules.assertOwnerThread(); return keysScale.get(); }
+    public double cpsScale() { modules.assertOwnerThread(); return cpsScale.get(); }
+    public double targetScale() { modules.assertOwnerThread(); return targetScale.get(); }
+    public double moduleListScale() { modules.assertOwnerThread(); return moduleListScale.get(); }
     public boolean cpsRight() { modules.assertOwnerThread(); return cpsRight.get(); }
     public String keysAppearance() { modules.assertOwnerThread(); return keysAppearance.get(); }
     public String cpsAppearance() { modules.assertOwnerThread(); return cpsAppearance.get(); }

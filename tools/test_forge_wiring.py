@@ -691,13 +691,34 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('getStringWidth(fitted)',self.feature)
         self.assertNotIn('label=label.substring(0,label.length()-1)',self.feature)
 
+    def test_opt_in_independent_hud_scale_matches_native_editor_footprints(self):
+        driver=self.feature
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        policy=content("src/main/java/dev/ghostfusion/ui/HudScaleLayout.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/HudScaleLayoutTests.java")
+        for name in ("keysScale","cpsScale","targetScale","moduleListScale"):
+            self.assertIn("public double "+name+"()",host)
+            self.assertIn("host."+name+"()",driver)
+        self.assertIn("HudScaleLayout.extent(",gui)
+        self.assertIn("HudScaleLayout.logicalViewport(width,scale)",gui)
+        self.assertIn("HudScaleLayout.place(",driver)
+        self.assertIn("GL11.glPushMatrix();",driver)
+        self.assertIn("GL11.glScaled(scale,scale,1);",driver)
+        self.assertIn("finally { GL11.glPopMatrix(); }",driver)
+        self.assertIn("scale==1.0",driver)
+        self.assertIn("scaled content contained",tests)
+        self.assertIn("HUD_SCALE_LAYOUT_PASS",content(".github/workflows/core-ci.yml"))
+        self.assertIn("if(w>viewportW||h>viewportH)return null;",policy)
+
     def test_keystrokes_and_target_admit_only_fitting_full_widgets(self):
         driver=self.feature
         viewport=content("src/main/java/dev/ghostfusion/ui/HudWidgetViewport.java")
         self.assertIn("HudWidgetViewport.Frame frame=HudWidgetViewport.place(",driver)
-        self.assertEqual(driver.count("if(frame==null)return;"),2)
-        self.assertIn("int x=frame.x,y=frame.y;",driver)
-        self.assertIn("int width=frame.width,height=frame.height;",driver)
+        self.assertIn("if(frame==null)return;",driver)
+        self.assertIn("} else if(scaled==null)return;",driver)
+        self.assertIn("drawKeysBody(frame.x,frame.y);",driver)
+        self.assertIn("int width=160,height=health?43:29;",driver)
         self.assertIn("screenWidth<width||screenHeight<height",viewport)
         self.assertIn("frame.contained(screenWidth,screenHeight)",viewport)
         self.assertIn("HudFootprints.width(widget)",viewport)

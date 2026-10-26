@@ -108,3 +108,20 @@ and invalidates it on input; repeated preview width/height and collision/snap
 queries no longer re-sort all enabled modules within a single paint.
 This only optimizes the F7 editor. It does not assert improvements to
 Minecraft gameplay FPS or change the independent runtime render loop.
+
+## Independent HUD scales (R4)
+Per-widget `scale` settings are now available for Keystrokes, CPS, Target HUD
+and Module List (0.75x–1.75x, original 1.00x default). They are typed profile
+settings and need no UI settings schema migration. All four use the same
+bounded visible footprint math as the F7 editor and saved normalized anchors.
+
+For non-unit scales, Forge wraps only the corresponding HUD painter in a
+push/translate/scale/pop modelview scope, restoring the GL matrix in `finally`.
+The old 1.00x rendering code path remains the default. The Target HUD performs
+full scaled-viewport admission before live target selection, and the Module
+List computes text layout in a scale-adjusted virtual viewport. Keystrokes and
+Target skip completely if their full scaled rectangle cannot fit; scaled CPS
+also uses bounded full-card admission. Existing Status `scale` stays unchanged.
+A headless policy regression validates legacy 1.00x equality and seeded
+24,000-frame scaled bounds plus persisted independent settings.
+Real Minecraft FPS and visual acceptance still require a game launch.

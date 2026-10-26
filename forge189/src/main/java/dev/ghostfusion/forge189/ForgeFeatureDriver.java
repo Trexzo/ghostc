@@ -4,6 +4,7 @@ import dev.ghostfusion.features.CpsMeter;
 import dev.ghostfusion.ui.HudPositions.Widget;
 import dev.ghostfusion.ui.HudFootprints;
 import dev.ghostfusion.ui.HudWidgetViewport;
+import dev.ghostfusion.ui.HudScaleLayout;
 import dev.ghostfusion.ui.DiagnosticsHudLayout;
 import dev.ghostfusion.ui.HudTextFit;
 import dev.ghostfusion.ui.ModuleListLayout;
@@ -31,6 +32,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.potion.Potion;
 import org.lwjgl.input.Mouse;
+import org.lwjgl.opengl.GL11;
 
 /**
  * Only Forge-side bridge for first-party rendering/movement features.
@@ -124,6 +126,18 @@ public final class ForgeFeatureDriver {
         });
     }
     private void drawEnabledModules(int sw,int sh) {
+        final double scale=host.moduleListScale();
+        if(scale==1.0) { drawEnabledModulesBody(sw,sh); return; }
+        if(sw<1||sh<1)return;
+        int virtualW=HudScaleLayout.logicalViewport(sw,scale);
+        int virtualH=HudScaleLayout.logicalViewport(sh,scale);
+        GL11.glPushMatrix();
+        try {
+            GL11.glScaled(scale,scale,1.0);
+            drawEnabledModulesBody(virtualW,virtualH);
+        } finally { GL11.glPopMatrix(); }
+    }
+    private void drawEnabledModulesBody(int sw,int sh) {
         // Shared Minecraft font measurement, no new snapshot or LOS work.
         ModuleListLayout.Frame frame=ModuleListLayout.calculate(host.modules(),sw,sh,
             mc.fontRendererObj.FONT_HEIGHT,host.moduleListMaxRows(),
@@ -190,12 +204,30 @@ public final class ForgeFeatureDriver {
             pressed?0xFF121629:theme.text);
     }
     private void drawKeys(int sw,int sh) {
+        // 1x remains the original byte-for-byte paint path.
+        double scale=host.keysScale();
+        if(scale!=1.0) {
+            HudScaleLayout.Frame scaled=HudScaleLayout.place(
+                host.ui().widgets(),Widget.KEYSTROKES,sw,sh,83,
+                HudFootprints.height(Widget.KEYSTROKES,
+                    host.keysJump(),host.keysSneak(),host.targetHealth()),scale);
+            if(scaled==null)return;
+            GL11.glPushMatrix();
+            try {
+                GL11.glTranslated(scaled.x,scaled.y,0);
+                GL11.glScaled(scale,scale,1);
+                drawKeysBody(0,0);
+            } finally { GL11.glPopMatrix(); }
+            return;
+        }
         // Do not draw a partial Keystrokes grid into a smaller scaled viewport.
         HudWidgetViewport.Frame frame=HudWidgetViewport.place(
             host.ui().widgets(),Widget.KEYSTROKES,sw,sh,
             host.keysJump(),host.keysSneak(),host.targetHealth());
         if(frame==null)return;
-        int x=frame.x,y=frame.y;
+        drawKeysBody(frame.x,frame.y);
+    }
+    private void drawKeysBody(int x,int y) {
         key(keyName(mc.gameSettings.keyBindForward),x+29,y,25,mc.gameSettings.keyBindForward.isKeyDown());
         key(keyName(mc.gameSettings.keyBindLeft),x,y+20,25,mc.gameSettings.keyBindLeft.isKeyDown());
         key(keyName(mc.gameSettings.keyBindBack),x+29,y+20,25,mc.gameSettings.keyBindBack.isKeyDown());
@@ -207,8 +239,24 @@ public final class ForgeFeatureDriver {
         if (host.keysSneak()) key(keyName(mc.gameSettings.keyBindSneak),x,row,83,mc.gameSettings.keyBindSneak.isKeyDown());
     }
     private void drawCps(int sw,int sh) {
+        double scale=host.cpsScale();
+        if(scale!=1.0) {
+            HudScaleLayout.Frame scaled=HudScaleLayout.place(
+                host.ui().widgets(),Widget.CPS,sw,sh,103,17,scale);
+            if(scaled==null)return;
+            GL11.glPushMatrix();
+            try {
+                GL11.glTranslated(scaled.x,scaled.y,0);
+                GL11.glScaled(scale,scale,1);
+                drawCpsBody(2,2,103,17);
+            } finally { GL11.glPopMatrix(); }
+            return;
+        }
         int x=2+host.ui().widgets().pixelX(Widget.CPS,sw,Widget.CPS.width);
         int y=2+host.ui().widgets().pixelY(Widget.CPS,sh,Widget.CPS.height);
+        drawCpsBody(x,y,sw,sh);
+    }
+    private void drawCpsBody(int x,int y,int sw,int sh) {
         // Clamp the legacy 103x17 card when scaled windows are unusually small.
         int right=Math.min(sw,x+101),bottom=Math.min(sh,y+15);
         int textBudget=right-x-2;
@@ -429,11 +477,17 @@ public final class ForgeFeatureDriver {
     }
     private void drawTarget(int sw,int sh) {
         final boolean health=host.targetHealth();
-        // Skip target selection/world lookup when no full card can be shown.
+        final double scale=host.targetScale();
+        // Original 1x admission continues unchanged; scaled cards require full
+        // screen containment BEFORE any world/target selection work.
         HudWidgetViewport.Frame frame=HudWidgetViewport.place(
             host.ui().widgets(),Widget.TARGET,sw,sh,
             host.keysJump(),host.keysSneak(),health);
-        if(frame==null)return;
+        HudScaleLayout.Frame scaled=scale==1.0?null:HudScaleLayout.place(
+            host.ui().widgets(),Widget.TARGET,sw,sh,160,health?43:29,scale);
+        if(scale==1.0) {
+            if(frame==null)return;
+        } else if(scaled==null)return;
         WorldSnapshot w=host.services().snapshot();
         final String selection=host.targetSelection();
         Integer crosshairId=null;
@@ -474,11 +528,24 @@ public final class ForgeFeatureDriver {
             mc.thePlayer.posX,mc.thePlayer.posY,mc.thePlayer.posZ,
             host.targetRange()))return;
         String name=player.getName();
-        int width=frame.width,height=frame.height;
-        int x=frame.x,y=frame.y;
+        int width=160,height=health?43:29;
+        int x=scale==1.0?frame.x:0,y=scale==1.0?frame.y:0;
         TargetHudTextLayout.Result labels=TargetHudTextLayout.layout(
             name,target.id,health,host.targetHealthText(),liveHealth,
             player.getMaxHealth(),width,targetFontWidths);
+        if(scale==1.0) {
+            drawTargetCard(x,y,width,height,health,labels,player);
+        } else {
+            GL11.glPushMatrix();
+            try {
+                GL11.glTranslated(scaled.x,scaled.y,0);
+                GL11.glScaled(scale,scale,1);
+                drawTargetCard(0,0,width,height,health,labels,player);
+            } finally { GL11.glPopMatrix(); }
+        }
+    }
+    private void drawTargetCard(int x,int y,int width,int height,boolean health,
+                                TargetHudTextLayout.Result labels,EntityPlayer player) {
         final String skin=host.targetSkin();
         TargetHudPalette palette=TargetHudPalette.of(skin);
         if("nebula".equals(skin)) {
