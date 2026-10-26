@@ -116,6 +116,15 @@ public final class HostRuntime {
     private final Setting.Number hitMaxHurt = new Setting.Number("max_hurt_time", 2, 0, 10);
     private final Setting.Number hitGap = new Setting.Number("min_gap_ticks", 2, 1, 8);
     private final Setting.Bool hitRequireTarget = new Setting.Bool("require_target", true);
+    // Standalone enabled-module overlay: unlike GUI previews this is an opt-in in-game HUD.
+    private final Setting.Choice moduleListPosition = new Setting.Choice("position", "top_right",
+        "top_right", "top_left", "bottom_right", "bottom_left");
+    private final Setting.Choice moduleListOrder = new Setting.Choice("sort", "width",
+        "width", "alphabetical");
+    private final Setting.Number moduleListRows = new Setting.Number("max_rows", 10, 1, 24);
+    private final Setting.Bool moduleListRender = new Setting.Bool("show_render", false);
+    private final Setting.Bool moduleListBackground = new Setting.Bool("background", true);
+    private final Setting.Bool moduleListAccent = new Setting.Bool("accent", true);
     private final UiState ui = new UiState();
     private final UiSettingsStore uiStore;
     private final UiActions uiActions;
@@ -177,6 +186,9 @@ public final class HostRuntime {
             0, hitMaxHurt, hitGap, hitRequireTarget);
         modules.register(new FeatureModule("hud.diagnostics", "Runtime Diagnostics", GhostModule.Category.RENDER),
             0);
+        modules.register(new FeatureModule("hud.modulelist", "Module List", GhostModule.Category.RENDER),
+            0, moduleListPosition, moduleListOrder, moduleListRows,
+            moduleListRender, moduleListBackground, moduleListAccent);
         modules.setEnabled(overlay.id(), true);
         profiles = new ProfileStore(configDirectory, modules);
         uiStore = new UiSettingsStore(configDirectory, ui);
@@ -296,6 +308,12 @@ public final class HostRuntime {
     public boolean keysJump() { modules.assertOwnerThread(); return keysJump.get(); }
     public boolean keysSneak() { modules.assertOwnerThread(); return keysSneak.get(); }
     public boolean cpsRight() { modules.assertOwnerThread(); return cpsRight.get(); }
+    public String moduleListPosition() { modules.assertOwnerThread(); return moduleListPosition.get(); }
+    public String moduleListOrder() { modules.assertOwnerThread(); return moduleListOrder.get(); }
+    public int moduleListMaxRows() { modules.assertOwnerThread(); return moduleListRows.get().intValue(); }
+    public boolean moduleListShowRender() { modules.assertOwnerThread(); return moduleListRender.get(); }
+    public boolean moduleListBackground() { modules.assertOwnerThread(); return moduleListBackground.get(); }
+    public boolean moduleListAccent() { modules.assertOwnerThread(); return moduleListAccent.get(); }
     public double targetRange() { modules.assertOwnerThread(); return targetRange.get(); }
     public boolean targetVisible() { modules.assertOwnerThread(); return targetVisible.get(); }
     public boolean targetHealth() { modules.assertOwnerThread(); return targetHealth.get(); }

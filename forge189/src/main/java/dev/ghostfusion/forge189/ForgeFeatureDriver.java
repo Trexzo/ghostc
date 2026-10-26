@@ -6,6 +6,7 @@ import dev.ghostfusion.ui.HudFootprints;
 import dev.ghostfusion.ui.HudWidgetViewport;
 import dev.ghostfusion.ui.DiagnosticsHudLayout;
 import dev.ghostfusion.ui.HudTextFit;
+import dev.ghostfusion.ui.ModuleListLayout;
 import dev.ghostfusion.features.SprintPolicy;
 import dev.ghostfusion.features.TargetHudPolicy;
 import dev.ghostfusion.features.HudLiveTargetGate;
@@ -114,6 +115,28 @@ public final class ForgeFeatureDriver {
         drawFeature("hud.diagnostics", new Runnable() {
             public void run() { drawDiagnostics(sw,sh); }
         });
+        drawFeature("hud.modulelist", new Runnable() {
+            public void run() { drawEnabledModules(sw,sh); }
+        });
+    }
+    private void drawEnabledModules(int sw,int sh) {
+        // Shared Minecraft font measurement, no new snapshot or LOS work.
+        ModuleListLayout.Frame frame=ModuleListLayout.calculate(host.modules(),sw,sh,
+            mc.fontRendererObj.FONT_HEIGHT,host.moduleListMaxRows(),
+            host.moduleListShowRender(),host.moduleListPosition(),
+            host.moduleListOrder(),targetFontWidths);
+        if(frame.rows.isEmpty())return;
+        final int accent=host.ui().theme()==dev.ghostfusion.ui.UiState.Theme.INDIGO
+            ? 0xFFA59AFF : 0xFFB9C5D6;
+        final boolean background=host.moduleListBackground();
+        final boolean stripe=host.moduleListAccent();
+        for(ModuleListLayout.Row row:frame.rows) {
+            if(background)Gui.drawRect(row.x,row.y,row.x+row.width,row.y+row.height,
+                0xB31A1E2A);
+            if(stripe)Gui.drawRect(row.x,row.y,row.x+2,row.y+row.height,accent);
+            mc.fontRendererObj.drawStringWithShadow(row.label,row.textX,row.textY,
+                0xFFEAF0FF);
+        }
     }
     private String keyName(KeyBinding binding) {
         int code = binding.getKeyCode();
