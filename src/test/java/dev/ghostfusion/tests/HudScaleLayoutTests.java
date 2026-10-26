@@ -73,7 +73,7 @@ public final class HudScaleLayoutTests {
            host.targetScale()==1.0&&host.moduleListScale()==1.0,
            "old profiles preserve exact 1x visuals");
         host.uiActions().fraction("hud.keystrokes","scale",0.50);
-        host.uiActions().fraction("hud.cps","scale",0.25);
+        host.uiActions().fraction("hud.cps","scale",0.10);
         host.uiActions().fraction("hud.target","scale",0.75);
         host.uiActions().fraction("hud.modulelist","scale",0.75);
         ok(host.keysScale()>1.0&&host.cpsScale()<1.0&&
