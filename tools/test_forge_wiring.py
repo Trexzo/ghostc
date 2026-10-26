@@ -857,9 +857,9 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("choiceDirections();",suite)
         key=gui.index("@Override protected void keyTyped")
         self.assertLess(gui.index("GuiSearchFocus.route(",key),
-                        gui.index("host.uiActions().choiceEdge(",key))
+                        gui.index("host.uiActions().choiceEdge(selected,item.getKey(),",key))
         self.assertLess(gui.index("if (capture != null)",key),
-                        gui.index("host.uiActions().choiceEdge(",key))
+                        gui.index("host.uiActions().choiceEdge(selected,item.getKey(),",key))
 
     def test_keyboard_help_is_contextual_and_not_overlaid_on_keybind_row(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
@@ -2278,7 +2278,9 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("if(hudDragging && (!hudCapture.sameViewport(width,height)",gui)
         self.assertIn("finishHudDrag();",gui)
         self.assertIn("if(state==0)adjustHudDrag(mx,my);",gui)
-        self.assertIn("if(hudControls.resetIfChanged(ui))host.persistUi();",gui)
+        self.assertIn("boolean changed=hudControls.resetIfChanged(ui);",gui)
+        self.assertIn('host.uiActions().reset("hud.modulelist","position")',gui)
+        self.assertIn("if(changed)host.persistUi();",gui)
         self.assertIn("if(hudControls.nudgeIfChanged(ui,dx*step,dy*step,",gui)
         self.assertIn("if(!endedHudDrag)host.persistUi();",gui)
         self.assertIn("Double.compare(initialX,x(ui,widget))!=0",capture)
