@@ -19,20 +19,36 @@ public final class HudLayoutPresets {
             this.label=label;this.listPosition=listPosition;
         }
     }
-    private static final class Anchor {
-        final double x,y;
-        Anchor(double x,double y){this.x=x;this.y=y;}
+    // Immutable private tables: one Status pair, then widget pairs in enum
+    // order. F7 redraw/active-preset detection requires zero object creation.
+    private static final double[][] DEFAULT_COORDS={
+        {UiState.DEFAULT_HUD_X,UiState.DEFAULT_HUD_Y},
+        {1.0,0.86},{1.0,1.0},{0.5,0.93},{1.0,0.0}
+    };
+    private static final double[][] PVP_COORDS={
+        {0.025,0.055},{0.025,0.90},{0.025,0.70},{0.50,0.87},{1.0,0.02}
+    };
+    private static final double[][] STREAM_COORDS={
+        {0.025,0.055},{0.02,0.90},{0.42,0.99},{0.5,0.98},{0.98,0.08}
+    };
+    private static double[][] coordinates(Preset preset) {
+        switch(preset) {
+            case DEFAULT:return DEFAULT_COORDS;
+            case PVP:return PVP_COORDS;
+            case STREAM:return STREAM_COORDS;
+            default:throw new IllegalArgumentException("Unknown HUD layout preset");
+        }
     }
     /** Set coordinates only after validating the complete preset selection. */
     public static boolean apply(UiState ui,Preset preset) {
         if(ui==null||preset==null)
             throw new IllegalArgumentException("HUD layout preset");
         if(matchesAnchors(ui,preset))return false;
-        Anchor status=anchor(preset,null);
-        ui.position(status.x,status.y);
+        double[][] coords=coordinates(preset);
+        ui.position(coords[0][0],coords[0][1]);
         for(HudPositions.Widget widget:HudPositions.Widget.values()) {
-            Anchor desired=anchor(preset,widget);
-            ui.widgets().position(widget,desired.x,desired.y);
+            double[] desired=coords[widget.ordinal()+1];
+            ui.widgets().position(widget,desired[0],desired[1]);
         }
         return true;
     }
@@ -42,48 +58,14 @@ public final class HudLayoutPresets {
         return preset.listPosition.equals(listPosition)&&matchesAnchors(ui,preset);
     }
     private static boolean matchesAnchors(UiState ui,Preset preset) {
-        Anchor status=anchor(preset,null);
-        if(ui.hudX()!=status.x||ui.hudY()!=status.y)return false;
+        double[][] coords=coordinates(preset);
+        if(ui.hudX()!=coords[0][0]||ui.hudY()!=coords[0][1])return false;
         for(HudPositions.Widget widget:HudPositions.Widget.values()) {
-            Anchor desired=anchor(preset,widget);
-            if(ui.widgets().x(widget)!=desired.x ||
-               ui.widgets().y(widget)!=desired.y)return false;
+            double[] desired=coords[widget.ordinal()+1];
+            if(ui.widgets().x(widget)!=desired[0] ||
+               ui.widgets().y(widget)!=desired[1])return false;
         }
         return true;
-    }
-    private static Anchor anchor(Preset preset,HudPositions.Widget widget) {
-        if(preset==Preset.DEFAULT) {
-            if(widget==null)return new Anchor(UiState.DEFAULT_HUD_X,UiState.DEFAULT_HUD_Y);
-            // Using the authoritative widget defaults maintains original profiles.
-            switch(widget){
-                case KEYSTROKES:return new Anchor(1.0,0.86);
-                case CPS:return new Anchor(1.0,1.0);
-                case TARGET:return new Anchor(0.5,0.93);
-                case MODULE_LIST:return new Anchor(1.0,0.0);
-                default:throw new IllegalArgumentException("HUD widget");
-            }
-        }
-        if(preset==Preset.PVP) {
-            if(widget==null)return new Anchor(0.025,0.055);
-            switch(widget){
-                case KEYSTROKES:return new Anchor(0.025,0.90);
-                case CPS:return new Anchor(0.025,0.70);
-                case TARGET:return new Anchor(0.50,0.87);
-                case MODULE_LIST:return new Anchor(1.0,0.02);
-                default:throw new IllegalArgumentException("HUD widget");
-            }
-        }
-        if(preset==Preset.STREAM) {
-            if(widget==null)return new Anchor(0.025,0.055);
-            switch(widget){
-                case KEYSTROKES:return new Anchor(0.02,0.90);
-                case CPS:return new Anchor(0.42,0.99);
-                case TARGET:return new Anchor(0.5,0.98);
-                case MODULE_LIST:return new Anchor(0.98,0.08);
-                default:throw new IllegalArgumentException("HUD widget");
-            }
-        }
-        throw new IllegalArgumentException("Unknown HUD layout preset");
     }
     /**
      * Sidebar buttons are visible only when layout has vertical room for the
