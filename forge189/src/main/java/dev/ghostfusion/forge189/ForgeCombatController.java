@@ -1,7 +1,9 @@
 package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.features.AimAssistPolicy;
+import dev.ghostfusion.features.AimTargetLock;
 import dev.ghostfusion.features.FixedClickScheduler;
+import dev.ghostfusion.features.PatternClickScheduler;
 import dev.ghostfusion.features.HitSelectPolicy;
 import dev.ghostfusion.features.BlockHitPolicy;
 import dev.ghostfusion.features.PhysicalInputGate;
@@ -40,7 +42,9 @@ public final class ForgeCombatController {
     private final Minecraft mc;
     private final HostRuntime host;
     private final AimAssistPolicy aim = new AimAssistPolicy();
+    private final AimTargetLock aimLock = new AimTargetLock();
     private final FixedClickScheduler scheduler = new FixedClickScheduler();
+    private final PatternClickScheduler patternScheduler = new PatternClickScheduler();
     private final HitSelectPolicy hitSelect = new HitSelectPolicy();
     private final BlockHitPolicy blockHit = new BlockHitPolicy();
     private final PhysicalInputGate physicalInput = new PhysicalInputGate();
@@ -75,20 +79,44 @@ public final class ForgeCombatController {
         // Cancel any previous owned request before scheduling the new one.
         // This also makes disabled, focus-lost and failing modules fail closed.
         session.rotations().cancel(AIM_ID);
+        if (!host.featureEnabled(AIM_ID)) aimLock.clear();
         final WorldSnapshot snapshot = session.snapshot();
         if (snapshot != null && host.featureEnabled(AIM_ID)) {
             boolean healthy = host.runFeature(AIM_ID, new Runnable() {
                 public void run() {
-                    if (host.aimRequireClick() && !held) return;
+                    if (host.aimRequireClick() && !held) {
+                        aimLock.clear();
+                        return;
+                    }
+                    final boolean locking = host.aimLockTarget();
+                    int preferred = aimLock.preferred(
+                        session.generation(), session.tick(), locking);
+                    if (preferred >= 0) {
+                        Entity previous = mc.theWorld.getEntityByID(preferred);
+                        if (!(previous instanceof EntityPlayer) ||
+                            !aimLock.sameIdentity(((EntityPlayer)previous).getUniqueID())) {
+                            // Entity IDs can be reused without changing the
+                            // current world epoch. UUID must still match.
+                            aimLock.clear();
+                            preferred = -1;
+                        }
+                    }
                     AimAssistPolicy.Suggestion suggestion = aim.suggest(
-                        snapshot, player.getEyeHeight(), 1.25,
+                        snapshot, player.getEyeHeight(), host.aimTargetHeight(),
                         host.aimRange(), host.aimFov(), host.aimDegreesPerTick(),
-                        host.aimVisibleOnly());
-                    if (suggestion == null) return;
+                        host.aimVisibleOnly(), host.aimHorizontalFraction(),
+                        host.aimVerticalFraction(), preferred,
+                        host.aimTargetPriority());
+                    if (suggestion == null) {
+                        aimLock.clear();
+                        return;
+                    }
                     // A snapshot is immutable, but its player can despawn,
                     // die, become invisible or move before the camera write.
                     // Validate the current-world entity and same-tick pose.
                     Entity live=mc.theWorld.getEntityByID(suggestion.entityId);
+                    // Missing live target is a strict no-write veto. The
+                    // retained hint is independently UUID-checked next tick.
                     if(!(live instanceof EntityPlayer))return;
                     EntityPlayer candidate=(EntityPlayer)live;
                     if(!LiveCombatTargetGate.eligible(candidate,
@@ -97,8 +125,10 @@ public final class ForgeCombatController {
                             candidate.isInvisible(),host.aimVisibleOnly()) ||
                         !suggestion.sameTargetPosition(candidate.posX,candidate.posY,candidate.posZ) ||
                         !suggestion.sameSourcePose(player.posX,player.posY,player.posZ,
-                            player.rotationYaw,player.rotationPitch,player.getEyeHeight()))
+                            player.rotationYaw,player.rotationPitch,player.getEyeHeight())) {
+                        aimLock.clear();
                         return;
+                    }
                     session.rotations().request(AIM_ID, RotationCoordinator.Scope.CAMERA,
                         suggestion.yaw, suggestion.pitch, 10,
                         session.tick(), 1, session.generation());
@@ -108,11 +138,19 @@ public final class ForgeCombatController {
                     if (AIM_ID.equals(rotation.owner)) {
                         player.rotationYaw = rotation.yaw;
                         player.rotationPitch = rotation.pitch;
+                        if (locking) aimLock.applied(
+                            session.generation(), session.tick(),
+                            suggestion.entityId, candidate.getUniqueID());
                         host.diagnostics().record(Counter.AIM_APPLIED);
+                    } else {
+                        aimLock.clear();
                     }
                 }
             });
-            if (!healthy) session.rotations().cancel(AIM_ID);
+            if (!healthy) {
+                aimLock.clear();
+                session.rotations().cancel(AIM_ID);
+            }
         }
 
         // Snapshot the current crosshair exactly once for all combat policies.
@@ -143,8 +181,23 @@ public final class ForgeCombatController {
                 public void run() {
                     boolean eligible = !useHeld && !player.isUsingItem() &&
                         (!host.clickEntityOnly() || validTarget);
-                    if (!scheduler.due(System.nanoTime(), eligible, held, host.clickCps()))
-                        return;
+                    // Fixed is bit-for-bit the original timing path; optional
+                    // balanced/range schedules remain single-pulse only.
+                    final long now = System.nanoTime();
+                    final boolean due;
+                    if ("fixed".equals(host.clickPattern())) {
+                        patternScheduler.reset();
+                        due = scheduler.due(now, eligible, held, host.clickCps());
+                    } else {
+                        scheduler.reset();
+                        double first = host.clickMinCps(), second = host.clickMaxCps();
+                        // GUI sliders are independent; a temporary min/max
+                        // crossing is canonicalized, not a module fault.
+                        due = patternScheduler.due(now, eligible, held,
+                            Math.min(first, second), Math.max(first, second),
+                            host.clickPattern());
+                    }
+                    if (!due) return;
                     final boolean[] allowed = {true};
                     if (host.featureEnabled(HIT_ID)) {
                         allowed[0] = false;
@@ -169,12 +222,14 @@ public final class ForgeCombatController {
             });
             if (!healthy) {
                 scheduler.reset();
+                patternScheduler.reset();
                 hitSelect.reset();
                 extraAttackQueued[0] = false;
                 session.actions().cancelOwner(CLICK_ID);
             }
         } else {
             scheduler.reset();
+            patternScheduler.reset();
             session.actions().cancelOwner(CLICK_ID);
         }
 
@@ -233,7 +288,9 @@ public final class ForgeCombatController {
 
     /** Clears timers and all pending owned intents on world or focus change. */
     void reset() {
+        aimLock.reset();
         scheduler.reset();
+        patternScheduler.reset();
         physicalInput.reset();
         hitSelect.reset();
         blockHit.reset();

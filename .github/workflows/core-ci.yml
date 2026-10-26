@@ -120,6 +120,8 @@ jobs:
           grep -q 'ESP_SKELETON_PASS' .build/esp-skeleton.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.CombatTests | tee .build/combat.log
           grep -q 'COMBAT_REGRESSION_PASS' .build/combat.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.CombatDepthTests | tee .build/combat-depth.log
+          grep -q 'COMBAT_DEPTH_PASS' .build/combat-depth.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.LiveCombatTargetGateTests | tee .build/live-combat-target.log
           grep -q 'LIVE_COMBAT_TARGET_GATE_PASS' .build/live-combat-target.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.CombatIsolationTests | tee .build/combat-isolation.log

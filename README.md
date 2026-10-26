@@ -1,5 +1,7 @@
 # GhostC — modular Minecraft 1.8.9 client
 
+**Draft R3.32 / 3.0.32 (not gameplay-certified):** adds configurable fixed/balanced/range AutoClicker cadence and independently tunable Aim Assist horizontal/vertical scaling and target height. Both remain opt-in, guarded by the existing Forge owner/focus/World gates. See [R3.32 combat depth and native acceptance](docs/RUNTIME_R152.md).
+
 **Milestone R3.11:** Java 8-compatible core, Forge adapter, original ClickGUI/HUD and shared gameplay service contracts. **Windows/in-game launch and visual fidelity are not yet verified.**
 
 ## What is implemented

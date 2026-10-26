@@ -109,8 +109,21 @@ public final class HostRuntime {
     private final Setting.Number aimSpeed = new Setting.Number("degrees_per_tick", 4.0, 0.5, 15.0);
     private final Setting.Bool aimVisible = new Setting.Bool("visible_only", true);
     private final Setting.Bool aimRequireClick = new Setting.Bool("require_click", true);
+    // Default fractions preserve the original combined angular-speed policy.
+    private final Setting.Number aimHorizontal = new Setting.Number("horizontal_fraction", 1.0, 0.1, 1.0);
+    private final Setting.Number aimVertical = new Setting.Number("vertical_fraction", 1.0, 0.1, 1.0);
+    private final Setting.Number aimTargetHeight = new Setting.Number("target_height", 1.25, 0.4, 1.7);
+    private final Setting.Bool aimLockTarget = new Setting.Bool("lock_target", false);
+    private final Setting.Choice aimPriority = new Setting.Choice(
+        "target_priority", "angular", "angular", "distance");
     private final Setting.Number clickRate = new Setting.Number("cps", 10.0, 4.0, 15.0);
     private final Setting.Bool clickEntitiesOnly = new Setting.Bool("entity_only", true);
+    // Fixed mode is the unchanged legacy default; nonfixed uses a bounded
+    // minimum/maximum CPS range with no extra queued bursts.
+    private final Setting.Choice clickPattern = new Setting.Choice(
+        "pattern", "fixed", "fixed", "balanced", "range");
+    private final Setting.Number clickMinCps = new Setting.Number("min_cps", 8.0, 4.0, 15.0);
+    private final Setting.Number clickMaxCps = new Setting.Number("max_cps", 12.0, 4.0, 15.0);
     private final Setting.Number blockInterval = new Setting.Number("interval_ticks", 4, 2, 10);
     private final Setting.Bool blockRequireTarget = new Setting.Bool("require_target", true);
     private final Setting.Number hitMaxHurt = new Setting.Number("max_hurt_time", 2, 0, 10);
@@ -168,9 +181,10 @@ public final class HostRuntime {
         modules.register(new FeatureModule("movement.sprint", "Auto Sprint", GhostModule.Category.MOVEMENT),
             0);
         modules.register(new FeatureModule("combat.aimassist", "Aim Assist", GhostModule.Category.COMBAT),
-            0, aimRange, aimFov, aimSpeed, aimVisible, aimRequireClick);
+            0, aimRange, aimFov, aimSpeed, aimVisible, aimRequireClick,
+            aimHorizontal, aimVertical, aimTargetHeight, aimLockTarget, aimPriority);
         modules.register(new FeatureModule("combat.clicker", "AutoClicker", GhostModule.Category.COMBAT),
-            0, clickRate, clickEntitiesOnly);
+            0, clickRate, clickEntitiesOnly, clickPattern, clickMinCps, clickMaxCps);
         modules.register(new FeatureModule("combat.blockhit", "Block Hit", GhostModule.Category.COMBAT),
             0, blockInterval, blockRequireTarget);
         modules.register(new FeatureModule("combat.hitselect", "Hit Select", GhostModule.Category.COMBAT),
@@ -356,8 +370,16 @@ public final class HostRuntime {
     public double aimDegreesPerTick() { modules.assertOwnerThread(); return aimSpeed.get(); }
     public boolean aimVisibleOnly() { modules.assertOwnerThread(); return aimVisible.get(); }
     public boolean aimRequireClick() { modules.assertOwnerThread(); return aimRequireClick.get(); }
+    public double aimHorizontalFraction() { modules.assertOwnerThread(); return aimHorizontal.get(); }
+    public double aimVerticalFraction() { modules.assertOwnerThread(); return aimVertical.get(); }
+    public double aimTargetHeight() { modules.assertOwnerThread(); return aimTargetHeight.get(); }
+    public boolean aimLockTarget() { modules.assertOwnerThread(); return aimLockTarget.get(); }
+    public String aimTargetPriority() { modules.assertOwnerThread(); return aimPriority.get(); }
     public double clickCps() { modules.assertOwnerThread(); return clickRate.get(); }
     public boolean clickEntityOnly() { modules.assertOwnerThread(); return clickEntitiesOnly.get(); }
+    public String clickPattern() { modules.assertOwnerThread(); return clickPattern.get(); }
+    public double clickMinCps() { modules.assertOwnerThread(); return clickMinCps.get(); }
+    public double clickMaxCps() { modules.assertOwnerThread(); return clickMaxCps.get(); }
     public int blockIntervalTicks() { modules.assertOwnerThread(); return (int)Math.round(blockInterval.get()); }
     public boolean blockRequireTarget() { modules.assertOwnerThread(); return blockRequireTarget.get(); }
     public int hitMaxHurtTime() { modules.assertOwnerThread(); return (int)Math.round(hitMaxHurt.get()); }
