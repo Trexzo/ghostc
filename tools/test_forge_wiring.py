@@ -2192,6 +2192,21 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.HudEditorControlsTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_nebula_clickgui_theme_is_persistent_and_visual_only(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        palette=content("src/main/java/dev/ghostfusion/ui/GuiThemePalette.java")
+        state=content("src/main/java/dev/ghostfusion/ui/UiState.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/GuiThemePaletteTests.java")
+        self.assertIn("public enum Theme { GRAPHITE, INDIGO, NEBULA }",state)
+        self.assertIn("ui.theme(GuiThemePalette.next(ui.theme()))",gui)
+        self.assertIn("if(theme.nebula)drawNebulaChrome(theme);",gui)
+        self.assertIn("GuiThemePalette.of(ui.theme())",gui)
+        self.assertIn("style.nebula?(focused?style.selectedModule:style.idleModule)",gui)
+        self.assertIn("0xF3161A2C,0xFF22283E,0xFF9A8CFF",palette)
+        self.assertIn("0xF31A1C20,0xFF303339,0xFF69D9C6",palette)
+        self.assertIn('GuiThemePalette.next(UiState.Theme.GRAPHITE)',tests)
+        self.assertIn("GUI_THEME_PALETTE_PASS",content(".github/workflows/core-ci.yml"))
+
     def test_keystrokes_and_cps_new_styles_keep_original_classic_pixels(self):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         driver=(FORGE/"ForgeFeatureDriver.java").read_text(encoding="utf-8")

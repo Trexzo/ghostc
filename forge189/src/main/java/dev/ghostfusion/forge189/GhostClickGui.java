@@ -7,6 +7,7 @@ import dev.ghostfusion.core.Setting;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.ui.UiState;
+import dev.ghostfusion.ui.GuiThemePalette;
 import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiHitZones;
 import dev.ghostfusion.ui.GuiChrome;
@@ -118,9 +119,10 @@ public final class GhostClickGui extends GuiScreen {
         searchPositionX=g.searchX; searchPositionY=g.searchY;
         searchPositionWidth=g.searchWidth;
     }
-    private int bg() { return ui.theme() == UiState.Theme.INDIGO ? 0xF3161A2C : 0xF31A1C20; }
-    private int panel() { return ui.theme() == UiState.Theme.INDIGO ? 0xFF22283E : 0xFF303339; }
-    private int accent() { return ui.theme() == UiState.Theme.INDIGO ? 0xFF9A8CFF : 0xFF69D9C6; }
+    private GuiThemePalette palette() { return GuiThemePalette.of(ui.theme()); }
+    private int bg() { return palette().background; }
+    private int panel() { return palette().panel; }
+    private int accent() { return palette().accent; }
     private static boolean inside(int mx, int my, int px, int py, int pw, int ph) {
         return mx >= px && my >= py && mx < px + pw && my < py + ph;
     }
@@ -149,8 +151,10 @@ public final class GhostClickGui extends GuiScreen {
                 x+8,y+Math.min(18,Math.max(0,h-1)),accent());
             return;
         }
+        final GuiThemePalette theme=palette();
         rect(x, y, side, h, panel());
-        rect(x, y, w, 30, 0xBB080C1A);
+        rect(x, y, w, 30, theme.header);
+        if(theme.nebula)drawNebulaChrome(theme);
         label("GHOSTC", x + 10, y + 10, accent());
         int menuX = x + side + 8;
         label(hudPage ? "MODULES" : "[MODULES]", menuX, y + 11, hudPage ? 0xFFB5B6C1 : 0xFFFFFFFF);
@@ -158,7 +162,7 @@ public final class GhostClickGui extends GuiScreen {
         rect(x + w - 99, y + 6, 40, 17, panel());
         rect(x + w - 55, y + 6, 50, 17, panel());
         label(ui.layout() == UiState.Layout.WIDE ? "WIDE" : "SMALL", x + w - 96, y + 10, 0xFFF2F3FF);
-        label(ui.theme() == UiState.Theme.INDIGO ? "INDIGO" : "MINT", x + w - 52, y + 10, accent());
+        label(theme.label, x + w - 52, y + 10, accent());
         if (hudPage) drawHudEditor(mx, my);
         else drawModules(mx, my);
         // Errors own the footer and must never draw beyond the content panel.
@@ -168,6 +172,25 @@ public final class GhostClickGui extends GuiScreen {
             label(trim(footerWarning,GuiFooterText.pixelBudget(w,side)),
                 x + side + 11,y + h - 13,0xFFFFB3A6);
     }
+    /** A deliberate, low-cost Nebula surface treatment; no new hit zones. */
+    private void drawNebulaChrome(GuiThemePalette theme) {
+        // Subtle border and section separator establish hierarchy without glow.
+        rect(x,y,w,1,theme.frame);
+        rect(x,y+h-1,w,1,theme.frame);
+        rect(x,y,1,h,theme.frame);
+        rect(x+w-1,y,1,h,theme.frame);
+        rect(x+side-1,y+30,1,Math.max(0,h-31),theme.frame);
+        rect(x+side+1,y+29,Math.max(0,w-side-2),1,theme.divider);
+        // Short twin aurora lines echo the Nebula in-game Target HUD.
+        int segment=Math.max(0,Math.min(44,w-side-30));
+        rect(x+side+9,y+29,segment,1,theme.accent);
+        rect(x+side+9+segment,y+29,Math.min(20,Math.max(0,w-side-30-segment)),
+            1,theme.secondary);
+        rect(x+5,y+9,2,12,theme.accent);
+        rect(x+5,y+21,2,2,theme.secondary);
+        // Distinguish title, controls, and content without texture allocations.
+        rect(x+w-108,y+3,Math.min(100,w-109),1,theme.sheen);
+    }
     private void drawSidebar() {
         int yy = y + 47;
         label("FILTER", x + 10, yy, 0xFF979DAF);
@@ -176,7 +199,11 @@ public final class GhostClickGui extends GuiScreen {
         for (int i = 0; i < names.length; i++) {
             GhostModule.Category c = i == 0 ? null : GhostModule.Category.valueOf(names[i]);
             boolean active = ui.category() == c;
-            if (active) rect(x + 4, yy - 3, side - 8, 19, 0x556B83EA);
+            if (active) {
+                rect(x + 4, yy - 3, side - 8, 19,
+                    palette().nebula?palette().selectedCategory:0x556B83EA);
+                if(palette().nebula)rect(x+4,yy-3,2,19,palette().accent);
+            }
             if (yy < y + h - 48) label(names[i], x + 12, yy + 1,
                 active ? accent() : 0xFFD4D7E0);
             yy += 23;
@@ -210,7 +237,12 @@ public final class GhostClickGui extends GuiScreen {
             int ry = listY + (i - scroll) * 28;
             if (ry + 27 > listY + listH) break;
             boolean focused = e.module().id().equals(selected);
-            rect(x + side + 9, ry, w - side - 20, 25, focused ? 0x664B597D : 0x442D344A);
+            GuiThemePalette style=palette();
+            rect(x + side + 9, ry, w - side - 20, 25,
+                style.nebula?(focused?style.selectedModule:style.idleModule)
+                            :(focused?0x664B597D:0x442D344A));
+            if(style.nebula && focused)
+                rect(x+side+9,ry,2,25,style.accent);
             label(trim(e.module().displayName(), Math.max(60, w - side - 97)),
                     x + side + 15, ry + 8, focused ? 0xFFFFFFFF : 0xFFE4E7F0);
             boolean enabled = e.state() == ModuleRegistry.State.ENABLED;
@@ -224,7 +256,7 @@ public final class GhostClickGui extends GuiScreen {
                 enabled && !faulted ? 0xFF101320 : 0xFFFFFFFF);
         }
         int sy = listY + listH + 5;
-        rect(x + side + 9, sy - 4, w - side - 20, 1, 0x557E879D);
+        rect(x + side + 9, sy - 4, w - side - 20, 1, palette().divider);
         if (selected == null) {
             keyboardSetting=-1;
             label("No matching modules", x + side + 13, sy + 5, 0xFFBAC1D3);
@@ -239,7 +271,8 @@ public final class GhostClickGui extends GuiScreen {
         else
             label("SETTINGS  " + e.module().displayName(), x + side + 13, sy + 4, accent());
         int bindY = sy + 22;
-        rect(x + side + 11, bindY, w - side - 26, 18, 0x66394359);
+        rect(x + side + 11, bindY, w - side - 26, 18,
+            palette().nebula?palette().idleSetting:0x66394359);
         String keyText = capture != null && capture.equals(selected) ? "Press key (ESC cancel / BACKSPACE clear)" :
             "KEYBIND [B]: " + (e.keybind() == 0 ? "NONE" : Keyboard.getKeyName(e.keybind()));
         label(trim(keyText, w - side - 39), x + side + 16, bindY + 5, 0xFFEAECF5);
@@ -252,8 +285,11 @@ public final class GhostClickGui extends GuiScreen {
         for (int i = settingScroll; i < settings.size() && i < settingScroll + available; i++) {
             Map.Entry<String, Setting<?>> kv = settings.get(i);
             Setting<?> setting = kv.getValue();
+            GuiThemePalette settingsTheme=palette();
             rect(x + side + 11, sY, w - side - 26, 19,
-                i==keyboardSetting ? 0x886A588D : 0x443B465C);
+                settingsTheme.nebula?(i==keyboardSetting
+                    ?settingsTheme.selectedSetting:settingsTheme.idleSetting)
+                    :(i==keyboardSetting ? 0x886A588D : 0x443B465C));
             label(trim(setting.id(), Math.max(30, (w - side) / 2 - 14)), x + side + 15, sY + 5, 0xFFE0E4EF);
             int right = x + w - 17;
             if (setting instanceof Setting.Number) {
@@ -261,7 +297,7 @@ public final class GhostClickGui extends GuiScreen {
                 double fraction = NumericSliderScale.fraction(
                     number.get(),number.min(),number.max());
                 int barWidth = Math.max(33, (w - side) / 3);
-                rect(right - barWidth, sY + 7, barWidth, 6, 0xFF525A6C);
+                rect(right - barWidth, sY + 7, barWidth, 6, palette().barTrack);
                 rect(right - barWidth, sY + 7, (int) (barWidth * fraction), 6, accent());
                 label(String.format(java.util.Locale.ROOT, "%.2f", number.get()), right - barWidth - 37, sY + 5, 0xFFC6CBD7);
             } else {
@@ -471,7 +507,7 @@ public final class GhostClickGui extends GuiScreen {
             host.persistUi(); return;
         }
         if (header==GuiChrome.Header.THEME) {
-            ui.theme(ui.theme() == UiState.Theme.INDIGO ? UiState.Theme.GRAPHITE : UiState.Theme.INDIGO);
+            ui.theme(GuiThemePalette.next(ui.theme()));
             host.persistUi(); return;
         }
         if (header==GuiChrome.Header.MODULES) { hudPage = false; return; }

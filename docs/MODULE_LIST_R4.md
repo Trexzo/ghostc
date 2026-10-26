@@ -65,3 +65,13 @@ unless the user explicitly chooses a new style. Minimal uses subdued graphite
 panels; Nebula reuses the immutable aurora tokens. The Minecraft-scaled geometry,
 text fitting, key-state readouts, physical CPS collection and drawing budgets are
 unchanged. Profile roundtrips and original visual constants are regression tested.
+
+## R4 Nebula ClickGUI theme
+F7 ClickGUI now has three persisted UI themes: existing Indigo and Graphite/Mint,
+plus a full Nebula chrome theme. The theme button cycles Indigo -> Mint -> Nebula.
+The Nebula surface includes a restrained inset border, a split aurora line,
+selection rails, coordinated module/setting backgrounds and matching sliders.
+No hit zones, capture modes, settings logic or module input behaviors changed.
+The old two themes retain their exact original base colors and keep Indigo as default.
+Theme persistence uses the same validated atomic schema-1 UI settings file;
+unknown themes remain invalid. Tests cover persistence, palette parity and cycling.

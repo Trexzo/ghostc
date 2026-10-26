@@ -135,8 +135,8 @@ public final class ForgeFeatureDriver {
         final boolean background=host.moduleListBackground();
         final boolean stripe=host.moduleListAccent();
         // Classic remains pixel-identical, including the original UI-theme override.
-        final int classicAccent=host.ui().theme()==dev.ghostfusion.ui.UiState.Theme.INDIGO
-            ? 0xFFA59AFF : 0xFFB9C5D6;
+        final int classicAccent=host.ui().theme()==dev.ghostfusion.ui.UiState.Theme.GRAPHITE
+            ? 0xFFB9C5D6 : 0xFFA59AFF;
         final int accent="classic".equals(appearance)?classicAccent:theme.accent;
         for(ModuleListLayout.Row row:frame.rows) {
             if(background){
