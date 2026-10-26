@@ -25,6 +25,7 @@ import dev.ghostfusion.ui.HudOverlapPolicy;
 import dev.ghostfusion.ui.ModuleListLayout;
 import dev.ghostfusion.ui.HudFootprints;
 import dev.ghostfusion.ui.HudScaleLayout;
+import dev.ghostfusion.ui.HudScaleEditor;
 import dev.ghostfusion.ui.HudTextFit;
 import dev.ghostfusion.ui.GuiSliderDrag;
 import dev.ghostfusion.ui.NumericSliderScale;
@@ -480,6 +481,13 @@ public final class GhostClickGui extends GuiScreen {
     private void drawHudEditor(int mx, int my) {
         if (previewW<1 || previewH<1) return;
         label("HUD POSITION EDITOR",x+side+12,y+49,accent());
+        // Display the scale of the selected widget in a fixed, readable place.
+        String editorModule=HudScaleEditor.moduleId(hudControls.selected());
+        dev.ghostfusion.core.Setting.Number zoom=
+            (dev.ghostfusion.core.Setting.Number)host.modules()
+                .get(editorModule).settings().get("scale");
+        label(String.format(java.util.Locale.ROOT,"%.2fx",zoom.get()),
+            x+w-57,y+49,palette().secondary);
         int tabsX=x+side+12, tabsY=y+62, tabsWidth=w-side-24;
         for (HudEditorControls.Item item:HudEditorControls.Item.values()) {
             int bx=HudEditorControls.tabLeft(tabsX,tabsWidth,item);
@@ -531,7 +539,7 @@ public final class GhostClickGui extends GuiScreen {
         }
         label(trim(hudOverlaps
             ?"HUD overlap detected | Drag to separate | R: Reset"
-            :"Drag: Snap on | Alt: free | Arrows: 1px | Shift+Arrows: 10px | R: Reset",
+            :"Drag: Snap/Alt | Arrows: move | [ ]: resize | Shift: fast | 0: 1x | R: position",
             w-side-20),
             previewX,previewY+previewH+8,0xFFBEC6D9);
     }
@@ -861,6 +869,31 @@ public final class GhostClickGui extends GuiScreen {
             mc.displayGuiScreen(null); return;
         }
         if (hudPage) {
+            // Scale the selected live widget, never the preview illustration only.
+            if(keyCode==Keyboard.KEY_LBRACKET || keyCode==Keyboard.KEY_RBRACKET ||
+               keyCode==Keyboard.KEY_0) {
+                if(Keyboard.isRepeatEvent())return;
+                finishHudDrag();
+                String visualId=HudScaleEditor.moduleId(hudControls.selected());
+                try {
+                    if(keyCode==Keyboard.KEY_0) {
+                        host.uiActions().reset(visualId,"scale");
+                    } else {
+                        int direction=keyCode==Keyboard.KEY_RBRACKET?1:-1;
+                        boolean coarse=Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) ||
+                                       Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
+                        dev.ghostfusion.core.Setting.Number current=
+                            (dev.ghostfusion.core.Setting.Number)host.modules()
+                                .get(visualId).settings().get("scale");
+                        double next=HudScaleEditor.adjust(current.get(),direction,coarse);
+                        if(Double.compare(next,current.get())!=0)
+                            host.uiActions().fraction(visualId,"scale",
+                                HudScaleEditor.fraction(next));
+                    }
+                    moduleListFrameCache=null;
+                } catch(RuntimeException error) { message="HUD scale rejected"; }
+                return;
+            }
             if (keyCode==Keyboard.KEY_R) {
                 boolean changed=hudControls.resetIfChanged(ui);
                 if(hudControls.selected()==HudEditorControls.Item.MODULE_LIST)

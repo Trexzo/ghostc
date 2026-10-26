@@ -209,6 +209,8 @@ jobs:
           grep -q 'DIAGNOSTICS_HUD_LAYOUT_PASS' .build/diagnostics-hud-layout.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudTextFitTests | tee .build/hud-text-fit.log
           grep -q 'HUD_TEXT_FIT_PASS' .build/hud-text-fit.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudScaleEditorTests | tee .build/hud-scale-editor.log
+          grep -q 'HUD_SCALE_EDITOR_PASS' .build/hud-scale-editor.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudScaleLayoutTests | tee .build/hud-scale-layout.log
           grep -q 'HUD_SCALE_LAYOUT_PASS' .build/hud-scale-layout.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudWidgetViewportTests | tee .build/hud-widget-viewport.log

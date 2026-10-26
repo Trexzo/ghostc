@@ -691,6 +691,21 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('getStringWidth(fitted)',self.feature)
         self.assertNotIn('label=label.substring(0,label.length()-1)',self.feature)
 
+    def test_hud_editor_keyboard_scale_is_persisted_via_validated_ui_actions(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        editor=content("src/main/java/dev/ghostfusion/ui/HudScaleEditor.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/HudScaleEditorTests.java")
+        self.assertIn("keyCode==Keyboard.KEY_LBRACKET",gui)
+        self.assertIn("keyCode==Keyboard.KEY_RBRACKET",gui)
+        self.assertIn("keyCode==Keyboard.KEY_0",gui)
+        self.assertIn('host.uiActions().reset(visualId,"scale")',gui)
+        self.assertIn('host.uiActions().fraction(visualId,"scale",',gui)
+        self.assertIn("HudScaleEditor.adjust(current.get(),direction,coarse)",gui)
+        self.assertIn("moduleListFrameCache=null;",gui)
+        self.assertIn("case MODULE_LIST: return",editor)
+        self.assertIn("every editor tab exposes its module scale",tests)
+        self.assertIn("HUD_SCALE_EDITOR_PASS",content(".github/workflows/core-ci.yml"))
+
     def test_opt_in_independent_hud_scale_matches_native_editor_footprints(self):
         driver=self.feature
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")

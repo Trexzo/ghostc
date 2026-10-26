@@ -125,3 +125,12 @@ also uses bounded full-card admission. Existing Status `scale` stays unchanged.
 A headless policy regression validates legacy 1.00x equality and seeded
 24,000-frame scaled bounds plus persisted independent settings.
 Real Minecraft FPS and visual acceptance still require a game launch.
+
+### F7 scale keyboard shortcuts
+In the existing HUD editor, select a Status/Keys/CPS/Target/List tab and use
+`[` and `]` to resize it in 0.05x increments, Shift+`[` or Shift+`]` for
+0.25x increments, and `0` to restore its original 1.00x scale. The editor
+shows the selected live widget's scale value. These actions use existing
+typed/validated `UiActions` mutations and profile persistence, not new
+render-only transforms. Drag capture is finalized before changing a widget's
+actual footprint; unchanged endpoint presses do not write profiles.
