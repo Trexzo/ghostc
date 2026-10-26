@@ -1,12 +1,18 @@
 package dev.ghostfusion.tests;
 
 import dev.ghostfusion.features.AimAssistPolicy;
+import dev.ghostfusion.features.AimTargetLock;
 import dev.ghostfusion.features.PatternClickScheduler;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.services.WorldSnapshot;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** R3.32 offline combat upgrade contract; original-game behavior still needs acceptance. */
@@ -111,6 +117,101 @@ public final class CombatDepthTests {
         rejects(()->p.suggest(world,1.62,1.25,6,90,3,true,1,1.01),"overshoot axis rejected");
         rejects(()->p.suggest(world,1.62,1.25,6,90,3,true,Double.NaN,1),"NaN fraction rejected");
     }
+    private static void targetRetention() throws Exception {
+        AimAssistPolicy policy=new AimAssistPolicy();
+        WorldSnapshot.Entity angular = new WorldSnapshot.Entity(
+            3,0.3,0,4,20,true,true,true);
+        WorldSnapshot.Entity closer = new WorldSnapshot.Entity(
+            4,1.5,0,2,20,true,true,true);
+        WorldSnapshot world=new WorldSnapshot(7,9,0,0,0,0,0,
+            Arrays.asList(angular,closer));
+        AimAssistPolicy.Suggestion byAngle=policy.suggest(
+            world,1.62,1.25,6,90,50,true,1,1,-1,"angular");
+        AimAssistPolicy.Suggestion byDistance=policy.suggest(
+            world,1.62,1.25,6,90,50,true,1,1,-1,"distance");
+        AimAssistPolicy.Suggestion pinned=policy.suggest(
+            world,1.62,1.25,6,90,50,true,1,1,4,"angular");
+        ok(byAngle.entityId==3 && byDistance.entityId==4,
+            "angular and distance rankings select distinct legal players");
+        ok(pinned.entityId==4,
+            "locked valid UUID-verified preferred ID wins only within eligibility");
+        ok(policy.suggest(world,1.62,1.25,6,90,50,true,1,1,-1,"angular")
+                .yaw==policy.suggest(world,1.62,1.25,6,90,50,true).yaw,
+            "default no-lock angular output matches legacy policy");
+        WorldSnapshot hidden=new WorldSnapshot(7,10,0,0,0,0,0,
+            Arrays.asList(angular,new WorldSnapshot.Entity(4,1.5,0,2,20,true,false,true)));
+        ok(policy.suggest(hidden,1.62,1.25,6,90,50,true,1,1,4,"angular")
+                .entityId==3,
+            "locked target cannot override visibility eligibility");
+        WorldSnapshot behind=new WorldSnapshot(7,10,0,0,0,0,0,
+            Arrays.asList(angular,new WorldSnapshot.Entity(4,0,0,-2,20,true,true,true)));
+        ok(policy.suggest(behind,1.62,1.25,6,80,50,true,1,1,4,"angular")
+                .entityId==3,
+            "locked target cannot override FOV eligibility");
+        WorldSnapshot far=new WorldSnapshot(7,10,0,0,0,0,0,
+            Arrays.asList(angular,new WorldSnapshot.Entity(4,50,0,50,20,true,true,true)));
+        ok(policy.suggest(far,1.62,1.25,6,90,50,true,1,1,4,"angular")
+                .entityId==3,
+            "locked target cannot override maximum range");
+        rejects(()->policy.suggest(world,1.62,1.25,6,90,50,true,1,1,4,"bogus"),
+            "unrecognized target priority rejected");
+
+        UUID first=UUID.fromString("123e4567-e89b-12d3-a456-426614174000");
+        UUID reused=UUID.fromString("123e4567-e89b-12d3-a456-426614174001");
+        AimTargetLock lock=new AimTargetLock();
+        ok(lock.preferred(1,1,true)==-1,"empty lock does not select by stale ID");
+        lock.applied(1,1,4,first);
+        ok(lock.preferred(1,2,true)==4 && lock.sameIdentity(first),
+            "selected player persists for subsequent valid tick");
+        ok(!lock.sameIdentity(reused),
+            "reused Minecraft entity ID with different UUID must invalidate");
+        lock.clear();
+        ok(lock.preferred(1,3,true)==-1,
+            "invalidated identity never retains a numeric entity ID");
+        lock.applied(1,3,3,reused);
+        ok(lock.preferred(2,1,true)==-1,
+            "world epoch change invalidates target even if ID was reused");
+        lock.applied(2,1,4,first);
+        ok(lock.preferred(2,2,false)==-1,
+            "disabling lock clears retained player");
+        ok(lock.preferred(2,3,true)==-1,
+            "reenabling must not restore a prior player lock");
+        lock.applied(2,3,3,first);
+        ok(lock.preferred(2,2,true)==-1,
+            "backward session tick fails closed to no lock");
+        rejects(()->lock.applied(3,4,4,first),
+            "lock rejects commit not backed by matching owner tick/epoch");
+        rejects(()->lock.applied(2,2,-1,first),
+            "negative entity ID cannot be retained");
+        rejects(()->lock.applied(2,2,4,null),
+            "null native UUID cannot authorize lock");
+        lock.reset();
+        ok(lock.preferred(2,4,true)==-1,
+            "focus/disconnect reset clears lock");
+
+        Random rnd=new Random(33242026L);
+        List<WorldSnapshot.Entity> choices=new ArrayList<WorldSnapshot.Entity>(
+            Arrays.asList(angular,closer));
+        for(int i=0;i<10000;i++) {
+            Collections.shuffle(choices,rnd);
+            WorldSnapshot shuffled=new WorldSnapshot(7,i+1,0,0,0,0,0,choices);
+            ok(policy.suggest(shuffled,1.62,1.25,6,90,2,true,1,1,4,"angular")
+                    .entityId==4,
+                "10k order-independent pinned targeting replay "+i);
+            ok(policy.suggest(shuffled,1.62,1.25,6,90,2,true,1,1,-1,"angular")
+                    .entityId==3,
+                "10k order-independent legacy targeting replay "+i);
+        }
+        final java.util.concurrent.atomic.AtomicBoolean denied=
+            new java.util.concurrent.atomic.AtomicBoolean(false);
+        Thread other=new Thread(()->{
+            try { lock.preferred(2,5,true); }
+            catch(IllegalStateException expected){denied.set(true);}
+        });
+        other.start();other.join();
+        ok(denied.get(),"cross-thread aim target state cannot be read or mutated");
+    }
+
     private static void profileSettings() throws Exception {
         Path dir=Files.createTempDirectory("ghostc-r332-combat-");
         HostRuntime host=new HostRuntime(dir);
@@ -119,18 +220,24 @@ public final class CombatDepthTests {
         ok("fixed".equals(host.clickPattern()) && host.clickCps()==10,
            "fixed clicker and legacy 10 CPS default retained");
         ok(host.aimHorizontalFraction()==1 && host.aimVerticalFraction()==1 &&
-           host.aimTargetHeight()==1.25,"all aim defaults retain original behavior");
+           host.aimTargetHeight()==1.25 && !host.aimLockTarget() &&
+           "angular".equals(host.aimTargetPriority()),
+           "all aim defaults retain original behavior and unlocked ranking");
         host.uiActions().cycle(click,"pattern");
         host.uiActions().fraction(click,"min_cps",.3);
         host.uiActions().fraction(click,"max_cps",.8);
         host.uiActions().fraction(aim,"horizontal_fraction",.4);
         host.uiActions().fraction(aim,"vertical_fraction",.6);
         host.uiActions().fraction(aim,"target_height",1.0);
+        host.uiActions().bool(aim,"lock_target");
+        host.uiActions().cycle(aim,"target_priority");
         ok("balanced".equals(host.clickPattern()) &&
             host.clickMinCps()>4 && host.clickMaxCps()<15,
             "new click choices are UI-adjustable");
         ok(host.aimHorizontalFraction()<1 && host.aimVerticalFraction()<1 &&
-           host.aimTargetHeight()==1.7,"independent aim settings exposed");
+           host.aimTargetHeight()==1.7 && host.aimLockTarget() &&
+           "distance".equals(host.aimTargetPriority()),
+           "independent aim and target ranking settings exposed");
         final double min=host.clickMinCps(),max=host.clickMaxCps();
         final double h=host.aimHorizontalFraction(),v=host.aimVerticalFraction();
         host.close();
@@ -139,8 +246,9 @@ public final class CombatDepthTests {
             loaded.clickMinCps()==min && loaded.clickMaxCps()==max,
             "click pattern and CPS bounds persist across real profile roundtrip");
         ok(loaded.aimHorizontalFraction()==h && loaded.aimVerticalFraction()==v &&
-            loaded.aimTargetHeight()==1.7,
-            "aim axis and height settings roundtrip without reset");
+            loaded.aimTargetHeight()==1.7 && loaded.aimLockTarget() &&
+            "distance".equals(loaded.aimTargetPriority()),
+            "aim axis, height, target lock and ranking settings roundtrip");
         loaded.uiActions().fraction(click,"min_cps",1.0);
         loaded.uiActions().fraction(click,"max_cps",0.0);
         ok(loaded.clickMinCps()>loaded.clickMaxCps(),
@@ -152,6 +260,7 @@ public final class CombatDepthTests {
         intervalReplay("range");
         schedulerRejectsInvalidState();
         aimAxes();
+        targetRetention();
         profileSettings();
         ok(checks>70000,"substantial independent click trace replay");
         System.out.println("COMBAT_DEPTH_PASS assertions="+checks);
