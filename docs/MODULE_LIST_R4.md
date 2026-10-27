@@ -28,23 +28,23 @@ module registration; preserve both feature sets when rebasing.
 
 - The original Classic and Glass paint paths and profile defaults remain unchanged.
 - Two opt-in skins: **Minimal** (graphite surface, narrow HP bar, reduced visual noise)
-  and **Nebula** (violet/cyan twin accents, detailed frame and elevated HP bar).
+  and **Slate** (violet/cyan twin accents, detailed frame and elevated HP bar).
 - The original 160x43 full Target HUD and 160x29 compact Target HUD geometry is retained.
 - Player/health/distance information comes from the existing live target gates.
 - Independent pure Java geometry checks and profile roundtrip tests are included;
   shaders or injector changes are deliberately excluded.
 
-## Nebula R4 redesign
-Nebula now has a distinct painter and restrained aurora composition with a four-sided frame,
+## Slate R4 redesign
+Slate now has a distinct painter and restrained aurora composition with a four-sided frame,
 low-contrast inset, two-tone health fill and a small energy marker rather than full-width neon stripes.
 The live target identity is verified before drawing; health interpolation cannot reuse the previous target.
-The `hud.target.motion` toggle defaults to true but only affects the opt-in Nebula skin.
-Classic, Glass, and Minimal retain their original painter and defaults. The Forge reset clears Nebula
+The `hud.target.motion` toggle defaults to true but only affects the opt-in Slate skin.
+Classic, Glass, and Minimal retain their original painter and defaults. The Forge reset clears Slate
 animation state on world/session transition. Pixel appearance still requires Minecraft visual acceptance.
 
 ## Matching Module List appearance
-The in-game Module List now exposes Classic (unchanged), Minimal, and Nebula appearances,
-plus opt-in compact row spacing. Nebula uses the same violet/cyan hierarchy as the
+The in-game Module List now exposes Classic (unchanged), Minimal, and Slate appearances,
+plus opt-in compact row spacing. Slate uses the same violet/cyan hierarchy as the
 Target HUD and a one-pixel sheen rather than expensive glow. All palette values come
 from immutable, shared `HudThemeTokens`; no shader, native code, packet or combat changes.
 
@@ -59,17 +59,17 @@ from immutable, shared `HudThemeTokens`; no shader, native code, packet or comba
 - Tested with seeded extreme aspect ratios and 26,000 randomized snap cases.
 
 ## R4 Keystrokes and CPS visual cohesion
-Keystrokes and CPS now each expose `appearance` (Classic/Minimal/Nebula) in the
+Keystrokes and CPS now each expose `appearance` (Classic/Minimal/Slate) in the
 existing ClickGUI. Both default to Classic and retain the original pixel colors
 unless the user explicitly chooses a new style. Minimal uses subdued graphite
-panels; Nebula reuses the immutable aurora tokens. The Minecraft-scaled geometry,
+panels; Slate reuses the immutable aurora tokens. The Minecraft-scaled geometry,
 text fitting, key-state readouts, physical CPS collection and drawing budgets are
 unchanged. Profile roundtrips and original visual constants are regression tested.
 
-## R4 Nebula ClickGUI theme
+## R4 Slate ClickGUI theme
 F7 ClickGUI now has three persisted UI themes: existing Indigo and Graphite/Mint,
-plus a full Nebula chrome theme. The theme button cycles Indigo -> Mint -> Nebula.
-The Nebula surface includes a restrained inset border, a split aurora line,
+plus a full Slate chrome theme. The theme button cycles Indigo -> Mint -> Slate.
+The Slate surface includes a restrained inset border, a split aurora line,
 selection rails, coordinated module/setting backgrounds and matching sliders.
 No hit zones, capture modes, settings logic or module input behaviors changed.
 The old two themes retain their exact original base colors and keep Indigo as default.
@@ -96,7 +96,7 @@ interferes with native Minecraft input. The overlap policy has deterministic
 ## R4 editor previews — readable silhouettes instead of placeholder tiles
 The F7 editor now paints miniature, bounded, representative shapes for Status,
 Keystrokes (WASD), CPS, Target HUD (HP bar) and Module List (enabled rows),
-colored by the user's actual style choice (Classic, Minimal or Nebula).
+colored by the user's actual style choice (Classic, Minimal or Slate).
 These are deliberately **schematic**, not actual combat/health data; they use
 the existing authoritative hitboxes and no shaders, textures or new inputs.
 `HudPreviewArt` has a callback-style, allocation-free painter with integer
@@ -161,14 +161,14 @@ footprints are non-overlapping for PvP/Stream at 640×360, 1280×720 and
 coordinate tables, avoiding temporary per-frame preset anchor objects.
 
 ## R5 visual redesign — Rise/Vape/Slinky benchmark, phase 1
-The Nebula **Wide** Modules screen now draws an original three-part workspace:
+The Slate **Wide** Modules screen now draws an original three-part workspace:
 category rail, a persistent full-height module list, and a dedicated setting
 pane. A lighter graphite material replaces the previous boxed violet rows.
 Modules have aligned compact switches and selection accents; configuration
 gets a title, separated keybind control, independently scrolling full-height
 settings, and low-noise numeric sliders/switches.
 
-`GuiNebulaWorkspace` is the single source of truth for the new drawn
+`GuiSlateWorkspace` is the single source of truth for the new drawn
 row/slider/keybind/scroll hitzones, with 50k seeded geometry tests for
 viewport containment and exclusive input ownership. Unsupported viewport
 sizes and the original Indigo/Mint/Compact layouts still use their previous
@@ -176,7 +176,7 @@ native rendering/hitbox paths. No font assets, copying of other clients'
 textures, combat changes or external injector required.
 
 ## R5 visual redesign phase 2 — text-first enabled Module List
-For the **Nebula** in-game Module List appearance, use right-aligned module
+For the **Slate** in-game Module List appearance, use right-aligned module
 labels on the right or left-aligned labels on the left, subtly animated on
 first enable. Row backgrounds are now almost transparent when enabled, rather
 than opaque stacked cards. The 2px side marker is restrained, optional, and
@@ -190,20 +190,20 @@ color preservation. Width sorting, Unicode sanitizing and profile positions
 continue through the original `ModuleListLayout`.
 
 ### R5 interaction and target card refinements
-Nebula module rows now have a restrained hover highlight without altering
+Slate module rows now have a restrained hover highlight without altering
 selection or toggle hit zones. Faulted modules show an explicit RESET label
 whose clickable hit zone covers the same painted control. The new click
 routing still calls the existing `UiActions.toggle` fault-recovery gateway
 (one click resets to DISABLED, a second click enables).
 
-The opt-in Nebula Target HUD now uses one deep translucent surface, small
+The opt-in Slate Target HUD now uses one deep translucent surface, small
 vertical accent and a restrained name + HP readout with one animated health
 bar. Target selection, team eligibility, combat data, health interpolation,
 optional distance and its 160x43/160x29 bounds remain on their proven paths.
 Classic/Glass/Minimal target skins are unchanged.
 
 ### R5 typography and spacing pass
-The split Nebula settings pane now derives label widths from each control's
+The split Slate settings pane now derives label widths from each control's
 actual geometry: boolean switch, numeric slider, or right-aligned choice.
 This prevents choice names/values and long slider labels from overlapping at
 minimum supported wide viewports. `GuiSettingPresentation` presents IDs as
@@ -215,7 +215,7 @@ focus preservation. Randomized viewport coverage exercises 30k widths and
 bounded value/label regions without requiring a running Minecraft client.
 
 ### Navigation and scrolling polish
-The Nebula Wide category sidebar now uses text-first navigation with thin,
+The Slate Wide category sidebar now uses text-first navigation with thin,
 gently colored selection rails, subtle hover feedback and quieter shortcuts.
 Modules/HUD top navigation uses a small active underline instead of bracket
 text, without changing original `GuiChrome` hit rectangles. The module search
@@ -226,20 +226,20 @@ tests; it never intercepts mouse events or changes module selection.
 Legacy Indigo/Mint/Compact paths remain unchanged.
 
 ### Vertical baseline correction
-The Nebula module-list rows begin below their MODULES heading (and below
+The Slate module-list rows begin below their MODULES heading (and below
 search). Header text no longer paints into the first selectable module row.
 The pure geometry regression asserts a minimum visible gutter, while native
 mouse hitboxes continue to be computed from the same moved row coordinates.
 
 ## R5 Slate visual reset — no purple defaults
-The persisted `NEBULA` identifier now displays as `SLATE`: matte graphite,
+The persisted `SLATE` identifier now displays as `SLATE`: matte graphite,
 off-white and muted ice-blue, consistently across the ClickGUI and all four
 optional HUD styles. First-run UI and HUD styling default to Slate, while
 explicitly saved Indigo and Classic choices remain available. The existing
 schema and profile IDs are unchanged, avoiding unrequested migrations.
 
 ### Slate expanded viewport and typography pass
-In Nebula/Slate Wide only, the native GUI uses up to **740×480** scaled
+In Slate/Slate Wide only, the native GUI uses up to **740×480** scaled
 pixels; legacy themes and Compact remain unchanged. A single theme-aware
 `GuiLayout.calculate` overload drives every Forge render and input rebuild
 route, keeping mouse, keybind, scissor-independent hit zones consistent.
@@ -255,6 +255,13 @@ entry motion, right-edge alignment, sorting, saved positions, and visibility
 remain unchanged. Previously saved explicit backgrounds/stripes are honored.
 
 ### Persisted appearance alias
-All saved `nebula` HUD appearance/skin values continue loading unchanged;
+All saved `slate` HUD appearance/skin values continue loading unchanged;
 Slate Wide's human-facing choice renderer now labels that option **Slate**.
 No profile migration, source enum rename or deprecated serialization is needed.
+
+## Legacy appearance migration
+Slate is now the actual selectable/serialized visual style. Historical
+`NEBULA` (UI) or `nebula` (HUD) values are accepted only by storage loaders;
+new saves use `SLATE`/`slate`. Old profile values are not lost. The
+`SlateLegacyMigrationTests` suite validates legacy file loading, original
+positions, all four HUD appearances and re-save compatibility.

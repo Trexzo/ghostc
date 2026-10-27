@@ -80,6 +80,8 @@ jobs:
           grep -q 'INGRESS_EPOCH_ADMISSION_PASS' .build/ingress-epoch-admission.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.StartupPersistenceFenceTests | tee .build/startup-persistence-fence.log
           grep -q 'STARTUP_PERSISTENCE_FENCE_PASS' .build/startup-persistence-fence.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.SlateLegacyMigrationTests | tee .build/slate-legacy.log
+          grep -q 'SLATE_LEGACY_MIGRATION_PASS' .build/slate-legacy.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiThemePaletteTests | tee .build/gui-theme.log
           grep -q 'GUI_THEME_PALETTE_PASS' .build/gui-theme.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudThemeTokensTests | tee .build/hud-theme-tokens.log
@@ -183,8 +185,8 @@ jobs:
           grep -q 'GUI_SLATE_LAYOUT_PASS' .build/gui-slate-layout.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSettingPresentationTests | tee .build/gui-setting-presentation.log
           grep -q 'GUI_SETTING_PRESENTATION_PASS' .build/gui-setting-presentation.log
-          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiNebulaWorkspaceTests | tee .build/gui-nebula-workspace.log
-          grep -q 'GUI_NEBULA_WORKSPACE_PASS' .build/gui-nebula-workspace.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateWorkspaceTests | tee .build/gui-slate-workspace.log
+          grep -q 'GUI_SLATE_WORKSPACE_PASS' .build/gui-slate-workspace.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiChromeTests | tee .build/gui-chrome.log
           grep -q 'GUI_CHROME_PASS' .build/gui-chrome.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiFooterTextTests | tee .build/gui-footer-text.log

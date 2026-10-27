@@ -444,18 +444,18 @@ class ForgeWiring(unittest.TestCase):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         palette=content("src/main/java/dev/ghostfusion/features/TargetHudPalette.java")
         tests=content("src/test/java/dev/ghostfusion/tests/TargetHudPaletteTests.java")
-        self.assertIn('new Setting.Choice("skin","nebula","classic","glass","minimal","nebula")',host)
+        self.assertIn('new Setting.Choice("skin","slate","classic","glass","minimal","slate")',host)
         self.assertIn("drawModernTarget(",forge)
-        self.assertIn("drawNebulaTarget(",forge)
+        self.assertIn("drawSlateTarget(",forge)
         self.assertIn("TargetHudMotion.fade(",forge)
         self.assertIn("TargetHudModernLayout.of(skin)",forge)
         self.assertIn("if(!style.fits(width,height,fontHeight,health))return;",forge)
         self.assertIn("public String targetSkin()",host)
         self.assertIn("final String skin=host.targetSkin();",forge)
         self.assertIn("TargetHudPalette.of(skin)",forge)
-        self.assertIn('if("nebula".equals(skin))',forge)
+        self.assertIn('if("slate".equals(skin))',forge)
         self.assertIn('if("minimal".equals(skin))',forge)
-        self.assertIn("drawNebulaTarget(x,y,width,height,health,labels,player);",forge)
+        self.assertIn("drawSlateTarget(x,y,width,height,health,labels,player);",forge)
         self.assertIn("TargetHudMotion.fade(",forge)
         self.assertIn("Gui.drawRect(x,y,x+width,y+height,palette.background)",forge)
         self.assertIn("Gui.drawRect(x,y,x+2,y+height,palette.accent)",forge)
@@ -691,7 +691,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('getStringWidth(fitted)',self.feature)
         self.assertNotIn('label=label.substring(0,label.length()-1)',self.feature)
 
-    def test_text_first_nebula_module_list_has_stable_live_only_transitions(self):
+    def test_text_first_slate_module_list_has_stable_live_only_transitions(self):
         driver=self.feature
         layout=content("src/main/java/dev/ghostfusion/ui/ModuleListLayout.java")
         motion=content("src/main/java/dev/ghostfusion/ui/ModuleListMotion.java")
@@ -705,11 +705,11 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("MODULE_LIST_MOTION_PASS",content(".github/workflows/core-ci.yml"))
         self.assertIn("Iterator<Map.Entry<String,State>>",motion)
 
-    def test_nebula_navigation_and_scroll_indicators_use_shared_state(self):
+    def test_slate_navigation_and_scroll_indicators_use_shared_state(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         scroll=content("src/main/java/dev/ghostfusion/ui/GuiScrollIndicator.java")
         tests=content("src/test/java/dev/ghostfusion/tests/GuiScrollIndicatorTests.java")
-        self.assertIn("drawNebulaSidebar(mx,my);",gui)
+        self.assertIn("drawSlateSidebar(mx,my);",gui)
         self.assertIn("GuiScrollIndicator.height(height,total,visible)",gui)
         self.assertIn("GuiScrollIndicator.offset(height,total,visible,first)",gui)
         self.assertIn("pane.settingRows,settings.size(),settingScroll",gui)
@@ -719,9 +719,9 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("max scroll reaches bottom",tests)
         self.assertIn("if(trackHeight==0||total<=visible||visible==0)return 0;",scroll)
 
-    def test_nebula_setting_labels_controls_and_search_are_measured(self):
+    def test_slate_setting_labels_controls_and_search_are_measured(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
-        layout=content("src/main/java/dev/ghostfusion/ui/GuiNebulaWorkspace.java")
+        layout=content("src/main/java/dev/ghostfusion/ui/GuiSlateWorkspace.java")
         tests=content("src/test/java/dev/ghostfusion/tests/GuiSettingPresentationTests.java")
         self.assertIn("pane.settingLabelBudget(kind)",gui)
         self.assertIn("GuiSettingPresentation.label(row.getKey())",gui)
@@ -734,20 +734,20 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("GUI_SETTING_PRESENTATION_PASS",content(".github/workflows/core-ci.yml"))
         self.assertIn("choice labels cannot overlap values",tests)
 
-    def test_nebula_three_pane_renders_and_hits_from_one_geometry(self):
+    def test_slate_three_pane_renders_and_hits_from_one_geometry(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
-        policy=content("src/main/java/dev/ghostfusion/ui/GuiNebulaWorkspace.java")
-        self.assertIn("drawNebulaModules(workspace,mx,my);return;",gui)
+        policy=content("src/main/java/dev/ghostfusion/ui/GuiSlateWorkspace.java")
+        self.assertIn("drawSlateModules(workspace,mx,my);return;",gui)
         self.assertIn("split.moduleIndex(mx,my,scroll,filtered.size())",gui)
         self.assertIn("split.settingIndex(mx,my,settingScroll,settings.size())",gui)
         self.assertIn("split.keybindArea(mx,my)",gui)
         self.assertIn("split.sliderX(),",gui)
         self.assertIn("settingsRows(zone)",gui)
         self.assertIn("sliderDrag.begin(",gui)
-        self.assertIn("GuiNebulaWorkspace.of(zone,ui)",gui)
+        self.assertIn("GuiSlateWorkspace.of(zone,ui)",gui)
         self.assertIn("moduleIndex(int mx,int my,int scroll,int count)",policy)
         self.assertIn("settingIndex(int mx,int my,int scroll,int count)",policy)
-        self.assertIn("GUI_NEBULA_WORKSPACE_PASS",
+        self.assertIn("GUI_SLATE_WORKSPACE_PASS",
                       content(".github/workflows/core-ci.yml"))
 
     def test_hud_quick_layout_presets_do_not_change_combat_or_visual_preferences(self):
@@ -2330,16 +2330,16 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('case MODULE_LIST: return widget.height;',content(
             "src/main/java/dev/ghostfusion/ui/HudFootprints.java"))
 
-    def test_nebula_clickgui_theme_is_persistent_and_visual_only(self):
+    def test_slate_clickgui_theme_is_persistent_and_visual_only(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         palette=content("src/main/java/dev/ghostfusion/ui/GuiThemePalette.java")
         state=content("src/main/java/dev/ghostfusion/ui/UiState.java")
         tests=content("src/test/java/dev/ghostfusion/tests/GuiThemePaletteTests.java")
-        self.assertIn("public enum Theme { GRAPHITE, INDIGO, NEBULA }",state)
+        self.assertIn("public enum Theme { GRAPHITE, INDIGO, SLATE }",state)
         self.assertIn("ui.theme(GuiThemePalette.next(ui.theme()))",gui)
-        self.assertIn("if(theme.nebula)drawNebulaChrome(theme);",gui)
+        self.assertIn("if(theme.slate)drawSlateChrome(theme);",gui)
         self.assertIn("GuiThemePalette.of(ui.theme())",gui)
-        self.assertIn("style.nebula?(focused?style.selectedModule:style.idleModule)",gui)
+        self.assertIn("style.slate?(focused?style.selectedModule:style.idleModule)",gui)
         self.assertIn("0xF3161A2C,0xFF22283E,0xFF9A8CFF",palette)
         self.assertIn("0xF31A1C20,0xFF303339,0xFF69D9C6",palette)
         self.assertIn('GuiThemePalette.next(UiState.Theme.GRAPHITE)',tests)
@@ -2349,7 +2349,7 @@ class ForgeWiring(unittest.TestCase):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         driver=(FORGE/"ForgeFeatureDriver.java").read_text(encoding="utf-8")
         tests=content("src/test/java/dev/ghostfusion/tests/HudThemeTokensTests.java")
-        self.assertIn('new Setting.Choice("appearance","nebula","classic","minimal","nebula")',host)
+        self.assertIn('new Setting.Choice("appearance","slate","classic","minimal","slate")',host)
         self.assertIn("public String keysAppearance()",host)
         self.assertIn("public String cpsAppearance()",host)
         self.assertIn('if("classic".equals(appearance))',driver)
