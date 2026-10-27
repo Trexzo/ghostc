@@ -27,7 +27,11 @@ public final class RuntimeDiagnostics {
         AIM_APPLIED, EXTRA_ATTACK, EXTRA_USE, INPUT_SUPPRESSED, FEATURE_FAULT,
         GUI_OPEN, GUI_FRAME, GUI_CLOSE, OVERLAY_FRAME, WORLD_RENDER_FRAME,
         KEY_CALLBACK, MOUSE_CALLBACK,
-        ESP_RENDER_FRAME, ESP_DRAWN_PLAYER, ESP_DRAWN_SKELETON, ESP_INVALID_GEOMETRY
+        ESP_RENDER_FRAME, ESP_DRAWN_PLAYER, ESP_DRAWN_SKELETON, ESP_INVALID_GEOMETRY,
+        // R3.44: opt-in *grant-frame* totals, not native action counts.
+        MODULE_WTAP_PREEMPTED_SPRINT, MODULE_ARMOR_PREEMPTED_SORTER,
+        MODULE_ARMOR_GRANT, MODULE_SORTER_GRANT, MODULE_CHEST_GRANT,
+        MODULE_GAMEPLAY_GUI_DENIED, MODULE_GAMEPLAY_WINDOW_DENIED
     }
     private final Thread owner = Thread.currentThread();
     private final EnumMap<Counter, Long> counters = new EnumMap<Counter,Long>(Counter.class);
@@ -75,6 +79,22 @@ public final class RuntimeDiagnostics {
      * Never let a damaged, external-linked or oversized report replace the
      * last well-formed backup while publishing a fresh safe report. */
     private static final long MAX_REPORT_BYTES=65536L;
+    // Schema 1 remains backward compatible with pre-R3.44 reports. New
+    // counters are optional only when validating an older backup; all newly
+    // written reports still contain them. Every unknown key is rejected.
+    private static boolean optionalNewCounter(Counter counter) {
+        switch(counter) {
+            case MODULE_WTAP_PREEMPTED_SPRINT:
+            case MODULE_ARMOR_PREEMPTED_SORTER:
+            case MODULE_ARMOR_GRANT:
+            case MODULE_SORTER_GRANT:
+            case MODULE_CHEST_GRANT:
+            case MODULE_GAMEPLAY_GUI_DENIED:
+            case MODULE_GAMEPLAY_WINDOW_DENIED:
+                return true;
+            default:return false;
+        }
+    }
     private static boolean validBackupReport(Properties data) {
         if(!"1".equals(data.getProperty("schema")) ||
            !"counter-only-no-identity".equals(data.getProperty("scope")))
@@ -85,7 +105,7 @@ public final class RuntimeDiagnostics {
             String key="count."+counter.name().toLowerCase(java.util.Locale.ROOT);
             permitted.add(key);
             // All expected counters are present in a genuine saved report.
-            if(!data.containsKey(key))return false;
+            if(!data.containsKey(key) && !optionalNewCounter(counter))return false;
         }
         String[] perf={"frame_samples","min_fps","median_fps","p95_fps",
             "p99_fps","max_fps","heap_mib","peak_heap_mib",
