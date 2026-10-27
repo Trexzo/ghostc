@@ -63,6 +63,11 @@ public final class WTapPolicy {
         restoreAt=-1;
         return Decision.RESTORE;
     }
+    /** True while a native attack reserves sprint reset ownership. */
+    public boolean pending() {
+        checkOwner();
+        return resetAt>=0 || restoreAt>=0;
+    }
     public void reset() {
         checkOwner();
         epoch=-1;lastTick=-1;lastAttack=-1;resetAt=-1;restoreAt=-1;
