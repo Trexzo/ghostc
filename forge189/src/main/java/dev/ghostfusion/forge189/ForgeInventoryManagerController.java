@@ -2,6 +2,7 @@ package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.features.InventoryManagerPolicy;
 import dev.ghostfusion.host.HostRuntime;
+import dev.ghostfusion.host.ModuleActionTelemetry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.gui.inventory.GuiInventory;
@@ -30,7 +31,13 @@ final class ForgeInventoryManagerController {
     private final InventoryManagerPolicy policy=new InventoryManagerPolicy();
     private Container observed;
     private int pendingSource=-1,pendingTarget=-1;
+    private long pendingSince=-1;
     private ItemStack beforeSource,beforeTarget;
+    private static final ModuleActionTelemetry.Lane LANE=
+        ModuleActionTelemetry.Lane.SORTER;
+    private void outcome(ModuleActionTelemetry.Event e) {
+        host.nativeAction(LANE,e);
+    }
 
     ForgeInventoryManagerController(Minecraft game,HostRuntime runtime) {
         if(game==null || runtime==null)
@@ -38,9 +45,10 @@ final class ForgeInventoryManagerController {
         mc=game;host=runtime;
     }
     void reset() {
+        if(pendingSource>=0)outcome(ModuleActionTelemetry.Event.CANCELLED);
         policy.reset();
         observed=null;
-        pendingSource=-1;pendingTarget=-1;
+        pendingSource=-1;pendingTarget=-1;pendingSince=-1;
         beforeSource=null;beforeTarget=null;
     }
     void tick() {
@@ -90,7 +98,8 @@ final class ForgeInventoryManagerController {
             changed=!ItemStack.areItemStacksEqual(beforeSource,sourceNow) &&
                 !ItemStack.areItemStacksEqual(beforeTarget,targetNow);
             if(changed) {
-                pendingSource=-1;pendingTarget=-1;
+                outcome(ModuleActionTelemetry.Event.LOCAL_CHANGE);
+                pendingSource=-1;pendingTarget=-1;pendingSince=-1;
                 beforeSource=null;beforeTarget=null;
             }
         }
@@ -101,19 +110,30 @@ final class ForgeInventoryManagerController {
             true,slots,host.inventoryManagerUpgrade(),
             host.inventoryManagerOpenDelay(),host.inventoryManagerClickDelay(),
             changed,host.services().tick(),host.services().generation());
-        if(swap==null)return;
+        if(swap==null) {
+            if(pendingSource>=0 && pendingSince>=0 &&
+               host.services().tick()-pendingSince>=12) {
+                outcome(ModuleActionTelemetry.Event.TIMEOUT);
+                pendingSource=-1;pendingTarget=-1;pendingSince=-1;
+                beforeSource=null;beforeTarget=null;
+            }
+            return;
+        }
         int source=swap.sourceContainerSlot;
         int hotbar=swap.targetHotbarIndex;
         if(source<9 || source>44 || hotbar<0 || hotbar>3 ||
            source==36+hotbar || player.openContainer!=container) {
-            policy.blockWindow();return;
+            policy.blockWindow();
+            outcome(ModuleActionTelemetry.Event.REJECTED);return;
         }
         pendingSource=source;pendingTarget=hotbar;
+        pendingSince=host.services().tick();
         beforeSource=copy(container.getSlot(source).getStack());
         beforeTarget=copy(container.getSlot(36+hotbar).getStack());
         // Vanilla hotbar-swap click; controller owns the transaction and
         // Minecraft owns packet synchronization/transaction confirmation.
         mc.playerController.windowClick(container.windowId,source,hotbar,2,player);
+        outcome(ModuleActionTelemetry.Event.ATTEMPT);
     }
     private static ItemStack copy(ItemStack stack) {
         return stack==null?null:stack.copy();
