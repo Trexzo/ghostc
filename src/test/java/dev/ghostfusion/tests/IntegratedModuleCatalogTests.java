@@ -21,7 +21,7 @@ public final class IntegratedModuleCatalogTests {
             "combat.aimassist","combat.clicker","combat.blockhit","combat.hitselect",
             "combat.velocity","combat.wtap",
             "movement.bridgeassist","movement.sprint",
-            "inventory.cheststealer","inventory.manager",
+            "inventory.cheststealer","inventory.manager","inventory.autoarmor",
             "hud.modulelist","hud.target","hud.keystrokes","hud.cps","render.esp"
         };
         for(String id:modules) {
@@ -46,6 +46,9 @@ public final class IntegratedModuleCatalogTests {
            "native Velocity horizontal and vertical percentages are true module settings");
         ok(host.modules().get("movement.bridgeassist").settings().containsKey("lookahead"),
             "native Bridge Assist lookahead registered");
+        ok(host.modules().get("inventory.autoarmor").settings().containsKey("upgrade_existing") &&
+           host.modules().get("inventory.autoarmor").settings().containsKey("open_delay_ticks"),
+           "actual AutoArmor staging and profile controls registered");
         ok(host.modules().get("inventory.manager").settings().containsKey("upgrade_existing") &&
            host.modules().get("inventory.manager").settings().containsKey("click_delay_ticks"),
            "Inventory Manager is a registered real hotbar module, not visual-only");
@@ -71,6 +74,8 @@ public final class IntegratedModuleCatalogTests {
         host.uiActions().cycle("hud.keystrokes","appearance");
         host.uiActions().fraction("movement.bridgeassist","lookahead",0.7);
         host.uiActions().fraction("inventory.cheststealer","click_delay_ticks",0.5);
+        host.uiActions().fraction("inventory.autoarmor","click_delay_ticks",0.75);
+        host.uiActions().bool("inventory.autoarmor","upgrade_existing");
         host.uiActions().fraction("inventory.manager","open_delay_ticks",0.75);
         host.uiActions().bool("inventory.manager","upgrade_existing");
         host.uiActions().fraction("combat.wtap","reset_ticks",1.0);
@@ -87,6 +92,9 @@ public final class IntegratedModuleCatalogTests {
         ok("minimal".equals(host.targetSkin()),"real minimal Target HUD skin live");
         ok("minimal".equals(host.moduleListAppearance()),"real Module List appearance live");
         ok("minimal".equals(host.keysAppearance()),"real Keystrokes skin live");
+        final int armorDelay=host.autoArmorClickDelay();
+        ok(armorDelay>5 && host.autoArmorUpgrade(),
+           "native AutoArmor click delay and upgrade mode active in GUI");
         final int managerDelay=host.inventoryManagerOpenDelay();
         ok(managerDelay>6 && host.inventoryManagerUpgrade(),
            "actual hotbar sorting policy responds to typed GUI settings");
@@ -116,6 +124,8 @@ public final class IntegratedModuleCatalogTests {
         ok("minimal".equals(loaded.targetSkin()),"Target HUD style survived Panic");
         ok("minimal".equals(loaded.moduleListAppearance()),"Module List style survived Panic");
         ok(loaded.bridgeLookahead()==lookahead,"Bridge Assist lookahead survived Panic");
+        ok(loaded.autoArmorClickDelay()==armorDelay && loaded.autoArmorUpgrade(),
+           "F6 Panic disables AutoArmor while preserving its saved configuration");
         ok(loaded.inventoryManagerOpenDelay()==managerDelay &&
            loaded.inventoryManagerUpgrade(),
            "Inventory Manager mode persists through Panic without activation");
@@ -133,6 +143,7 @@ public final class IntegratedModuleCatalogTests {
         WTapTests.main(args);
         ChestStealerTests.main(args);
         InventoryManagerTests.main(args);
+        AutoArmorTests.main(args);
         ok(count>65,"real integrated module and persisted profile coverage");
         System.out.println("INTEGRATED_MODULE_CATALOG_PASS assertions="+count);
     }
