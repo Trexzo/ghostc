@@ -46,3 +46,13 @@ task velocityNativeProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.VelocityPacketNativeTests'
 }
 check.dependsOn velocityNativeProbe
+
+// R3.46 mandatory native 1.8.9 combined module admission probe. Uses the
+// real Minecraft ContainerChest/Items and Netty classes with shared policy;
+// does not launch Minecraft, mutate a game profile or join a server.
+task nativeTandemProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeTandemAcceptanceTests'
+}
+check.dependsOn nativeTandemProbe
