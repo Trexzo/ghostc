@@ -66,7 +66,11 @@ public final class ForgeFeatureDriver {
         };
         esp = new PlayerEspRenderer(mc, host);
     }
-    void tick() {
+    void tick() {tick(true);}
+    /** WTap temporarily owns sprint reset; never reassert sprint in its
+     * hold window, regardless of whether AutoSprint is enabled. */
+    void tick(boolean autoSprintGranted) {
+        if (!autoSprintGranted) return;
         if (mc.thePlayer == null || mc.theWorld == null ||
             mc.currentScreen != null || !mc.inGameHasFocus) return;
         host.runFeature("movement.sprint", new Runnable() {
