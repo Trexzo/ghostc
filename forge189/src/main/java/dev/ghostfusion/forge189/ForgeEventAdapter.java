@@ -511,7 +511,9 @@ public final class ForgeEventAdapter {
            lastArbitration.generation==host.services().generation()) {
             final String grants=ModuleInteractionReadout.ownership(lastArbitration);
             final String held=ModuleInteractionReadout.suppression(lastArbitration);
-            final int bottomY=Math.max(2,sh-2*(fontHeight+3)-4);
+            // Last client-side action outcome is not a server ACK or hit.
+            final String outcome=host.nativeActionLatest();
+            final int bottomY=Math.max(2,sh-3*(fontHeight+3)-4);
             RenderStateGuard.draw(new Runnable() {
                 public void run() {
                     int available=Math.max(0,sw-6);
@@ -521,6 +523,9 @@ public final class ForgeEventAdapter {
                     minecraft.fontRendererObj.drawStringWithShadow(
                         minecraft.fontRendererObj.trimStringToWidth(held,available),
                         3,bottomY+fontHeight+3,0xFFFFD08A);
+                    minecraft.fontRendererObj.drawStringWithShadow(
+                        minecraft.fontRendererObj.trimStringToWidth(outcome,available),
+                        3,bottomY+2*(fontHeight+3),0xFFB0E4CA);
                 }
             });
         }
