@@ -6,6 +6,7 @@ import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
 import java.lang.reflect.Field;
+import java.util.concurrent.atomic.AtomicLong;
 import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.S12PacketEntityVelocity;
 import net.minecraft.network.play.server.S27PacketExplosion;
@@ -37,8 +38,40 @@ final class ForgeVelocityPacketBridge {
         "field_149159_h","motionZ","h");
     // One atomic/volatile publication binds a *specific* channel and entity
     // identity together. Netty must never mix an old channel with a new ID.
-    private static final Settings OFF=new Settings(null,false,-1,100,100);
+    private static final Settings OFF=new Settings(null,false,-1,100,100,false);
     private volatile Settings current=OFF;
+    // Opt-in health evidence only. No entity IDs, payloads, channel names,
+    // server addresses, targets or packet objects survive a callback.
+    private volatile boolean installed;
+    private final AtomicLong localS12=new AtomicLong();
+    private final AtomicLong explosionS27=new AtomicLong();
+    private final AtomicLong foreignS12=new AtomicLong();
+    private final AtomicLong errors=new AtomicLong();
+
+    static final class Health {
+        final String status;
+        final long localS12,explosionS27,foreignS12,errors;
+        Health(String status,long s12,long s27,long foreign,long failures) {
+            this.status=status;localS12=s12;explosionS27=s27;
+            foreignS12=foreign;errors=failures;
+        }
+    }
+    Health health() {
+        Settings s=current;
+        String status=!s.enabled?"DISABLED":
+            CHANNEL==null||S12_X==null||S12_Y==null||S12_Z==null||
+            S27_X==null||S27_Y==null||S27_Z==null?"MAPPING_MISSING":
+            installed?"ATTACHED":"ATTACH_PENDING";
+        return new Health(status,localS12.get(),explosionS27.get(),
+            foreignS12.get(),errors.get());
+    }
+    private static void increment(AtomicLong count) {
+        long prev;
+        do {
+            prev=count.get();
+            if(prev==Long.MAX_VALUE)return;
+        } while(!count.compareAndSet(prev,prev+1));
+    }
 
     private static Field field(Class<?> type,Class<?> expected,String... names) {
         for(String name:names) {
@@ -60,20 +93,26 @@ final class ForgeVelocityPacketBridge {
         final boolean enabled;
         final int entityId;
         final double horizontal,vertical;
+        final boolean observe;
         Settings(Channel connection,boolean enabled,int entityId,
-                 double horizontal,double vertical) {
+                 double horizontal,double vertical,boolean observe) {
             this.connection=connection;
             this.enabled=enabled;
             this.entityId=entityId;
             this.horizontal=horizontal;
             this.vertical=vertical;
+            this.observe=observe;
         }
     }
     void update(NetworkManager network,int entityId,double h,double v) {
+        update(network,entityId,h,v,false);
+    }
+    void update(NetworkManager network,int entityId,double h,double v,
+                boolean observe) {
         if(network==null || CHANNEL==null) {reset();return;}
         try {
             Channel ch=(Channel)CHANNEL.get(network);
-            updateConnection(ch,entityId,h,v);
+            updateConnection(ch,entityId,h,v,observe);
         } catch(IllegalAccessException|ClassCastException ignored) {
             reset();
         }
@@ -81,12 +120,17 @@ final class ForgeVelocityPacketBridge {
     /** Also used by the native Java8 EmbeddedChannel contract. All
      * channel mutations still occur on the channel's own Netty event loop. */
     void updateConnection(Channel ch,int entityId,double h,double v) {
+        updateConnection(ch,entityId,h,v,false);
+    }
+    void updateConnection(Channel ch,int entityId,double h,double v,
+                          boolean observe) {
         if(ch==null || !ch.isOpen() || entityId<0 || h<0 || h>100 ||
            v<0 || v>100 || !Double.isFinite(h) || !Double.isFinite(v)) {
             reset();return;
         }
         Settings before=current;
-        current=new Settings(ch,true,entityId,h,v);
+        current=new Settings(ch,true,entityId,h,v,observe);
+        if(before.connection!=ch)installed=false;
         if(before.connection!=null && before.connection!=ch)
             reconcile(before.connection);
         // Reconcile *every* owner tick. If packet_handler was not yet present
@@ -97,6 +141,7 @@ final class ForgeVelocityPacketBridge {
     void reset() {
         Settings before=current;
         current=OFF; // Disable on Netty immediately, before queued removal.
+        installed=false;
         if(before.connection!=null)reconcile(before.connection);
     }
     private void reconcile(final Channel ch) {
@@ -114,11 +159,21 @@ final class ForgeVelocityPacketBridge {
                     if(existing instanceof Inbound &&
                        ((Inbound)existing).owner==ForgeVelocityPacketBridge.this)
                         pipeline.remove(HOOK);
+                    if(wanted.connection==ch || !wanted.enabled)
+                        installed=false;
                     return;
                 }
-                if(existing!=null)return;
-                if(pipeline.get("packet_handler")==null)return;
+                if(existing!=null) {
+                    installed=existing instanceof Inbound &&
+                        ((Inbound)existing).owner==ForgeVelocityPacketBridge.this;
+                    return;
+                }
+                if(pipeline.get("packet_handler")==null) {
+                    installed=false;
+                    return;
+                }
                 pipeline.addBefore("packet_handler",HOOK,new Inbound(ch));
+                installed=true;
             }
         });
     }
@@ -135,16 +190,25 @@ final class ForgeVelocityPacketBridge {
                 Settings s=current;
                 if(s.connection==mine && ctx.channel()==mine && s.enabled &&
                    (s.horizontal!=100 || s.vertical!=100)) {
-                    if(msg instanceof S12PacketEntityVelocity)
-                        s12((S12PacketEntityVelocity)msg,s);
-                    else if(msg instanceof S27PacketExplosion)
+                    if(msg instanceof S12PacketEntityVelocity) {
+                        S12PacketEntityVelocity v=(S12PacketEntityVelocity)msg;
+                        boolean mine=VelocityPacketMath.localS12(
+                            v.getEntityID(),s.entityId);
+                        if(s.observe)increment(mine?localS12:foreignS12);
+                        if(mine)s12(v,s);
+                    } else if(msg instanceof S27PacketExplosion) {
+                        if(s.observe)increment(explosionS27);
                         s27((S27PacketExplosion)msg,s);
+                    }
                 }
             } catch(ReflectiveOperationException ignored) {
+                if(current.observe)increment(errors);
                 // Unknown native field mapping: do not touch the packet.
             } catch(IllegalArgumentException ignored) {
+                if(current.observe)increment(errors);
                 // Unsupported vector: preserve vanilla packet values.
             } catch(RuntimeException ignored) {
+                if(current.observe)increment(errors);
                 // A feature fault must never prevent native packet dispatch.
             }
             // Always allow vanilla NetHandlerPlayClient to process the packet.
