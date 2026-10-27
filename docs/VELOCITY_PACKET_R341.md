@@ -15,7 +15,7 @@ At **100%/100%**, no packet mutation occurs. The `combat.velocity` module remain
 
 ### Native 1.8.9 integration
 
-The new `ForgeVelocityPacketBridge` uses the active `NetworkManager`'s 1.8.9 Netty channel and adds one inbound `ChannelDuplexHandler` directly *before* `packet_handler`, after decoding. The channel field and packet motion fields are located using exact **MCP/SRG aliases**; if a field is absent or inaccessible, the packet remains unchanged. The hook is installed/removed on the channel's Netty event loop, never through unsafe concurrent pipeline mutation.
+The new `ForgeVelocityPacketBridge` uses the active `NetworkManager`'s 1.8.9 Netty channel and adds one inbound `ChannelDuplexHandler` directly *before* `packet_handler`, after decoding. The channel field and packet motion fields are located using known **MCP/SRG/obfuscated aliases**, and every reflected field must have the precise expected Java type (`Channel`, `int`, or `float`) before use; if a field is absent, incompatible, or inaccessible, the packet remains unchanged. The hook is installed/removed on the channel's Netty event loop, never through unsafe concurrent pipeline mutation.
 
 The Minecraft **owner thread** alone reads the local player ID and settings, publishing an immutable, `volatile` `Settings` snapshot. The Netty listener reads only that snapshot and the incoming packet. It does **not** read the Minecraft world, a player object, HostRuntime, or UI off-thread.
 
