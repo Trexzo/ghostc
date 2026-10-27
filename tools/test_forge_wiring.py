@@ -1093,7 +1093,7 @@ class ForgeWiring(unittest.TestCase):
 
     def test_gui_viewport_wiring_not_regressed(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
-        self.assertIn("GuiLayout.calculate(width,height,ui.layout())",gui)
+        self.assertIn("GuiLayout.calculate(width,height,ui.layout(),ui.theme())",gui)
         self.assertIn("syncSearch(g)",gui)
         self.assertIn("resized.setText(previous)",gui)
         self.assertIn("resized.setFocused(focused)",gui)
@@ -2072,7 +2072,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("GuiChrome.interactive(",gui)
         self.assertIn("GuiChrome.headerAt(zone,mx,my)",gui)
         self.assertIn("GuiChrome.categoryIndex(zone,mx,my)",gui)
-        self.assertIn("GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout()))",gui)
+        self.assertIn("GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout(),ui.theme()))",gui)
         self.assertIn("hudDragging=false;",gui)
         self.assertIn("capture=null;",gui)
         self.assertIn("g.width >= g.sidebar + 230",chrome)

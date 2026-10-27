@@ -114,7 +114,7 @@ public final class GhostClickGui extends GuiScreen {
         host.inputFocus(true);
     }
     private void rebuild() {
-        GuiLayout g = GuiLayout.calculate(width,height,ui.layout());
+        GuiLayout g = GuiLayout.calculate(width,height,ui.layout(),ui.theme());
         if(sliderDrag.active() &&
            (!sliderDrag.sameViewport(width,height) || !GuiChrome.interactive(g)))
             finishSliderDrag();
@@ -161,7 +161,7 @@ public final class GhostClickGui extends GuiScreen {
         return workspace==null?GuiHitZones.visibleSettings(zone):workspace.settingRows;
     }
     private void nebulaSwitch(int x,int y,boolean enabled) {
-        int track=enabled?0xFF829FCD:0xFF343A49;
+        int track=enabled?0xFF829FAA:0xFF343C43;
         // Three nested spans approximate small rounded switch ends.
         rect(x+2,y,23,13,track);
         rect(x,y+2,27,9,track);
@@ -189,7 +189,7 @@ public final class GhostClickGui extends GuiScreen {
             boolean hovered=inside(mx,my,pane.modulesX,yy,pane.modulesWidth,26);
             if(active||hovered)
                 rect(pane.modulesX,yy,pane.modulesWidth,26,
-                    active?0x58405266:0x242E3746);
+                    active?0x5B35424B:0x24313B43);
             rect(pane.modulesX+6,yy+25,pane.modulesWidth-12,1,0x304D5669);
             if(active)rect(pane.modulesX+1,yy+9,2,8,color.accent);
             label(trim(entry.module().displayName(),pane.modulesWidth-61),
@@ -216,7 +216,7 @@ public final class GhostClickGui extends GuiScreen {
         label(trim(entry.module().displayName(),pane.detailsWidth-22),
             pane.detailsX+9,pane.detailsY+23,color.text);
         rect(pane.detailsX+9,pane.detailsY+44,pane.detailsWidth-18,1,color.divider);
-        rect(pane.detailsX+9,pane.bindingY,pane.detailsWidth-18,24,0x45333C4E);
+        rect(pane.detailsX+9,pane.bindingY,pane.detailsWidth-18,24,0x48313942);
         label("KEYBIND",pane.detailsX+16,pane.bindingY+8,color.muted);
         String bind=capture!=null&&capture.equals(selected)?"PRESS KEY":
             entry.keybind()==0?"NONE":Keyboard.getKeyName(entry.keybind());
@@ -234,7 +234,7 @@ public final class GhostClickGui extends GuiScreen {
             Setting<?> setting=row.getValue();
             int yy=pane.settingY+(i-settingScroll)*30;
             if(i==keyboardSetting)
-                rect(pane.detailsX+8,yy,pane.detailsWidth-16,27,0x50465568);
+                rect(pane.detailsX+8,yy,pane.detailsWidth-16,27,0x50333E46);
             rect(pane.detailsX+9,yy+26,pane.detailsWidth-18,1,0x263E4558);
             int kind=setting instanceof Setting.Bool?0:
                 setting instanceof Setting.Number?1:2;
@@ -276,7 +276,11 @@ public final class GhostClickGui extends GuiScreen {
         if (rw > 0 && rh > 0) drawRect(rx, ry, rx + rw, ry + rh, color);
     }
     private void label(String value, int atX, int atY, int color) {
-        fontRendererObj.drawStringWithShadow(value, atX, atY, color);
+        // Pixel fonts still require future native acceptance, but Slate avoids
+        // doubled drop shadows that make the default font look blurry/crowded.
+        if(ui.theme()==UiState.Theme.NEBULA)
+            fontRendererObj.drawString(value,atX,atY,color);
+        else fontRendererObj.drawStringWithShadow(value,atX,atY,color);
     }
     @Override public void drawScreen(final int mx, final int my, float partialTicks) {
         host.diagnostics().record(Counter.GUI_FRAME);
@@ -292,9 +296,14 @@ public final class GhostClickGui extends GuiScreen {
     private void drawUi(int mx, int my) {
         // Cache the live font-measured Module List once per GUI frame.
         moduleListFrameCache=null;
-        rect(0, 0, width, height, 0x99060B13);
+        rect(0, 0, width, height, 0xB30B0D10);
+        if(ui.theme()==UiState.Theme.NEBULA) {
+            // Quiet layered shadow provides depth without glow or blur shaders.
+            rect(x-5,y+5,w+10,h+5,0x12000000);
+            rect(x-3,y+3,w+6,h+3,0x26000000);
+        }
         rect(x, y, w, h, bg());
-        if (!GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout()))) {
+        if (!GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout(),ui.theme()))) {
             label(trim("GhostC: enlarge game window or reduce GUI scale",w-16),
                 x+8,y+Math.min(18,Math.max(0,h-1)),accent());
             return;
@@ -306,7 +315,7 @@ public final class GhostClickGui extends GuiScreen {
         label("GHOSTC", x + 10, y + 10, accent());
         int menuX = x + side + 8;
         GuiNebulaWorkspace modern=nebulaWorkspace(
-            GuiLayout.calculate(width,height,ui.layout()));
+            GuiLayout.calculate(width,height,ui.layout(),ui.theme()));
         if(modern!=null) {
             label("Modules",menuX,y+11,hudPage?theme.muted:theme.text);
             label("HUD",menuX+76,y+11,hudPage?theme.text:theme.muted);
@@ -337,11 +346,10 @@ public final class GhostClickGui extends GuiScreen {
         rect(x+w-1,y,1,h,theme.frame);
         rect(x+side-1,y+30,1,Math.max(0,h-31),theme.frame);
         rect(x+side+1,y+29,Math.max(0,w-side-2),1,theme.divider);
-        // Short twin aurora lines echo the Nebula in-game Target HUD.
+        // A short single ice-blue underline, without purple aurora chrome.
         int segment=Math.max(0,Math.min(44,w-side-30));
         rect(x+side+9,y+29,segment,1,theme.accent);
-        rect(x+side+9+segment,y+29,Math.min(20,Math.max(0,w-side-30-segment)),
-            1,theme.secondary);
+        // Remaining header stays deliberately monochromatic.
         rect(x+5,y+9,2,12,theme.accent);
         rect(x+5,y+21,2,2,theme.secondary);
         // Distinguish title, controls, and content without texture allocations.
@@ -413,7 +421,7 @@ public final class GhostClickGui extends GuiScreen {
     }
     private void drawModules(int mx, int my) {
         GuiNebulaWorkspace workspace=nebulaWorkspace(
-            GuiLayout.calculate(width,height,ui.layout()));
+            GuiLayout.calculate(width,height,ui.layout(),ui.theme()));
         if(workspace!=null) {drawNebulaModules(workspace,mx,my);return;}
         drawSidebar();
         if (search != null) search.drawTextBox();
@@ -782,7 +790,7 @@ public final class GhostClickGui extends GuiScreen {
     private void adjustHudDrag(int mx,int my) {
         if(!hudDragging || !hudCapture.sameViewport(width,height))return;
         if(previewW<=0 || previewH<=0 ||
-           !GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout())))return;
+           !GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout(),ui.theme())))return;
         // A pointer round-trip must restore the original *serialized*
         // normalized anchor, not quantize it through preview pixels.
         if(hudCapture.restoreAtPointerOrigin(ui,mx,my)) {
@@ -838,7 +846,7 @@ public final class GhostClickGui extends GuiScreen {
         pendingControlBind=0;
         super.mouseClicked(mx, my, button);
         rebuild();
-        GuiLayout zone = GuiLayout.calculate(width,height,ui.layout());
+        GuiLayout zone = GuiLayout.calculate(width,height,ui.layout(),ui.theme());
         if (button != 0 || !GuiChrome.interactive(zone) ||
             !inside(mx,my,x,y,w,h)) return;
         GuiChrome.Header header=GuiChrome.headerAt(zone,mx,my);
@@ -1001,7 +1009,7 @@ public final class GhostClickGui extends GuiScreen {
         if(sliderDrag.active()) {
             if(button==0 && !hudPage &&
                sliderDrag.sameViewport(width,height) &&
-               GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout())))
+               GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout(),ui.theme())))
                 adjustSliderDrag(mx);
             else finishSliderDrag();
             return;
@@ -1029,7 +1037,7 @@ public final class GhostClickGui extends GuiScreen {
         if (wheel != 0 && !hudPage) {
             finishSliderDrag();
             rebuild();
-            GuiLayout zone=GuiLayout.calculate(width,height,ui.layout());
+            GuiLayout zone=GuiLayout.calculate(width,height,ui.layout(),ui.theme());
             if (!GuiChrome.interactive(zone)) return;
             int direction = wheel > 0 ? -1 : 1;
             int mx = Mouse.getEventX() * width / Math.max(1, mc.displayWidth);
@@ -1074,7 +1082,7 @@ public final class GhostClickGui extends GuiScreen {
         super.handleKeyboardInput();
     }
     @Override protected void keyTyped(char character,int keyCode) throws IOException {
-        if (!GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout()))) {
+        if (!GuiChrome.interactive(GuiLayout.calculate(width,height,ui.layout(),ui.theme()))) {
             if (keyCode==Keyboard.KEY_ESCAPE || keyCode==Keyboard.KEY_F7)
                 mc.displayGuiScreen(null);
             return;
@@ -1240,7 +1248,7 @@ public final class GhostClickGui extends GuiScreen {
             if(selected==null) {keyboardSetting=-1; return;}
             int count=host.modules().get(selected).settings().size();
             int rows=settingsRows(
-                GuiLayout.calculate(width,height,ui.layout()));
+                GuiLayout.calculate(width,height,ui.layout(),ui.theme()));
             keyboardSetting=rows>0?GuiSettingKeyboard.next(
                 keyboardSetting,count,(Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) ||
                 Keyboard.isKeyDown(Keyboard.KEY_RSHIFT))?-1:1):-1;
@@ -1259,7 +1267,7 @@ public final class GhostClickGui extends GuiScreen {
                 keyboardSetting=GuiSettingKeyboard.visibleFocus(
                     keyboardSetting,settingScroll,
                     host.modules().get(selected).settings().size(),
-                    settingsRows(GuiLayout.calculate(width,height,ui.layout())));
+                    settingsRows(GuiLayout.calculate(width,height,ui.layout(),ui.theme())));
             }
             if(selected!=null && keyboardSetting>=0) {
                 List<Map.Entry<String, Setting<?>>> settings=

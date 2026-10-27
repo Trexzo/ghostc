@@ -237,3 +237,13 @@ off-white and muted ice-blue, consistently across the ClickGUI and all four
 optional HUD styles. First-run UI and HUD styling default to Slate, while
 explicitly saved Indigo and Classic choices remain available. The existing
 schema and profile IDs are unchanged, avoiding unrequested migrations.
+
+### Slate expanded viewport and typography pass
+In Nebula/Slate Wide only, the native GUI uses up to **740×480** scaled
+pixels; legacy themes and Compact remain unchanged. A single theme-aware
+`GuiLayout.calculate` overload drives every Forge render and input rebuild
+route, keeping mouse, keybind, scissor-independent hit zones consistent.
+Matte charcoal surfaces get a quiet layered drop shadow, and Slate uses
+shadow-free Minecraft text instead of the old doubled-font appearance.
+No custom font renderer is claimed; real in-game glyph antialiasing still
+requires a subsequent font implementation and screenshot testing.
