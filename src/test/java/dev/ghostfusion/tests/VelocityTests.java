@@ -169,6 +169,7 @@ public final class VelocityTests {
         nativeHurtEdges();
         randomizedReplay();
         persistenceAndOwner();
+        VelocityPacketTests.main(args);
         ok(checks>=30000,"30k native-event replay plus UI and lifecycle");
         System.out.println("VELOCITY_PASS assertions="+checks);
     }
