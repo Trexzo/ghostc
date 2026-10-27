@@ -1,7 +1,7 @@
 package dev.ghostfusion.tests;
 
 import dev.ghostfusion.ui.GuiSettingPresentation;
-import dev.ghostfusion.ui.GuiNebulaWorkspace;
+import dev.ghostfusion.ui.GuiSlateWorkspace;
 import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.UiState;
 import java.util.Random;
@@ -25,8 +25,8 @@ public final class GuiSettingPresentationTests {
            "CPS title preservation");
         ok(GuiSettingPresentation.choice("bottom_right").equals("Bottom Right"),
            "choice text no longer uses snake case");
-        ok(GuiSettingPresentation.choice("nebula").equals("Slate"),
-           "all persisted Nebula appearances display as Slate");
+        ok(GuiSettingPresentation.choice("slate").equals("Slate"),
+           "all persisted Slate appearances display as Slate");
         ok(GuiSettingPresentation.number("scale",1.0).equals("1x"),
            "scale suffix");
         ok(GuiSettingPresentation.number("cps",10).equals("10 CPS"),
@@ -44,10 +44,10 @@ public final class GuiSettingPresentationTests {
         invalid(()->GuiSettingPresentation.number("scale",Double.NaN),
             "non-finite numeric display rejected");
         Random rng=new Random(271026L);
-        UiState ui=new UiState();ui.theme(UiState.Theme.NEBULA);
+        UiState ui=new UiState();ui.theme(UiState.Theme.SLATE);
         for(int i=0;i<30000;i++) {
             int sw=1+rng.nextInt(2700),sh=1+rng.nextInt(1500);
-            GuiNebulaWorkspace pane=GuiNebulaWorkspace.of(
+            GuiSlateWorkspace pane=GuiSlateWorkspace.of(
                 GuiLayout.calculate(sw,sh,UiState.Layout.WIDE),ui);
             if(pane==null)continue;
             ok(pane.settingLabelBudget(0)>0&&

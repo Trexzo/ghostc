@@ -56,13 +56,13 @@ public final class HudLayoutPresetsTests {
             "default list stays in original exact top-right preset mode");
         ok(!HudLayoutPresets.matches(ui,Preset.DEFAULT,"custom"),
             "custom mode must never masquerade as original corner preset");
-        ui.theme(UiState.Theme.NEBULA);
+        ui.theme(UiState.Theme.SLATE);
         ui.layout(UiState.Layout.COMPACT);
         ui.query("HUD stable search");
         ok(HudLayoutPresets.apply(ui,Preset.PVP),"PvP layout changes positions");
         ok(HudLayoutPresets.matches(ui,Preset.PVP,"custom"),"PvP matches five anchors");
         ok(!HudLayoutPresets.apply(ui,Preset.PVP),"same layout is idempotent");
-        ok(ui.theme()==UiState.Theme.NEBULA &&
+        ok(ui.theme()==UiState.Theme.SLATE &&
            ui.layout()==UiState.Layout.COMPACT &&
            "HUD stable search".equals(ui.query()),
            "preset never touches current visual theme, GUI layout or search");

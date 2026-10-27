@@ -1,6 +1,6 @@
 package dev.ghostfusion.tests;
 import dev.ghostfusion.ui.GuiLayout;
-import dev.ghostfusion.ui.GuiNebulaWorkspace;
+import dev.ghostfusion.ui.GuiSlateWorkspace;
 import dev.ghostfusion.ui.UiState;
 import java.util.Random;
 
@@ -11,7 +11,7 @@ public final class GuiSlateLayoutTests {
     }
     public static void main(String[] args) {
         UiState ui=new UiState();
-        ok(ui.theme()==UiState.Theme.NEBULA,"Slate first-run theme");
+        ok(ui.theme()==UiState.Theme.SLATE,"Slate first-run theme");
         GuiLayout original=GuiLayout.calculate(1920,1080,UiState.Layout.WIDE);
         GuiLayout slate=GuiLayout.calculate(1920,1080,UiState.Layout.WIDE,ui.theme());
         ok(original.width==600&&original.height==430,
@@ -19,18 +19,18 @@ public final class GuiSlateLayoutTests {
         ok(slate.width==740&&slate.height==480,
             "Slate uses a true expanded 740x480 workspace");
         ok(slate.insidePanel(1920,1080),"expanded geometry contained");
-        ok(GuiNebulaWorkspace.of(slate,ui)!=null,
+        ok(GuiSlateWorkspace.of(slate,ui)!=null,
             "expanded workspace gets independent settings column");
-        int oldDetails=GuiNebulaWorkspace.of(
+        int oldDetails=GuiSlateWorkspace.of(
             GuiLayout.calculate(1920,1080,UiState.Layout.WIDE),ui).detailsWidth;
-        ok(GuiNebulaWorkspace.of(slate,ui).detailsWidth>oldDetails+100,
+        ok(GuiSlateWorkspace.of(slate,ui).detailsWidth>oldDetails+100,
             "configuration column gains meaningful width");
         Random rng=new Random(271026L);
         for(int i=0;i<25000;i++) {
             int sw=1+rng.nextInt(2800),sh=1+rng.nextInt(1500);
             GuiLayout g=GuiLayout.calculate(sw,sh,UiState.Layout.WIDE,ui.theme());
             ok(g.insidePanel(sw,sh),"Slate popup contained "+i);
-            GuiNebulaWorkspace pane=GuiNebulaWorkspace.of(g,ui);
+            GuiSlateWorkspace pane=GuiSlateWorkspace.of(g,ui);
             if(pane!=null) {
                 ok(pane.settingLabelBudget(0)>0 &&
                    pane.settingLabelBudget(2)>0,"labels fit expanded details "+i);

@@ -42,10 +42,10 @@ public final class TargetHudPaletteTests {
            (glass.outline>>>24)>0,
            "glass overlay colors retain visible ARGB channels");
         TargetHudPalette minimal=TargetHudPalette.of("minimal");
-        TargetHudPalette nebula=TargetHudPalette.of("nebula");
-        ok(minimal!=classic && nebula!=glass && minimal!=nebula,
+        TargetHudPalette slate=TargetHudPalette.of("slate");
+        ok(minimal!=classic && slate!=glass && minimal!=slate,
             "modern skins retain separate immutable color identity");
-        ok(minimal.secondary!=0 && nebula.secondary!=0,
+        ok(minimal.secondary!=0 && slate.secondary!=0,
             "modern skins have distinct secondary accents");
         invalid(null);invalid("");invalid("GLASS");invalid("default");
         Random random=new Random(2562026L);
@@ -59,8 +59,8 @@ public final class TargetHudPaletteTests {
     private static void profile() throws Exception {
         Path path=Files.createTempDirectory("ghostc-r256-target-skin-");
         HostRuntime host=new HostRuntime(path);
-        ok("nebula".equals(host.targetSkin()),"fresh Target HUD defaults to Slate");
-        ok("nebula".equals(host.modules().get("hud.target").settings().get("skin").serialize()),
+        ok("slate".equals(host.targetSkin()),"fresh Target HUD defaults to Slate");
+        ok("slate".equals(host.modules().get("hud.target").settings().get("skin").serialize()),
            "ClickGUI exposes the saved-compatible Slate skin ID");
         host.uiActions().cycle("hud.target","skin");
         ok("classic".equals(host.targetSkin()),"explicit Classic style remains available");
@@ -73,19 +73,19 @@ public final class TargetHudPaletteTests {
         loaded.uiActions().cycle("hud.target","skin");
         ok("minimal".equals(loaded.targetSkin()),"GUI selects Minimal");
         loaded.uiActions().cycle("hud.target","skin");
-        ok("nebula".equals(loaded.targetSkin()),"GUI selects Nebula");
+        ok("slate".equals(loaded.targetSkin()),"GUI selects Slate");
         loaded.uiActions().cycle("hud.target","skin");
         ok("classic".equals(loaded.targetSkin()),"GUI cycles back to classic");
-        // Persist Nebula independently to confirm new choice roundtrips safely.
+        // Persist Slate independently to confirm new choice roundtrips safely.
         loaded.uiActions().cycle("hud.target","skin");
         loaded.uiActions().cycle("hud.target","skin");
         loaded.uiActions().cycle("hud.target","skin");
-        ok("nebula".equals(loaded.targetSkin()),"reselect Nebula through GUI");
+        ok("slate".equals(loaded.targetSkin()),"reselect Slate through GUI");
         loaded.persist();loaded.close();
-        HostRuntime nebula=new HostRuntime(path);
-        ok("nebula".equals(nebula.targetSkin()),"Nebula survives profile reload");
-        nebula.uiActions().cycle("hud.target","skin");
-        nebula.persist();nebula.close();
+        HostRuntime slate=new HostRuntime(path);
+        ok("slate".equals(slate.targetSkin()),"Slate survives profile reload");
+        slate.uiActions().cycle("hud.target","skin");
+        slate.persist();slate.close();
         HostRuntime classic=new HostRuntime(path);
         ok("classic".equals(classic.targetSkin()),"restored classic remains stable");
         classic.close();

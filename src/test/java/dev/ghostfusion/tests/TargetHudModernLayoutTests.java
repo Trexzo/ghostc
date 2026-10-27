@@ -21,14 +21,14 @@ public final class TargetHudModernLayoutTests {
     }
     private static void test() {
         TargetHudModernLayout minimal=TargetHudModernLayout.of("minimal");
-        TargetHudModernLayout nebula=TargetHudModernLayout.of("nebula");
+        TargetHudModernLayout slate=TargetHudModernLayout.of("slate");
         ok(minimal==TargetHudModernLayout.of("minimal"),"minimal allocation-free");
-        ok(nebula==TargetHudModernLayout.of("nebula"),"nebula allocation-free");
-        ok(minimal!=nebula && !minimal.topBand && nebula.topBand,
+        ok(slate==TargetHudModernLayout.of("slate"),"slate allocation-free");
+        ok(minimal!=slate && !minimal.topBand && slate.topBand,
             "different first-party layouts");
-        ok(minimal.trackY!=nebula.trackY &&
-           minimal.trackHeight!=nebula.trackHeight,"distinct HP geometry");
-        for(TargetHudModernLayout style:new TargetHudModernLayout[]{minimal,nebula}) {
+        ok(minimal.trackY!=slate.trackY &&
+           minimal.trackHeight!=slate.trackHeight,"distinct HP geometry");
+        for(TargetHudModernLayout style:new TargetHudModernLayout[]{minimal,slate}) {
             ok(style.fits(160,43,9,true),"health HUD within full card");
             ok(style.fits(160,29,9,false),"health-off HUD within compact card");
             ok(!style.fits(160,29,9,true),"reject too-small HP card");
@@ -46,7 +46,7 @@ public final class TargetHudModernLayoutTests {
         invalid("classic");invalid("glass");invalid("");invalid(null);
         Random r=new Random(20261026L);
         for(int i=0;i<24000;i++) {
-            TargetHudModernLayout s=r.nextBoolean()?minimal:nebula;
+            TargetHudModernLayout s=r.nextBoolean()?minimal:slate;
             int width=1+r.nextInt(300),height=1+r.nextInt(70);
             int fontH=1+r.nextInt(20);
             boolean health=r.nextBoolean();

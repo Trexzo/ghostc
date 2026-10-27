@@ -1,9 +1,9 @@
 package dev.ghostfusion.tests;
 import dev.ghostfusion.ui.GuiLayout;
-import dev.ghostfusion.ui.GuiNebulaWorkspace;
+import dev.ghostfusion.ui.GuiSlateWorkspace;
 import dev.ghostfusion.ui.UiState;
 import java.util.Random;
-public final class GuiNebulaWorkspaceTests {
+public final class GuiSlateWorkspaceTests {
     private static int checks;
     private static void ok(boolean good,String detail) {
         checks++;if(!good)throw new AssertionError(detail);
@@ -11,11 +11,11 @@ public final class GuiNebulaWorkspaceTests {
     public static void main(String[] args){
         UiState ui=new UiState();
         GuiLayout g=GuiLayout.calculate(1920,1080,UiState.Layout.WIDE);
-        ok(ui.theme()==UiState.Theme.NEBULA,"Slate first-run theme");
+        ok(ui.theme()==UiState.Theme.SLATE,"Slate first-run theme");
         ui.theme(UiState.Theme.INDIGO);
-        ok(GuiNebulaWorkspace.of(g,ui)==null,"Indigo unchanged");
-        ui.theme(UiState.Theme.NEBULA);
-        GuiNebulaWorkspace p=GuiNebulaWorkspace.of(g,ui);
+        ok(GuiSlateWorkspace.of(g,ui)==null,"Indigo unchanged");
+        ui.theme(UiState.Theme.SLATE);
+        GuiSlateWorkspace p=GuiSlateWorkspace.of(g,ui);
         ok(p!=null&&p.detailsX>p.modulesX+p.modulesWidth,
            "distinct modules and settings panels");
         ok(p.moduleRows>=8&&p.settingRows>=6,"full height independent scroll");
@@ -34,7 +34,7 @@ public final class GuiNebulaWorkspaceTests {
         for(int i=0;i<50000;i++){
             GuiLayout zone=GuiLayout.calculate(1+rng.nextInt(2600),
                 1+rng.nextInt(1600),UiState.Layout.WIDE);
-            GuiNebulaWorkspace pane=GuiNebulaWorkspace.of(zone,ui);
+            GuiSlateWorkspace pane=GuiSlateWorkspace.of(zone,ui);
             if(pane==null)continue;
             ok(pane.modulesX>=zone.x&&pane.detailsX+pane.detailsWidth<=zone.x+zone.width,
                "horizontal viewport containment "+i);
@@ -51,8 +51,8 @@ public final class GuiNebulaWorkspaceTests {
             if(setting>=0)ok(pane.settingArea(mx,my),"setting selection drawn "+i);
         }
         ui.layout(UiState.Layout.COMPACT);
-        ok(GuiNebulaWorkspace.of(GuiLayout.calculate(1920,1080,
+        ok(GuiSlateWorkspace.of(GuiLayout.calculate(1920,1080,
             UiState.Layout.COMPACT),ui)==null,"compact fallback");
-        System.out.println("GUI_NEBULA_WORKSPACE_PASS checks="+checks);
+        System.out.println("GUI_SLATE_WORKSPACE_PASS checks="+checks);
     }
 }

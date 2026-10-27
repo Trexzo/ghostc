@@ -161,7 +161,7 @@ public final class ForgeFeatureDriver {
         final int classicAccent=host.ui().theme()==dev.ghostfusion.ui.UiState.Theme.GRAPHITE
             ? 0xFFB9C5D6 : 0xFFA59AFF;
         final int accent="classic".equals(appearance)?classicAccent:theme.accent;
-        if("nebula".equals(appearance)) {
+        if("slate".equals(appearance)) {
             // A Slinky/Rise-inspired, text-first overlay; original Minecraft
             // lifecycle still controls visibility, not the animation cache.
             moduleListMotion.beginFrame(System.nanoTime());
@@ -194,12 +194,12 @@ public final class ForgeFeatureDriver {
         for(ModuleListLayout.Row row:frame.rows) {
             if(background){
                 Gui.drawRect(row.x,row.y,row.x+row.width,row.y+row.height,theme.panel);
-                if("nebula".equals(appearance))
+                if("slate".equals(appearance))
                     Gui.drawRect(row.x+3,row.y,row.x+row.width,row.y+1,theme.sheen);
             }
             if(stripe){
                 Gui.drawRect(row.x,row.y,row.x+2,row.y+row.height,accent);
-                if("nebula".equals(appearance) && row.height>=4)
+                if("slate".equals(appearance) && row.height>=4)
                     Gui.drawRect(row.x,row.y+row.height-2,row.x+2,row.y+row.height,
                         theme.secondary);
             }
@@ -228,7 +228,7 @@ public final class ForgeFeatureDriver {
         }
         HudThemeTokens theme=HudThemeTokens.of(appearance);
         Gui.drawRect(x,y,x+width,y+17,pressed?theme.accent:theme.panel);
-        if("nebula".equals(appearance)) {
+        if("slate".equals(appearance)) {
             // A restrained one-pixel aurora line, never text-obscuring full glow.
             Gui.drawRect(x,y,x+width,y+1,pressed?theme.secondary:theme.frame);
             if(!pressed)Gui.drawRect(x+1,y+15,x+width-1,y+16,theme.sheen);
@@ -311,7 +311,7 @@ public final class ForgeFeatureDriver {
             Gui.drawRect(x-2,y-2,right,bottom,theme.panel);
             // Keep the same bounded 103x17 card; no extra HUD footprint.
             Gui.drawRect(x-2,y-2,x-1,bottom,theme.accent);
-            if("nebula".equals(appearance) && right>x)
+            if("slate".equals(appearance) && right>x)
                 Gui.drawRect(x-1,y-2,right,y-1,theme.sheen);
             if(!text.isEmpty())
                 mc.fontRendererObj.drawStringWithShadow(text,x,y+1,theme.text);
@@ -456,16 +456,16 @@ public final class ForgeFeatureDriver {
         }
     }
     /**
-     * Nebula v2: its own aurora-inspired composition, not a recolored Minimal.
+     * Slate v2: its own aurora-inspired composition, not a recolored Minimal.
      * No textures, shaders, caches or simulated targets.
      */
-    private void drawNebulaTarget(int x,int y,int width,int height,boolean health,
+    private void drawSlateTarget(int x,int y,int width,int height,boolean health,
                                   TargetHudTextLayout.Result labels,EntityPlayer player) {
-        TargetHudModernLayout layout=TargetHudModernLayout.of("nebula");
+        TargetHudModernLayout layout=TargetHudModernLayout.of("slate");
         if(!layout.fits(width,height,mc.fontRendererObj.FONT_HEIGHT,health))return;
         targetMotion.update(player,System.nanoTime(),labels.healthFraction,host.targetMotion());
         double alpha=targetMotion.opacity();
-        final HudThemeTokens theme=HudThemeTokens.of("nebula");
+        final HudThemeTokens theme=HudThemeTokens.of("slate");
         // Slinky-inspired low-noise composition: one translucent surface,
         // quiet micro-accent and a single readable name/HP row. No RGB frame.
         Gui.drawRect(x,y,x+width,y+height,
@@ -581,8 +581,8 @@ public final class ForgeFeatureDriver {
                                 TargetHudTextLayout.Result labels,EntityPlayer player) {
         final String skin=host.targetSkin();
         TargetHudPalette palette=TargetHudPalette.of(skin);
-        if("nebula".equals(skin)) {
-            drawNebulaTarget(x,y,width,height,health,labels,player);
+        if("slate".equals(skin)) {
+            drawSlateTarget(x,y,width,height,health,labels,player);
             return;
         }
         if("minimal".equals(skin)) {

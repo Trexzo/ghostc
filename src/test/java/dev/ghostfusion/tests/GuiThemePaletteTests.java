@@ -24,29 +24,29 @@ public final class GuiThemePaletteTests {
     }
     public static void main(String[] args)throws Exception {
         UiState ui=new UiState();
-        ok(ui.theme()==UiState.Theme.NEBULA,"Slate is the first-run default");
+        ok(ui.theme()==UiState.Theme.SLATE,"Slate is the first-run default");
         GuiThemePalette indigo=GuiThemePalette.of(UiState.Theme.INDIGO);
         GuiThemePalette graphite=GuiThemePalette.of(UiState.Theme.GRAPHITE);
-        GuiThemePalette nebula=GuiThemePalette.of(UiState.Theme.NEBULA);
+        GuiThemePalette slate=GuiThemePalette.of(UiState.Theme.SLATE);
         ok(indigo.background==0xF3161A2C && indigo.panel==0xFF22283E &&
            indigo.accent==0xFF9A8CFF,"original INDIGO chrome unchanged");
         ok(graphite.background==0xF31A1C20 && graphite.panel==0xFF303339 &&
            graphite.accent==0xFF69D9C6,"original GRAPHITE chrome unchanged");
         ok(indigo.label.equals("INDIGO") && graphite.label.equals("MINT"),
             "legacy theme button labels unchanged");
-        ok(nebula.nebula && !indigo.nebula && !graphite.nebula &&
-           "SLATE".equals(nebula.label),"Slate retains persisted Nebula ID");
-        ok(nebula.background==0xF5121519 &&
-           nebula.panel==0xFF1B2026,"matte charcoal panels");
-        ok(nebula.accent==0xFFA7D3E0 &&
-           nebula.text==0xFFF1F4F6,"the active accent is non-purple");
-        ok(nebula.accent==HudThemeTokens.of("nebula").accent &&
-           nebula.secondary==HudThemeTokens.of("nebula").secondary &&
-           nebula.text==HudThemeTokens.of("nebula").text,
-           "Nebula chrome and HUD share first-party tokens");
+        ok(slate.slate && !indigo.slate && !graphite.slate &&
+           "SLATE".equals(slate.label),"Slate retains persisted Slate ID");
+        ok(slate.background==0xF5121519 &&
+           slate.panel==0xFF1B2026,"matte charcoal panels");
+        ok(slate.accent==0xFFA7D3E0 &&
+           slate.text==0xFFF1F4F6,"the active accent is non-purple");
+        ok(slate.accent==HudThemeTokens.of("slate").accent &&
+           slate.secondary==HudThemeTokens.of("slate").secondary &&
+           slate.text==HudThemeTokens.of("slate").text,
+           "Slate chrome and HUD share first-party tokens");
         ok(GuiThemePalette.next(UiState.Theme.INDIGO)==UiState.Theme.GRAPHITE &&
-           GuiThemePalette.next(UiState.Theme.GRAPHITE)==UiState.Theme.NEBULA &&
-           GuiThemePalette.next(UiState.Theme.NEBULA)==UiState.Theme.INDIGO,
+           GuiThemePalette.next(UiState.Theme.GRAPHITE)==UiState.Theme.SLATE &&
+           GuiThemePalette.next(UiState.Theme.SLATE)==UiState.Theme.INDIGO,
            "theme button is deterministic three-stage cycle");
         invalid(()->GuiThemePalette.of(null),"null style rejected");
         invalid(()->GuiThemePalette.next(null),"null cycle rejected");
@@ -56,15 +56,15 @@ public final class GuiThemePaletteTests {
             ok(GuiThemePalette.of(current)==GuiThemePalette.of(current),
                 "immutable singleton reused "+i);
         }
-        Path dir=Files.createTempDirectory("ghostc-r4-nebula-clickgui");
+        Path dir=Files.createTempDirectory("ghostc-r4-slate-clickgui");
         UiSettingsStore store=new UiSettingsStore(dir,ui);
-        ui.theme(UiState.Theme.NEBULA);
+        ui.theme(UiState.Theme.SLATE);
         ui.layout(UiState.Layout.COMPACT);
         store.save();
         UiState reloaded=new UiState();
         new UiSettingsStore(dir,reloaded).load();
-        ok(reloaded.theme()==UiState.Theme.NEBULA &&
-           reloaded.layout()==UiState.Layout.COMPACT,"NEBULA persists schema-1");
+        ok(reloaded.theme()==UiState.Theme.SLATE &&
+           reloaded.layout()==UiState.Layout.COMPACT,"SLATE persists schema-1");
         ui.theme(UiState.Theme.GRAPHITE);
         store.save();
         new UiSettingsStore(dir,reloaded).load();

@@ -9,7 +9,7 @@ import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.ui.UiState;
 import dev.ghostfusion.ui.GuiThemePalette;
 import dev.ghostfusion.ui.GuiLayout;
-import dev.ghostfusion.ui.GuiNebulaWorkspace;
+import dev.ghostfusion.ui.GuiSlateWorkspace;
 import dev.ghostfusion.ui.GuiSettingPresentation;
 import dev.ghostfusion.ui.GuiScrollIndicator;
 import dev.ghostfusion.ui.GuiHitZones;
@@ -120,7 +120,7 @@ public final class GhostClickGui extends GuiScreen {
             finishSliderDrag();
         x=g.x; y=g.y; w=g.width; h=g.height; side=g.sidebar;
         listY=g.listY; listH=g.listHeight; visibleRows=g.visibleRows;
-        GuiNebulaWorkspace workspace=nebulaWorkspace(g);
+        GuiSlateWorkspace workspace=slateWorkspace(g);
         if(workspace!=null)visibleRows=workspace.moduleRows;
         previewX=g.previewX; previewY=g.previewY;
         previewW=g.previewWidth; previewH=g.previewHeight;
@@ -135,7 +135,7 @@ public final class GhostClickGui extends GuiScreen {
         syncSearch(g);
     }
     private void syncSearch(GuiLayout g) {
-        GuiNebulaWorkspace pane=nebulaWorkspace(g);
+        GuiSlateWorkspace pane=slateWorkspace(g);
         int targetX=pane==null?g.searchX:pane.searchX();
         int targetY=pane==null?g.searchY:pane.searchY();
         int targetWidth=pane==null?g.searchWidth:pane.searchWidth();
@@ -153,14 +153,14 @@ public final class GhostClickGui extends GuiScreen {
         searchPositionWidth=targetWidth;
     }
     private GuiThemePalette palette() { return GuiThemePalette.of(ui.theme()); }
-    private GuiNebulaWorkspace nebulaWorkspace(GuiLayout zone) {
-        return GuiNebulaWorkspace.of(zone,ui);
+    private GuiSlateWorkspace slateWorkspace(GuiLayout zone) {
+        return GuiSlateWorkspace.of(zone,ui);
     }
     private int settingsRows(GuiLayout zone) {
-        GuiNebulaWorkspace workspace=nebulaWorkspace(zone);
+        GuiSlateWorkspace workspace=slateWorkspace(zone);
         return workspace==null?GuiHitZones.visibleSettings(zone):workspace.settingRows;
     }
-    private void nebulaSwitch(int x,int y,boolean enabled) {
+    private void slateSwitch(int x,int y,boolean enabled) {
         int track=enabled?0xFF829FAA:0xFF343C43;
         // Three nested spans approximate small rounded switch ends.
         rect(x+2,y,23,13,track);
@@ -168,8 +168,8 @@ public final class GhostClickGui extends GuiScreen {
         rect(x+(enabled?15:3),y+2,10,9,0xFFF0F3FA);
     }
     /** Dedicated Rise-style modules + settings panes, with native GUI input parity. */
-    private void drawNebulaModules(GuiNebulaWorkspace pane,int mx,int my) {
-        drawNebulaSidebar(mx,my);
+    private void drawSlateModules(GuiSlateWorkspace pane,int mx,int my) {
+        drawSlateSidebar(mx,my);
         if(search!=null) {
             search.drawTextBox();
             if(search.getText().isEmpty()&&!search.isFocused())
@@ -199,9 +199,9 @@ public final class GhostClickGui extends GuiScreen {
             if(faulted) {
                 rect(pane.modulesX+pane.modulesWidth-43,yy+5,38,16,0x665A343F);
                 label("RESET",pane.modulesX+pane.modulesWidth-40,yy+8,0xFFEBA4AF);
-            } else nebulaSwitch(pane.modulesX+pane.modulesWidth-35,yy+6,enabled);
+            } else slateSwitch(pane.modulesX+pane.modulesWidth-35,yy+6,enabled);
         }
-        drawNebulaScrollIndicator(pane.modulesX+pane.modulesWidth+2,
+        drawSlateScrollIndicator(pane.modulesX+pane.modulesWidth+2,
             pane.modulesY,pane.moduleRows*29,pane.moduleRows,filtered.size(),scroll);
         label("CONFIGURATION",pane.detailsX+9,pane.detailsY+3,color.muted);
         // No eagerly-created description list or external font render path.
@@ -241,7 +241,7 @@ public final class GhostClickGui extends GuiScreen {
             label(trim(GuiSettingPresentation.label(row.getKey()),
                 pane.settingLabelBudget(kind)),pane.detailsX+14,yy+9,color.text);
             if(setting instanceof Setting.Bool) {
-                nebulaSwitch(pane.detailsX+pane.detailsWidth-43,yy+7,
+                slateSwitch(pane.detailsX+pane.detailsWidth-43,yy+7,
                     ((Setting.Bool)setting).get());
             } else if(setting instanceof Setting.Number) {
                 Setting.Number value=(Setting.Number)setting;
@@ -258,7 +258,7 @@ public final class GhostClickGui extends GuiScreen {
                     fontRendererObj.getStringWidth(text),yy+9,color.accent);
             }
         }
-        drawNebulaScrollIndicator(pane.detailsX+pane.detailsWidth-5,
+        drawSlateScrollIndicator(pane.detailsX+pane.detailsWidth-5,
             pane.settingY,pane.settingRows*30,
             pane.settingRows,settings.size(),settingScroll);
         if(settings.size()>pane.settingRows)
@@ -278,7 +278,7 @@ public final class GhostClickGui extends GuiScreen {
     private void label(String value, int atX, int atY, int color) {
         // Pixel fonts still require future native acceptance, but Slate avoids
         // doubled drop shadows that make the default font look blurry/crowded.
-        if(ui.theme()==UiState.Theme.NEBULA)
+        if(ui.theme()==UiState.Theme.SLATE)
             fontRendererObj.drawString(value,atX,atY,color);
         else fontRendererObj.drawStringWithShadow(value,atX,atY,color);
     }
@@ -297,7 +297,7 @@ public final class GhostClickGui extends GuiScreen {
         // Cache the live font-measured Module List once per GUI frame.
         moduleListFrameCache=null;
         rect(0, 0, width, height, 0xB30B0D10);
-        if(ui.theme()==UiState.Theme.NEBULA) {
+        if(ui.theme()==UiState.Theme.SLATE) {
             // Quiet layered shadow provides depth without glow or blur shaders.
             rect(x-5,y+5,w+10,h+5,0x12000000);
             rect(x-3,y+3,w+6,h+3,0x26000000);
@@ -311,10 +311,10 @@ public final class GhostClickGui extends GuiScreen {
         final GuiThemePalette theme=palette();
         rect(x, y, side, h, panel());
         rect(x, y, w, 30, theme.header);
-        if(theme.nebula)drawNebulaChrome(theme);
+        if(theme.slate)drawSlateChrome(theme);
         label("GHOSTC", x + 10, y + 10, accent());
         int menuX = x + side + 8;
-        GuiNebulaWorkspace modern=nebulaWorkspace(
+        GuiSlateWorkspace modern=slateWorkspace(
             GuiLayout.calculate(width,height,ui.layout(),ui.theme()));
         if(modern!=null) {
             label("Modules",menuX,y+11,hudPage?theme.muted:theme.text);
@@ -337,8 +337,8 @@ public final class GhostClickGui extends GuiScreen {
             label(trim(footerWarning,GuiFooterText.pixelBudget(w,side)),
                 x + side + 11,y + h - 13,0xFFFFB3A6);
     }
-    /** A deliberate, low-cost Nebula surface treatment; no new hit zones. */
-    private void drawNebulaChrome(GuiThemePalette theme) {
+    /** A deliberate, low-cost Slate surface treatment; no new hit zones. */
+    private void drawSlateChrome(GuiThemePalette theme) {
         // Subtle border and section separator establish hierarchy without glow.
         rect(x,y,w,1,theme.frame);
         rect(x,y+h-1,w,1,theme.frame);
@@ -355,8 +355,8 @@ public final class GhostClickGui extends GuiScreen {
         // Distinguish title, controls, and content without texture allocations.
         rect(x+w-108,y+3,Math.min(100,w-109),1,theme.sheen);
     }
-    /** Full-height navigation styled for the new Nebula wide workspace. */
-    private void drawNebulaSidebar(int mx,int my) {
+    /** Full-height navigation styled for the new Slate wide workspace. */
+    private void drawSlateSidebar(int mx,int my) {
         GuiThemePalette theme=palette();
         label("NAVIGATION",x+10,y+49,theme.muted);
         String[] captions={"All","Combat","Movement","World","Render","Utility"};
@@ -376,7 +376,7 @@ public final class GhostClickGui extends GuiScreen {
         label("F7  CLOSE",x+11,y+h-29,theme.muted);
         label("ESC  CLOSE",x+11,y+h-16,theme.muted);
     }
-    private void drawNebulaScrollIndicator(int atX,int atY,int height,
+    private void drawSlateScrollIndicator(int atX,int atY,int height,
                                             int visible,int total,int first) {
         int thumb=GuiScrollIndicator.height(height,total,visible);
         if(thumb<=0)return;
@@ -394,8 +394,8 @@ public final class GhostClickGui extends GuiScreen {
             boolean active = ui.category() == c;
             if (active) {
                 rect(x + 4, yy - 3, side - 8, 19,
-                    palette().nebula?palette().selectedCategory:0x556B83EA);
-                if(palette().nebula)rect(x+4,yy-3,2,19,palette().accent);
+                    palette().slate?palette().selectedCategory:0x556B83EA);
+                if(palette().slate)rect(x+4,yy-3,2,19,palette().accent);
             }
             if (yy < y + h - 48) label(names[i], x + 12, yy + 1,
                 active ? accent() : 0xFFD4D7E0);
@@ -420,9 +420,9 @@ public final class GhostClickGui extends GuiScreen {
         return filtered;
     }
     private void drawModules(int mx, int my) {
-        GuiNebulaWorkspace workspace=nebulaWorkspace(
+        GuiSlateWorkspace workspace=slateWorkspace(
             GuiLayout.calculate(width,height,ui.layout(),ui.theme()));
-        if(workspace!=null) {drawNebulaModules(workspace,mx,my);return;}
+        if(workspace!=null) {drawSlateModules(workspace,mx,my);return;}
         drawSidebar();
         if (search != null) search.drawTextBox();
         List<ModuleRegistry.Entry> filtered = entries();
@@ -435,9 +435,9 @@ public final class GhostClickGui extends GuiScreen {
             boolean focused = e.module().id().equals(selected);
             GuiThemePalette style=palette();
             rect(x + side + 9, ry, w - side - 20, 25,
-                style.nebula?(focused?style.selectedModule:style.idleModule)
+                style.slate?(focused?style.selectedModule:style.idleModule)
                             :(focused?0x664B597D:0x442D344A));
-            if(style.nebula && focused)
+            if(style.slate && focused)
                 rect(x+side+9,ry,2,25,style.accent);
             label(trim(e.module().displayName(), Math.max(60, w - side - 97)),
                     x + side + 15, ry + 8, focused ? 0xFFFFFFFF : 0xFFE4E7F0);
@@ -468,7 +468,7 @@ public final class GhostClickGui extends GuiScreen {
             label("SETTINGS  " + e.module().displayName(), x + side + 13, sy + 4, accent());
         int bindY = sy + 22;
         rect(x + side + 11, bindY, w - side - 26, 18,
-            palette().nebula?palette().idleSetting:0x66394359);
+            palette().slate?palette().idleSetting:0x66394359);
         String keyText = capture != null && capture.equals(selected) ? "Press key (ESC cancel / BACKSPACE clear)" :
             "KEYBIND [B]: " + (e.keybind() == 0 ? "NONE" : Keyboard.getKeyName(e.keybind()));
         label(trim(keyText, w - side - 39), x + side + 16, bindY + 5, 0xFFEAECF5);
@@ -483,7 +483,7 @@ public final class GhostClickGui extends GuiScreen {
             Setting<?> setting = kv.getValue();
             GuiThemePalette settingsTheme=palette();
             rect(x + side + 11, sY, w - side - 26, 19,
-                settingsTheme.nebula?(i==keyboardSetting
+                settingsTheme.slate?(i==keyboardSetting
                     ?settingsTheme.selectedSetting:settingsTheme.idleSetting)
                     :(i==keyboardSetting ? 0x886A588D : 0x443B465C));
             label(trim(setting.id(), Math.max(30, (w - side) / 2 - 14)), x + side + 15, sY + 5, 0xFFE0E4EF);
@@ -625,7 +625,7 @@ public final class GhostClickGui extends GuiScreen {
     private HudThemeTokens miniatureThemeFor(Widget widget) {
         String appearance;
         if(widget==null) {
-            appearance=ui.theme()==UiState.Theme.NEBULA?"nebula":"classic";
+            appearance=ui.theme()==UiState.Theme.SLATE?"slate":"classic";
         } else {
             switch(widget) {
                 case KEYSTROKES: appearance=host.keysAppearance();break;
@@ -913,7 +913,7 @@ public final class GhostClickGui extends GuiScreen {
             return;
         }
         List<ModuleRegistry.Entry> filtered = entries();
-        GuiNebulaWorkspace split=nebulaWorkspace(zone);
+        GuiSlateWorkspace split=slateWorkspace(zone);
         if(split!=null) {
             int index=split.moduleIndex(mx,my,scroll,filtered.size());
             if(index>=0) {
@@ -1042,7 +1042,7 @@ public final class GhostClickGui extends GuiScreen {
             int direction = wheel > 0 ? -1 : 1;
             int mx = Mouse.getEventX() * width / Math.max(1, mc.displayWidth);
             int my = height - Mouse.getEventY() * height / Math.max(1, mc.displayHeight) - 1;
-            GuiNebulaWorkspace split=nebulaWorkspace(zone);
+            GuiSlateWorkspace split=slateWorkspace(zone);
             if((split!=null&&split.settingArea(mx,my)) ||
                (split==null&&GuiHitZones.settingsArea(zone,mx,my))) {
                 entries();
