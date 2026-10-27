@@ -10,6 +10,7 @@ import dev.ghostfusion.features.PhysicalInputGate;
 import dev.ghostfusion.features.LiveCombatTargetGate;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.host.HostRuntime;
+import dev.ghostfusion.host.ModuleActionTelemetry;
 import dev.ghostfusion.services.ActionCoordinator;
 import dev.ghostfusion.services.RotationCoordinator;
 import dev.ghostfusion.services.SessionServices;
@@ -269,8 +270,15 @@ public final class ForgeCombatController {
                     // Normal vanilla key path, not direct attackEntity/packets.
                     KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
                     host.diagnostics().record(Counter.EXTRA_ATTACK);
+                    host.nativeAction(ModuleActionTelemetry.Lane.CLICKER,
+                        ModuleActionTelemetry.Event.DISPATCHED);
                 }
             });
+        } else if(attack!=null && CLICK_ID.equals(attack.owner)) {
+            // Coordinator emitted an attack, but the last native safety
+            // check declined it. This is not a "missed server hit".
+            host.nativeAction(ModuleActionTelemetry.Lane.CLICKER,
+                ModuleActionTelemetry.Event.REJECTED);
         }
 
         ActionCoordinator.Decision use = session.actions().consume(
@@ -284,8 +292,13 @@ public final class ForgeCombatController {
                 public void run() {
                     KeyBinding.onTick(mc.gameSettings.keyBindUseItem.getKeyCode());
                     host.diagnostics().record(Counter.EXTRA_USE);
+                    host.nativeAction(ModuleActionTelemetry.Lane.BLOCKHIT,
+                        ModuleActionTelemetry.Event.DISPATCHED);
                 }
             });
+        } else if(use!=null && BLOCK_ID.equals(use.owner)) {
+            host.nativeAction(ModuleActionTelemetry.Lane.BLOCKHIT,
+                ModuleActionTelemetry.Event.REJECTED);
         }
     }
 
