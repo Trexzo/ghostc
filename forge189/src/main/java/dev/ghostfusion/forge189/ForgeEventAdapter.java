@@ -2,6 +2,10 @@ package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.PanicController;
+import dev.ghostfusion.features.ModuleInteractionStateMachine;
+import net.minecraft.client.gui.inventory.GuiInventory;
+import net.minecraft.client.gui.inventory.GuiChest;
+import org.lwjgl.opengl.Display;
 import dev.ghostfusion.services.WorldSnapshot;
 import dev.ghostfusion.ui.StatusHudLayout;
 import dev.ghostfusion.services.WorldIdentityTracker;
@@ -44,6 +48,10 @@ public final class ForgeEventAdapter {
     private final ForgeChestStealerController chestStealer;
     private final ForgeInventoryManagerController inventoryManager;
     private final ForgeAutoArmorController autoArmor;
+    // The single owner-thread arbiter decides which modules may submit
+    // native actions. Render-only modules remain independent.
+    private final ModuleInteractionStateMachine moduleState =
+        new ModuleInteractionStateMachine();
     private final WorldIdentityTracker worldIdentity = new WorldIdentityTracker();
     // Two capped, owner-thread groups are reused every tick. Every raw
     // EntityPlayer reference is released before publishing an immutable
@@ -81,6 +89,7 @@ public final class ForgeEventAdapter {
         if (transition == WorldIdentityTracker.Transition.SWITCH ||
             transition == WorldIdentityTracker.Transition.LEAVE) {
             host.worldPresence(false);
+            moduleState.reset();
             features.reset();
             combat.reset();
             bridge.reset();
@@ -93,6 +102,7 @@ public final class ForgeEventAdapter {
         if (transition == WorldIdentityTracker.Transition.ENTER ||
             transition == WorldIdentityTracker.Transition.SWITCH) {
             host.worldPresence(true);
+            moduleState.reset();
             features.reset();
             combat.reset();
             bridge.reset();
@@ -234,27 +244,53 @@ public final class ForgeEventAdapter {
                 teamHudPin.clear();
             }
         }
-        features.tick();
-        combat.tick();
-        // Edge movement owns only the native sneak key; its controller
-        // independently rejects GUI, focus, world and module-disabled frames.
-        bridge.tick();
-        velocity.tick();
-        wtap.tick();
-        // Unlike combat, Chest Stealer intentionally runs while GuiChest is
-        // open (Minecraft does not mark inGameHasFocus during GUI screens).
-        chestStealer.tick();
-        // Inventory Manager is mutually GUI-isolated from Chest Stealer:
-        // it only operates inside the owner's real GuiInventory screen.
-        // AutoArmor and Inventory Manager can both be enabled, but there
-        // must be only ONE owner issuing GuiInventory window clicks.
-        // The armor controller has deterministic priority until disabled.
-        if(host.featureEnabled("inventory.autoarmor")) {
-            inventoryManager.reset();
-        } else {
-            inventoryManager.tick();
-        }
-        autoArmor.tick();
+        // A single session-fenced, immutable plan arbitrates native
+        // actions before any module makes a write. Controllers preserve
+        // their own physical input/entity/container and safety checks.
+        ModuleInteractionStateMachine.Scene scene =
+            !worldReady ? ModuleInteractionStateMachine.Scene.NO_WORLD :
+            minecraft.currentScreen==null ?
+                ModuleInteractionStateMachine.Scene.GAME :
+            minecraft.currentScreen instanceof GuiInventory ?
+                ModuleInteractionStateMachine.Scene.PLAYER_INVENTORY :
+            minecraft.currentScreen instanceof GuiChest ?
+                ModuleInteractionStateMachine.Scene.CHEST :
+                ModuleInteractionStateMachine.Scene.OTHER_GUI;
+        boolean combatEnabled =
+            host.featureEnabled("combat.aimassist") ||
+            host.featureEnabled("combat.clicker") ||
+            host.featureEnabled("combat.blockhit") ||
+            host.featureEnabled("combat.hitselect");
+        ModuleInteractionStateMachine.Enabled enabled =
+            new ModuleInteractionStateMachine.Enabled(
+                combatEnabled,host.featureEnabled("movement.bridgeassist"),
+                host.featureEnabled("combat.velocity"),host.featureEnabled("combat.wtap"),
+                host.featureEnabled("movement.sprint"),
+                host.featureEnabled("inventory.autoarmor"),
+                host.featureEnabled("inventory.manager"),
+                host.featureEnabled("inventory.cheststealer"));
+        ModuleInteractionStateMachine.Frame plan=moduleState.advance(
+            host.services().generation(),host.services().tick(),
+            worldReady && host.services().connected(),
+            scene,Display.isActive() &&
+                (scene!=ModuleInteractionStateMachine.Scene.GAME ||
+                 minecraft.inGameHasFocus),
+            enabled,wtap.sprintReserved());
+
+        // AutoSprint is intentionally silent while WTap holds the sprint
+        // resource after a real attack. WTap alone can restore sprint.
+        features.tick(plan.autoSprint);
+        if(plan.combat)combat.tick();else combat.reset();
+        if(plan.bridge)bridge.tick();else bridge.reset();
+        if(plan.velocity)velocity.tick();else velocity.reset();
+        if(plan.wtap)wtap.tick();else wtap.reset();
+
+        // Exactly one inventory controller may observe/write per GUI tick.
+        // Releasing a controller resets its pending transfer; no hidden
+        // sorter click may interrupt a staged AutoArmor upgrade.
+        if(plan.chestStealer)chestStealer.tick();else chestStealer.reset();
+        if(plan.inventoryManager)inventoryManager.tick();else inventoryManager.reset();
+        if(plan.autoArmor)autoArmor.tick();else autoArmor.reset();
     }
 
     @SubscribeEvent
@@ -280,6 +316,7 @@ public final class ForgeEventAdapter {
                 minecraft.currentScreen == null && minecraft.inGameHasFocus &&
                 worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) {
                 PanicController.disableAll(host);
+                moduleState.reset();
                 bridge.reset();
                 velocity.reset();
                 wtap.reset();
