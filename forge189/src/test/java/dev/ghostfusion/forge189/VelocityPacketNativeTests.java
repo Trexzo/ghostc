@@ -29,7 +29,8 @@ public final class VelocityPacketNativeTests {
         }
     }
     private static EmbeddedChannel channel(Collector collector,boolean handler) {
-        EmbeddedChannel ch=new EmbeddedChannel();
+        // Netty 4.0's EmbeddedChannel forbids an empty handler array.
+        EmbeddedChannel ch=new EmbeddedChannel(new ChannelInboundHandlerAdapter());
         if(handler)ch.pipeline().addLast("packet_handler",collector);
         return ch;
     }
