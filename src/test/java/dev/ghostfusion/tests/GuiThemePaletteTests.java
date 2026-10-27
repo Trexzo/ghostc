@@ -24,7 +24,7 @@ public final class GuiThemePaletteTests {
     }
     public static void main(String[] args)throws Exception {
         UiState ui=new UiState();
-        ok(ui.theme()==UiState.Theme.INDIGO,"old default is still INDIGO");
+        ok(ui.theme()==UiState.Theme.NEBULA,"Slate is the first-run default");
         GuiThemePalette indigo=GuiThemePalette.of(UiState.Theme.INDIGO);
         GuiThemePalette graphite=GuiThemePalette.of(UiState.Theme.GRAPHITE);
         GuiThemePalette nebula=GuiThemePalette.of(UiState.Theme.NEBULA);
@@ -34,8 +34,12 @@ public final class GuiThemePaletteTests {
            graphite.accent==0xFF69D9C6,"original GRAPHITE chrome unchanged");
         ok(indigo.label.equals("INDIGO") && graphite.label.equals("MINT"),
             "legacy theme button labels unchanged");
-        ok(nebula.nebula && !indigo.nebula && !graphite.nebula,
-            "Nebula independent renderer style");
+        ok(nebula.nebula && !indigo.nebula && !graphite.nebula &&
+           "SLATE".equals(nebula.label),"Slate retains persisted Nebula ID");
+        ok(nebula.background==0xF5121519 &&
+           nebula.panel==0xFF1B2026,"matte charcoal panels");
+        ok(nebula.accent==0xFFA7D3E0 &&
+           nebula.text==0xFFF1F4F6,"the active accent is non-purple");
         ok(nebula.accent==HudThemeTokens.of("nebula").accent &&
            nebula.secondary==HudThemeTokens.of("nebula").secondary &&
            nebula.text==HudThemeTokens.of("nebula").text,

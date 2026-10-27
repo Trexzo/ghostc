@@ -3,7 +3,7 @@ package dev.ghostfusion.ui;
 /**
  * A coherent, immutable ClickGUI appearance library.
  * INDIGO and GRAPHITE retain their original background/panel/accent colors.
- * NEBULA shares the signature violet and cyan accents with the in-game HUD.
+ * The persisted NEBULA identifier displays as SLATE: graphite, white and ice-blue.
  */
 public final class GuiThemePalette {
     public final int background,panel,accent,header,divider,frame,sheen;
@@ -23,11 +23,11 @@ public final class GuiThemePalette {
         0x556B83EA,0x664B597D,0x442D344A,0x886A588D,0x443B465C,
         0xFF525A6C,0xFFE4E7F0,0xFF979DAF,0xFF69D9C6);
     private static final GuiThemePalette NEBULA=new GuiThemePalette(
-        "NEBULA",true,0xF515171D,0xFF1D222B,HudThemeTokens.of("nebula").accent,
-        0xF5181C24,0x54576273,0x88505769,HudThemeTokens.of("nebula").sheen,
-        0x43465A70,0x59465A70,0x2428303C,0x49405268,0x27303949,
-        0xFF303949,HudThemeTokens.of("nebula").text,
-        0xFF9DA6B5,HudThemeTokens.of("nebula").secondary);
+        "SLATE",true,0xF5121519,0xFF1B2026,HudThemeTokens.of("nebula").accent,
+        0xF5161B21,0x5039414B,0x88444D58,HudThemeTokens.of("nebula").sheen,
+        0x573D4A54,0x64313F49,0x2228313B,0x4B35424A,0x26303A44,
+        HudThemeTokens.of("nebula").track,HudThemeTokens.of("nebula").text,
+        HudThemeTokens.of("nebula").muted,HudThemeTokens.of("nebula").secondary);
 
     private GuiThemePalette(String label,boolean nebula,int background,int panel,
             int accent,int header,int divider,int frame,int sheen,

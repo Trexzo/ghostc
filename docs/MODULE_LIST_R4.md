@@ -230,3 +230,10 @@ The Nebula module-list rows begin below their MODULES heading (and below
 search). Header text no longer paints into the first selectable module row.
 The pure geometry regression asserts a minimum visible gutter, while native
 mouse hitboxes continue to be computed from the same moved row coordinates.
+
+## R5 Slate visual reset — no purple defaults
+The persisted `NEBULA` identifier now displays as `SLATE`: matte graphite,
+off-white and muted ice-blue, consistently across the ClickGUI and all four
+optional HUD styles. First-run UI and HUD styling default to Slate, while
+explicitly saved Indigo and Classic choices remain available. The existing
+schema and profile IDs are unchanged, avoiding unrequested migrations.

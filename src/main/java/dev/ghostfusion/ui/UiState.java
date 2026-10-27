@@ -11,7 +11,7 @@ public final class UiState {
     public enum Layout { COMPACT, WIDE }
     public enum Theme { GRAPHITE, INDIGO, NEBULA }
     public static final Layout DEFAULT_LAYOUT = Layout.WIDE;
-    public static final Theme DEFAULT_THEME = Theme.INDIGO;
+    public static final Theme DEFAULT_THEME = Theme.NEBULA;
     private Layout layout = DEFAULT_LAYOUT;
     private Theme theme = DEFAULT_THEME;
     private String query = "";

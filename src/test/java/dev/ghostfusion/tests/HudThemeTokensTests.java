@@ -26,18 +26,15 @@ public final class HudThemeTokensTests {
         ok(refused,"reject invalid style");
         Path dir=Files.createTempDirectory("ghostc-module-style");
         HostRuntime host=new HostRuntime(dir);
-        ok("classic".equals(host.moduleListAppearance()) &&
-            !host.moduleListCompact(),"old profile appearance and spacing unchanged");
-        host.uiActions().cycle("hud.modulelist","appearance");
-        host.uiActions().cycle("hud.modulelist","appearance");
-        ok("nebula".equals(host.moduleListAppearance()),"new style in existing GUI");
+        ok("nebula".equals(host.moduleListAppearance()) &&
+            !host.moduleListCompact(),"fresh profiles use Slate and regular spacing");
+        ok("nebula".equals(host.moduleListAppearance()),"Slate is the initial style");
         host.uiActions().bool("hud.modulelist","compact");
         host.persist();host.close();
         HostRuntime reopened=new HostRuntime(dir);
         ok("nebula".equals(reopened.moduleListAppearance()) &&
            reopened.moduleListCompact(),"style and compact persisted");
-        reopened.uiActions().cycle("hud.keystrokes","appearance");
-        reopened.uiActions().cycle("hud.keystrokes","appearance");
+        reopened.uiActions().cycle("hud.cps","appearance");
         reopened.uiActions().cycle("hud.cps","appearance");
         ok("nebula".equals(reopened.keysAppearance()) &&
            "minimal".equals(reopened.cpsAppearance()),
@@ -50,13 +47,13 @@ public final class HudThemeTokensTests {
            "Keystrokes/CPS styles survive profile restoration");
         again.uiActions().cycle("hud.cps","appearance");
         ok("nebula".equals(again.cpsAppearance()),
-           "CPS supports Nebula");
+           "CPS supports Slate");
         again.close();
         Path original=Files.createTempDirectory("ghostc-legacy-hud-");
         HostRuntime legacy=new HostRuntime(original);
-        ok("classic".equals(legacy.keysAppearance()) &&
-           "classic".equals(legacy.cpsAppearance()),
-           "unchanged installations keep their Classic key/CPS visuals");
+        ok("nebula".equals(legacy.keysAppearance()) &&
+           "nebula".equals(legacy.cpsAppearance()),
+           "fresh installations have non-purple Keys and CPS visuals");
         legacy.close();
         System.out.println("HUD_THEME_TOKENS_PASS checks="+checked);
     }

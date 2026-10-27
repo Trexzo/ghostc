@@ -55,11 +55,11 @@ public final class HostRuntime {
     private final Setting.Number keysScale = new Setting.Number("scale",1.0,0.75,1.75);
     private final Setting.Bool cpsRight = new Setting.Bool("show_right", true);
     private final Setting.Number cpsScale = new Setting.Number("scale",1.0,0.75,1.75);
-    // Legacy HUDs keep their exact colors until a user chooses another skin.
+    // New installations default to Slate; explicit saved Classic choices remain selectable.
     private final Setting.Choice keysAppearance =
-        new Setting.Choice("appearance","classic","classic","minimal","nebula");
+        new Setting.Choice("appearance","nebula","classic","minimal","nebula");
     private final Setting.Choice cpsAppearance =
-        new Setting.Choice("appearance","classic","classic","minimal","nebula");
+        new Setting.Choice("appearance","nebula","classic","minimal","nebula");
     private final Setting.Number targetScale = new Setting.Number("scale",1.0,0.75,1.75);
     private final Setting.Bool targetMotion = new Setting.Bool("motion", true);
     private final Setting.Number targetRange = new Setting.Number("range", 8.0, 2.0, 24.0);
@@ -75,7 +75,7 @@ public final class HostRuntime {
         new Setting.Choice("selection","nearest","nearest","crosshair");
     // Opt-in alternative palette; old profiles remain pixel-identical classic.
     private final Setting.Choice targetSkin =
-        new Setting.Choice("skin","classic","classic","glass","minimal","nebula");
+        new Setting.Choice("skin","nebula","classic","glass","minimal","nebula");
     // Old profiles preserve values; percent is an optional narrower readout.
     private final Setting.Choice targetHealthText =
         new Setting.Choice("health_text","values","values","percent");
@@ -135,7 +135,7 @@ public final class HostRuntime {
     private final Setting.Bool moduleListBackground = new Setting.Bool("background", true);
     private final Setting.Bool moduleListAccent = new Setting.Bool("accent", true);
     private final Setting.Choice moduleListAppearance =
-        new Setting.Choice("appearance","classic","classic","minimal","nebula");
+        new Setting.Choice("appearance","nebula","classic","minimal","nebula");
     private final Setting.Bool moduleListCompact = new Setting.Bool("compact",false);
     private final Setting.Number moduleListScale = new Setting.Number("scale",1.0,0.75,1.75);
     private final UiState ui = new UiState();
