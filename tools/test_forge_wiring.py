@@ -705,6 +705,21 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("MODULE_LIST_MOTION_PASS",content(".github/workflows/core-ci.yml"))
         self.assertIn("Iterator<Map.Entry<String,State>>",motion)
 
+    def test_nebula_setting_labels_controls_and_search_are_measured(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        layout=content("src/main/java/dev/ghostfusion/ui/GuiNebulaWorkspace.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/GuiSettingPresentationTests.java")
+        self.assertIn("pane.settingLabelBudget(kind)",gui)
+        self.assertIn("GuiSettingPresentation.label(row.getKey())",gui)
+        self.assertIn("GuiSettingPresentation.number(row.getKey(),value.get())",gui)
+        self.assertIn("GuiSettingPresentation.choice(setting.serialize())",gui)
+        self.assertIn("pane.choiceValueWidth()",gui)
+        self.assertIn("pane.searchX()",gui)
+        self.assertIn("int targetWidth=pane==null?g.searchWidth:pane.searchWidth();",gui)
+        self.assertIn("public int settingLabelBudget(int kind)",layout)
+        self.assertIn("GUI_SETTING_PRESENTATION_PASS",content(".github/workflows/core-ci.yml"))
+        self.assertIn("choice labels cannot overlap values",tests)
+
     def test_nebula_three_pane_renders_and_hits_from_one_geometry(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         policy=content("src/main/java/dev/ghostfusion/ui/GuiNebulaWorkspace.java")

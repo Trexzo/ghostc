@@ -10,6 +10,7 @@ import dev.ghostfusion.ui.UiState;
 import dev.ghostfusion.ui.GuiThemePalette;
 import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiNebulaWorkspace;
+import dev.ghostfusion.ui.GuiSettingPresentation;
 import dev.ghostfusion.ui.GuiHitZones;
 import dev.ghostfusion.ui.GuiChrome;
 import dev.ghostfusion.ui.GuiSelection;
@@ -133,18 +134,22 @@ public final class GhostClickGui extends GuiScreen {
         syncSearch(g);
     }
     private void syncSearch(GuiLayout g) {
-        if (search!=null && searchPositionX==g.searchX &&
-            searchPositionY==g.searchY && searchPositionWidth==g.searchWidth) return;
+        GuiNebulaWorkspace pane=nebulaWorkspace(g);
+        int targetX=pane==null?g.searchX:pane.searchX();
+        int targetY=pane==null?g.searchY:pane.searchY();
+        int targetWidth=pane==null?g.searchWidth:pane.searchWidth();
+        if (search!=null && searchPositionX==targetX &&
+            searchPositionY==targetY && searchPositionWidth==targetWidth) return;
         String previous=search==null?ui.query():search.getText();
         boolean focused=search!=null && search.isFocused();
         GuiTextField resized=new GuiTextField(42,fontRendererObj,
-            g.searchX,g.searchY,g.searchWidth,17);
+            targetX,targetY,targetWidth,17);
         resized.setMaxStringLength(100);
         resized.setText(previous);
         resized.setFocused(focused);
         search=resized;
-        searchPositionX=g.searchX; searchPositionY=g.searchY;
-        searchPositionWidth=g.searchWidth;
+        searchPositionX=targetX; searchPositionY=targetY;
+        searchPositionWidth=targetWidth;
     }
     private GuiThemePalette palette() { return GuiThemePalette.of(ui.theme()); }
     private GuiNebulaWorkspace nebulaWorkspace(GuiLayout zone) {
@@ -223,8 +228,10 @@ public final class GhostClickGui extends GuiScreen {
             if(i==keyboardSetting)
                 rect(pane.detailsX+8,yy,pane.detailsWidth-16,27,0x50465568);
             rect(pane.detailsX+9,yy+26,pane.detailsWidth-18,1,0x263E4558);
-            label(trim(row.getKey().replace('_',' '),105),
-                pane.detailsX+14,yy+9,color.text);
+            int kind=setting instanceof Setting.Bool?0:
+                setting instanceof Setting.Number?1:2;
+            label(trim(GuiSettingPresentation.label(row.getKey()),
+                pane.settingLabelBudget(kind)),pane.detailsX+14,yy+9,color.text);
             if(setting instanceof Setting.Bool) {
                 nebulaSwitch(pane.detailsX+pane.detailsWidth-43,yy+7,
                     ((Setting.Bool)setting).get());
@@ -234,10 +241,11 @@ public final class GhostClickGui extends GuiScreen {
                 int bx=pane.sliderX(),bw=pane.sliderWidth();
                 rect(bx,yy+13,bw,3,color.barTrack);
                 rect(bx,yy+13,(int)Math.round(bw*frac),3,color.accent);
-                label(String.format(java.util.Locale.ROOT,"%.2f",value.get()),
-                    bx,yy+2,color.muted);
+                label(trim(GuiSettingPresentation.number(row.getKey(),value.get()),
+                    pane.sliderWidth()),bx,yy+2,color.muted);
             } else {
-                String text=trim(setting.serialize(),94);
+                String text=trim(GuiSettingPresentation.choice(setting.serialize()),
+                    pane.choiceValueWidth());
                 label(text,pane.detailsX+pane.detailsWidth-16-
                     fontRendererObj.getStringWidth(text),yy+9,color.accent);
             }

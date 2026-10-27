@@ -201,3 +201,15 @@ vertical accent and a restrained name + HP readout with one animated health
 bar. Target selection, team eligibility, combat data, health interpolation,
 optional distance and its 160x43/160x29 bounds remain on their proven paths.
 Classic/Glass/Minimal target skins are unchanged.
+
+### R5 typography and spacing pass
+The split Nebula settings pane now derives label widths from each control's
+actual geometry: boolean switch, numeric slider, or right-aligned choice.
+This prevents choice names/values and long slider labels from overlapping at
+minimum supported wide viewports. `GuiSettingPresentation` presents IDs as
+readable titles (including FPS/CPS/FOV acronyms) and displays only documented
+units for known number identifiers; all native module setting IDs, raw
+values, parsers, keybinds and persistence remain unchanged. The search field
+is confined to the module-discovery column, with resized text hitbox and
+focus preservation. Randomized viewport coverage exercises 30k widths and
+bounded value/label regions without requiring a running Minecraft client.

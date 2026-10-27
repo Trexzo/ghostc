@@ -65,6 +65,21 @@ public final class GuiNebulaWorkspace {
     public boolean moduleToggleArea(int mx) {
         return mx>=modulesX+modulesWidth-43&&mx<modulesX+modulesWidth-5;
     }
+    /** Search belongs to the module-discovery pane, not settings controls. */
+    public int searchX(){return modulesX;}
+    public int searchY(){return detailsY-27;}
+    public int searchWidth(){return modulesWidth;}
+    /** Layout budgets are in real Minecraft scaled font pixels. */
+    public int choiceValueWidth(){return Math.min(106,detailsWidth/2-22);}
+    public int choiceValueX(){return detailsX+detailsWidth-16-choiceValueWidth();}
+    /** 0=bool, 1=number, 2=choice. Always leave at least 8px between. */
+    public int settingLabelBudget(int kind) {
+        int start=detailsX+14;
+        int control=kind==0?detailsX+detailsWidth-43:
+            kind==1?sliderX():kind==2?choiceValueX():-1;
+        if(control<0)throw new IllegalArgumentException("setting kind");
+        return Math.max(0,control-start-8);
+    }
     public int sliderX(){return detailsX+detailsWidth-87;}
     public int sliderWidth(){return 67;}
 }
