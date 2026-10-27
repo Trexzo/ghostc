@@ -65,9 +65,17 @@ final class ForgeWTapController {
         boolean healthy=host.runFeature(MODULE,new Runnable() {
             public void run() {
                 EntityPlayerSP p=mc.thePlayer;
+                boolean hadReservation=policy.pending();
                 WTapPolicy.Decision result=policy.tick(
                     true,eligible(p),host.services().tick(),
                     host.services().generation());
+                // Losing forward movement/ground eligibility cancels the
+                // pending sprint reset *inside* policy.tick(). Record it
+                // before another native attack can acquire that lane.
+                if(hadReservation && !policy.pending() &&
+                   result==WTapPolicy.Decision.NONE)
+                    host.nativeAction(ModuleActionTelemetry.Lane.WTAP,
+                        ModuleActionTelemetry.Event.CANCELLED);
                 if(result==WTapPolicy.Decision.RESET ||
                    result==WTapPolicy.Decision.HOLD) {
                     p.setSprinting(false);
