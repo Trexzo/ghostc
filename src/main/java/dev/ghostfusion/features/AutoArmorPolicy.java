@@ -55,6 +55,9 @@ public final class AutoArmorPolicy {
             throw new IllegalArgumentException("null equipped piece");
         if(epoch!=generation) {
             clear();
+            // Tick numbering may restart with a new session/world epoch.
+            // The old owner's monotonic clock cannot fence the new world.
+            lastTick=-1;
             generation=epoch;
         }
         if(lastTick>=0 && tick<lastTick)
