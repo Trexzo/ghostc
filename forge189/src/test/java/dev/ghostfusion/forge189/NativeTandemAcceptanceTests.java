@@ -14,8 +14,7 @@ import dev.ghostfusion.host.ModuleActionTelemetry.Lane;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.embedded.EmbeddedChannel;
-import net.minecraft.init.Bootstrap;
-import net.minecraft.init.Items;
+import net.minecraft.item.Item;
 import net.minecraft.inventory.ContainerChest;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.inventory.InventoryBasic;
@@ -62,6 +61,7 @@ public final class NativeTandemAcceptanceTests {
             "original Netty packet handler receives exactly the same packet once");
     }
     private static void chestLayoutAndTransfer(int size) {
+        Item token=new Item();
         IInventory playerInventory=new InventoryBasic("native-player",false,36);
         IInventory chestInventory=new InventoryBasic("native-chest",false,size);
         ContainerChest nativeChest=new ContainerChest(playerInventory,chestInventory,null);
@@ -82,7 +82,7 @@ public final class NativeTandemAcceptanceTests {
         }
         // A real vanilla ContainerChest quick move must preserve exact item
         // quantity and clear the source, not silently duplicate a stack.
-        chestInventory.setInventorySlotContents(0,new ItemStack(Items.diamond,5));
+        chestInventory.setInventorySlotContents(0,new ItemStack(token,5));
         ItemStack moved=nativeChest.transferStackInSlot(null,0);
         ok(moved!=null && moved.stackSize==5 &&
            chestInventory.getStackInSlot(0)==null,
@@ -90,7 +90,7 @@ public final class NativeTandemAcceptanceTests {
         int total=0;
         for(int i=0;i<36;i++) {
             ItemStack item=playerInventory.getStackInSlot(i);
-            if(item!=null && item.getItem()==Items.diamond)total+=item.stackSize;
+            if(item!=null && item.getItem()==token)total+=item.stackSize;
         }
         ok(total==5,"vanilla full-stack quick-move conserved all five items");
 
@@ -99,8 +99,8 @@ public final class NativeTandemAcceptanceTests {
         // actual behavior separately to keep this distinction testable.
         for(int i=0;i<36;i++)
             playerInventory.setInventorySlotContents(i,
-                new ItemStack(Items.diamond,64));
-        chestInventory.setInventorySlotContents(1,new ItemStack(Items.diamond,1));
+                new ItemStack(token,64));
+        chestInventory.setInventorySlotContents(1,new ItemStack(token,1));
         ItemStack refused=nativeChest.transferStackInSlot(null,1);
         ok(refused==null &&
            chestInventory.getStackInSlot(1)!=null &&
@@ -208,7 +208,6 @@ public final class NativeTandemAcceptanceTests {
         ch.finish();
     }
     public static void main(String[] args) {
-        Bootstrap.register();
         chestLayoutAndTransfer(27);
         chestLayoutAndTransfer(54);
         combinedGameAndPacket();
