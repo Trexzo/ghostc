@@ -41,6 +41,8 @@ public final class IntegratedModuleCatalogTests {
             "trading Hit Select registered");
         ok(host.modules().get("combat.wtap").settings().containsKey("reset_ticks"),
            "actual WTap sprint reset module and delay setting registered");
+        ok(host.modules().get("combat.velocity").settings().containsKey("mode"),
+           "packet vs hurt-mode is real registered Velocity control");
         ok(host.modules().get("combat.velocity").settings().containsKey("horizontal_percent") &&
            host.modules().get("combat.velocity").settings().containsKey("vertical_percent"),
            "native Velocity horizontal and vertical percentages are true module settings");
@@ -79,6 +81,7 @@ public final class IntegratedModuleCatalogTests {
         host.uiActions().fraction("inventory.manager","open_delay_ticks",0.75);
         host.uiActions().bool("inventory.manager","upgrade_existing");
         host.uiActions().fraction("combat.wtap","reset_ticks",1.0);
+        host.uiActions().cycle("combat.velocity","mode");
         host.uiActions().fraction("combat.velocity","horizontal_percent",0.7);
         host.uiActions().fraction("combat.velocity","vertical_percent",0.9);
         for(String id:modules) {
@@ -105,6 +108,8 @@ public final class IntegratedModuleCatalogTests {
         final double velocityHorizontal=host.velocityHorizontalPercent();
         final double velocityVertical=host.velocityVerticalPercent();
         ok(host.wtapDelayTicks()==3,"actual native attack WTap reset timing configured");
+        ok("packet".equals(host.velocityMode()),
+           "Velocity switches to clientbound S12/S27 packet mode");
         ok(velocityHorizontal==70 && velocityVertical==90,
            "true native Velocity axes are configurable with module enabled");
         ok(lookahead>0.75,"native edge projection setting accepts UI edits");
@@ -133,6 +138,8 @@ public final class IntegratedModuleCatalogTests {
            "Chest Stealer timing persists through F6 Panic without rearming");
         ok(loaded.wtapDelayTicks()==3,
            "Panic preserves WTap module timing but not enabled state");
+        ok("packet".equals(loaded.velocityMode()),
+           "Velocity packet mode survives Panic without enabling motion");
         ok(loaded.velocityHorizontalPercent()==velocityHorizontal &&
            loaded.velocityVerticalPercent()==velocityVertical,
            "Velocity axis settings survive Panic without re-enabling motion writes");
