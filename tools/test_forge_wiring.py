@@ -708,7 +708,7 @@ class ForgeWiring(unittest.TestCase):
     def test_nebula_three_pane_renders_and_hits_from_one_geometry(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         policy=content("src/main/java/dev/ghostfusion/ui/GuiNebulaWorkspace.java")
-        self.assertIn("drawNebulaModules(workspace);return;",gui)
+        self.assertIn("drawNebulaModules(workspace,mx,my);return;",gui)
         self.assertIn("split.moduleIndex(mx,my,scroll,filtered.size())",gui)
         self.assertIn("split.settingIndex(mx,my,settingScroll,settings.size())",gui)
         self.assertIn("split.keybindArea(mx,my)",gui)

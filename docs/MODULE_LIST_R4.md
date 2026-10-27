@@ -188,3 +188,16 @@ same frame, never falsely advertising a disabled feature. New seeded 20k
 lifecycle checks assert live-only membership, transition bounds, and fade
 color preservation. Width sorting, Unicode sanitizing and profile positions
 continue through the original `ModuleListLayout`.
+
+### R5 interaction and target card refinements
+Nebula module rows now have a restrained hover highlight without altering
+selection or toggle hit zones. Faulted modules show an explicit RESET label
+whose clickable hit zone covers the same painted control. The new click
+routing still calls the existing `UiActions.toggle` fault-recovery gateway
+(one click resets to DISABLED, a second click enables).
+
+The opt-in Nebula Target HUD now uses one deep translucent surface, small
+vertical accent and a restrained name + HP readout with one animated health
+bar. Target selection, team eligibility, combat data, health interpolation,
+optional distance and its 160x43/160x29 bounds remain on their proven paths.
+Classic/Glass/Minimal target skins are unchanged.

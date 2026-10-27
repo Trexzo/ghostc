@@ -63,7 +63,7 @@ public final class GuiNebulaWorkspace {
         return inside(mx,my,detailsX+9,bindingY,detailsWidth-18,24);
     }
     public boolean moduleToggleArea(int mx) {
-        return mx>=modulesX+modulesWidth-39&&mx<modulesX+modulesWidth-5;
+        return mx>=modulesX+modulesWidth-43&&mx<modulesX+modulesWidth-5;
     }
     public int sliderX(){return detailsX+detailsWidth-87;}
     public int sliderWidth(){return 67;}
