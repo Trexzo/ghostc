@@ -43,7 +43,7 @@ public final class GuiLayout {
     public static GuiLayout calculate(int screenWidth,int screenHeight,
                                       UiState.Layout style,UiState.Theme theme) {
         if(theme==null)throw new IllegalArgumentException("visual theme");
-        if(theme!=UiState.Theme.NEBULA||style!=UiState.Layout.WIDE)
+        if(theme!=UiState.Theme.SLATE||style!=UiState.Layout.WIDE)
             return calculate(screenWidth,screenHeight,style);
         if(screenWidth<1||screenHeight<1)
             throw new IllegalArgumentException("viewport/layout");

@@ -16,11 +16,11 @@ public final class TargetHudPalette {
     // Two distinct opt-in modern layouts. Both palettes are immutable singletons.
     private static final TargetHudPalette MINIMAL=new TargetHudPalette(
         0xE0151921,0xFFE1E5EF,0xFF384250,0xFFF8F9FC,0xFFB8C2D0,0xAA5C6776,0xFF8CA2C5);
-    private static final TargetHudPalette NEBULA=new TargetHudPalette(
-        HudThemeTokens.of("nebula").panel,HudThemeTokens.of("nebula").accent,
-        HudThemeTokens.of("nebula").track,HudThemeTokens.of("nebula").text,
-        HudThemeTokens.of("nebula").muted,HudThemeTokens.of("nebula").frame,
-        HudThemeTokens.of("nebula").secondary);
+    private static final TargetHudPalette SLATE=new TargetHudPalette(
+        HudThemeTokens.of("slate").panel,HudThemeTokens.of("slate").accent,
+        HudThemeTokens.of("slate").track,HudThemeTokens.of("slate").text,
+        HudThemeTokens.of("slate").muted,HudThemeTokens.of("slate").frame,
+        HudThemeTokens.of("slate").secondary);
     public final int secondary;
     private TargetHudPalette(int background,int accent,int track,int name,
                              int healthText,int outline) {
@@ -37,7 +37,7 @@ public final class TargetHudPalette {
         if("classic".equals(skin))return CLASSIC;
         if("glass".equals(skin))return GLASS;
         if("minimal".equals(skin))return MINIMAL;
-        if("nebula".equals(skin))return NEBULA;
+        if("slate".equals(skin))return SLATE;
         throw new IllegalArgumentException("Unknown Target HUD skin");
     }
 }

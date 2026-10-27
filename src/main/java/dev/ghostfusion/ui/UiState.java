@@ -9,9 +9,9 @@ import java.util.Locale;
 /** Pure Java UI model; coordinate values are resolution-independent and persistable. */
 public final class UiState {
     public enum Layout { COMPACT, WIDE }
-    public enum Theme { GRAPHITE, INDIGO, NEBULA }
+    public enum Theme { GRAPHITE, INDIGO, SLATE }
     public static final Layout DEFAULT_LAYOUT = Layout.WIDE;
-    public static final Theme DEFAULT_THEME = Theme.NEBULA;
+    public static final Theme DEFAULT_THEME = Theme.SLATE;
     private Layout layout = DEFAULT_LAYOUT;
     private Theme theme = DEFAULT_THEME;
     private String query = "";

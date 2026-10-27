@@ -1,15 +1,15 @@
 package dev.ghostfusion.ui;
 
 /**
- * Original three-pane Nebula workspace. The same bounds drive painting,
+ * Original three-pane Slate workspace. The same bounds drive painting,
  * selection, keyboard focus, wheel scrolling and slider/keybind hit testing.
  * Indigo/Mint/compact modes retain their original layout.
  */
-public final class GuiNebulaWorkspace {
+public final class GuiSlateWorkspace {
     public final int modulesX,modulesY,modulesWidth,modulesHeight,moduleRows;
     public final int detailsX,detailsY,detailsWidth,detailsHeight;
     public final int bindingY,settingY,settingRows;
-    private GuiNebulaWorkspace(GuiLayout g) {
+    private GuiSlateWorkspace(GuiLayout g) {
         modulesX=g.x+g.sidebar+11;
         modulesY=g.y+105;
         modulesWidth=176;
@@ -23,13 +23,13 @@ public final class GuiNebulaWorkspace {
         settingY=detailsY+92;
         settingRows=Math.max(0,(g.y+g.height-28-settingY)/30);
     }
-    public static GuiNebulaWorkspace of(GuiLayout g,UiState ui) {
+    public static GuiSlateWorkspace of(GuiLayout g,UiState ui) {
         if(g==null||ui==null)throw new IllegalArgumentException("workspace inputs");
-        if(ui.theme()!=UiState.Theme.NEBULA ||
+        if(ui.theme()!=UiState.Theme.SLATE ||
            ui.layout()!=UiState.Layout.WIDE ||
            g.width<580||g.height<340||!GuiChrome.interactive(g))
             return null;
-        GuiNebulaWorkspace pane=new GuiNebulaWorkspace(g);
+        GuiSlateWorkspace pane=new GuiSlateWorkspace(g);
         return pane.detailsWidth>=210 && pane.settingRows>=3 ? pane : null;
     }
     private static boolean inside(int mx,int my,int x,int y,int w,int h) {

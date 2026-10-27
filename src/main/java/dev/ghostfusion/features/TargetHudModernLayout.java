@@ -12,7 +12,7 @@ public final class TargetHudModernLayout {
     public final boolean topBand;
     private static final TargetHudModernLayout MINIMAL=new TargetHudModernLayout(
         6,6,37,3,21,18,0,false);
-    private static final TargetHudModernLayout NEBULA=new TargetHudModernLayout(
+    private static final TargetHudModernLayout SLATE=new TargetHudModernLayout(
         7,7,25,5,33,18,3,true);
 
     private TargetHudModernLayout(int nameY,int healthLabelY,int trackY,int trackHeight,
@@ -26,7 +26,7 @@ public final class TargetHudModernLayout {
     }
     public static TargetHudModernLayout of(String skin) {
         if("minimal".equals(skin))return MINIMAL;
-        if("nebula".equals(skin))return NEBULA;
+        if("slate".equals(skin))return SLATE;
         throw new IllegalArgumentException("Not a modern Target HUD skin");
     }
     /** Reject unusable font sizes rather than clipping into the screen. */
