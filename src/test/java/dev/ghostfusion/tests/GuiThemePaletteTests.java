@@ -1,6 +1,7 @@
 package dev.ghostfusion.tests;
 
 import dev.ghostfusion.ui.GuiThemePalette;
+import dev.ghostfusion.ui.GuiHudEditorStyle;
 import dev.ghostfusion.ui.HudThemeTokens;
 import dev.ghostfusion.ui.UiState;
 import dev.ghostfusion.ui.UiSettingsStore;
@@ -48,6 +49,30 @@ public final class GuiThemePaletteTests {
            GuiThemePalette.next(UiState.Theme.GRAPHITE)==UiState.Theme.SLATE &&
            GuiThemePalette.next(UiState.Theme.SLATE)==UiState.Theme.INDIGO,
            "theme button is deterministic three-stage cycle");
+        // Prevent the old Indigo purple tab and blue canvas from reappearing
+        // when users select the Slate theme in F7 HUD edit mode.
+        GuiHudEditorStyle editor=GuiHudEditorStyle.of(UiState.Theme.SLATE);
+        GuiHudEditorStyle original=GuiHudEditorStyle.of(UiState.Theme.INDIGO);
+        ok(editor==GuiHudEditorStyle.of(UiState.Theme.SLATE),
+            "Slate F7 style is a reused immutable singleton");
+        ok(editor.selectedTab==0xFF33424A &&
+           editor.previewCanvas==0xFF1C252B &&
+           editor.previewSurround==0xFF101418,
+           "F7 Slate tabs and preview use charcoal, not old purple/blue");
+        ok(editor.selectedText==slate.text &&
+           editor.idleText==slate.muted,
+           "F7 Slate tab captions agree with GUI palette");
+        ok(editor.snapGuide==0x99A7D3E0 &&
+           (editor.snapGuide&0xFFFFFF)==(slate.accent&0xFFFFFF),
+           "HUD snapping guide uses the same Slate ice-blue accent");
+        ok(editor.previewGrid!=original.previewGrid &&
+           editor.selectedTab!=original.selectedTab,
+           "Slate editor does not accidentally inherit Indigo surface colors");
+        ok(original==GuiHudEditorStyle.of(UiState.Theme.GRAPHITE) &&
+           original.selectedTab==0xFF575C8D &&
+           original.previewCanvas==0xFF192238,
+           "legacy HUD editor visual output retained");
+        invalid(()->GuiHudEditorStyle.of(null),"null editor theme rejected");
         invalid(()->GuiThemePalette.of(null),"null style rejected");
         invalid(()->GuiThemePalette.next(null),"null cycle rejected");
         Random rng=new Random(261026L);
