@@ -56,8 +56,19 @@ public final class ModuleInteractionDiagnosticsTests {
            f.denial(Resource.AUTO_ARMOR)==Denial.WRONG_SCREEN &&
            f.denial(Resource.INVENTORY_MANAGER)==Denial.WRONG_SCREEN,
            "no player-container write while chest screen owns GUI");
+        Enabled movementOnly=new Enabled(false,true,true,false,false,
+            false,false,false);
+        f=m.advance(1,5,true,Scene.OTHER_GUI,true,movementOnly,false);
+        ok(f.denial(Resource.COMBAT)==Denial.DISABLED &&
+           f.denial(Resource.BRIDGE)==Denial.WRONG_SCREEN &&
+           ModuleInteractionReadout.suppression(f).contains("GUI open"),
+           "movement-only setup still explains why bridge/velocity are held");
+        f=m.advance(1,6,true,Scene.GAME,false,movementOnly,false);
+        ok(f.denial(Resource.BRIDGE)==Denial.WINDOW_INACTIVE &&
+           ModuleInteractionReadout.suppression(f).contains("window inactive"),
+           "movement-only setup reports lost native input focus");
         Enabled none=new Enabled(false,false,false,false,false,false,false,false);
-        f=m.advance(1,5,true,Scene.GAME,true,none,true);
+        f=m.advance(1,7,true,Scene.GAME,true,none,true);
         for(Resource r:Resource.values())
             ok(f.denial(r)==Denial.DISABLED,
                "disabled native resources cannot show as a focus conflict");
