@@ -3,6 +3,7 @@ package dev.ghostfusion.forge189;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.PanicController;
 import dev.ghostfusion.features.ModuleInteractionStateMachine;
+import dev.ghostfusion.features.ModuleInteractionReadout;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.gui.inventory.GuiChest;
 import org.lwjgl.opengl.Display;
@@ -52,6 +53,7 @@ public final class ForgeEventAdapter {
     // native actions. Render-only modules remain independent.
     private final ModuleInteractionStateMachine moduleState =
         new ModuleInteractionStateMachine();
+    private ModuleInteractionStateMachine.Frame lastArbitration;
     private final WorldIdentityTracker worldIdentity = new WorldIdentityTracker();
     // Two capped, owner-thread groups are reused every tick. Every raw
     // EntityPlayer reference is released before publishing an immutable
@@ -90,6 +92,7 @@ public final class ForgeEventAdapter {
             transition == WorldIdentityTracker.Transition.LEAVE) {
             host.worldPresence(false);
             moduleState.reset();
+            lastArbitration=null;
             features.reset();
             combat.reset();
             bridge.reset();
@@ -103,6 +106,7 @@ public final class ForgeEventAdapter {
             transition == WorldIdentityTracker.Transition.SWITCH) {
             host.worldPresence(true);
             moduleState.reset();
+            lastArbitration=null;
             features.reset();
             combat.reset();
             bridge.reset();
@@ -277,6 +281,30 @@ public final class ForgeEventAdapter {
                  minecraft.inGameHasFocus),
             enabled,wtap.sprintReserved());
 
+        // Diagnostic counters are opt-in grant-frame counts, not claimed
+        // native actions or server transaction confirmations.
+        if(host.diagnosticsEnabled()) {
+            lastArbitration=plan;
+            if(plan.denial(ModuleInteractionStateMachine.Resource.AUTO_SPRINT)==
+                ModuleInteractionStateMachine.Denial.WTAP_RESERVED)
+                host.diagnostics().record(Counter.MODULE_WTAP_PREEMPTED_SPRINT);
+            if(plan.denial(ModuleInteractionStateMachine.Resource.INVENTORY_MANAGER)==
+                ModuleInteractionStateMachine.Denial.ARMOR_PRIORITY)
+                host.diagnostics().record(Counter.MODULE_ARMOR_PREEMPTED_SORTER);
+            if(plan.autoArmor)host.diagnostics().record(Counter.MODULE_ARMOR_GRANT);
+            if(plan.inventoryManager)host.diagnostics().record(Counter.MODULE_SORTER_GRANT);
+            if(plan.chestStealer)host.diagnostics().record(Counter.MODULE_CHEST_GRANT);
+            boolean gameplayRequested=enabled.combat||enabled.bridge||
+                enabled.velocity||enabled.wtap||enabled.sprint;
+            if(gameplayRequested && worldReady &&
+               scene!=ModuleInteractionStateMachine.Scene.GAME)
+                host.diagnostics().record(Counter.MODULE_GAMEPLAY_GUI_DENIED);
+            if(gameplayRequested && worldReady &&
+               scene==ModuleInteractionStateMachine.Scene.GAME &&
+               !Display.isActive())
+                host.diagnostics().record(Counter.MODULE_GAMEPLAY_WINDOW_DENIED);
+        } else lastArbitration=null;
+
         // AutoSprint is intentionally silent while WTap holds the sprint
         // resource after a real attack. WTap alone can restore sprint.
         features.tick(plan.autoSprint);
@@ -317,6 +345,7 @@ public final class ForgeEventAdapter {
                 worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) {
                 PanicController.disableAll(host);
                 moduleState.reset();
+                lastArbitration=null;
                 bridge.reset();
                 velocity.reset();
                 wtap.reset();
@@ -476,6 +505,25 @@ public final class ForgeEventAdapter {
                 }
             });
         }
+        // Only explicitly opted-in diagnostics display nonidentifying
+        // immutable phase, ownership and suppression reason labels.
+        if(host.diagnosticsEnabled() && lastArbitration!=null &&
+           lastArbitration.generation==host.services().generation()) {
+            final String grants=ModuleInteractionReadout.ownership(lastArbitration);
+            final String held=ModuleInteractionReadout.suppression(lastArbitration);
+            final int bottomY=Math.max(2,sh-2*(fontHeight+3)-4);
+            RenderStateGuard.draw(new Runnable() {
+                public void run() {
+                    int available=Math.max(0,sw-6);
+                    minecraft.fontRendererObj.drawStringWithShadow(
+                        minecraft.fontRendererObj.trimStringToWidth(grants,available),
+                        3,bottomY,0xFFC2C9D4);
+                    minecraft.fontRendererObj.drawStringWithShadow(
+                        minecraft.fontRendererObj.trimStringToWidth(held,available),
+                        3,bottomY+fontHeight+3,0xFFFFD08A);
+                }
+            });
+        }
         // Other HUD modules retain their own independent fault guards.
         features.render2d(resolution);
     }
@@ -494,6 +542,8 @@ public final class ForgeEventAdapter {
                 // Ignore a stale queued disconnect after joining another world.
                 if (minecraft.theWorld != null && minecraft.thePlayer != null) return;
                 host.disconnect();
+                moduleState.reset();
+                lastArbitration=null;
                 worldIdentity.reset();
                 features.reset();
                 combat.reset();
