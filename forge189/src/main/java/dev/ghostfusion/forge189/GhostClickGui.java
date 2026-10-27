@@ -14,6 +14,7 @@ import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiSlateWorkspace;
 import dev.ghostfusion.ui.GuiSettingPresentation;
 import dev.ghostfusion.ui.GuiScrollIndicator;
+import dev.ghostfusion.ui.GuiScrollDrag;
 import dev.ghostfusion.ui.GuiHitZones;
 import dev.ghostfusion.ui.GuiChrome;
 import dev.ghostfusion.ui.GuiSelection;
@@ -73,6 +74,7 @@ public final class GhostClickGui extends GuiScreen {
     private Widget draggingWidget; // null means the original Status HUD
     private final HudEditorControls hudControls = new HudEditorControls();
     private final GuiSliderDrag sliderDrag = new GuiSliderDrag();
+    private final GuiScrollDrag scrollDrag = new GuiScrollDrag();
     private final GuiToggleMotion slateToggleMotion = new GuiToggleMotion();
     private int dragX, dragY, scroll, settingScroll;
     // -1 = keyboard focus on module list; >=0 selects a setting row.
@@ -113,6 +115,7 @@ public final class GhostClickGui extends GuiScreen {
     @Override public void initGui() {
         moduleListFrameCache=null;
         slateToggleMotion.clear();
+        scrollDrag.end();
         Keyboard.enableRepeatEvents(true);
         rebuild();
         host.inputFocus(true);
@@ -122,6 +125,9 @@ public final class GhostClickGui extends GuiScreen {
         if(sliderDrag.active() &&
            (!sliderDrag.sameViewport(width,height) || !GuiChrome.interactive(g)))
             finishSliderDrag();
+        if(scrollDrag.active() &&
+           (!GuiChrome.interactive(g) || slateWorkspace(g)==null))
+            scrollDrag.end();
         x=g.x; y=g.y; w=g.width; h=g.height; side=g.sidebar;
         listY=g.listY; listH=g.listHeight; visibleRows=g.visibleRows;
         GuiSlateWorkspace workspace=slateWorkspace(g);
@@ -847,6 +853,7 @@ public final class GhostClickGui extends GuiScreen {
     }
     @Override protected void mouseClicked(int mx, int my, int button) throws IOException {
         moduleListFrameCache=null;
+        scrollDrag.end();
         finishSliderDrag();
         finishHudDrag();
         // Pointer focus takes precedence over a pending keybind editor.
@@ -926,6 +933,11 @@ public final class GhostClickGui extends GuiScreen {
         List<ModuleRegistry.Entry> filtered = entries();
         GuiSlateWorkspace split=slateWorkspace(zone);
         if(split!=null) {
+            int moduleScrollbar=scrollDrag.begin(GuiScrollDrag.Lane.MODULES,
+                mx,my,split.modulesX+split.modulesWidth+2,split.modulesY,
+                split.moduleRows*29,filtered.size(),split.moduleRows,scroll,
+                width,height);
+            if(moduleScrollbar>=0) {scroll=moduleScrollbar;return;}
             int index=split.moduleIndex(mx,my,scroll,filtered.size());
             if(index>=0) {
                 ModuleRegistry.Entry entry=filtered.get(index);
@@ -940,6 +952,17 @@ public final class GhostClickGui extends GuiScreen {
             }
             if(selected==null)return;
             ModuleRegistry.Entry entry=host.modules().get(selected);
+            int settingScrollbar=scrollDrag.begin(GuiScrollDrag.Lane.SETTINGS,
+                mx,my,split.detailsX+split.detailsWidth-5,split.settingY,
+                split.settingRows*30,entry.settings().size(),split.settingRows,
+                settingScroll,width,height);
+            if(settingScrollbar>=0) {
+                settingScroll=settingScrollbar;
+                keyboardSetting=GuiSettingKeyboard.visibleFocus(
+                    keyboardSetting,settingScroll,entry.settings().size(),
+                    split.settingRows);
+                return;
+            }
             if(split.keybindArea(mx,my)) {
                 capture=selected;pendingControlBind=0;
                 keyboardSetting=-1;message="";return;
@@ -1015,8 +1038,38 @@ public final class GhostClickGui extends GuiScreen {
             } catch (RuntimeException ex) { message = "Setting rejected"; }
         }
     }
+    private void adjustScrollDrag(int my) {
+        if(!scrollDrag.active())return;
+        GuiSlateWorkspace pane=slateWorkspace(
+            GuiLayout.calculate(width,height,ui.layout(),ui.theme()));
+        if(pane==null) {scrollDrag.end();return;}
+        if(scrollDrag.lane()==GuiScrollDrag.Lane.MODULES) {
+            int count=entries().size();
+            if(!scrollDrag.sameLayout(width,height,count,pane.moduleRows,
+                                      pane.moduleRows*29)) {
+                scrollDrag.end();return;
+            }
+            scroll=scrollDrag.move(my);
+        } else {
+            entries();
+            if(selected==null) {scrollDrag.end();return;}
+            int count=host.modules().get(selected).settings().size();
+            if(!scrollDrag.sameLayout(width,height,count,pane.settingRows,
+                                      pane.settingRows*30)) {
+                scrollDrag.end();return;
+            }
+            settingScroll=scrollDrag.move(my);
+            keyboardSetting=GuiSettingKeyboard.visibleFocus(
+                keyboardSetting,settingScroll,count,pane.settingRows);
+        }
+    }
     @Override protected void mouseClickMove(int mx,int my,int button,long timeSinceLastClick) {
         moduleListFrameCache=null;
+        if(scrollDrag.active()) {
+            if(button==0&&!hudPage)adjustScrollDrag(my);
+            else scrollDrag.end();
+            return;
+        }
         if(sliderDrag.active()) {
             if(button==0 && !hudPage &&
                sliderDrag.sameViewport(width,height) &&
@@ -1033,6 +1086,10 @@ public final class GhostClickGui extends GuiScreen {
     @Override protected void mouseReleased(int mx,int my,int state) {
         moduleListFrameCache=null;
         super.mouseReleased(mx,my,state);
+        if(scrollDrag.active()) {
+            if(state==0&&!hudPage)adjustScrollDrag(my);
+            scrollDrag.end();
+        }
         if(sliderDrag.active()) {
             if(state==0 && sliderDrag.sameViewport(width,height))adjustSliderDrag(mx);
             finishSliderDrag();
@@ -1046,6 +1103,7 @@ public final class GhostClickGui extends GuiScreen {
         super.handleMouseInput();
         int wheel = Mouse.getEventDWheel();
         if (wheel != 0 && !hudPage) {
+            scrollDrag.end();
             finishSliderDrag();
             rebuild();
             GuiLayout zone=GuiLayout.calculate(width,height,ui.layout(),ui.theme());
@@ -1054,7 +1112,10 @@ public final class GhostClickGui extends GuiScreen {
             int mx = Mouse.getEventX() * width / Math.max(1, mc.displayWidth);
             int my = height - Mouse.getEventY() * height / Math.max(1, mc.displayHeight) - 1;
             GuiSlateWorkspace split=slateWorkspace(zone);
-            if((split!=null&&split.settingArea(mx,my)) ||
+            if((split!=null&&(split.settingArea(mx,my) ||
+                GuiScrollDrag.trackHit(mx,my,
+                    split.detailsX+split.detailsWidth-5,split.settingY,
+                    split.settingRows*30))) ||
                (split==null&&GuiHitZones.settingsArea(zone,mx,my))) {
                 entries();
                 if (selected == null) return;
@@ -1067,7 +1128,10 @@ public final class GhostClickGui extends GuiScreen {
                 keyboardSetting=GuiSettingKeyboard.visibleFocus(
                     keyboardSetting,settingScroll,e.settings().size(),
                     settingsRows(zone));
-            } else if((split!=null&&split.moduleArea(mx,my)) ||
+            } else if((split!=null&&(split.moduleArea(mx,my) ||
+                GuiScrollDrag.trackHit(mx,my,
+                    split.modulesX+split.modulesWidth+2,split.modulesY,
+                    split.moduleRows*29))) ||
                       (split==null&&GuiHitZones.moduleArea(zone,mx,my))) {
                 int max = Math.max(0,entries().size() - visibleRows);
                 scroll = Math.max(0,Math.min(max,scroll + direction));
@@ -1356,6 +1420,7 @@ public final class GhostClickGui extends GuiScreen {
         super.keyTyped(character,keyCode);
     }
     @Override public void onGuiClosed() {
+        scrollDrag.end();
         finishSliderDrag();
         boolean endedHudDrag=hudDragging;
         finishHudDrag();
