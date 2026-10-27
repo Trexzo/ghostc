@@ -196,7 +196,46 @@ public final class VelocityPacketNativeTests {
            "native NetworkManager path detaches on reset");
         ch.finish();
     }
+    private static void evidenceHealth() {
+        Collector receiver=new Collector();
+        EmbeddedChannel ch=channel(receiver,true);
+        ForgeVelocityPacketBridge bridge=new ForgeVelocityPacketBridge();
+        ok("DISABLED".equals(bridge.health().status),
+           "new hook disabled until actually configured in-game");
+        bridge.updateConnection(ch,17,50,25,true);
+        tick(ch);
+        ok("ATTACHED".equals(bridge.health().status),
+           "live event-loop reconcile confirms installed exact native handler");
+        S12PacketEntityVelocity foreign=velocity(19);
+        S12PacketEntityVelocity mine=velocity(17);
+        S27PacketExplosion explosion=explosion();
+        emits(ch,receiver,foreign,"opt-in packet foreign identity");
+        emits(ch,receiver,mine,"opt-in packet local player identity");
+        emits(ch,receiver,explosion,"opt-in actual explosion");
+        ForgeVelocityPacketBridge.Health data=bridge.health();
+        ok(data.localS12==1 && data.foreignS12==1 &&
+           data.explosionS27==1 && data.errors==0,
+           "only aggregate packet classes counted; never raw payload or entity id");
+        bridge.reset();tick(ch);
+        ok("DISABLED".equals(bridge.health().status) &&
+           ch.pipeline().get("ghostc_r341_velocity")==null,
+           "F6/disconnect hook health immediately disables and detaches");
+        emits(ch,receiver,velocity(17),"native packet after hook teardown");
+        ok(bridge.health().localS12==1 &&
+           bridge.health().explosionS27==1,
+           "disabled hook cannot create false runtime evidence");
+        ch.finish();
+        Collector ignored=new Collector();
+        EmbeddedChannel second=channel(ignored,true);
+        ForgeVelocityPacketBridge notObserved=new ForgeVelocityPacketBridge();
+        notObserved.updateConnection(second,17,25,25,false);tick(second);
+        emits(second,ignored,velocity(17),"diagnostics disabled packet");
+        ok(notObserved.health().localS12==0,
+           "default-off acceptance counters never observe packets");
+        notObserved.reset();tick(second);second.finish();
+    }
     public static void main(String[] args) throws Exception {
+        evidenceHealth();
         networkManagerEntry();
         packets();
         lifecycleRaces();
