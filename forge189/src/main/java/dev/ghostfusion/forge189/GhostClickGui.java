@@ -162,29 +162,36 @@ public final class GhostClickGui extends GuiScreen {
         rect(x+(enabled?15:3),y+2,10,9,0xFFF0F3FA);
     }
     /** Dedicated Rise-style modules + settings panes, with native GUI input parity. */
-    private void drawNebulaModules(GuiNebulaWorkspace pane) {
+    private void drawNebulaModules(GuiNebulaWorkspace pane,int mx,int my) {
         drawSidebar();
         if(search!=null)search.drawTextBox();
         GuiThemePalette color=palette();
         rect(pane.detailsX-6,pane.detailsY,1,pane.detailsHeight,color.divider);
         label("MODULES",pane.modulesX+3,pane.detailsY+3,color.muted);
+        // The count uses the same filtered registry view as click/keyboard paths.
         List<ModuleRegistry.Entry> filtered=entries();
         scroll=Math.max(0,Math.min(scroll,Math.max(0,filtered.size()-pane.moduleRows)));
         for(int i=scroll;i<filtered.size()&&i<scroll+pane.moduleRows;i++) {
             ModuleRegistry.Entry entry=filtered.get(i);
             int yy=pane.modulesY+(i-scroll)*29;
             boolean active=entry.module().id().equals(selected);
-            if(active)rect(pane.modulesX,yy,pane.modulesWidth,26,0x58405266);
+            boolean hovered=inside(mx,my,pane.modulesX,yy,pane.modulesWidth,26);
+            if(active||hovered)
+                rect(pane.modulesX,yy,pane.modulesWidth,26,
+                    active?0x58405266:0x242E3746);
             rect(pane.modulesX+6,yy+25,pane.modulesWidth-12,1,0x304D5669);
             if(active)rect(pane.modulesX+1,yy+9,2,8,color.accent);
             label(trim(entry.module().displayName(),pane.modulesWidth-61),
                 pane.modulesX+10,yy+8,active?color.text:color.muted);
             boolean enabled=entry.state()==ModuleRegistry.State.ENABLED;
             boolean faulted=entry.state()==ModuleRegistry.State.FAULTED;
-            if(faulted)label("!",pane.modulesX+pane.modulesWidth-25,yy+7,0xFFEBA4AF);
-            else nebulaSwitch(pane.modulesX+pane.modulesWidth-35,yy+6,enabled);
+            if(faulted) {
+                rect(pane.modulesX+pane.modulesWidth-43,yy+5,38,16,0x665A343F);
+                label("RESET",pane.modulesX+pane.modulesWidth-40,yy+8,0xFFEBA4AF);
+            } else nebulaSwitch(pane.modulesX+pane.modulesWidth-35,yy+6,enabled);
         }
         label("CONFIGURATION",pane.detailsX+9,pane.detailsY+3,color.muted);
+        // No eagerly-created description list or external font render path.
         if(selected==null) {
             keyboardSetting=-1;
             label("No matching modules",pane.detailsX+9,pane.detailsY+28,color.muted);
@@ -351,7 +358,7 @@ public final class GhostClickGui extends GuiScreen {
     private void drawModules(int mx, int my) {
         GuiNebulaWorkspace workspace=nebulaWorkspace(
             GuiLayout.calculate(width,height,ui.layout()));
-        if(workspace!=null) {drawNebulaModules(workspace);return;}
+        if(workspace!=null) {drawNebulaModules(workspace,mx,my);return;}
         drawSidebar();
         if (search != null) search.drawTextBox();
         List<ModuleRegistry.Entry> filtered = entries();
