@@ -11,6 +11,7 @@ import dev.ghostfusion.ui.GuiThemePalette;
 import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiNebulaWorkspace;
 import dev.ghostfusion.ui.GuiSettingPresentation;
+import dev.ghostfusion.ui.GuiScrollIndicator;
 import dev.ghostfusion.ui.GuiHitZones;
 import dev.ghostfusion.ui.GuiChrome;
 import dev.ghostfusion.ui.GuiSelection;
@@ -168,13 +169,18 @@ public final class GhostClickGui extends GuiScreen {
     }
     /** Dedicated Rise-style modules + settings panes, with native GUI input parity. */
     private void drawNebulaModules(GuiNebulaWorkspace pane,int mx,int my) {
-        drawSidebar();
-        if(search!=null)search.drawTextBox();
+        drawNebulaSidebar(mx,my);
+        if(search!=null) {
+            search.drawTextBox();
+            if(search.getText().isEmpty()&&!search.isFocused())
+                label("Search modules...",pane.searchX()+5,pane.searchY()+5,
+                    palette().muted);
+        }
         GuiThemePalette color=palette();
         rect(pane.detailsX-6,pane.detailsY,1,pane.detailsHeight,color.divider);
-        label("MODULES",pane.modulesX+3,pane.detailsY+3,color.muted);
         // The count uses the same filtered registry view as click/keyboard paths.
         List<ModuleRegistry.Entry> filtered=entries();
+        label("MODULES  "+filtered.size(),pane.modulesX+3,pane.detailsY+3,color.muted);
         scroll=Math.max(0,Math.min(scroll,Math.max(0,filtered.size()-pane.moduleRows)));
         for(int i=scroll;i<filtered.size()&&i<scroll+pane.moduleRows;i++) {
             ModuleRegistry.Entry entry=filtered.get(i);
@@ -195,6 +201,8 @@ public final class GhostClickGui extends GuiScreen {
                 label("RESET",pane.modulesX+pane.modulesWidth-40,yy+8,0xFFEBA4AF);
             } else nebulaSwitch(pane.modulesX+pane.modulesWidth-35,yy+6,enabled);
         }
+        drawNebulaScrollIndicator(pane.modulesX+pane.modulesWidth+2,
+            pane.modulesY,pane.moduleRows*29,pane.moduleRows,filtered.size(),scroll);
         label("CONFIGURATION",pane.detailsX+9,pane.detailsY+3,color.muted);
         // No eagerly-created description list or external font render path.
         if(selected==null) {
@@ -250,6 +258,9 @@ public final class GhostClickGui extends GuiScreen {
                     fontRendererObj.getStringWidth(text),yy+9,color.accent);
             }
         }
+        drawNebulaScrollIndicator(pane.detailsX+pane.detailsWidth-5,
+            pane.settingY,pane.settingRows*30,
+            pane.settingRows,settings.size(),settingScroll);
         if(settings.size()>pane.settingRows)
             label((settingScroll+1)+"-"+Math.min(settings.size(),settingScroll+
                 pane.settingRows)+" / "+settings.size(),
@@ -294,8 +305,16 @@ public final class GhostClickGui extends GuiScreen {
         if(theme.nebula)drawNebulaChrome(theme);
         label("GHOSTC", x + 10, y + 10, accent());
         int menuX = x + side + 8;
-        label(hudPage ? "MODULES" : "[MODULES]", menuX, y + 11, hudPage ? 0xFFB5B6C1 : 0xFFFFFFFF);
-        label(hudPage ? "[HUD]" : "HUD", menuX + 76, y + 11, hudPage ? 0xFFFFFFFF : 0xFFB5B6C1);
+        GuiNebulaWorkspace modern=nebulaWorkspace(
+            GuiLayout.calculate(width,height,ui.layout()));
+        if(modern!=null) {
+            label("Modules",menuX,y+11,hudPage?theme.muted:theme.text);
+            label("HUD",menuX+76,y+11,hudPage?theme.text:theme.muted);
+            rect(menuX+(hudPage?76:0),y+28,hudPage?23:42,2,theme.accent);
+        } else {
+            label(hudPage ? "MODULES" : "[MODULES]", menuX, y + 11, hudPage ? 0xFFB5B6C1 : 0xFFFFFFFF);
+            label(hudPage ? "[HUD]" : "HUD", menuX + 76, y + 11, hudPage ? 0xFFFFFFFF : 0xFFB5B6C1);
+        }
         rect(x + w - 99, y + 6, 40, 17, panel());
         rect(x + w - 55, y + 6, 50, 17, panel());
         label(ui.layout() == UiState.Layout.WIDE ? "WIDE" : "SMALL", x + w - 96, y + 10, 0xFFF2F3FF);
@@ -327,6 +346,35 @@ public final class GhostClickGui extends GuiScreen {
         rect(x+5,y+21,2,2,theme.secondary);
         // Distinguish title, controls, and content without texture allocations.
         rect(x+w-108,y+3,Math.min(100,w-109),1,theme.sheen);
+    }
+    /** Full-height navigation styled for the new Nebula wide workspace. */
+    private void drawNebulaSidebar(int mx,int my) {
+        GuiThemePalette theme=palette();
+        label("NAVIGATION",x+10,y+49,theme.muted);
+        String[] captions={"All","Combat","Movement","World","Render","Utility"};
+        GhostModule.Category[] categories=GhostModule.Category.values();
+        for(int i=0;i<captions.length;i++){
+            GhostModule.Category category=i==0?null:categories[i-1];
+            boolean active=ui.category()==category;
+            int yy=y+62+i*23;
+            boolean hover=inside(mx,my,x+4,yy,side-8,19);
+            if(active||hover)
+                rect(x+4,yy,side-8,19,active?0x45485C74:0x222F3D4C);
+            if(active)rect(x+4,yy+5,2,9,theme.accent);
+            label(captions[i],x+13,yy+6,active?theme.text:theme.muted);
+        }
+        rect(x+12,y+h-53,side-24,1,theme.divider);
+        label("CTRL+F  SEARCH",x+11,y+h-44,theme.muted);
+        label("F7  CLOSE",x+11,y+h-29,theme.muted);
+        label("ESC  CLOSE",x+11,y+h-16,theme.muted);
+    }
+    private void drawNebulaScrollIndicator(int atX,int atY,int height,
+                                            int visible,int total,int first) {
+        int thumb=GuiScrollIndicator.height(height,total,visible);
+        if(thumb<=0)return;
+        rect(atX,atY,2,height,0x24343D4D);
+        rect(atX,atY+GuiScrollIndicator.offset(height,total,visible,first),
+            2,thumb,palette().accent);
     }
     private void drawSidebar() {
         int yy = y + 47;

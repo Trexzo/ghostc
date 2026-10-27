@@ -177,6 +177,8 @@ jobs:
           grep -q 'NUMERIC_SLIDER_SCALE_PASS' .build/numeric-slider-scale.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSliderDragTests | tee .build/gui-slider-drag.log
           grep -q 'GUI_SLIDER_DRAG_PASS' .build/gui-slider-drag.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiScrollIndicatorTests | tee .build/gui-scroll-indicator.log
+          grep -q 'GUI_SCROLL_INDICATOR_PASS' .build/gui-scroll-indicator.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSettingPresentationTests | tee .build/gui-setting-presentation.log
           grep -q 'GUI_SETTING_PRESENTATION_PASS' .build/gui-setting-presentation.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiNebulaWorkspaceTests | tee .build/gui-nebula-workspace.log

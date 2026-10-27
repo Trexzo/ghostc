@@ -705,6 +705,20 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("MODULE_LIST_MOTION_PASS",content(".github/workflows/core-ci.yml"))
         self.assertIn("Iterator<Map.Entry<String,State>>",motion)
 
+    def test_nebula_navigation_and_scroll_indicators_use_shared_state(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        scroll=content("src/main/java/dev/ghostfusion/ui/GuiScrollIndicator.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/GuiScrollIndicatorTests.java")
+        self.assertIn("drawNebulaSidebar(mx,my);",gui)
+        self.assertIn("GuiScrollIndicator.height(height,total,visible)",gui)
+        self.assertIn("GuiScrollIndicator.offset(height,total,visible,first)",gui)
+        self.assertIn("pane.settingRows,settings.size(),settingScroll",gui)
+        self.assertIn("pane.moduleRows,filtered.size(),scroll",gui)
+        self.assertIn("search.getText().isEmpty()&&!search.isFocused()",gui)
+        self.assertIn("GUI_SCROLL_INDICATOR_PASS",content(".github/workflows/core-ci.yml"))
+        self.assertIn("max scroll reaches bottom",tests)
+        self.assertIn("if(trackHeight==0||total<=visible||visible==0)return 0;",scroll)
+
     def test_nebula_setting_labels_controls_and_search_are_measured(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         layout=content("src/main/java/dev/ghostfusion/ui/GuiNebulaWorkspace.java")

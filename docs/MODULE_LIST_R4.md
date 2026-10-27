@@ -213,3 +213,14 @@ values, parsers, keybinds and persistence remain unchanged. The search field
 is confined to the module-discovery column, with resized text hitbox and
 focus preservation. Randomized viewport coverage exercises 30k widths and
 bounded value/label regions without requiring a running Minecraft client.
+
+### Navigation and scrolling polish
+The Nebula Wide category sidebar now uses text-first navigation with thin,
+gently colored selection rails, subtle hover feedback and quieter shortcuts.
+Modules/HUD top navigation uses a small active underline instead of bracket
+text, without changing original `GuiChrome` hit rectangles. The module search
+box includes an unfocused hint, and both independent list regions now have
+thin, read-only proportional scrollbars derived from their actual visible/
+total/scroll state. Scrollbar geometry is viewport-bounded by 50k seeded
+tests; it never intercepts mouse events or changes module selection.
+Legacy Indigo/Mint/Compact paths remain unchanged.
