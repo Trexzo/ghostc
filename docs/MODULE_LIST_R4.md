@@ -253,3 +253,8 @@ New profiles default Module List backgrounds and accent stripes to **off**.
 The user can opt back into either option independently. The 180 ms live-only
 entry motion, right-edge alignment, sorting, saved positions, and visibility
 remain unchanged. Previously saved explicit backgrounds/stripes are honored.
+
+### Persisted appearance alias
+All saved `nebula` HUD appearance/skin values continue loading unchanged;
+Slate Wide's human-facing choice renderer now labels that option **Slate**.
+No profile migration, source enum rename or deprecated serialization is needed.

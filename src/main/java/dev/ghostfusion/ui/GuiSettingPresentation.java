@@ -25,6 +25,9 @@ public final class GuiSettingPresentation {
         return sb.toString();
     }
     public static String choice(String raw) {
+        // Existing profiles keep the persisted "nebula" identifier.
+        // Users see the redesigned Slate label, never the old purple brand.
+        if("nebula".equals(raw))return "Slate";
         return label(raw);
     }
     /** Whitelisted units only; unknown numeric settings retain their value. */

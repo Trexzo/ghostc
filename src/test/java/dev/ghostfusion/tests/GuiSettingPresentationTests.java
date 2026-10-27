@@ -25,6 +25,8 @@ public final class GuiSettingPresentationTests {
            "CPS title preservation");
         ok(GuiSettingPresentation.choice("bottom_right").equals("Bottom Right"),
            "choice text no longer uses snake case");
+        ok(GuiSettingPresentation.choice("nebula").equals("Slate"),
+           "all persisted Nebula appearances display as Slate");
         ok(GuiSettingPresentation.number("scale",1.0).equals("1x"),
            "scale suffix");
         ok(GuiSettingPresentation.number("cps",10).equals("10 CPS"),
