@@ -132,8 +132,8 @@ public final class HostRuntime {
         "width", "alphabetical");
     private final Setting.Number moduleListRows = new Setting.Number("max_rows", 10, 1, 24);
     private final Setting.Bool moduleListRender = new Setting.Bool("show_render", false);
-    private final Setting.Bool moduleListBackground = new Setting.Bool("background", true);
-    private final Setting.Bool moduleListAccent = new Setting.Bool("accent", true);
+    private final Setting.Bool moduleListBackground = new Setting.Bool("background", false);
+    private final Setting.Bool moduleListAccent = new Setting.Bool("accent", false);
     private final Setting.Choice moduleListAppearance =
         new Setting.Choice("appearance","nebula","classic","minimal","nebula");
     private final Setting.Bool moduleListCompact = new Setting.Bool("compact",false);

@@ -247,3 +247,9 @@ Matte charcoal surfaces get a quiet layered drop shadow, and Slate uses
 shadow-free Minecraft text instead of the old doubled-font appearance.
 No custom font renderer is claimed; real in-game glyph antialiasing still
 requires a subsequent font implementation and screenshot testing.
+
+### Text-first ArrayList from first launch
+New profiles default Module List backgrounds and accent stripes to **off**.
+The user can opt back into either option independently. The 180 ms live-only
+entry motion, right-edge alignment, sorting, saved positions, and visibility
+remain unchanged. Previously saved explicit backgrounds/stripes are honored.

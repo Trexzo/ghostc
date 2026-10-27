@@ -28,6 +28,8 @@ public final class HudThemeTokensTests {
         HostRuntime host=new HostRuntime(dir);
         ok("nebula".equals(host.moduleListAppearance()) &&
             !host.moduleListCompact(),"fresh profiles use Slate and regular spacing");
+        ok(!host.moduleListBackground()&&!host.moduleListAccent(),
+            "Slate ArrayList defaults to text only without boxed rows");
         ok("nebula".equals(host.moduleListAppearance()),"Slate is the initial style");
         host.uiActions().bool("hud.modulelist","compact");
         host.persist();host.close();
