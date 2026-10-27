@@ -21,28 +21,29 @@ import net.minecraft.network.play.server.S27PacketExplosion;
  */
 final class ForgeVelocityPacketBridge {
     private static final String HOOK="ghostc_r341_velocity";
-    private static final Field CHANNEL=field(NetworkManager.class,
-        "channel","field_150746_k");
-    private static final Field S12_X=field(S12PacketEntityVelocity.class,
-        "motionX","field_149415_b");
-    private static final Field S12_Y=field(S12PacketEntityVelocity.class,
-        "motionY","field_149416_c");
-    private static final Field S12_Z=field(S12PacketEntityVelocity.class,
-        "motionZ","field_149414_d");
-    private static final Field S27_X=field(S27PacketExplosion.class,
-        "field_149152_f","motionX");
-    private static final Field S27_Y=field(S27PacketExplosion.class,
-        "field_149153_g","motionY");
-    private static final Field S27_Z=field(S27PacketExplosion.class,
-        "field_149159_h","motionZ");
+    private static final Field CHANNEL=field(NetworkManager.class,Channel.class,
+        "channel","field_150746_k","k");
+    private static final Field S12_X=field(S12PacketEntityVelocity.class,int.class,
+        "motionX","field_149415_b","b");
+    private static final Field S12_Y=field(S12PacketEntityVelocity.class,int.class,
+        "motionY","field_149416_c","c");
+    private static final Field S12_Z=field(S12PacketEntityVelocity.class,int.class,
+        "motionZ","field_149414_d","d");
+    private static final Field S27_X=field(S27PacketExplosion.class,float.class,
+        "field_149152_f","motionX","f");
+    private static final Field S27_Y=field(S27PacketExplosion.class,float.class,
+        "field_149153_g","motionY","g");
+    private static final Field S27_Z=field(S27PacketExplosion.class,float.class,
+        "field_149159_h","motionZ","h");
     private static final Settings OFF=new Settings(false,-1,100,100);
     private volatile Settings current=OFF;
     private volatile Channel channel;
 
-    private static Field field(Class<?> type,String... names) {
+    private static Field field(Class<?> type,Class<?> expected,String... names) {
         for(String name:names) {
             try {
                 Field f=type.getDeclaredField(name);
+                if(f.getType()!=expected)continue;
                 f.setAccessible(true);
                 return f;
             } catch(ReflectiveOperationException ignored) {
