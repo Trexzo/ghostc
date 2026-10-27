@@ -17,6 +17,7 @@ public final class VelocityPacketMath {
         if(x<-32768||x>32767||y<-32768||y>32767||
            z<-32768||z>32767)
             throw new IllegalArgumentException("out-of-range S12 fixed velocity");
+        if(h==100 && v==100)return new int[]{x,y,z};
         return new int[]{(int)Math.round(x*h/100.0),
             (int)Math.round(y*v/100.0),(int)Math.round(z*h/100.0)};
     }
@@ -25,6 +26,7 @@ public final class VelocityPacketMath {
         if(!Float.isFinite(x)||!Float.isFinite(y)||!Float.isFinite(z)||
            Math.abs(x)>4 || Math.abs(y)>4 || Math.abs(z)>4)
             throw new IllegalArgumentException("unsafe explosion vector");
+        if(h==100 && v==100)return new float[]{x,y,z};
         return new float[]{(float)(x*h/100.0),
             (float)(y*v/100.0),(float)(z*h/100.0)};
     }
