@@ -27,10 +27,13 @@ public final class GuiScrollDrag {
         int top=y+GuiScrollIndicator.offset(height,count,rows,first);
         // Clicking the thumb preserves the exact grip point. Clicking the
         // empty track centers the thumb around the pointer before capture.
-        int grab=my>=top && (long)my<(long)top+thumb ? my-top : thumb/2;
+        boolean onThumb=my>=top && (long)my<(long)top+thumb;
+        int grab=onThumb ? my-top : thumb/2;
         lane=next;trackY=y;trackHeight=height;total=count;visible=rows;
         grabY=grab;viewportWidth=screenWidth;viewportHeight=screenHeight;
-        return move(my);
+        // The painted thumb may represent several rows when a list is huge.
+        // Mouse-down on the thumb must not silently change the scroll index.
+        return onThumb ? Math.min(first,Math.max(0,count-rows)) : move(my);
     }
     public boolean active(){return lane!=null;}
     public Lane lane(){if(!active())throw new IllegalStateException("no scroll capture");return lane;}
