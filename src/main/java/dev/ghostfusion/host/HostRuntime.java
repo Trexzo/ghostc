@@ -141,6 +141,13 @@ public final class HostRuntime {
         "mode", "normal", "normal", "ready", "trade");
     private final Setting.Number hitTradeMinSelfHurt = new Setting.Number(
         "trade_min_self_hurt", 1, 1, 10);
+    // AutoArmor is an opt-in GuiInventory-only vanilla quick-move feature.
+    private final Setting.Number autoArmorOpenDelay = new Setting.Number(
+        "open_delay_ticks",6.0,2.0,20.0);
+    private final Setting.Number autoArmorClickDelay = new Setting.Number(
+        "click_delay_ticks",5.0,2.0,20.0);
+    private final Setting.Bool autoArmorUpgrade = new Setting.Bool(
+        "upgrade_existing",false);
     // Inventory Manager sorts only in GuiInventory, with no trash/drop actions.
     private final Setting.Number inventoryManagerOpenDelay = new Setting.Number(
         "open_delay_ticks",6.0,2.0,20.0);
@@ -251,6 +258,9 @@ public final class HostRuntime {
             0, velocityHorizontal, velocityVertical);
         modules.register(new FeatureModule("combat.wtap", "WTap / Sprint Reset", GhostModule.Category.COMBAT),
             0, wtapDelay);
+        modules.register(new FeatureModule("inventory.autoarmor", "AutoArmor",
+            GhostModule.Category.UTILITY), 0,
+            autoArmorOpenDelay,autoArmorClickDelay,autoArmorUpgrade);
         modules.register(new FeatureModule("inventory.manager", "Inventory Manager",
             GhostModule.Category.UTILITY), 0,
             inventoryManagerOpenDelay,inventoryManagerClickDelay,inventoryManagerUpgrade);
@@ -469,6 +479,15 @@ public final class HostRuntime {
     public int hitMaxHurtTime() { modules.assertOwnerThread(); return (int)Math.round(hitMaxHurt.get()); }
     public int hitGapTicks() { modules.assertOwnerThread(); return (int)Math.round(hitGap.get()); }
     public boolean hitRequireTarget() { modules.assertOwnerThread(); return hitRequireTarget.get(); }
+    public int autoArmorOpenDelay() {
+        modules.assertOwnerThread();return (int)Math.round(autoArmorOpenDelay.get());
+    }
+    public int autoArmorClickDelay() {
+        modules.assertOwnerThread();return (int)Math.round(autoArmorClickDelay.get());
+    }
+    public boolean autoArmorUpgrade() {
+        modules.assertOwnerThread();return autoArmorUpgrade.get();
+    }
     public int inventoryManagerOpenDelay() {
         modules.assertOwnerThread();return (int)Math.round(inventoryManagerOpenDelay.get());
     }
