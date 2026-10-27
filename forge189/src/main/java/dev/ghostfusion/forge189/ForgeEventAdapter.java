@@ -43,6 +43,7 @@ public final class ForgeEventAdapter {
     private final ForgeWTapController wtap;
     private final ForgeChestStealerController chestStealer;
     private final ForgeInventoryManagerController inventoryManager;
+    private final ForgeAutoArmorController autoArmor;
     private final WorldIdentityTracker worldIdentity = new WorldIdentityTracker();
     // Two capped, owner-thread groups are reused every tick. Every raw
     // EntityPlayer reference is released before publishing an immutable
@@ -64,6 +65,7 @@ public final class ForgeEventAdapter {
         this.wtap = new ForgeWTapController(minecraft,host);
         this.chestStealer = new ForgeChestStealerController(minecraft,host);
         this.inventoryManager = new ForgeInventoryManagerController(minecraft,host);
+        this.autoArmor = new ForgeAutoArmorController(minecraft,host);
     }
 
     @SubscribeEvent
@@ -86,6 +88,7 @@ public final class ForgeEventAdapter {
             wtap.reset();
             chestStealer.reset();
             inventoryManager.reset();
+            autoArmor.reset();
         }
         if (transition == WorldIdentityTracker.Transition.ENTER ||
             transition == WorldIdentityTracker.Transition.SWITCH) {
@@ -97,6 +100,7 @@ public final class ForgeEventAdapter {
             wtap.reset();
             chestStealer.reset();
             inventoryManager.reset();
+            autoArmor.reset();
         }
         // Keep the standard presence reconciliation for starting menus.
         host.worldPresence(worldReady);
@@ -108,6 +112,7 @@ public final class ForgeEventAdapter {
             wtap.reset();
             chestStealer.reset();
             inventoryManager.reset();
+            autoArmor.reset();
         }
         // Read-only player snapshot published before the single combat intent bridge runs.
         if (host.services().connected() && minecraft.theWorld != null && minecraft.thePlayer != null &&
@@ -241,7 +246,15 @@ public final class ForgeEventAdapter {
         chestStealer.tick();
         // Inventory Manager is mutually GUI-isolated from Chest Stealer:
         // it only operates inside the owner's real GuiInventory screen.
-        inventoryManager.tick();
+        // AutoArmor and Inventory Manager can both be enabled, but there
+        // must be only ONE owner issuing GuiInventory window clicks.
+        // The armor controller has deterministic priority until disabled.
+        if(host.featureEnabled("inventory.autoarmor")) {
+            inventoryManager.reset();
+        } else {
+            inventoryManager.tick();
+        }
+        autoArmor.tick();
     }
 
     @SubscribeEvent
@@ -272,6 +285,7 @@ public final class ForgeEventAdapter {
                 wtap.reset();
                 chestStealer.reset();
                 inventoryManager.reset();
+                autoArmor.reset();
                 features.reset();
                 combat.reset();
             }
@@ -451,6 +465,7 @@ public final class ForgeEventAdapter {
                 wtap.reset();
                 chestStealer.reset();
                 inventoryManager.reset();
+                autoArmor.reset();
             }
         });
     }
