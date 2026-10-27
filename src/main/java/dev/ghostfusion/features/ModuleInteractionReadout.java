@@ -24,12 +24,21 @@ public final class ModuleInteractionReadout {
             return "Held: AutoSprint (WTap owns sprint)";
         if(f.denial(Resource.INVENTORY_MANAGER)==Denial.ARMOR_PRIORITY)
             return "Held: Inventory Manager (AutoArmor priority)";
-        if(f.denial(Resource.COMBAT)==Denial.WINDOW_INACTIVE)
-            return "Held: gameplay (window inactive)";
-        if(f.denial(Resource.COMBAT)==Denial.WORLD_UNAVAILABLE)
-            return "Held: gameplay (no live world)";
-        if(f.denial(Resource.COMBAT)==Denial.WRONG_SCREEN)
-            return "Held: gameplay (GUI open)";
+        // Combat can be disabled while Bridge, Velocity, WTap or AutoSprint
+        // are enabled. Never hide their focus/GUI denial by examining
+        // combat's aggregate grant alone.
+        for(Resource resource:new Resource[]{
+            Resource.COMBAT,Resource.BRIDGE,Resource.VELOCITY,
+            Resource.WTAP,Resource.AUTO_SPRINT
+        }) {
+            Denial reason=f.denial(resource);
+            if(reason==Denial.WINDOW_INACTIVE)
+                return "Held: gameplay (window inactive)";
+            if(reason==Denial.WORLD_UNAVAILABLE)
+                return "Held: gameplay (no live world)";
+            if(reason==Denial.WRONG_SCREEN)
+                return "Held: gameplay (GUI open)";
+        }
         if(f.denial(Resource.CHEST_STEALER)==Denial.WRONG_SCREEN &&
            f.denial(Resource.AUTO_ARMOR)==Denial.WRONG_SCREEN &&
            f.denial(Resource.INVENTORY_MANAGER)==Denial.WRONG_SCREEN)
