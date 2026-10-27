@@ -444,7 +444,7 @@ class ForgeWiring(unittest.TestCase):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         palette=content("src/main/java/dev/ghostfusion/features/TargetHudPalette.java")
         tests=content("src/test/java/dev/ghostfusion/tests/TargetHudPaletteTests.java")
-        self.assertIn('new Setting.Choice("skin","classic","classic","glass","minimal","nebula")',host)
+        self.assertIn('new Setting.Choice("skin","nebula","classic","glass","minimal","nebula")',host)
         self.assertIn("drawModernTarget(",forge)
         self.assertIn("drawNebulaTarget(",forge)
         self.assertIn("TargetHudMotion.fade(",forge)
