@@ -2349,7 +2349,7 @@ class ForgeWiring(unittest.TestCase):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
         driver=(FORGE/"ForgeFeatureDriver.java").read_text(encoding="utf-8")
         tests=content("src/test/java/dev/ghostfusion/tests/HudThemeTokensTests.java")
-        self.assertIn('new Setting.Choice("appearance","classic","classic","minimal","nebula")',host)
+        self.assertIn('new Setting.Choice("appearance","nebula","classic","minimal","nebula")',host)
         self.assertIn("public String keysAppearance()",host)
         self.assertIn("public String cpsAppearance()",host)
         self.assertIn('if("classic".equals(appearance))',driver)

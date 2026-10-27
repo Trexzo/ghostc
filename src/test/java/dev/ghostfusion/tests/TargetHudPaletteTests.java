@@ -59,9 +59,11 @@ public final class TargetHudPaletteTests {
     private static void profile() throws Exception {
         Path path=Files.createTempDirectory("ghostc-r256-target-skin-");
         HostRuntime host=new HostRuntime(path);
-        ok("classic".equals(host.targetSkin()),"legacy profile defaults to classic");
-        ok("classic".equals(host.modules().get("hud.target").settings().get("skin").serialize()),
-           "existing ClickGUI exposes a typed skin choice");
+        ok("nebula".equals(host.targetSkin()),"fresh Target HUD defaults to Slate");
+        ok("nebula".equals(host.modules().get("hud.target").settings().get("skin").serialize()),
+           "ClickGUI exposes the saved-compatible Slate skin ID");
+        host.uiActions().cycle("hud.target","skin");
+        ok("classic".equals(host.targetSkin()),"explicit Classic style remains available");
         host.uiActions().cycle("hud.target","skin");
         ok("glass".equals(host.targetSkin()),"GUI setting immediately selects glass");
         host.persist();
