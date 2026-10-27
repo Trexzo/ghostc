@@ -1,8 +1,8 @@
 package dev.ghostfusion.ui;
 
 /**
- * Read-only scrollbar geometry. Consumes the same first/visible/total row
- * counts as existing scroll selection; never owns mouse input or scroll state.
+ * Pure-Java scrollbar geometry shared by Slate rendering and mouse input.
+ * The indicator itself never owns selection or changes user settings.
  */
 public final class GuiScrollIndicator {
     private GuiScrollIndicator(){}
@@ -21,5 +21,15 @@ public final class GuiScrollIndicator {
         int range=Math.max(1,total-visible);
         int clamped=Math.max(0,Math.min(range,first));
         return (int)((long)clamped*(trackHeight-thumb)/range);
+    }
+    /** Inverse of offset(): drag a thumb top to its nearest valid list row. */
+    public static int firstAt(int trackHeight,int total,int visible,int thumbTop) {
+        int thumb=height(trackHeight,total,visible);
+        if(thumb==0)return 0;
+        int travel=trackHeight-thumb;
+        int last=Math.max(0,total-visible);
+        if(travel<=0||last==0)return 0;
+        long clamped=Math.min((long)travel,Math.max(0L,(long)thumbTop));
+        return (int)((clamped*last+travel/2L)/travel);
     }
 }
