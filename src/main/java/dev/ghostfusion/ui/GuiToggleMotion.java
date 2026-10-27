@@ -13,8 +13,8 @@ public final class GuiToggleMotion {
     public static final long DURATION_NANOS=160_000_000L;
     private static final class Track {
         double from, to;
-        long started;
-        Track(double target,long now){from=to=target;started=now;}
+        long started,lastSeen;
+        Track(double target,long now){from=to=target;started=lastSeen=now;}
     }
     private final Map<Object,Track> tracks=new IdentityHashMap<Object,Track>();
 
@@ -29,11 +29,15 @@ public final class GuiToggleMotion {
             tracks.put(identity,track);
             return target; // Initial render shows actual state, not a false toggle.
         }
-        double current=position(track,now);
+        // Even synthetic/discontinuous frame clocks cannot rewind a finished
+        // animation or undo its last painted position.
+        long frameTime=now<track.lastSeen?track.lastSeen:now;
+        track.lastSeen=frameTime;
+        double current=position(track,frameTime);
         if(track.to!=target) {
             track.from=current;
             track.to=target;
-            track.started=now;
+            track.started=frameTime;
             return current; // Mid-flight reversals never teleport the knob.
         }
         return current;
