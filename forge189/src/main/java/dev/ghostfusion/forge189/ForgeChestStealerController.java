@@ -2,6 +2,7 @@ package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.features.ChestStealerPolicy;
 import dev.ghostfusion.host.HostRuntime;
+import dev.ghostfusion.host.ModuleActionTelemetry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.inventory.GuiChest;
 import net.minecraft.client.entity.EntityPlayerSP;
@@ -25,7 +26,13 @@ final class ForgeChestStealerController {
     private final ChestStealerPolicy policy=new ChestStealerPolicy();
     private Container observed;
     private int pendingSlot=-1;
+    private long pendingSince=-1;
     private ItemStack pendingBefore;
+    private static final ModuleActionTelemetry.Lane LANE=
+        ModuleActionTelemetry.Lane.CHEST;
+    private void outcome(ModuleActionTelemetry.Event e) {
+        host.nativeAction(LANE,e);
+    }
 
     ForgeChestStealerController(Minecraft game,HostRuntime runtime) {
         if(game==null || runtime==null)
@@ -33,9 +40,10 @@ final class ForgeChestStealerController {
         mc=game;host=runtime;
     }
     void reset() {
+        if(pendingSlot>=0)outcome(ModuleActionTelemetry.Event.CANCELLED);
         policy.reset();
         observed=null;
-        pendingSlot=-1;
+        pendingSlot=-1;pendingSince=-1;
         pendingBefore=null;
     }
     void tick() {
@@ -84,7 +92,8 @@ final class ForgeChestStealerController {
             ItemStack current=source.getStackInSlot(pendingSlot);
             changed=!ItemStack.areItemStacksEqual(pendingBefore,current);
             if(changed) {
-                pendingSlot=-1;
+                outcome(ModuleActionTelemetry.Event.LOCAL_CHANGE);
+                pendingSlot=-1;pendingSince=-1;
                 pendingBefore=null;
             }
         }
@@ -98,17 +107,27 @@ final class ForgeChestStealerController {
             host.chestStealerOpenDelay(),host.chestStealerClickDelay(),
             candidates,changed,host.services().tick(),
             host.services().generation());
-        if(slot<0)return;
+        if(slot<0) {
+            if(pendingSlot>=0 && pendingSince>=0 &&
+               host.services().tick()-pendingSince>=12) {
+                outcome(ModuleActionTelemetry.Event.TIMEOUT);
+                pendingSlot=-1;pendingBefore=null;pendingSince=-1;
+            }
+            return;
+        }
         ItemStack before=source.getStackInSlot(slot);
         if(before==null || before.stackSize<=0 || !canFitEntireStack(player,before)) {
             policy.blockWindow();
+            outcome(ModuleActionTelemetry.Event.REJECTED);
             return;
         }
         // Read native slot immediately before attempting an actual vanilla
         // shift-click. Do not send window clicks directly as network packets.
         pendingSlot=slot;
         pendingBefore=before.copy();
+        pendingSince=host.services().tick();
         mc.playerController.windowClick(container.windowId,slot,0,1,player);
+        outcome(ModuleActionTelemetry.Event.ATTEMPT);
     }
     private static boolean canFitEntireStack(EntityPlayerSP player,ItemStack source) {
         int remaining=source.stackSize;

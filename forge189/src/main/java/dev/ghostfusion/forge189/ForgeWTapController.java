@@ -2,6 +2,7 @@ package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.features.WTapPolicy;
 import dev.ghostfusion.host.HostRuntime;
+import dev.ghostfusion.host.ModuleActionTelemetry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.entity.Entity;
@@ -22,7 +23,12 @@ final class ForgeWTapController {
             throw new IllegalArgumentException("null WTap dependencies");
         mc=game;host=runtime;
     }
-    void reset() {policy.reset();}
+    void reset() {
+        if(policy.pending())
+            host.nativeAction(ModuleActionTelemetry.Lane.WTAP,
+                ModuleActionTelemetry.Event.CANCELLED);
+        policy.reset();
+    }
     boolean sprintReserved() {return policy.pending();}
     /** Invoked exclusively on native Forge AttackEntityEvent with local player. */
     void attack(final Entity rawTarget) {
@@ -41,9 +47,11 @@ final class ForgeWTapController {
                 final EntityPlayerSP p=mc.thePlayer;
                 // Deliberately only RECORD native attack. The original
                 // sprint-hit bonus must be computed before any sprint write.
-                policy.attack(true,eligible(p),p.isSprinting(),
+                if(policy.attack(true,eligible(p),p.isSprinting(),
                     host.wtapDelayTicks(),host.services().tick(),
-                    host.services().generation());
+                    host.services().generation()))
+                    host.nativeAction(ModuleActionTelemetry.Lane.WTAP,
+                        ModuleActionTelemetry.Event.ATTEMPT);
             }
         });
         if(!healthy)reset();
@@ -57,14 +65,30 @@ final class ForgeWTapController {
         boolean healthy=host.runFeature(MODULE,new Runnable() {
             public void run() {
                 EntityPlayerSP p=mc.thePlayer;
+                boolean hadReservation=policy.pending();
                 WTapPolicy.Decision result=policy.tick(
                     true,eligible(p),host.services().tick(),
                     host.services().generation());
+                // Losing forward movement/ground eligibility cancels the
+                // pending sprint reset *inside* policy.tick(). Record it
+                // before another native attack can acquire that lane.
+                if(hadReservation && !policy.pending() &&
+                   result==WTapPolicy.Decision.NONE)
+                    host.nativeAction(ModuleActionTelemetry.Lane.WTAP,
+                        ModuleActionTelemetry.Event.CANCELLED);
                 if(result==WTapPolicy.Decision.RESET ||
-                   result==WTapPolicy.Decision.HOLD)
+                   result==WTapPolicy.Decision.HOLD) {
                     p.setSprinting(false);
-                else if(result==WTapPolicy.Decision.RESTORE)
+                    if(result==WTapPolicy.Decision.RESET)
+                        host.nativeAction(ModuleActionTelemetry.Lane.WTAP,
+                            ModuleActionTelemetry.Event.DISPATCHED);
+                } else if(result==WTapPolicy.Decision.RESTORE) {
                     p.setSprinting(true);
+                    host.nativeAction(ModuleActionTelemetry.Lane.WTAP,
+                        ModuleActionTelemetry.Event.DISPATCHED);
+                    host.nativeAction(ModuleActionTelemetry.Lane.WTAP,
+                        ModuleActionTelemetry.Event.LOCAL_COMPLETE);
+                }
             }
         });
         if(!healthy)reset();

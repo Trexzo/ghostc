@@ -31,6 +31,9 @@ public final class HostRuntime {
     private final ModuleRegistry modules = new ModuleRegistry();
     private final SessionServices services = new SessionServices();
     private final RuntimeDiagnostics diagnostics = new RuntimeDiagnostics();
+    // Created on the Host owner thread; values contain no game identifiers.
+    private final ModuleActionTelemetry actionTelemetry =
+        new ModuleActionTelemetry();
     private final FramePerformance framePerformance = new FramePerformance();
     private final SnapshotTelemetry snapshotTelemetry = new SnapshotTelemetry();
     private SnapshotTelemetry.Mode lastSnapshotMode=SnapshotTelemetry.Mode.OFF;
@@ -303,6 +306,28 @@ public final class HostRuntime {
     public ModuleRegistry modules() { return modules; }
     public SessionServices services() { modules.assertOwnerThread(); return services; }
     public RuntimeDiagnostics diagnostics() { modules.assertOwnerThread(); return diagnostics; }
+    /** Native controller outcome, counted only with explicit diagnostics opt-in.
+     * Return false for duplicate/missing pending completion, so a skipped
+     * server/local callback cannot inflate successes. */
+    public boolean nativeAction(ModuleActionTelemetry.Lane lane,
+                                ModuleActionTelemetry.Event event) {
+        modules.assertOwnerThread();
+        if(lane==null||event==null)throw new IllegalArgumentException("native action");
+        if(!diagnosticsEnabled())return false;
+        if(!actionTelemetry.record(lane,event))return false;
+        diagnostics.record(RuntimeDiagnostics.Counter.valueOf(
+            "ACTION_"+lane.name()+"_"+event.name()));
+        return true;
+    }
+    public String nativeActionLatest() {
+        modules.assertOwnerThread();
+        return diagnosticsEnabled()?actionTelemetry.latest():"";
+    }
+    public long nativeActionCount(ModuleActionTelemetry.Lane lane,
+                                  ModuleActionTelemetry.Event event) {
+        modules.assertOwnerThread();
+        return actionTelemetry.count(lane,event);
+    }
     public FramePerformance.Snapshot performanceSnapshot() {
         modules.assertOwnerThread(); return framePerformance.snapshot();
     }
