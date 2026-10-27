@@ -23,6 +23,7 @@ final class ForgeWTapController {
         mc=game;host=runtime;
     }
     void reset() {policy.reset();}
+    boolean sprintReserved() {return policy.pending();}
     /** Invoked exclusively on native Forge AttackEntityEvent with local player. */
     void attack(final Entity rawTarget) {
         if(mc.theWorld==null || mc.thePlayer==null ||
