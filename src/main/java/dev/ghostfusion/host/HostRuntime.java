@@ -165,6 +165,9 @@ public final class HostRuntime {
         "allow_custom_names",false);
     private final Setting.Number wtapDelay = new Setting.Number(
         "reset_ticks",1.0,1.0,3.0);
+    // Existing hurt-edge mode remains default; packet mode is explicit opt-in.
+    private final Setting.Choice velocityMode=new Setting.Choice(
+        "mode","hurt","hurt","packet");
     // Damage-edge Velocity tuning is disabled and vanilla 100%/100% by default.
     private final Setting.Number velocityHorizontal = new Setting.Number(
         "horizontal_percent",100.0,0.0,100.0);
@@ -255,7 +258,7 @@ public final class HostRuntime {
         modules.register(new FeatureModule("combat.hitselect", "Hit Select", GhostModule.Category.COMBAT),
             0, hitMaxHurt, hitGap, hitRequireTarget, hitMode, hitTradeMinSelfHurt);
         modules.register(new FeatureModule("combat.velocity", "Velocity", GhostModule.Category.COMBAT),
-            0, velocityHorizontal, velocityVertical);
+            0, velocityHorizontal, velocityVertical, velocityMode);
         modules.register(new FeatureModule("combat.wtap", "WTap / Sprint Reset", GhostModule.Category.COMBAT),
             0, wtapDelay);
         modules.register(new FeatureModule("inventory.autoarmor", "AutoArmor",
@@ -508,6 +511,9 @@ public final class HostRuntime {
     }
     public int wtapDelayTicks() {
         modules.assertOwnerThread();return (int)Math.round(wtapDelay.get());
+    }
+    public String velocityMode() {
+        modules.assertOwnerThread();return velocityMode.get();
     }
     public double velocityHorizontalPercent() {
         modules.assertOwnerThread();return velocityHorizontal.get();
