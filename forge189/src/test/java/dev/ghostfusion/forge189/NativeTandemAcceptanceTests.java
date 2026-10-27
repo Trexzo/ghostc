@@ -106,7 +106,9 @@ public final class NativeTandemAcceptanceTests {
            chestInventory.getStackInSlot(1)!=null &&
            chestInventory.getStackInSlot(1).stackSize==1,
            "vanilla full inventory cannot transfer and retains chest source");
-        nativeChest.onContainerClosed(null);
+        // Container.onContainerClosed requires a live EntityPlayer to clean
+        // the carried cursor stack. This test intentionally has no player;
+        // closing a GUI belongs to the separate in-game acceptance gate.
     }
     private static void combinedGameAndPacket() {
         final Enabled all=new Enabled(true,true,true,true,true,true,true,true);
