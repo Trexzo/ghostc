@@ -11,9 +11,9 @@ public final class GuiNebulaWorkspace {
     public final int bindingY,settingY,settingRows;
     private GuiNebulaWorkspace(GuiLayout g) {
         modulesX=g.x+g.sidebar+11;
-        modulesY=g.y+89;
+        modulesY=g.y+105;
         modulesWidth=176;
-        modulesHeight=Math.max(0,g.height-111);
+        modulesHeight=Math.max(0,g.height-127);
         moduleRows=modulesHeight/29;
         detailsX=modulesX+modulesWidth+11;
         detailsY=g.y+80;

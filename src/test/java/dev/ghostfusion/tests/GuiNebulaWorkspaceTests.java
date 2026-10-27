@@ -17,6 +17,8 @@ public final class GuiNebulaWorkspaceTests {
         ok(p!=null&&p.detailsX>p.modulesX+p.modulesWidth,
            "distinct modules and settings panels");
         ok(p.moduleRows>=8&&p.settingRows>=6,"full height independent scroll");
+        ok(p.modulesY>=p.detailsY+24,"module caption cannot touch first row");
+        ok(p.modulesY>=p.searchY()+29,"search and first module row are separate");
         ok(p.moduleIndex(p.modulesX,p.modulesY,0,200)==0,"first module");
         ok(p.moduleIndex(p.modulesX,p.modulesY+26,0,200)==-1,"module gap");
         ok(p.moduleIndex(p.modulesX,p.modulesY+29,2,200)==3,"scrolled module");

@@ -224,3 +224,9 @@ thin, read-only proportional scrollbars derived from their actual visible/
 total/scroll state. Scrollbar geometry is viewport-bounded by 50k seeded
 tests; it never intercepts mouse events or changes module selection.
 Legacy Indigo/Mint/Compact paths remain unchanged.
+
+### Vertical baseline correction
+The Nebula module-list rows begin below their MODULES heading (and below
+search). Header text no longer paints into the first selectable module row.
+The pure geometry regression asserts a minimum visible gutter, while native
+mouse hitboxes continue to be computed from the same moved row coordinates.
