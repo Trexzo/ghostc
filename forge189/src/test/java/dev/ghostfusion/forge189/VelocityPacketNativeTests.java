@@ -29,10 +29,16 @@ public final class VelocityPacketNativeTests {
         }
     }
     private static EmbeddedChannel channel(Collector collector,boolean handler) {
-        // Netty 4.0's EmbeddedChannel forbids an empty handler array.
+        // Netty 4.0's EmbeddedChannel creates an internal inbound collector.
+        // Insert vanilla's named packet handler BEFORE the first pass-through
+        // handler, not after EmbeddedChannel's terminal collector.
         EmbeddedChannel ch=new EmbeddedChannel(new ChannelInboundHandlerAdapter());
-        if(handler)ch.pipeline().addLast("packet_handler",collector);
+        if(handler)addVanillaHandler(ch,collector);
         return ch;
+    }
+    private static void addVanillaHandler(EmbeddedChannel ch,Collector collector) {
+        String anchor=ch.pipeline().context(ChannelInboundHandlerAdapter.class).name();
+        ch.pipeline().addBefore(anchor,"packet_handler",collector);
     }
     private static void tick(EmbeddedChannel ch) {
         ch.runPendingTasks();
@@ -50,7 +56,8 @@ public final class VelocityPacketNativeTests {
         ch.writeInbound(msg);
         ok(collector.received.size()==previous+1 &&
            collector.received.get(previous)==msg,
-           why+" / vanilla received exact packet object once");
+           why+" / vanilla received exact packet object once; expected count="+
+           (previous+1)+" actual="+collector.received.size());
     }
     private static void packets() {
         Collector capture=new Collector();
@@ -134,7 +141,7 @@ public final class VelocityPacketNativeTests {
         bridge.updateConnection(old,7,50,50);tick(old);
         ok(old.pipeline().get("ghostc_r341_velocity")==null,
            "missing vanilla packet_handler fails closed without exception");
-        old.pipeline().addLast("packet_handler",first);
+        addVanillaHandler(old,first);
         bridge.updateConnection(old,7,50,50);tick(old);
         ok(old.pipeline().get("ghostc_r341_velocity")!=null,
            "later owner tick retries late vanilla handler attachment");
