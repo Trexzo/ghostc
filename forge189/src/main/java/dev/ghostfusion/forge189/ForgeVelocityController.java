@@ -26,6 +26,11 @@ final class ForgeVelocityController {
         inbound.reset();
         policy.reset();
     }
+    /** Read-only immutable aggregate hook health; never exposes the
+     * Netty channel, player identifier, server or packet contents. */
+    ForgeVelocityPacketBridge.Health health() {
+        return inbound.health();
+    }
     void tick() {
         if(mc.theWorld==null || mc.thePlayer==null || mc.currentScreen!=null ||
            !mc.inGameHasFocus || !host.services().connected() ||
@@ -52,7 +57,8 @@ final class ForgeVelocityController {
             }
             inbound.update(mc.getNetHandler().getNetworkManager(),
                 player.getEntityId(),
-                host.velocityHorizontalPercent(),host.velocityVerticalPercent());
+                host.velocityHorizontalPercent(),host.velocityVerticalPercent(),
+                host.diagnosticsEnabled());
             return;
         }
         // Legacy hurt-mode performs no packet interception.
