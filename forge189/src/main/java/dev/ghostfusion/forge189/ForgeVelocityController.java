@@ -15,13 +15,17 @@ final class ForgeVelocityController {
     private final Minecraft mc;
     private final HostRuntime host;
     private final VelocityPolicy policy=new VelocityPolicy();
+    private final ForgeVelocityPacketBridge inbound=new ForgeVelocityPacketBridge();
 
     ForgeVelocityController(Minecraft game,HostRuntime runtime) {
         if(game==null || runtime==null)
             throw new IllegalArgumentException("null velocity dependencies");
         mc=game;host=runtime;
     }
-    void reset(){policy.reset();}
+    void reset() {
+        inbound.reset();
+        policy.reset();
+    }
     void tick() {
         if(mc.theWorld==null || mc.thePlayer==null || mc.currentScreen!=null ||
            !mc.inGameHasFocus || !host.services().connected() ||
@@ -38,6 +42,21 @@ final class ForgeVelocityController {
         boolean safe=!player.isDead && !player.capabilities.isFlying &&
             !player.isRiding() && !player.isInWater() &&
             !player.isInLava() && !player.isOnLadder();
+        if("packet".equals(host.velocityMode())) {
+            // One immutable player-id/percentage snapshot is published from
+            // the owner tick; the Netty listener never reads game objects.
+            policy.reset();
+            if(!safe || mc.getNetHandler()==null) {
+                inbound.reset();
+                return;
+            }
+            inbound.update(mc.getNetHandler().getNetworkManager(),
+                player.getEntityId(),
+                host.velocityHorizontalPercent(),host.velocityVerticalPercent());
+            return;
+        }
+        // Legacy hurt-mode performs no packet interception.
+        inbound.reset();
         VelocityPolicy.Adjustment adjustment=policy.sample(
             true,safe,player.hurtTime,
             player.motionX,player.motionY,player.motionZ,
