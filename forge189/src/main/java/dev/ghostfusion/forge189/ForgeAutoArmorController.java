@@ -2,6 +2,7 @@ package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.features.AutoArmorPolicy;
 import dev.ghostfusion.host.HostRuntime;
+import dev.ghostfusion.host.ModuleActionTelemetry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.gui.inventory.GuiInventory;
@@ -30,7 +31,13 @@ final class ForgeAutoArmorController {
     private final AutoArmorPolicy policy=new AutoArmorPolicy();
     private Container observed;
     private AutoArmorPolicy.Action pending;
+    private long pendingSince=-1;
     private ItemStack beforeSource,beforeWorn;
+    private static final ModuleActionTelemetry.Lane LANE=
+        ModuleActionTelemetry.Lane.ARMOR;
+    private void outcome(ModuleActionTelemetry.Event e) {
+        host.nativeAction(LANE,e);
+    }
     private int oldCopiesInStorage;
     private ItemStack pinnedCandidate;
     private int pinnedSource=-1,pinnedType=-1;
@@ -41,9 +48,10 @@ final class ForgeAutoArmorController {
         mc=game;host=runtime;
     }
     void reset() {
+        if(pending!=null)outcome(ModuleActionTelemetry.Event.CANCELLED);
         policy.reset();
         observed=null;
-        pending=null;
+        pending=null;pendingSince=-1;
         beforeSource=null;beforeWorn=null;
         oldCopiesInStorage=0;
         pinnedCandidate=null;pinnedSource=-1;pinnedType=-1;
@@ -90,16 +98,21 @@ final class ForgeAutoArmorController {
                     // The intended upgrade candidate changed while the
                     // earlier armor was being moved: never click a new item.
                     policy.blockSession();
+                    outcome(ModuleActionTelemetry.Event.REJECTED);
+                    pending=null;pendingSince=-1;
+                    beforeSource=null;beforeWorn=null;
                 }
             } else {
                 confirmed=ItemStack.areItemStacksEqual(wornNow,beforeSource) &&
                     !ItemStack.areItemStacksEqual(sourceNow,beforeSource);
             }
             if(confirmed) {
+                outcome(ModuleActionTelemetry.Event.LOCAL_CHANGE);
                 if(pending.step==AutoArmorPolicy.Step.EQUIP) {
                     pinnedCandidate=null;pinnedSource=-1;pinnedType=-1;
                 }
-                pending=null;beforeWorn=null;beforeSource=null;
+                pending=null;pendingSince=-1;
+                beforeWorn=null;beforeSource=null;
             }
         }
         AutoArmorPolicy.Piece[] storage=new AutoArmorPolicy.Piece[36];
@@ -112,37 +125,50 @@ final class ForgeAutoArmorController {
             host.autoArmorUpgrade(),host.autoArmorOpenDelay(),
             host.autoArmorClickDelay(),confirmed,
             host.services().tick(),host.services().generation());
-        if(action==null)return;
+        if(action==null) {
+            if(pending!=null && pendingSince>=0 &&
+               host.services().tick()-pendingSince>=12) {
+                outcome(ModuleActionTelemetry.Event.TIMEOUT);
+                pending=null;pendingSince=-1;
+                beforeWorn=null;beforeSource=null;
+            }
+            return;
+        }
         final int kind=action.armorKind;
         final int candidate=action.candidateSlot;
         final int click=action.containerSlot;
         if(kind<0 || kind>3 || candidate<9 || candidate>44 ||
            click<5 || click>44 || player.openContainer!=container ||
            container.windowId!=0) {
-            policy.blockSession();return;
+            policy.blockSession();
+            outcome(ModuleActionTelemetry.Event.REJECTED);return;
         }
         ItemStack candidateStack=container.getSlot(candidate).getStack();
         if(!isArmorKind(candidateStack,kind)) {
-            policy.blockSession();return;
+            policy.blockSession();
+            outcome(ModuleActionTelemetry.Event.REJECTED);return;
         }
         ItemStack wornStack=container.getSlot(5+kind).getStack();
         if(action.step==AutoArmorPolicy.Step.REMOVE) {
             if(click!=5+kind || wornStack==null ||
                !host.autoArmorUpgrade() || !hasFreeInventorySlot(container)) {
-                policy.blockSession();return;
+                policy.blockSession();
+            outcome(ModuleActionTelemetry.Event.REJECTED);return;
             }
             pinnedCandidate=candidateStack.copy();
             pinnedSource=candidate;pinnedType=kind;
         } else {
             if(click!=candidate || wornStack!=null) {
-                policy.blockSession();return;
+                policy.blockSession();
+            outcome(ModuleActionTelemetry.Event.REJECTED);return;
             }
             if(pinnedSource>=0 &&
                (pinnedSource!=candidate || pinnedType!=kind ||
                 !ItemStack.areItemStacksEqual(pinnedCandidate,candidateStack))) {
                 // A manual/server inventory mutation changed the promised
                 // replacement while the old armor was being unequipped.
-                policy.blockSession();return;
+                policy.blockSession();
+            outcome(ModuleActionTelemetry.Event.REJECTED);return;
             }
         }
         beforeSource=candidateStack.copy();
@@ -150,7 +176,9 @@ final class ForgeAutoArmorController {
         oldCopiesInStorage=beforeWorn==null?0:
             countCopies(container,beforeWorn);
         pending=action;
+        pendingSince=host.services().tick();
         mc.playerController.windowClick(container.windowId,click,0,1,player);
+        outcome(ModuleActionTelemetry.Event.ATTEMPT);
     }
     private static boolean userManipulatingInventory() {
         if(Mouse.isCreated()) {
