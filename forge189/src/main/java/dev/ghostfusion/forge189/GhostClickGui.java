@@ -1128,10 +1128,10 @@ public final class GhostClickGui extends GuiScreen {
                 keyboardSetting=GuiSettingKeyboard.visibleFocus(
                     keyboardSetting,settingScroll,e.settings().size(),
                     settingsRows(zone));
-            } else if((split!=null&&(split.moduleArea(mx,my) ||
-                GuiScrollDrag.trackHit(mx,my,
-                    split.modulesX+split.modulesWidth+2,split.modulesY,
-                    split.moduleRows*29))) ||
+            } else if((split!=null&&split.moduleArea(mx,my)) ||
+                      (split!=null&&GuiScrollDrag.trackHit(mx,my,
+                          split.modulesX+split.modulesWidth+2,split.modulesY,
+                          split.moduleRows*29)) ||
                       (split==null&&GuiHitZones.moduleArea(zone,mx,my))) {
                 int max = Math.max(0,entries().size() - visibleRows);
                 scroll = Math.max(0,Math.min(max,scroll + direction));
