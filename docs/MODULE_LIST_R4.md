@@ -159,3 +159,18 @@ Target HUD. At default scales, independent collision tests verify all five HUD
 footprints are non-overlapping for PvP/Stream at 640×360, 1280×720 and
 1920×1080. The sidebar caches preset enumeration and uses static normalized
 coordinate tables, avoiding temporary per-frame preset anchor objects.
+
+## R5 visual redesign — Rise/Vape/Slinky benchmark, phase 1
+The Nebula **Wide** Modules screen now draws an original three-part workspace:
+category rail, a persistent full-height module list, and a dedicated setting
+pane. A lighter graphite material replaces the previous boxed violet rows.
+Modules have aligned compact switches and selection accents; configuration
+gets a title, separated keybind control, independently scrolling full-height
+settings, and low-noise numeric sliders/switches.
+
+`GuiNebulaWorkspace` is the single source of truth for the new drawn
+row/slider/keybind/scroll hitzones, with 50k seeded geometry tests for
+viewport containment and exclusive input ownership. Unsupported viewport
+sizes and the original Indigo/Mint/Compact layouts still use their previous
+native rendering/hitbox paths. No font assets, copying of other clients'
+textures, combat changes or external injector required.

@@ -23,11 +23,11 @@ public final class GuiThemePalette {
         0x556B83EA,0x664B597D,0x442D344A,0x886A588D,0x443B465C,
         0xFF525A6C,0xFFE4E7F0,0xFF979DAF,0xFF69D9C6);
     private static final GuiThemePalette NEBULA=new GuiThemePalette(
-        "NEBULA",true,0xF4131425,0xFF1E2034,HudThemeTokens.of("nebula").accent,
-        0xF1161729,0x775A4B78,0xAA615B83,HudThemeTokens.of("nebula").sheen,
-        0x8055457B,0x99514580,0x56303551,0x885B5089,0x6640395B,
-        HudThemeTokens.of("nebula").track,HudThemeTokens.of("nebula").text,
-        HudThemeTokens.of("nebula").muted,HudThemeTokens.of("nebula").secondary);
+        "NEBULA",true,0xF515171D,0xFF1D222B,HudThemeTokens.of("nebula").accent,
+        0xF5181C24,0x54576273,0x88505769,HudThemeTokens.of("nebula").sheen,
+        0x43465A70,0x59465A70,0x2428303C,0x49405268,0x27303949,
+        0xFF303949,HudThemeTokens.of("nebula").text,
+        0xFF9DA6B5,HudThemeTokens.of("nebula").secondary);
 
     private GuiThemePalette(String label,boolean nebula,int background,int panel,
             int accent,int header,int divider,int frame,int sheen,

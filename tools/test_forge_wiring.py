@@ -691,6 +691,22 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('getStringWidth(fitted)',self.feature)
         self.assertNotIn('label=label.substring(0,label.length()-1)',self.feature)
 
+    def test_nebula_three_pane_renders_and_hits_from_one_geometry(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        policy=content("src/main/java/dev/ghostfusion/ui/GuiNebulaWorkspace.java")
+        self.assertIn("drawNebulaModules(workspace);return;",gui)
+        self.assertIn("split.moduleIndex(mx,my,scroll,filtered.size())",gui)
+        self.assertIn("split.settingIndex(mx,my,settingScroll,settings.size())",gui)
+        self.assertIn("split.keybindArea(mx,my)",gui)
+        self.assertIn("split.sliderX(),",gui)
+        self.assertIn("settingsRows(zone)",gui)
+        self.assertIn("sliderDrag.begin(",gui)
+        self.assertIn("GuiNebulaWorkspace.of(zone,ui)",gui)
+        self.assertIn("moduleIndex(int mx,int my,int scroll,int count)",policy)
+        self.assertIn("settingIndex(int mx,int my,int scroll,int count)",policy)
+        self.assertIn("GUI_NEBULA_WORKSPACE_PASS",
+                      content(".github/workflows/core-ci.yml"))
+
     def test_hud_quick_layout_presets_do_not_change_combat_or_visual_preferences(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         policy=content("src/main/java/dev/ghostfusion/ui/HudLayoutPresets.java")
