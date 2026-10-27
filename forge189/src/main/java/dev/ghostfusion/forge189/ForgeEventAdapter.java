@@ -4,6 +4,7 @@ import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.PanicController;
 import dev.ghostfusion.features.ModuleInteractionStateMachine;
 import dev.ghostfusion.features.ModuleInteractionReadout;
+import dev.ghostfusion.features.LiveAcceptanceCoverage;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.gui.inventory.GuiChest;
 import org.lwjgl.opengl.Display;
@@ -54,6 +55,10 @@ public final class ForgeEventAdapter {
     private final ModuleInteractionStateMachine moduleState =
         new ModuleInteractionStateMachine();
     private ModuleInteractionStateMachine.Frame lastArbitration;
+    // Passive evidence is recorded ONLY with explicit F7 Diagnostics opt-in.
+    // No game entity, packet object or channel reference is retained.
+    private final LiveAcceptanceCoverage liveAcceptance =
+        new LiveAcceptanceCoverage();
     private final WorldIdentityTracker worldIdentity = new WorldIdentityTracker();
     // Two capped, owner-thread groups are reused every tick. Every raw
     // EntityPlayer reference is released before publishing an immutable
@@ -319,6 +324,19 @@ public final class ForgeEventAdapter {
         if(plan.chestStealer)chestStealer.tick();else chestStealer.reset();
         if(plan.inventoryManager)inventoryManager.tick();else inventoryManager.reset();
         if(plan.autoArmor)autoArmor.tick();else autoArmor.reset();
+
+        // Sample AFTER native controllers execute, so hook attachment and
+        // packet counters reflect this actual session's client-side state.
+        if(host.diagnosticsEnabled()) {
+            ForgeVelocityPacketBridge.Health health=velocity.health();
+            int newly=liveAcceptance.observe(
+                plan,health.status,health.localS12,health.explosionS27);
+            for(LiveAcceptanceCoverage.Check check:
+                LiveAcceptanceCoverage.Check.values())
+                if((newly & LiveAcceptanceCoverage.bit(check))!=0)
+                    host.diagnostics().record(Counter.valueOf(
+                        "ACCEPT_"+check.name()));
+        }
     }
 
     @SubscribeEvent
@@ -513,7 +531,8 @@ public final class ForgeEventAdapter {
             final String held=ModuleInteractionReadout.suppression(lastArbitration);
             // Last client-side action outcome is not a server ACK or hit.
             final String outcome=host.nativeActionLatest();
-            final int bottomY=Math.max(2,sh-3*(fontHeight+3)-4);
+            final String coverage=liveAcceptance.readout();
+            final int bottomY=Math.max(2,sh-4*(fontHeight+3)-4);
             RenderStateGuard.draw(new Runnable() {
                 public void run() {
                     int available=Math.max(0,sw-6);
@@ -526,6 +545,9 @@ public final class ForgeEventAdapter {
                     minecraft.fontRendererObj.drawStringWithShadow(
                         minecraft.fontRendererObj.trimStringToWidth(outcome,available),
                         3,bottomY+2*(fontHeight+3),0xFFB0E4CA);
+                    minecraft.fontRendererObj.drawStringWithShadow(
+                        minecraft.fontRendererObj.trimStringToWidth(coverage,available),
+                        3,bottomY+3*(fontHeight+3),0xFFC8D6EE);
                 }
             });
         }
