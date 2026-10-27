@@ -11,6 +11,8 @@ public final class GuiNebulaWorkspaceTests {
     public static void main(String[] args){
         UiState ui=new UiState();
         GuiLayout g=GuiLayout.calculate(1920,1080,UiState.Layout.WIDE);
+        ok(ui.theme()==UiState.Theme.NEBULA,"Slate first-run theme");
+        ui.theme(UiState.Theme.INDIGO);
         ok(GuiNebulaWorkspace.of(g,ui)==null,"Indigo unchanged");
         ui.theme(UiState.Theme.NEBULA);
         GuiNebulaWorkspace p=GuiNebulaWorkspace.of(g,ui);
