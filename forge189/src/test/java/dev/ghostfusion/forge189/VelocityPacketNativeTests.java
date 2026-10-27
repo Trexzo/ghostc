@@ -6,6 +6,9 @@ import io.netty.channel.embedded.EmbeddedChannel;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.lang.reflect.Field;
+import net.minecraft.network.EnumPacketDirection;
+import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.S12PacketEntityVelocity;
 import net.minecraft.network.play.server.S27PacketExplosion;
 import net.minecraft.util.BlockPos;
@@ -166,7 +169,35 @@ public final class VelocityPacketNativeTests {
             "shutdown leaves zero GhostC handlers");
         old.finish();newer.finish();
     }
-    public static void main(String[] args) {
+    /** Exercise the actual NetworkManager reflection entrypoint. This is
+     * intentionally distinct from the channel test seam so missing MCP
+     * NetworkManager.channel aliases cannot silently pass native CI. */
+    private static void networkManagerEntry() throws Exception {
+        Collector packets=new Collector();
+        EmbeddedChannel ch=channel(packets,true);
+        NetworkManager manager=new NetworkManager(EnumPacketDirection.CLIENTBOUND);
+        Field field=NetworkManager.class.getDeclaredField("channel");
+        ok(field.getType()==io.netty.channel.Channel.class,
+           "1.8.9 NetworkManager native channel has required exact type");
+        field.setAccessible(true);
+        field.set(manager,ch);
+        ForgeVelocityPacketBridge bridge=new ForgeVelocityPacketBridge();
+        bridge.update(manager,52,25,50);
+        tick(ch);
+        ok(ch.pipeline().get("ghostc_r341_velocity")!=null,
+           "actual owner NetworkManager update attaches Netty hook");
+        S12PacketEntityVelocity local=velocity(52);
+        emits(ch,packets,local,"real NetworkManager native channel");
+        ok(local.getMotionX()==1600 && local.getMotionY()==1600,
+           "native reflection delivers configured S12 fixed-point adjustments");
+        bridge.reset();
+        tick(ch);
+        ok(ch.pipeline().get("ghostc_r341_velocity")==null,
+           "native NetworkManager path detaches on reset");
+        ch.finish();
+    }
+    public static void main(String[] args) throws Exception {
+        networkManagerEntry();
         packets();
         lifecycleRaces();
         delayedHandlerAndReconnect();
