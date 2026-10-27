@@ -691,6 +691,20 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('getStringWidth(fitted)',self.feature)
         self.assertNotIn('label=label.substring(0,label.length()-1)',self.feature)
 
+    def test_text_first_nebula_module_list_has_stable_live_only_transitions(self):
+        driver=self.feature
+        layout=content("src/main/java/dev/ghostfusion/ui/ModuleListLayout.java")
+        motion=content("src/main/java/dev/ghostfusion/ui/ModuleListMotion.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/ModuleListMotionTests.java")
+        self.assertIn("moduleListMotion.observe(row.id)",driver)
+        self.assertIn("moduleListMotion.endFrame();",driver)
+        self.assertIn("ModuleListMotion.fade(theme.text,phase)",driver)
+        self.assertIn("row.x+row.width-6-measured",driver)
+        self.assertIn("public final String label,id;",layout)
+        self.assertIn("disabled item immediately removed",tests)
+        self.assertIn("MODULE_LIST_MOTION_PASS",content(".github/workflows/core-ci.yml"))
+        self.assertIn("Iterator<Map.Entry<String,State>>",motion)
+
     def test_nebula_three_pane_renders_and_hits_from_one_geometry(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         policy=content("src/main/java/dev/ghostfusion/ui/GuiNebulaWorkspace.java")

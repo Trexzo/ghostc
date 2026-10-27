@@ -174,3 +174,17 @@ viewport containment and exclusive input ownership. Unsupported viewport
 sizes and the original Indigo/Mint/Compact layouts still use their previous
 native rendering/hitbox paths. No font assets, copying of other clients'
 textures, combat changes or external injector required.
+
+## R5 visual redesign phase 2 — text-first enabled Module List
+For the **Nebula** in-game Module List appearance, use right-aligned module
+labels on the right or left-aligned labels on the left, subtly animated on
+first enable. Row backgrounds are now almost transparent when enabled, rather
+than opaque stacked cards. The 2px side marker is restrained, optional, and
+follows the actual anchor side. Existing Classic/Minimal render paths remain
+unchanged. Label animation uses a stable module ID and a short 180ms time-based
+cubic ease, so changes in FPS do not alter transition duration. Disabled and
+faulted modules disappear immediately; the motion cache prunes them in the
+same frame, never falsely advertising a disabled feature. New seeded 20k
+lifecycle checks assert live-only membership, transition bounds, and fade
+color preservation. Width sorting, Unicode sanitizing and profile positions
+continue through the original `ModuleListLayout`.

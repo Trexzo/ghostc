@@ -8,6 +8,7 @@ import dev.ghostfusion.ui.HudScaleLayout;
 import dev.ghostfusion.ui.DiagnosticsHudLayout;
 import dev.ghostfusion.ui.HudTextFit;
 import dev.ghostfusion.ui.ModuleListLayout;
+import dev.ghostfusion.ui.ModuleListMotion;
 import dev.ghostfusion.ui.HudThemeTokens;
 import dev.ghostfusion.features.SprintPolicy;
 import dev.ghostfusion.features.TargetHudPolicy;
@@ -44,6 +45,7 @@ public final class ForgeFeatureDriver {
     private final CpsMeter cps = new CpsMeter();
     private final TargetHudPolicy targets = new TargetHudPolicy();
     private final TargetHudMotion targetMotion = new TargetHudMotion();
+    private final ModuleListMotion moduleListMotion = new ModuleListMotion();
     // Reused, client-thread-only admission for snapshot IDs. No per-frame
     // predicate allocations; no extra LOS rays or snapshot construction.
     private final java.util.function.IntPredicate nonTeammate =
@@ -154,6 +156,36 @@ public final class ForgeFeatureDriver {
         final int classicAccent=host.ui().theme()==dev.ghostfusion.ui.UiState.Theme.GRAPHITE
             ? 0xFFB9C5D6 : 0xFFA59AFF;
         final int accent="classic".equals(appearance)?classicAccent:theme.accent;
+        if("nebula".equals(appearance)) {
+            // A Slinky/Rise-inspired, text-first overlay; original Minecraft
+            // lifecycle still controls visibility, not the animation cache.
+            moduleListMotion.beginFrame(System.nanoTime());
+            boolean right=host.moduleListPosition().endsWith("_right") ||
+                ("custom".equals(host.moduleListPosition()) &&
+                 host.ui().widgets().x(Widget.MODULE_LIST)>=0.5);
+            for(ModuleListLayout.Row row:frame.rows) {
+                double phase=moduleListMotion.observe(row.id);
+                int alpha=ModuleListMotion.fade(theme.text,phase);
+                int measured=mc.fontRendererObj.getStringWidth(row.label);
+                int textX=right?row.x+row.width-6-measured:row.x+6;
+                int direction=right?1:-1;
+                int travel=(int)Math.round((1.0-phase)*7.0)*direction;
+                textX=Math.max(0,Math.min(sw-measured,textX+travel));
+                if(background) {
+                    // At 1x this is intentionally almost transparent.
+                    Gui.drawRect(row.x,row.y,row.x+row.width,row.y+row.height,
+                        ModuleListMotion.fade(0x27151A25,phase));
+                }
+                if(stripe) {
+                    int markerX=right?row.x+row.width-2:row.x;
+                    Gui.drawRect(markerX,row.y+2,markerX+2,row.y+row.height-2,
+                        ModuleListMotion.fade(theme.accent,phase*0.72));
+                }
+                mc.fontRendererObj.drawStringWithShadow(row.label,textX,row.textY,alpha);
+            }
+            moduleListMotion.endFrame();
+            return;
+        }
         for(ModuleListLayout.Row row:frame.rows) {
             if(background){
                 Gui.drawRect(row.x,row.y,row.x+row.width,row.y+row.height,theme.panel);

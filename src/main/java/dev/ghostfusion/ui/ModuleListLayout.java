@@ -20,10 +20,10 @@ public final class ModuleListLayout {
     private ModuleListLayout() { }
 
     public static final class Row {
-        public final String label;
+        public final String label,id;
         public final int x,y,width,height,textX,textY;
-        private Row(String label,int x,int y,int width,int height,int textX,int textY) {
-            this.label=label;this.x=x;this.y=y;this.width=width;this.height=height;
+        private Row(String label,String id,int x,int y,int width,int height,int textX,int textY) {
+            this.label=label;this.id=id;this.x=x;this.y=y;this.width=width;this.height=height;
             this.textX=textX;this.textY=textY;
         }
     }
@@ -135,8 +135,8 @@ public final class ModuleListLayout {
         List<Row> rows=new ArrayList<Row>(count);
         for(int i=0;i<count;i++) {
             int rowY=y+i*rowH;
-            rows.add(new Row(candidates.get(i).label,x,rowY,panelW,rowH,
-                x+TEXT_PAD,rowY+(rowH-fontH)/2));
+            rows.add(new Row(candidates.get(i).label,candidates.get(i).id,
+                x,rowY,panelW,rowH,x+TEXT_PAD,rowY+(rowH-fontH)/2));
         }
         return new Frame(rows,x,y,panelW,panelH);
     }

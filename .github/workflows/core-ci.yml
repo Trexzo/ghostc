@@ -86,6 +86,8 @@ jobs:
           grep -q 'HUD_THEME_TOKENS_PASS' .build/hud-theme-tokens.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.ModuleListEditorTests | tee .build/modulelist-editor.log
           grep -q 'MODULE_LIST_EDITOR_PASS' .build/modulelist-editor.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.ModuleListMotionTests | tee .build/modulelist-motion.log
+          grep -q 'MODULE_LIST_MOTION_PASS' .build/modulelist-motion.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.ModuleListLayoutTests | tee .build/modulelist.log
           grep -q 'MODULE_LIST_LAYOUT_PASS' .build/modulelist.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.UiTests | tee .build/ui.log
