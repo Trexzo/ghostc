@@ -147,7 +147,12 @@ public final class ForgeFeatureDriver {
             host.moduleListOrder(),targetFontWidths,host.moduleListCompact(),
             host.ui().widgets().x(Widget.MODULE_LIST),
             host.ui().widgets().y(Widget.MODULE_LIST));
-        if(frame.rows.isEmpty())return;
+        if(frame.rows.isEmpty()) {
+            // Even a wholly disabled list must retire previous animation IDs.
+            moduleListMotion.beginFrame(System.nanoTime());
+            moduleListMotion.endFrame();
+            return;
+        }
         final String appearance=host.moduleListAppearance();
         final HudThemeTokens theme=HudThemeTokens.of(appearance);
         final boolean background=host.moduleListBackground();
