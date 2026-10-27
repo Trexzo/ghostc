@@ -466,35 +466,31 @@ public final class ForgeFeatureDriver {
         targetMotion.update(player,System.nanoTime(),labels.healthFraction,host.targetMotion());
         double alpha=targetMotion.opacity();
         final HudThemeTokens theme=HudThemeTokens.of("nebula");
-        // Deep midnight base with low-contrast inset and a contained four-sided frame.
-        Gui.drawRect(x,y,x+width,y+height,TargetHudMotion.fade(theme.panel,alpha));
-        int edge=TargetHudMotion.fade(theme.frame,alpha);
-        Gui.drawRect(x,y,x+width,y+1,edge);
-        Gui.drawRect(x,y+height-1,x+width,y+height,edge);
-        Gui.drawRect(x,y,x+1,y+height,edge);
-        Gui.drawRect(x+width-1,y,x+width,y+height,edge);
-        Gui.drawRect(x+2,y+2,x+width-2,y+5,
-            TargetHudMotion.fade(theme.sheen,alpha));
-        // A short, subdued violet-to-cyan aurora. No bright full-width RGB frame.
-        Gui.drawRect(x+8,y+3,x+width/2,y+4,
-            TargetHudMotion.fade(theme.accent,alpha));
-        Gui.drawRect(x+width/2,y+3,x+width-16,y+4,
-            TargetHudMotion.fade(theme.secondary,alpha*0.65));
-        Gui.drawRect(x+2,y+7,x+4,y+height-7,
-            TargetHudMotion.fade(theme.accent,alpha));
-        Gui.drawRect(x+width-4,y+height-10,x+width-2,y+height-4,
-            TargetHudMotion.fade(theme.secondary,alpha));
+        // Slinky-inspired low-noise composition: one translucent surface,
+        // quiet micro-accent and a single readable name/HP row. No RGB frame.
+        Gui.drawRect(x,y,x+width,y+height,
+            TargetHudMotion.fade(0xE2161A23,alpha));
+        Gui.drawRect(x,y,x+2,y+height,
+            TargetHudMotion.fade(theme.accent,alpha*0.78));
+        Gui.drawRect(x+8,y+3,x+34,y+4,
+            TargetHudMotion.fade(theme.secondary,alpha*0.72));
+        Gui.drawRect(x+9,y+height-2,x+width-9,y+height-1,
+            TargetHudMotion.fade(theme.frame,alpha*0.55));
         mc.fontRendererObj.drawStringWithShadow(labels.name,x+9,
             y+layout.nameY,TargetHudMotion.fade(theme.text,alpha));
         if(health) {
-            int l=x+9,r=x+width-9,t=y+layout.trackY,h=layout.trackHeight;
-            Gui.drawRect(l,t,r,t+h,TargetHudMotion.fade(theme.track,alpha));
+            int l=x+9,r=x+width-9,t=y+layout.trackY;
+            // The restrained neutral track and a clean filled bar avoid the
+            // old framed, multiple-stripe visual clutter.
+            Gui.drawRect(l,t,r,t+layout.trackHeight,
+                TargetHudMotion.fade(theme.track,alpha));
             int filled=(int)Math.round((r-l)*targetMotion.health());
             if(filled>0) {
-                Gui.drawRect(l,t,l+filled,t+h,TargetHudMotion.fade(theme.accent,alpha));
-                if(filled>=5)
-                    Gui.drawRect(l+filled-2,t,l+filled,t+h,
-                        TargetHudMotion.fade(theme.secondary,alpha));
+                Gui.drawRect(l,t,l+filled,t+layout.trackHeight,
+                    TargetHudMotion.fade(theme.accent,alpha));
+                if(filled>4)
+                    Gui.drawRect(l+filled-2,t,l+filled,t+layout.trackHeight,
+                        TargetHudMotion.fade(theme.secondary,alpha*0.88));
             }
             mc.fontRendererObj.drawStringWithShadow(labels.healthLabel,
                 x+width-9-labels.healthLabelWidth,y+layout.healthLabelY,
