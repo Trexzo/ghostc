@@ -36,3 +36,13 @@ sourceSets {
 }
 
 compileJava.options.encoding = 'UTF-8'
+
+
+// Java 8 native-boundary probe: genuine 1.8.9 packet classes and Netty
+// EmbeddedChannel under the ForgeGradle dependency classpath. No game launch.
+task velocityNativeProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.VelocityPacketNativeTests'
+}
+check.dependsOn velocityNativeProbe
