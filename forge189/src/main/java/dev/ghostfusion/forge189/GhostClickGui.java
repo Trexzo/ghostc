@@ -9,6 +9,7 @@ import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.ui.UiState;
 import dev.ghostfusion.ui.GuiThemePalette;
 import dev.ghostfusion.ui.GuiLayout;
+import dev.ghostfusion.ui.GuiNebulaWorkspace;
 import dev.ghostfusion.ui.GuiHitZones;
 import dev.ghostfusion.ui.GuiChrome;
 import dev.ghostfusion.ui.GuiSelection;
@@ -117,6 +118,8 @@ public final class GhostClickGui extends GuiScreen {
             finishSliderDrag();
         x=g.x; y=g.y; w=g.width; h=g.height; side=g.sidebar;
         listY=g.listY; listH=g.listHeight; visibleRows=g.visibleRows;
+        GuiNebulaWorkspace workspace=nebulaWorkspace(g);
+        if(workspace!=null)visibleRows=workspace.moduleRows;
         previewX=g.previewX; previewY=g.previewY;
         previewW=g.previewWidth; previewH=g.previewHeight;
         if(hudDragging && (!hudCapture.sameViewport(width,height) ||
@@ -144,6 +147,99 @@ public final class GhostClickGui extends GuiScreen {
         searchPositionWidth=g.searchWidth;
     }
     private GuiThemePalette palette() { return GuiThemePalette.of(ui.theme()); }
+    private GuiNebulaWorkspace nebulaWorkspace(GuiLayout zone) {
+        return GuiNebulaWorkspace.of(zone,ui);
+    }
+    private int settingsRows(GuiLayout zone) {
+        GuiNebulaWorkspace workspace=nebulaWorkspace(zone);
+        return workspace==null?GuiHitZones.visibleSettings(zone):workspace.settingRows;
+    }
+    private void nebulaSwitch(int x,int y,boolean enabled) {
+        int track=enabled?0xFF829FCD:0xFF343A49;
+        // Three nested spans approximate small rounded switch ends.
+        rect(x+2,y,23,13,track);
+        rect(x,y+2,27,9,track);
+        rect(x+(enabled?15:3),y+2,10,9,0xFFF0F3FA);
+    }
+    /** Dedicated Rise-style modules + settings panes, with native GUI input parity. */
+    private void drawNebulaModules(GuiNebulaWorkspace pane) {
+        drawSidebar();
+        if(search!=null)search.drawTextBox();
+        GuiThemePalette color=palette();
+        rect(pane.detailsX-6,pane.detailsY,1,pane.detailsHeight,color.divider);
+        label("MODULES",pane.modulesX+3,pane.detailsY+3,color.muted);
+        List<ModuleRegistry.Entry> filtered=entries();
+        scroll=Math.max(0,Math.min(scroll,Math.max(0,filtered.size()-pane.moduleRows)));
+        for(int i=scroll;i<filtered.size()&&i<scroll+pane.moduleRows;i++) {
+            ModuleRegistry.Entry entry=filtered.get(i);
+            int yy=pane.modulesY+(i-scroll)*29;
+            boolean active=entry.module().id().equals(selected);
+            if(active)rect(pane.modulesX,yy,pane.modulesWidth,26,0x58405266);
+            rect(pane.modulesX+6,yy+25,pane.modulesWidth-12,1,0x304D5669);
+            if(active)rect(pane.modulesX+1,yy+9,2,8,color.accent);
+            label(trim(entry.module().displayName(),pane.modulesWidth-61),
+                pane.modulesX+10,yy+8,active?color.text:color.muted);
+            boolean enabled=entry.state()==ModuleRegistry.State.ENABLED;
+            boolean faulted=entry.state()==ModuleRegistry.State.FAULTED;
+            if(faulted)label("!",pane.modulesX+pane.modulesWidth-25,yy+7,0xFFEBA4AF);
+            else nebulaSwitch(pane.modulesX+pane.modulesWidth-35,yy+6,enabled);
+        }
+        label("CONFIGURATION",pane.detailsX+9,pane.detailsY+3,color.muted);
+        if(selected==null) {
+            keyboardSetting=-1;
+            label("No matching modules",pane.detailsX+9,pane.detailsY+28,color.muted);
+            return;
+        }
+        ModuleRegistry.Entry entry;
+        try {entry=host.modules().get(selected);}
+        catch(IllegalArgumentException ignored){return;}
+        label(trim(entry.module().displayName(),pane.detailsWidth-22),
+            pane.detailsX+9,pane.detailsY+23,color.text);
+        rect(pane.detailsX+9,pane.detailsY+44,pane.detailsWidth-18,1,color.divider);
+        rect(pane.detailsX+9,pane.bindingY,pane.detailsWidth-18,24,0x45333C4E);
+        label("KEYBIND",pane.detailsX+16,pane.bindingY+8,color.muted);
+        String bind=capture!=null&&capture.equals(selected)?"PRESS KEY":
+            entry.keybind()==0?"NONE":Keyboard.getKeyName(entry.keybind());
+        label(trim(bind,92),pane.detailsX+pane.detailsWidth-104,
+            pane.bindingY+8,color.accent);
+        label("SETTINGS",pane.detailsX+9,pane.settingY-14,color.muted);
+        List<Map.Entry<String,Setting<?>>> settings=
+            new ArrayList<Map.Entry<String,Setting<?>>>(entry.settings().entrySet());
+        settingScroll=Math.max(0,Math.min(settingScroll,
+            Math.max(0,settings.size()-pane.settingRows)));
+        keyboardSetting=GuiSettingKeyboard.visibleFocus(
+            keyboardSetting,settingScroll,settings.size(),pane.settingRows);
+        for(int i=settingScroll;i<settings.size()&&i<settingScroll+pane.settingRows;i++){
+            Map.Entry<String,Setting<?>> row=settings.get(i);
+            Setting<?> setting=row.getValue();
+            int yy=pane.settingY+(i-settingScroll)*30;
+            if(i==keyboardSetting)
+                rect(pane.detailsX+8,yy,pane.detailsWidth-16,27,0x50465568);
+            rect(pane.detailsX+9,yy+26,pane.detailsWidth-18,1,0x263E4558);
+            label(trim(row.getKey().replace('_',' '),105),
+                pane.detailsX+14,yy+9,color.text);
+            if(setting instanceof Setting.Bool) {
+                nebulaSwitch(pane.detailsX+pane.detailsWidth-43,yy+7,
+                    ((Setting.Bool)setting).get());
+            } else if(setting instanceof Setting.Number) {
+                Setting.Number value=(Setting.Number)setting;
+                double frac=NumericSliderScale.fraction(value.get(),value.min(),value.max());
+                int bx=pane.sliderX(),bw=pane.sliderWidth();
+                rect(bx,yy+13,bw,3,color.barTrack);
+                rect(bx,yy+13,(int)Math.round(bw*frac),3,color.accent);
+                label(String.format(java.util.Locale.ROOT,"%.2f",value.get()),
+                    bx,yy+2,color.muted);
+            } else {
+                String text=trim(setting.serialize(),94);
+                label(text,pane.detailsX+pane.detailsWidth-16-
+                    fontRendererObj.getStringWidth(text),yy+9,color.accent);
+            }
+        }
+        if(settings.size()>pane.settingRows)
+            label((settingScroll+1)+"-"+Math.min(settings.size(),settingScroll+
+                pane.settingRows)+" / "+settings.size(),
+                pane.detailsX+10,y+h-20,color.muted);
+    }
     private int bg() { return palette().background; }
     private int panel() { return palette().panel; }
     private int accent() { return palette().accent; }
@@ -253,6 +349,9 @@ public final class GhostClickGui extends GuiScreen {
         return filtered;
     }
     private void drawModules(int mx, int my) {
+        GuiNebulaWorkspace workspace=nebulaWorkspace(
+            GuiLayout.calculate(width,height,ui.layout()));
+        if(workspace!=null) {drawNebulaModules(workspace);return;}
         drawSidebar();
         if (search != null) search.drawTextBox();
         List<ModuleRegistry.Entry> filtered = entries();
@@ -743,6 +842,52 @@ public final class GhostClickGui extends GuiScreen {
             return;
         }
         List<ModuleRegistry.Entry> filtered = entries();
+        GuiNebulaWorkspace split=nebulaWorkspace(zone);
+        if(split!=null) {
+            int index=split.moduleIndex(mx,my,scroll,filtered.size());
+            if(index>=0) {
+                ModuleRegistry.Entry entry=filtered.get(index);
+                if(split.moduleToggleArea(mx)) {
+                    try {host.uiActions().toggle(entry.module().id());message="";}
+                    catch(RuntimeException ex){message="Unable to toggle module";}
+                } else {
+                    selected=entry.module().id();
+                    settingScroll=0;keyboardSetting=-1;
+                }
+                return;
+            }
+            if(selected==null)return;
+            ModuleRegistry.Entry entry=host.modules().get(selected);
+            if(split.keybindArea(mx,my)) {
+                capture=selected;pendingControlBind=0;
+                keyboardSetting=-1;message="";return;
+            }
+            List<Map.Entry<String,Setting<?>>> settings=
+                new ArrayList<Map.Entry<String,Setting<?>>>(entry.settings().entrySet());
+            int idx=split.settingIndex(mx,my,settingScroll,settings.size());
+            if(idx>=0) {
+                keyboardSetting=idx;
+                Map.Entry<String,Setting<?>> item=settings.get(idx);
+                try {
+                    Setting<?> setting=item.getValue();
+                    if(setting instanceof Setting.Bool)
+                        host.uiActions().bool(selected,item.getKey());
+                    else if(setting instanceof Setting.Choice)
+                        host.uiActions().cycle(selected,item.getKey());
+                    else if(setting instanceof Setting.Number) {
+                        int yy=split.settingY+(idx-settingScroll)*30;
+                        if(inside(mx,my,split.sliderX(),yy,split.sliderWidth(),27)) {
+                            sliderDrag.begin(selected,item.getKey(),split.sliderX(),
+                                split.sliderWidth(),width,height,
+                                ((Setting.Number)setting).get());
+                            adjustSliderDrag(mx);
+                        }
+                    }
+                    message="";
+                } catch(RuntimeException ex){message="Setting rejected";}
+            }
+            return;
+        }
         if (GuiHitZones.moduleArea(zone,mx,my)) {
             int idx = GuiHitZones.moduleIndex(zone,mx,my,scroll,filtered.size());
             if (idx >= 0) {
@@ -826,20 +971,23 @@ public final class GhostClickGui extends GuiScreen {
             int direction = wheel > 0 ? -1 : 1;
             int mx = Mouse.getEventX() * width / Math.max(1, mc.displayWidth);
             int my = height - Mouse.getEventY() * height / Math.max(1, mc.displayHeight) - 1;
-            if (GuiHitZones.settingsArea(zone,mx,my)) {
+            GuiNebulaWorkspace split=nebulaWorkspace(zone);
+            if((split!=null&&split.settingArea(mx,my)) ||
+               (split==null&&GuiHitZones.settingsArea(zone,mx,my))) {
                 entries();
                 if (selected == null) return;
                 ModuleRegistry.Entry e = host.modules().get(selected);
-                int max = Math.max(0,e.settings().size()-GuiHitZones.visibleSettings(zone));
+                int max = Math.max(0,e.settings().size()-settingsRows(zone));
                 settingScroll = Math.max(0,Math.min(max, settingScroll+direction));
                 // Wheel scrolling is manual: never reveal the formerly
                 // focused row by undoing the user's scroll, and never
                 // mutate a now-hidden setting from later arrow input.
                 keyboardSetting=GuiSettingKeyboard.visibleFocus(
                     keyboardSetting,settingScroll,e.settings().size(),
-                    GuiHitZones.visibleSettings(zone));
-            } else if (GuiHitZones.moduleArea(zone,mx,my)) {
-                int max = Math.max(0,entries().size() - zone.visibleRows);
+                    settingsRows(zone));
+            } else if((split!=null&&split.moduleArea(mx,my)) ||
+                      (split==null&&GuiHitZones.moduleArea(zone,mx,my))) {
+                int max = Math.max(0,entries().size() - visibleRows);
                 scroll = Math.max(0,Math.min(max,scroll + direction));
             }
         }
@@ -1028,7 +1176,7 @@ public final class GhostClickGui extends GuiScreen {
             entries(); // remove stale module focus before setting traversal
             if(selected==null) {keyboardSetting=-1; return;}
             int count=host.modules().get(selected).settings().size();
-            int rows=GuiHitZones.visibleSettings(
+            int rows=settingsRows(
                 GuiLayout.calculate(width,height,ui.layout()));
             keyboardSetting=rows>0?GuiSettingKeyboard.next(
                 keyboardSetting,count,(Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) ||
@@ -1048,7 +1196,7 @@ public final class GhostClickGui extends GuiScreen {
                 keyboardSetting=GuiSettingKeyboard.visibleFocus(
                     keyboardSetting,settingScroll,
                     host.modules().get(selected).settings().size(),
-                    GuiHitZones.visibleSettings(GuiLayout.calculate(width,height,ui.layout())));
+                    settingsRows(GuiLayout.calculate(width,height,ui.layout())));
             }
             if(selected!=null && keyboardSetting>=0) {
                 List<Map.Entry<String, Setting<?>>> settings=
