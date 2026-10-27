@@ -8,6 +8,7 @@ import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.ui.UiState;
 import dev.ghostfusion.ui.GuiThemePalette;
+import dev.ghostfusion.ui.GuiHudEditorStyle;
 import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiSlateWorkspace;
 import dev.ghostfusion.ui.GuiSettingPresentation;
@@ -680,6 +681,8 @@ public final class GhostClickGui extends GuiScreen {
     }
     private void drawHudEditor(int mx, int my) {
         if (previewW<1 || previewH<1) return;
+        // F7 inherits the active theme, including its actual preview surface.
+        GuiHudEditorStyle editorStyle=GuiHudEditorStyle.of(ui.theme());
         label("HUD POSITION EDITOR",x+side+12,y+49,accent());
         drawHudPresetSidebar();
         // Display the scale of the selected widget in a fixed, readable place.
@@ -693,18 +696,18 @@ public final class GhostClickGui extends GuiScreen {
         for (HudEditorControls.Item item:HudEditorControls.Item.values()) {
             int bx=HudEditorControls.tabLeft(tabsX,tabsWidth,item);
             int bw=HudEditorControls.tabWidth(tabsWidth,item);
-            rect(bx,tabsY,bw,17,item==hudControls.selected()?0xFF575C8D:panel());
+            rect(bx,tabsY,bw,17,item==hudControls.selected()?editorStyle.selectedTab:panel());
             label(trim(item.label,bw-5),bx+3,tabsY+4,
-                item==hudControls.selected()?0xFFFFFFFF:0xFFBEC6D9);
+                item==hudControls.selected()?editorStyle.selectedText:editorStyle.idleText);
         }
-        rect(previewX,previewY,previewW,previewH,0xFF0D1220);
+        rect(previewX,previewY,previewW,previewH,editorStyle.previewSurround);
         HudPreviewGeometry geometry=previewGeometry();
         Rect canvas=geometry.canvas;
-        rect(canvas.x,canvas.y,canvas.width,canvas.height,0xFF192238);
+        rect(canvas.x,canvas.y,canvas.width,canvas.height,editorStyle.previewCanvas);
         for(int gx=canvas.x+30;gx<canvas.x+canvas.width;gx+=30)
-            rect(gx,canvas.y,1,canvas.height,0x304E5D75);
+            rect(gx,canvas.y,1,canvas.height,editorStyle.previewGrid);
         for(int gy=canvas.y+30;gy<canvas.y+canvas.height;gy+=30)
-            rect(canvas.x,gy,canvas.width,1,0x304E5D75);
+            rect(canvas.x,gy,canvas.width,1,editorStyle.previewGrid);
 
         Rect status=geometry.status(ui,statusPreviewWidth(),statusPreviewHeight());
         drawHudMiniature(status,null,hudControls.selected()==HudEditorControls.Item.STATUS);
@@ -733,16 +736,16 @@ public final class GhostClickGui extends GuiScreen {
         if(hudDragging) {
             if(snapGuideX!=HudSnapPolicy.NO_GUIDE)
                 rect(Math.min(canvas.x+canvas.width-1,Math.max(canvas.x,snapGuideX)),
-                    canvas.y,1,canvas.height,0x9966DDD0);
+                    canvas.y,1,canvas.height,editorStyle.snapGuide);
             if(snapGuideY!=HudSnapPolicy.NO_GUIDE)
                 rect(canvas.x,Math.min(canvas.y+canvas.height-1,
-                    Math.max(canvas.y,snapGuideY)),canvas.width,1,0x9966DDD0);
+                    Math.max(canvas.y,snapGuideY)),canvas.width,1,editorStyle.snapGuide);
         }
         label(trim(hudOverlaps
             ?"HUD overlap detected | Drag to separate | R: Reset"
             :"1 Default 2 PvP 3 Stream | [ ] Resize | Alt: Free | 0: 1x | R: Position",
             w-side-20),
-            previewX,previewY+previewH+8,0xFFBEC6D9);
+            previewX,previewY+previewH+8,editorStyle.helpText);
     }
     /** Compact outline used only for editor feedback; never affects live HUD paint. */
     private void hudConflictOutline(Rect r) {
