@@ -301,7 +301,7 @@ public final class ForgeEventAdapter {
                 host.diagnostics().record(Counter.MODULE_GAMEPLAY_GUI_DENIED);
             if(gameplayRequested && worldReady &&
                scene==ModuleInteractionStateMachine.Scene.GAME &&
-               !Display.isActive())
+               (!Display.isActive() || !minecraft.inGameHasFocus))
                 host.diagnostics().record(Counter.MODULE_GAMEPLAY_WINDOW_DENIED);
         } else lastArbitration=null;
 
