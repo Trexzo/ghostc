@@ -35,9 +35,10 @@ final class ForgeVelocityPacketBridge {
         "field_149153_g","motionY","g");
     private static final Field S27_Z=field(S27PacketExplosion.class,float.class,
         "field_149159_h","motionZ","h");
-    private static final Settings OFF=new Settings(false,-1,100,100);
+    // One atomic/volatile publication binds a *specific* channel and entity
+    // identity together. Netty must never mix an old channel with a new ID.
+    private static final Settings OFF=new Settings(null,false,-1,100,100);
     private volatile Settings current=OFF;
-    private volatile Channel channel;
 
     private static Field field(Class<?> type,Class<?> expected,String... names) {
         for(String name:names) {
@@ -55,73 +56,84 @@ final class ForgeVelocityPacketBridge {
         return null;
     }
     static final class Settings {
+        final Channel connection;
         final boolean enabled;
         final int entityId;
         final double horizontal,vertical;
-        Settings(boolean enabled,int id,double horizontal,double vertical) {
+        Settings(Channel connection,boolean enabled,int entityId,
+                 double horizontal,double vertical) {
+            this.connection=connection;
             this.enabled=enabled;
-            this.entityId=id;
+            this.entityId=entityId;
             this.horizontal=horizontal;
             this.vertical=vertical;
         }
     }
     void update(NetworkManager network,int entityId,double h,double v) {
-        // Called only by the actual client owner tick after world/focus checks.
-        if(network==null || entityId<0 || h<0 || h>100 || v<0 || v>100 ||
-           !Double.isFinite(h)||!Double.isFinite(v)) {
+        if(network==null || CHANNEL==null) {reset();return;}
+        try {
+            Channel ch=(Channel)CHANNEL.get(network);
+            updateConnection(ch,entityId,h,v);
+        } catch(IllegalAccessException|ClassCastException ignored) {
+            reset();
+        }
+    }
+    /** Also used by the native Java8 EmbeddedChannel contract. All
+     * channel mutations still occur on the channel's own Netty event loop. */
+    void updateConnection(Channel ch,int entityId,double h,double v) {
+        if(ch==null || !ch.isOpen() || entityId<0 || h<0 || h>100 ||
+           v<0 || v>100 || !Double.isFinite(h) || !Double.isFinite(v)) {
             reset();return;
         }
-        Channel ch=null;
-        if(CHANNEL!=null) {
-            try {ch=(Channel)CHANNEL.get(network);}
-            catch(IllegalAccessException|ClassCastException ignored) {
-                reset();return;
-            }
-        }
-        if(ch==null || !ch.isOpen()) {reset();return;}
-        Channel previous=channel;
-        if(previous!=ch) {
-            current=OFF;
-            channel=ch;
-            if(previous!=null)uninstall(previous);
-            install(ch);
-        }
-        current=new Settings(true,entityId,h,v);
+        Settings before=current;
+        current=new Settings(ch,true,entityId,h,v);
+        if(before.connection!=null && before.connection!=ch)
+            reconcile(before.connection);
+        // Reconcile *every* owner tick. If packet_handler was not yet present
+        // at initial login, a later tick retries installation. Also repairs a
+        // disable/re-enable race on a shared channel without duplicate hooks.
+        reconcile(ch);
     }
     void reset() {
-        // OFF is visible to Netty *before* removal is scheduled.
-        current=OFF;
-        Channel old=channel;
-        channel=null;
-        if(old!=null)uninstall(old);
+        Settings before=current;
+        current=OFF; // Disable on Netty immediately, before queued removal.
+        if(before.connection!=null)reconcile(before.connection);
     }
-    private void install(final Channel ch) {
+    private void reconcile(final Channel ch) {
+        if(!ch.isRegistered() && !ch.isOpen())return;
         ch.eventLoop().execute(new Runnable() {
             public void run() {
-                if(channel!=ch || !ch.isOpen())return;
                 ChannelPipeline pipeline=ch.pipeline();
-                if(pipeline.get(HOOK)!=null)return;
+                Object existing=pipeline.get(HOOK);
+                Settings wanted=current;
+                boolean required=wanted.enabled && wanted.connection==ch &&
+                    ch.isOpen();
+                if(!required) {
+                    // Never remove a handler owned by another module or
+                    // GhostC instance using the same key.
+                    if(existing instanceof Inbound &&
+                       ((Inbound)existing).owner==ForgeVelocityPacketBridge.this)
+                        pipeline.remove(HOOK);
+                    return;
+                }
+                if(existing!=null)return;
                 if(pipeline.get("packet_handler")==null)return;
                 pipeline.addBefore("packet_handler",HOOK,new Inbound(ch));
             }
         });
     }
-    private void uninstall(final Channel ch) {
-        ch.eventLoop().execute(new Runnable() {
-            public void run() {
-                if(ch.pipeline().get(HOOK)!=null)
-                    ch.pipeline().remove(HOOK);
-            }
-        });
-    }
     private final class Inbound extends ChannelDuplexHandler {
         private final Channel mine;
-        Inbound(Channel ch){mine=ch;}
+        private final ForgeVelocityPacketBridge owner;
+        Inbound(Channel ch){
+            mine=ch;
+            owner=ForgeVelocityPacketBridge.this;
+        }
         @Override public void channelRead(ChannelHandlerContext ctx,Object msg)
             throws Exception {
             try {
                 Settings s=current;
-                if(channel==mine && ctx.channel()==mine && s.enabled &&
+                if(s.connection==mine && ctx.channel()==mine && s.enabled &&
                    (s.horizontal!=100 || s.vertical!=100)) {
                     if(msg instanceof S12PacketEntityVelocity)
                         s12((S12PacketEntityVelocity)msg,s);
