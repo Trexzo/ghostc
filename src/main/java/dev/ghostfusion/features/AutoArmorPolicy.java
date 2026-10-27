@@ -10,13 +10,13 @@ package dev.ghostfusion.features;
  * a candidate is equipped. No confirmation => block this GUI session.
  */
 public final class AutoArmorPolicy {
-    public static final int EMPTY=-1;
+    public static final int EMPTY=-1, OTHER=4;
     public enum Step { REMOVE, EQUIP }
     public static final class Piece {
         public final int kind;
         public final double score;
         public Piece(int kind,double score) {
-            if(kind<EMPTY || kind>3 || !Double.isFinite(score) ||
+            if(kind<EMPTY || kind>OTHER || !Double.isFinite(score) ||
                score<0 || (kind==EMPTY && score!=0))
                 throw new IllegalArgumentException("invalid armor");
             this.kind=kind;this.score=score;
