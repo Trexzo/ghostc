@@ -9,6 +9,7 @@ import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.ui.UiState;
 import dev.ghostfusion.ui.GuiThemePalette;
 import dev.ghostfusion.ui.GuiHudEditorStyle;
+import dev.ghostfusion.ui.GuiToggleMotion;
 import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiSlateWorkspace;
 import dev.ghostfusion.ui.GuiSettingPresentation;
@@ -72,6 +73,7 @@ public final class GhostClickGui extends GuiScreen {
     private Widget draggingWidget; // null means the original Status HUD
     private final HudEditorControls hudControls = new HudEditorControls();
     private final GuiSliderDrag sliderDrag = new GuiSliderDrag();
+    private final GuiToggleMotion slateToggleMotion = new GuiToggleMotion();
     private int dragX, dragY, scroll, settingScroll;
     // -1 = keyboard focus on module list; >=0 selects a setting row.
     private int keyboardSetting=-1;
@@ -110,6 +112,7 @@ public final class GhostClickGui extends GuiScreen {
     }
     @Override public void initGui() {
         moduleListFrameCache=null;
+        slateToggleMotion.clear();
         Keyboard.enableRepeatEvents(true);
         rebuild();
         host.inputFocus(true);
@@ -161,12 +164,14 @@ public final class GhostClickGui extends GuiScreen {
         GuiSlateWorkspace workspace=slateWorkspace(zone);
         return workspace==null?GuiHitZones.visibleSettings(zone):workspace.settingRows;
     }
-    private void slateSwitch(int x,int y,boolean enabled) {
-        int track=enabled?0xFF829FAA:0xFF343C43;
-        // Three nested spans approximate small rounded switch ends.
+    private void slateSwitch(int x,int y,double enabledFraction) {
+        // Real-value driven animation: appearance changes never invoke UiActions.
+        int track=GuiToggleMotion.blendArgb(
+            0xFF343C43,0xFF829FAA,enabledFraction);
         rect(x+2,y,23,13,track);
         rect(x,y+2,27,9,track);
-        rect(x+(enabled?15:3),y+2,10,9,0xFFF0F3FA);
+        rect(x+3+(int)Math.round(12.0*enabledFraction),
+            y+2,10,9,0xFFF0F3FA);
     }
     /** Dedicated Rise-style modules + settings panes, with native GUI input parity. */
     private void drawSlateModules(GuiSlateWorkspace pane,int mx,int my) {
@@ -178,6 +183,7 @@ public final class GhostClickGui extends GuiScreen {
                     palette().muted);
         }
         GuiThemePalette color=palette();
+        final long switchFrameTime=System.nanoTime();
         rect(pane.detailsX-6,pane.detailsY,1,pane.detailsHeight,color.divider);
         // The count uses the same filtered registry view as click/keyboard paths.
         List<ModuleRegistry.Entry> filtered=entries();
@@ -200,7 +206,8 @@ public final class GhostClickGui extends GuiScreen {
             if(faulted) {
                 rect(pane.modulesX+pane.modulesWidth-43,yy+5,38,16,0x665A343F);
                 label("RESET",pane.modulesX+pane.modulesWidth-40,yy+8,0xFFEBA4AF);
-            } else slateSwitch(pane.modulesX+pane.modulesWidth-35,yy+6,enabled);
+            } else slateSwitch(pane.modulesX+pane.modulesWidth-35,yy+6,
+                slateToggleMotion.value(entry,enabled,switchFrameTime));
         }
         drawSlateScrollIndicator(pane.modulesX+pane.modulesWidth+2,
             pane.modulesY,pane.moduleRows*29,pane.moduleRows,filtered.size(),scroll);
@@ -243,7 +250,8 @@ public final class GhostClickGui extends GuiScreen {
                 pane.settingLabelBudget(kind)),pane.detailsX+14,yy+9,color.text);
             if(setting instanceof Setting.Bool) {
                 slateSwitch(pane.detailsX+pane.detailsWidth-43,yy+7,
-                    ((Setting.Bool)setting).get());
+                    slateToggleMotion.value(setting,
+                        ((Setting.Bool)setting).get(),switchFrameTime));
             } else if(setting instanceof Setting.Number) {
                 Setting.Number value=(Setting.Number)setting;
                 double frac=NumericSliderScale.fraction(value.get(),value.min(),value.max());
