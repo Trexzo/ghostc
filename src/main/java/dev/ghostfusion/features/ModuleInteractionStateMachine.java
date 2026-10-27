@@ -12,6 +12,15 @@ public final class ModuleInteractionStateMachine {
     }
     public enum InventoryOwner { NONE, AUTO_ARMOR, INVENTORY_MANAGER, CHEST_STEALER }
     public enum SprintOwner { NONE, VANILLA_OR_AUTO_SPRINT, WTAP }
+    /** Diagnostic vocabulary is fixed: no free-form player/server data. */
+    public enum Resource {
+        COMBAT, BRIDGE, VELOCITY, WTAP, AUTO_SPRINT,
+        AUTO_ARMOR, INVENTORY_MANAGER, CHEST_STEALER
+    }
+    public enum Denial {
+        NONE, DISABLED, WORLD_UNAVAILABLE, WINDOW_INACTIVE,
+        WRONG_SCREEN, WTAP_RESERVED, ARMOR_PRIORITY
+    }
 
     public static final class Enabled {
         public final boolean combat, bridge, velocity, wtap, sprint;
@@ -33,10 +42,16 @@ public final class ModuleInteractionStateMachine {
         public final boolean chestStealer,autoArmor,inventoryManager;
         public final boolean transitioned;
         public final long generation,tick;
+        private final Scene scene;
+        private final Enabled enabled;
+        private final boolean worldPresent,activeWindow,wtapReserved;
         private Frame(Phase phase,InventoryOwner owner,SprintOwner sprint,
                       Enabled enabled,boolean worldInput,boolean wtapReserved,
-                      boolean changed,long generation,long tick) {
+                      boolean changed,long generation,long tick,
+                      Scene scene,boolean worldPresent,boolean activeWindow) {
             this.phase=phase;this.inventoryOwner=owner;this.sprintOwner=sprint;
+            this.scene=scene;this.enabled=enabled;this.worldPresent=worldPresent;
+            this.activeWindow=activeWindow;this.wtapReserved=wtapReserved;
             combat=worldInput&&enabled.combat;
             bridge=worldInput&&enabled.bridge;
             velocity=worldInput&&enabled.velocity;
@@ -47,6 +62,40 @@ public final class ModuleInteractionStateMachine {
             inventoryManager=owner==InventoryOwner.INVENTORY_MANAGER;
             transitioned=changed;
             this.generation=generation;this.tick=tick;
+        }
+        /** A grant reason is NOT proof the module performed a native write.
+         * Enabled, wrong-screen and preemption reasons are deterministic. */
+        public Denial denial(Resource resource) {
+            if(resource==null)throw new IllegalArgumentException("resource");
+            boolean on;
+            boolean game;
+            switch(resource) {
+                case COMBAT:on=enabled.combat;game=true;break;
+                case BRIDGE:on=enabled.bridge;game=true;break;
+                case VELOCITY:on=enabled.velocity;game=true;break;
+                case WTAP:on=enabled.wtap;game=true;break;
+                case AUTO_SPRINT:on=enabled.sprint;game=true;break;
+                case AUTO_ARMOR:on=enabled.autoArmor;game=false;break;
+                case INVENTORY_MANAGER:on=enabled.inventoryManager;game=false;break;
+                case CHEST_STEALER:on=enabled.chestStealer;game=false;break;
+                default:throw new IllegalArgumentException("unknown resource");
+            }
+            if(!on)return Denial.DISABLED;
+            if(!worldPresent || scene==Scene.NO_WORLD)
+                return Denial.WORLD_UNAVAILABLE;
+            if(!activeWindow)return Denial.WINDOW_INACTIVE;
+            if(game && scene!=Scene.GAME)return Denial.WRONG_SCREEN;
+            if(resource==Resource.AUTO_ARMOR ||
+               resource==Resource.INVENTORY_MANAGER) {
+                if(scene!=Scene.PLAYER_INVENTORY)return Denial.WRONG_SCREEN;
+                if(resource==Resource.INVENTORY_MANAGER && enabled.autoArmor)
+                    return Denial.ARMOR_PRIORITY;
+            }
+            if(resource==Resource.CHEST_STEALER && scene!=Scene.CHEST)
+                return Denial.WRONG_SCREEN;
+            if(resource==Resource.AUTO_SPRINT && enabled.wtap && wtapReserved)
+                return Denial.WTAP_RESERVED;
+            return Denial.NONE;
         }
     }
 
@@ -110,7 +159,7 @@ public final class ModuleInteractionStateMachine {
             : SprintOwner.NONE;
         Frame frame=new Frame(phase,inventory,sprint,modules,
             worldInput,sprint==SprintOwner.WTAP,
-            phase!=last,generation,tick);
+            phase!=last,generation,tick,scene,worldPresent,activeWindow);
         last=phase;
         return frame;
     }
