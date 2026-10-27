@@ -151,6 +151,7 @@ public final class IntegratedModuleCatalogTests {
         ChestStealerTests.main(args);
         InventoryManagerTests.main(args);
         AutoArmorTests.main(args);
+        ModuleInteractionTests.main(args);
         ok(count>65,"real integrated module and persisted profile coverage");
         System.out.println("INTEGRATED_MODULE_CATALOG_PASS assertions="+count);
     }
