@@ -18,7 +18,7 @@ public final class IntegratedModuleCatalogTests {
         Path root=Files.createTempDirectory("ghostc-r335-integrated-");
         HostRuntime host=new HostRuntime(root);
         String[] modules={
-            "combat.aimassist","combat.clicker","combat.triggerbot","combat.autorod","combat.blockhit","combat.hitselect",
+            "combat.aimassist","combat.clicker","combat.triggerbot","combat.autorod","combat.autosnowball","combat.blockhit","combat.hitselect",
             "combat.velocity","combat.wtap","combat.jumpreset",
             "movement.bridgeassist","movement.sprint",
             "inventory.cheststealer","inventory.manager","inventory.autoarmor",
@@ -48,6 +48,10 @@ public final class IntegratedModuleCatalogTests {
            host.modules().get("combat.autorod").settings().containsKey("range") &&
            host.modules().get("combat.autorod").settings().containsKey("require_sword"),
             "real native AutoRod hotbar transaction exposed through F7");
+        ok(host.modules().get("combat.autosnowball").settings().containsKey("cooldown_ticks") &&
+           host.modules().get("combat.autosnowball").settings().containsKey("range") &&
+           host.modules().get("combat.autosnowball").settings().containsKey("require_sword"),
+           "genuine AutoSnowball hotbar transaction exposed in F7");
         ok(host.modules().get("combat.blockhit").settings().containsKey("mode"),
             "event-mode Block Hit registered");
         ok(host.modules().get("combat.hitselect").settings().containsKey("trade_min_self_hurt"),
@@ -179,6 +183,7 @@ public final class IntegratedModuleCatalogTests {
         WTapTests.main(args);
         JumpResetTests.main(args);
         AutoRodTests.main(args);
+        AutoSnowballTests.main(args);
         ChestStealerTests.main(args);
         InventoryManagerTests.main(args);
         AutoArmorTests.main(args);
