@@ -90,3 +90,13 @@ task nativeJumpResetProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeJumpResetTests'
 }
 check.dependsOn nativeJumpResetProbe
+
+
+// R3.56 require the actual Minecraft 1.8.9 fishing rod / vanilla
+// player-controller method linkage on Linux and Windows Java 8 builds.
+task nativeAutoRodProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeAutoRodTests'
+}
+check.dependsOn nativeAutoRodProbe
