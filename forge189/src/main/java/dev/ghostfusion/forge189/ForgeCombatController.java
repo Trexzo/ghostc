@@ -2,6 +2,7 @@ package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.features.AimAssistPolicy;
 import dev.ghostfusion.features.AimTargetLock;
+import dev.ghostfusion.features.AimTargetSwitchPolicy;
 import dev.ghostfusion.features.AimTriggerHandoff;
 import dev.ghostfusion.features.FixedClickScheduler;
 import dev.ghostfusion.features.PatternClickScheduler;
@@ -49,6 +50,7 @@ public final class ForgeCombatController {
     private final HostRuntime host;
     private final AimAssistPolicy aim = new AimAssistPolicy();
     private final AimTargetLock aimLock = new AimTargetLock();
+    private final AimTargetSwitchPolicy aimSwitch = new AimTargetSwitchPolicy();
     private final FixedClickScheduler scheduler = new FixedClickScheduler();
     private final PatternClickScheduler patternScheduler = new PatternClickScheduler();
     private final HitSelectPolicy hitSelect = new HitSelectPolicy();
@@ -120,7 +122,10 @@ public final class ForgeCombatController {
         // Cancel any previous owned request before scheduling the new one.
         // This also makes disabled, focus-lost and failing modules fail closed.
         session.rotations().cancel(AIM_ID);
-        if (!host.featureEnabled(AIM_ID)) aimLock.clear();
+        if (!host.featureEnabled(AIM_ID)) {
+            aimLock.clear();
+            aimSwitch.reset();
+        }
         final WorldSnapshot snapshot = session.snapshot();
         final boolean[] aimAdjusted = {false};
         if (snapshot != null && host.featureEnabled(AIM_ID)) {
@@ -128,10 +133,12 @@ public final class ForgeCombatController {
                 public void run() {
                     if (yieldToTrigger) {
                         aimLock.clear();
+                        aimSwitch.reset();
                         return;
                     }
                     if (host.aimRequireClick() && !held) {
                         aimLock.clear();
+                        aimSwitch.reset();
                         return;
                     }
                     final boolean locking = host.aimLockTarget();
@@ -155,6 +162,7 @@ public final class ForgeCombatController {
                         host.aimTargetPriority());
                     if (suggestion == null) {
                         aimLock.clear();
+                        aimSwitch.reset();
                         return;
                     }
                     // A snapshot is immutable, but its player can despawn,
@@ -163,7 +171,11 @@ public final class ForgeCombatController {
                     Entity live=mc.theWorld.getEntityByID(suggestion.entityId);
                     // Missing live target is a strict no-write veto. The
                     // retained hint is independently UUID-checked next tick.
-                    if(!(live instanceof EntityPlayer))return;
+                    if(!(live instanceof EntityPlayer)) {
+                        aimLock.clear();
+                        aimSwitch.reset();
+                        return;
+                    }
                     EntityPlayer candidate=(EntityPlayer)live;
                     if(!LiveCombatTargetGate.eligible(candidate,
                             mc.theWorld.getEntityByID(candidate.getEntityId()),player,
@@ -173,6 +185,17 @@ public final class ForgeCombatController {
                         !suggestion.sameSourcePose(player.posX,player.posY,player.posZ,
                             player.rotationYaw,player.rotationPitch,player.getEyeHeight())) {
                         aimLock.clear();
+                        aimSwitch.reset();
+                        return;
+                    }
+                    // Only live-verified UUID candidates may request a camera
+                    // write. Switching to another player optionally requires
+                    // a stable consecutive candidate window; while waiting,
+                    // manual camera control stays completely untouched.
+                    // Hard UUID lock retains its original immediate fallback.
+                    if (!aimSwitch.consider(session.generation(), session.tick(),
+                            suggestion.entityId, candidate.getUniqueID(),
+                            locking ? 0 : host.aimSwitchDelayTicks())) {
                         return;
                     }
                     session.rotations().request(AIM_ID, RotationCoordinator.Scope.CAMERA,
@@ -184,6 +207,8 @@ public final class ForgeCombatController {
                     if (AIM_ID.equals(rotation.owner)) {
                         player.rotationYaw = rotation.yaw;
                         player.rotationPitch = rotation.pitch;
+                        aimSwitch.applied(session.generation(),session.tick(),
+                            suggestion.entityId,candidate.getUniqueID());
                         aimAdjusted[0] = true;
                         if (locking) aimLock.applied(
                             session.generation(), session.tick(),
@@ -191,11 +216,13 @@ public final class ForgeCombatController {
                         host.diagnostics().record(Counter.AIM_APPLIED);
                     } else {
                         aimLock.clear();
+                        aimSwitch.cancelPrepared();
                     }
                 }
             });
             if (!healthy) {
                 aimLock.clear();
+                aimSwitch.reset();
                 session.rotations().cancel(AIM_ID);
             }
         }
@@ -416,6 +443,7 @@ public final class ForgeCombatController {
     /** Clears timers and all pending owned intents on world or focus change. */
     void reset() {
         aimLock.reset();
+        aimSwitch.reset();
         scheduler.reset();
         patternScheduler.reset();
         physicalInput.reset();
