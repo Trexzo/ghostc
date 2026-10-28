@@ -48,7 +48,10 @@ public final class AutoRodPolicy {
             throw new IllegalArgumentException("invalid AutoRod sample");
         if(generation!=epoch) {
             clearOwnership();epoch=generation;lastTick=lastUse=-1;
-            armed=false;lastAttack=attackPhysical;cooldown=cooldownTicks;
+            // An observed RELEASE on the first world tick is sufficient
+            // to arm the NEXT genuine rising physical press. A held key
+            // at entry remains disarmed until an actual release is seen.
+            armed=!attackPhysical;lastAttack=attackPhysical;cooldown=cooldownTicks;
             return Action.NONE;
         }
         if(lastTick>=0&&tick<lastTick)
