@@ -211,6 +211,8 @@ jobs:
           grep -q 'HUD_PREVIEW_ART_PASS' .build/hud-preview-art.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudOverlapPolicyTests | tee .build/hud-overlap.log
           grep -q 'HUD_OVERLAP_POLICY_PASS' .build/hud-overlap.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudEditorConflictsTests | tee .build/hud-editor-conflicts.log
+          grep -q 'HUD_EDITOR_CONFLICTS_PASS' .build/hud-editor-conflicts.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudSnapPolicyTests | tee .build/hud-snap.log
           grep -q 'HUD_SNAP_POLICY_PASS' .build/hud-snap.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudPreviewTests | tee .build/hud-preview.log
