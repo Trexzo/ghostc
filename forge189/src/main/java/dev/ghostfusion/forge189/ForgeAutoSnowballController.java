@@ -70,6 +70,7 @@ final class ForgeAutoSnowballController {
                 ModuleActionTelemetry.Event.CANCELLED);
         owner=null;world=null;
     }
+    boolean ownsHotbar() { return policy.ownsHotbar(); }
     void reset() {
         try { restoreIfOwned(); }
         finally {policy.reset();host.services().actions().cancelOwner(MODULE);}
@@ -138,7 +139,7 @@ final class ForgeAutoSnowballController {
         boolean validPlayer=mc.theWorld.getEntityByID(p.getEntityId())==p &&
             !p.isDead&&Double.isFinite(p.getHealth())&&p.getHealth()>0 &&
             !p.capabilities.isFlying&&!p.isRiding()&&
-            !p.isUsingItem()&&p.true;
+            !p.isUsingItem();
         boolean target=validPlayer&&safeBinding&&!manualUse&&targetValid(p);
         ItemStack held=p.getHeldItem();
         boolean start=target&&!manualHotbar()&&
