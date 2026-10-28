@@ -56,3 +56,14 @@ task nativeTandemProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeTandemAcceptanceTests'
 }
 check.dependsOn nativeTandemProbe
+
+
+// R3.50 mandatory native Minecraft 1.8.9 crosshair ray/AABB probe.
+// This exercises genuine Forge dependency classes on both Linux/Windows
+// JDK8 without claiming an original Minecraft application/gameplay launch.
+task nativeRayProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeCrosshairRayTests'
+}
+check.dependsOn nativeRayProbe

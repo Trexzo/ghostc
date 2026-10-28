@@ -173,6 +173,7 @@ public final class IntegratedModuleCatalogTests {
         LiveAcceptanceCoverageTests.main(args);
         TriggerBotTests.main(args);
         AttackCommitTests.main(args);
+        AimTriggerHandoffTests.main(args);
         ok(count>65,"real integrated module and persisted profile coverage");
         System.out.println("INTEGRATED_MODULE_CATALOG_PASS assertions="+count);
     }
