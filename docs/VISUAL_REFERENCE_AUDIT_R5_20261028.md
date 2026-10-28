@@ -91,3 +91,12 @@ Choice settings have a tiny 5-pixel downward chevron in the right gutter to comm
 `GuiSlateControlGeometry` is pure Java and allocation-free. The Core Java 17/21 pipeline now runs `GuiSlateControlGeometryTests`, covering 40,000 seeded screen layouts, slider extremes and 21 monotonic samples, label/choice gutters, viewport containment, and nonfinite/out-of-range fractions. The Forge wiring test confirms the real Minecraft painter uses these geometry methods. Existing Classic, Mint, Indigo and compact controls remain on their original render/input paths.
 
 **Native acceptance remains outstanding:** open original Minecraft 1.8.9 at GUI scales 1/2/3, verify the thumb, choice indicator, setting label truncation, pointer dragging, keyboard focus, and F7 search/capture do not collide. Compare visual hierarchy against the referenced Vape/Slinky/Rise interfaces without copying their artwork.
+
+
+## R5 long-label discoverability — pointer-only Slate tooltips
+
+Long module names in the Slate list and human-readable setting names were previously trimmed with an ellipsis and had no hover reveal. The Forge painter now checks the **same visible module/setting row hit regions** used by mouse input; if and only if the original label exceeds its inline Minecraft font budget, a compact graphite tooltip displays a longer, safely fitted version beside the pointer. The affordance is read-only: it never changes a module, setting, search focus, key capture, scroll state or HUD anchor.
+
+`GuiSlateTooltipLayout` independently clamps the tooltip to the actual content panel, caps the text width to 260 pixels, reverses vertical placement near the bottom and reserves the final 20 pixels for warnings and keyboard hints. The box is drawn with simple graphite and hairline ice-blue pixels; no purple, fonts, assets, textures or shader glow. This intentionally shows a longer fit, not an unsupported guarantee that arbitrary hundreds-of-character names will fit.
+
+The Core CI now runs `GuiSlateTooltipLayoutTests` with 50,000 seeded panel/pointer/text combinations; the Forge source-contract checks assert the native row hit tests, tooltip layout call and footer-safe render path. Original Minecraft UI-scale screenshot and font testing remain required before native visual acceptance.
