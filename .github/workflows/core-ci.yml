@@ -90,6 +90,8 @@ jobs:
           grep -q 'GUI_TOGGLE_MOTION_PASS' .build/gui-toggle-motion.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudThemeTokensTests | tee .build/hud-theme-tokens.log
           grep -q 'HUD_THEME_TOKENS_PASS' .build/hud-theme-tokens.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.DiagnosticsHudStyleTests | tee .build/diagnostics-style.log
+          grep -q 'DIAGNOSTICS_HUD_STYLE_PASS' .build/diagnostics-style.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.SlateHudKeyStyleTests | tee .build/slate-hud-keys.log
           grep -q 'SLATE_HUD_KEY_STYLE_PASS' .build/slate-hud-keys.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.ModuleListEditorTests | tee .build/modulelist-editor.log
