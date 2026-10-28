@@ -175,6 +175,7 @@ public final class IntegratedModuleCatalogTests {
         ModuleInteractionTests.main(args);
         ModuleInteractionDiagnosticsTests.main(args);
         ModuleActionTelemetryTests.main(args);
+        CombatNativeEvidenceTests.main(args);
         LiveAcceptanceCoverageTests.main(args);
         TriggerBotTests.main(args);
         AttackCommitTests.main(args);
