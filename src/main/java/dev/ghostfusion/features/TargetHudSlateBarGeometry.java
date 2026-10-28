@@ -33,9 +33,11 @@ public final class TargetHudSlateBarGeometry {
             (int)Math.round(trackWidth*quarter/4.0)));
     }
     public static boolean fits(int cardWidth,int cardHeight,int fontHeight) {
-        if(cardWidth<2*INSET+4||cardHeight<1||fontHeight<1)return false;
-        // Name readout at y+7 and muted separator at y+18 cannot collide.
+        if(cardWidth<30||cardHeight<1||fontHeight<1)return false;
+        // Both the name row and the y+33 distance baseline must be admitted;
+        // otherwise a short synthetic card could admit a clipped label.
         return 7+fontHeight<=DIVIDER_Y &&
-            DIVIDER_Y+1<TOP && TOP+HEIGHT<=cardHeight;
+            DIVIDER_Y+1<TOP && TOP+HEIGHT<=cardHeight &&
+            33+fontHeight<=cardHeight;
     }
 }
