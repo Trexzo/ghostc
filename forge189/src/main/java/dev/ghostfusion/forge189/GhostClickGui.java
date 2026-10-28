@@ -778,6 +778,32 @@ public final class GhostClickGui extends GuiScreen {
         if (footer!=null && GuiFooterText.warning(message,host.uiWarning()).isEmpty())
             label(trim(footer,GuiFooterText.pixelBudget(w,side)),
                 x+side+13,y+h-13,0xFFE7E8F5);
+        // The compact renderer now has the same read-only long-label
+        // discoverability as the full Slate workspace. Avoid actual toggle
+        // and slider input regions; keep all native hit testing unchanged.
+        if(slateCompact) {
+            String reveal=null;
+            int overModule=GuiHitZones.moduleIndex(
+                compactZone,mx,my,scroll,filtered.size());
+            if(overModule>=0 && mx<x+w-60) {
+                String original=filtered.get(overModule).module().displayName();
+                if(!trim(original,GuiSlateCompactMetrics.moduleLabelBudget(
+                    compactZone)).equals(original))reveal=original;
+            }
+            if(reveal==null && hoveredSetting>=0 &&
+               hoveredSetting<settings.size()) {
+                Setting<?> setting=settings.get(hoveredSetting).getValue();
+                int kind=setting instanceof Setting.Bool?0:
+                    setting instanceof Setting.Number?1:2;
+                int budget=GuiSlateCompactMetrics.labelBudget(compactZone,kind);
+                if(mx>=x+side+15 && mx<x+side+15+budget) {
+                    String original=GuiSettingPresentation.label(setting.id());
+                    if(!trim(original,budget).equals(original))
+                        reveal=original;
+                }
+            }
+            if(reveal!=null)drawSlateTooltip(reveal,mx,my,compactTheme);
+        }
     }
     private String trim(String text, int maxPixels) {
         // The legacy substring loop could split a supplementary Unicode
