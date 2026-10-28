@@ -7,6 +7,7 @@ import dev.ghostfusion.ui.HudWidgetViewport;
 import dev.ghostfusion.ui.HudScaleLayout;
 import dev.ghostfusion.ui.DiagnosticsHudLayout;
 import dev.ghostfusion.ui.DiagnosticsHudStyle;
+import dev.ghostfusion.ui.UiState;
 import dev.ghostfusion.ui.HudTextFit;
 import dev.ghostfusion.ui.ModuleListLayout;
 import dev.ghostfusion.ui.ModuleListMotion;
@@ -346,10 +347,14 @@ public final class ForgeFeatureDriver {
             }
         }
     }
-    private void drawDiagnosticText(String value,int x,int y,int maxWidth,int color) {
+    private void drawDiagnosticText(String value,int x,int y,int maxWidth,
+                                    int color,boolean slate) {
         String fitted=mc.fontRendererObj.trimStringToWidth(value,maxWidth);
-        if(!fitted.isEmpty())
-            mc.fontRendererObj.drawStringWithShadow(fitted,x,y,color);
+        if(fitted.isEmpty())return;
+        // Text-first Slate uses a single Minecraft font pass; legacy
+        // diagnostics keep their original shadowed pixels exactly.
+        if(slate)mc.fontRendererObj.drawString(fitted,x,y,color);
+        else mc.fontRendererObj.drawStringWithShadow(fitted,x,y,color);
     }
     /** Rendered-row-only metric acquisition. Snapshot distributions are read
      * once per visible panel rather than once per string or invisible row. */
@@ -432,16 +437,18 @@ public final class ForgeFeatureDriver {
         int x=layout.x, y=layout.y;
         // The default Slate profile should never inherit the purple
         // development overlay. Legacy profile colors stay unchanged.
-        DiagnosticsHudStyle style=DiagnosticsHudStyle.of(host.ui().theme());
+        UiState.Theme selectedTheme=host.ui().theme();
+        DiagnosticsHudStyle style=DiagnosticsHudStyle.of(selectedTheme);
+        boolean slate=selectedTheme==UiState.Theme.SLATE;
         Gui.drawRect(x,y,x+layout.width,y+layout.height,style.panel);
         drawDiagnosticText("GhostC " + GhostCMod.CLIENT_VERSION +
-            " diagnostics",x+5,y+5,layout.textWidth,style.title);
+            " diagnostics",x+5,y+5,layout.textWidth,style.title,slate);
         // Compact panels evaluate ONLY the rows the layout can actually paint.
         // Full panels retain exactly the original fourteen labels and order.
         DiagnosticLines lines=new DiagnosticLines();
         for(int slot=0;slot<layout.rows;slot++)
             drawDiagnosticText(lines.row(layout.sourceRow(slot)),x+5,
-                layout.rowY(slot),layout.textWidth,style.body);
+                layout.rowY(slot),layout.textWidth,style.body,slate);
         // Focus/suppression remains in the saved local report.
     }
     /**
