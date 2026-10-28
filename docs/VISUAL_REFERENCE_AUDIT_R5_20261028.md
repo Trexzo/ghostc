@@ -38,3 +38,18 @@ Slate Wide 740×480 themed workspace; `GuiSlateWorkspace` hit geometry; native M
 ### Merge/release boundaries
 
 Do not alter combat timing, packets, rotations, target selection, inventory arbitration or module execution. This visual refinement is intentionally **stacked on** PR #164, not merged into `main` or the combat integration branch. Compilation/CI can verify type safety and geometry; a live Minecraft session is still needed to prove aesthetics, responsiveness and FPS.
+
+
+## Follow-up implementation — ArrayList and navigation polish
+
+The same isolated stacked PR now includes:
+
+- Slate ArrayList **shadow-free text** for a cleaner single-pixel Minecraft font; Classic and Minimal keep their original shadowed text renderer.
+- A single font measurement per fitted ArrayList candidate shared with paint, instead of measuring the same display name again in the Forge loop.
+- A bounded, allocation-free `ModuleListTextGeometry` easing/anchor calculation; it respects right/left and custom positions and never places glyphs outside the scaled viewport.
+- Skips near-zero-alpha text frames because vanilla Minecraft may coerce a nearly transparent font color to fully opaque. Preserves the 180 ms entry ease; disabled/faulted modules are still removed from the visible registry immediately.
+- Resets ArrayList entry motion when the world/HUD resets, the Module List is disabled/faulted, or Slate is changed to a legacy style. Re-enabling Slate cannot inherit a stale previous-session animation.
+- Slate ClickGUI navigation shows a small, right-aligned enabled-module count per category (and total under All); the count derives from actual ModuleRegistry.State.ENABLED, excludes faulted/disabled modules, and never edits settings or module state. Zero counts are invisible.
+- Two new pure-Java regressions: 40k randomized text-placement viewports/anchors/transitions, plus 10k randomized enabled-count toggles. Tests are included in Core Java17/21 CI and Forge JDK8 still compiles the real painter.
+
+**Evidence limit:** passing compile/geometry tests is not a substitute for screenshots and frame-time from original Minecraft 1.8.9. No gameplay input arbitration, module combat logic, packet hooks or shader resources were modified in this pass.
