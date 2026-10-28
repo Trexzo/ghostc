@@ -1,7 +1,7 @@
 package dev.ghostfusion.features;
 
 /**
- * Optional gate for EXTRA AutoClicker pulses only. It never suppresses vanilla
+ * Optional gate for the single chosen synthetic combat attack (AutoClicker or TriggerBot).\n * It never suppresses vanilla
  * manual attacks and never mutates Minecraft entities, packets or key states.
  */
 public final class HitSelectPolicy {
@@ -17,7 +17,7 @@ public final class HitSelectPolicy {
             minimumGapTicks,0,"normal",1,tick,epoch);
     }
     /**
-     * Event-aware filters for extra AutoClicker pulses ONLY.
+     * Event-aware filters for the arbitrated synthetic attack winner ONLY.
      * Normal retains legacy target-hurt window semantics; "ready" requires
      * target hurt-time zero; "trade" requires the local player to be in
      * their configured hurt-time window. The native manual click path is never
