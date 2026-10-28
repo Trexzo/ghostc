@@ -45,6 +45,7 @@ public final class ForgeEventAdapter {
     private final ForgeFeatureDriver features;
     private final ForgeCombatController combat;
     private final ForgeAutoRodController autoRod;
+    private final ForgeAutoSnowballController autoSnowball;
     private final ForgeBridgeAssistController bridge;
     private final ForgeVelocityController velocity;
     private final ForgeWTapController wtap;
@@ -78,6 +79,7 @@ public final class ForgeEventAdapter {
         this.features = new ForgeFeatureDriver(minecraft,host);
         this.combat = new ForgeCombatController(minecraft,host);
         this.autoRod = new ForgeAutoRodController(minecraft,host);
+        this.autoSnowball = new ForgeAutoSnowballController(minecraft,host);
         this.bridge = new ForgeBridgeAssistController(minecraft,host);
         this.velocity = new ForgeVelocityController(minecraft,host);
         this.wtap = new ForgeWTapController(minecraft,host);
@@ -109,6 +111,7 @@ public final class ForgeEventAdapter {
             wtap.reset();
             jumpReset.reset();
             autoRod.reset();
+            autoSnowball.reset();
             chestStealer.reset();
             inventoryManager.reset();
             autoArmor.reset();
@@ -125,6 +128,7 @@ public final class ForgeEventAdapter {
             wtap.reset();
             jumpReset.reset();
             autoRod.reset();
+            autoSnowball.reset();
             chestStealer.reset();
             inventoryManager.reset();
             autoArmor.reset();
@@ -139,6 +143,7 @@ public final class ForgeEventAdapter {
             wtap.reset();
             jumpReset.reset();
             autoRod.reset();
+            autoSnowball.reset();
             chestStealer.reset();
             inventoryManager.reset();
             autoArmor.reset();
@@ -290,7 +295,8 @@ public final class ForgeEventAdapter {
                 host.featureEnabled("inventory.manager"),
                 host.featureEnabled("inventory.cheststealer"),
                 host.featureEnabled("combat.jumpreset"),
-                host.featureEnabled("combat.autorod"));
+                host.featureEnabled("combat.autorod"),
+                host.featureEnabled("combat.autosnowball"));
         ModuleInteractionStateMachine.Frame plan=moduleState.advance(
             host.services().generation(),host.services().tick(),
             worldReady && host.services().connected(),
@@ -314,7 +320,7 @@ public final class ForgeEventAdapter {
             if(plan.chestStealer)host.diagnostics().record(Counter.MODULE_CHEST_GRANT);
             boolean gameplayRequested=enabled.combat||enabled.bridge||
                 enabled.velocity||enabled.wtap||enabled.sprint||
-                enabled.jumpReset||enabled.autoRod;
+                enabled.jumpReset||enabled.autoRod||enabled.autoSnowball;
             if(gameplayRequested && worldReady &&
                scene!=ModuleInteractionStateMachine.Scene.GAME)
                 host.diagnostics().record(Counter.MODULE_GAMEPLAY_GUI_DENIED);
@@ -330,9 +336,17 @@ public final class ForgeEventAdapter {
         // AutoRod alone owns HOTBAR_SELECT+USE while selecting, casting and
         // restoring. Never run optional AutoClicker, TriggerBot, Block Hit or
         // Aim Assist camera writes during that short native transaction.
-        boolean rodOwns=plan.autoRod && autoRod.tick();
-        if(!plan.autoRod)autoRod.reset();
-        if(plan.combat && !rodOwns)combat.tick();else combat.reset();
+        // In-flight hotbar transactions are exclusive across ticks, not
+        // merely on the tick the key pulse was emitted. A prior Snowball
+        // owner keeps the slot until its RESTORE; otherwise Rod wins a
+        // simultaneous new physical-attack edge, then Snowball can propose.
+        boolean rodOwns=false,snowballOwns=false;
+        if(!plan.autoRod || autoSnowball.ownsHotbar())autoRod.reset();
+        else rodOwns=autoRod.tick();
+        if(!plan.autoSnowball || rodOwns)autoSnowball.reset();
+        else snowballOwns=autoSnowball.tick();
+        if(plan.combat && !rodOwns && !snowballOwns)combat.tick();
+        else combat.reset();
         if(plan.bridge)bridge.tick();else bridge.reset();
         if(plan.velocity)velocity.tick();else velocity.reset();
         if(plan.wtap)wtap.tick();else wtap.reset();
@@ -399,6 +413,7 @@ public final class ForgeEventAdapter {
                 wtap.reset();
             jumpReset.reset();
             autoRod.reset();
+            autoSnowball.reset();
                 chestStealer.reset();
                 inventoryManager.reset();
                 autoArmor.reset();
@@ -611,6 +626,7 @@ public final class ForgeEventAdapter {
                 wtap.reset();
             jumpReset.reset();
             autoRod.reset();
+            autoSnowball.reset();
                 chestStealer.reset();
                 inventoryManager.reset();
                 autoArmor.reset();
