@@ -756,7 +756,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("GuiSlateTooltipLayout.place(",gui)
         self.assertIn("pane.moduleIndex(mx,my,scroll,filtered.size())",gui)
         self.assertIn("pane.settingLabelBudget(kind)",gui)
-        self.assertIn("if(reveal!=null)drawSlateTooltip(reveal,pane,mx,my,color);",gui)
+        self.assertIn("if(reveal!=null)drawSlateTooltip(reveal,mx,my,color);",gui)
         self.assertIn("GUI_SLATE_TOOLTIP_LAYOUT_PASS",content(".github/workflows/core-ci.yml"))
         self.assertIn("pane.searchX()",gui)
         self.assertIn("int targetWidth=pane==null?g.searchWidth:",gui)
