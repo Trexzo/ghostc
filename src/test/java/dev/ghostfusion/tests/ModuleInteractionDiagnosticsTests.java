@@ -22,7 +22,7 @@ public final class ModuleInteractionDiagnosticsTests {
         checks++;if(!good)throw new AssertionError(reason);
     }
     private static Enabled all() {
-        return new Enabled(true,true,true,true,true,true,true,true,true,true);
+        return new Enabled(true,true,true,true,true,true,true,true,true,true,true);
     }
     private static void decisions() {
         ModuleInteractionStateMachine m=new ModuleInteractionStateMachine();
@@ -38,6 +38,7 @@ public final class ModuleInteractionDiagnosticsTests {
         ok(f.denial(Resource.AUTO_SPRINT)==Denial.WTAP_RESERVED &&
            f.denial(Resource.JUMP_RESET)==Denial.WTAP_RESERVED &&
            f.denial(Resource.AUTO_ROD)==Denial.WTAP_RESERVED &&
+           f.denial(Resource.AUTO_SNOWBALL)==Denial.WTAP_RESERVED &&
            f.denial(Resource.WTAP)==Denial.NONE &&
            f.denial(Resource.VELOCITY)==Denial.NONE &&
            f.denial(Resource.COMBAT)==Denial.NONE,
@@ -93,7 +94,7 @@ public final class ModuleInteractionDiagnosticsTests {
             Enabled e=new Enabled(rng.nextBoolean(),rng.nextBoolean(),
                 rng.nextBoolean(),rng.nextBoolean(),rng.nextBoolean(),
                 rng.nextBoolean(),rng.nextBoolean(),rng.nextBoolean(),
-                rng.nextBoolean(),rng.nextBoolean());
+                rng.nextBoolean(),rng.nextBoolean(),rng.nextBoolean());
             Frame f=m.advance(generation,tick++,world,scene,foreground,e,reserved);
             for(Resource r:Resource.values()) {
                 Denial why=f.denial(r);
@@ -122,6 +123,9 @@ public final class ModuleInteractionDiagnosticsTests {
             if(f.autoRod)
                 ok(f.denial(Resource.AUTO_ROD)==Denial.NONE,
                    "AutoRod own native hotbar/input grant must match the state machine");
+            if(f.autoSnowball)
+                ok(f.denial(Resource.AUTO_SNOWBALL)==Denial.NONE,
+                   "AutoSnowball native owner grant matches the actual arbiter");
             String owned=ModuleInteractionReadout.ownership(f);
             String held=ModuleInteractionReadout.suppression(f);
             ok(owned.length()<130 && held.length()<130 &&
