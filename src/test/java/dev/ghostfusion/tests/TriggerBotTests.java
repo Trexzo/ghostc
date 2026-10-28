@@ -1,6 +1,7 @@
 package dev.ghostfusion.tests;
 
 import dev.ghostfusion.features.TriggerBotPolicy;
+import dev.ghostfusion.features.HitSelectPolicy;
 import dev.ghostfusion.services.ActionCoordinator;
 import dev.ghostfusion.services.ActionCoordinator.Type;
 import dev.ghostfusion.services.ActionCoordinator.Phase;
@@ -93,6 +94,30 @@ public final class TriggerBotTests {
             actions.cancelOwner("combat.triggerbot");
         }
         ok(clickerWins>10000&&triggerWins>10000,"both sources exercise actual ownership");
+        // Shared Hit Select is applied to exactly the winning ATTACK intent.
+        // A second source cannot sneak around its cooldown.
+        ActionCoordinator shared=new ActionCoordinator();
+        HitSelectPolicy hit=new HitSelectPolicy();
+        shared.request("combat.clicker",Type.ATTACK,Phase.OUTPUT,0,20,0,1,22);
+        shared.request("combat.triggerbot",Type.ATTACK,Phase.OUTPUT,0,10,0,1,22);
+        ActionCoordinator.Decision winner=shared.consume(Type.ATTACK,Phase.OUTPUT,0,22);
+        ok(winner!=null && "combat.clicker".equals(winner.owner),
+            "physical source wins contested attack");
+        ok(hit.accept(true,true,0,2,3,0,"normal",1,0,22),
+            "one actual winner consumes shared Hit Select gap");
+        ok(shared.consume(Type.ATTACK,Phase.OUTPUT,0,22)==null,
+            "losing TriggerBot cannot consume Hit Select again");
+        shared.cancelOwner("combat.triggerbot");
+        shared.request("combat.triggerbot",Type.ATTACK,Phase.OUTPUT,0,10,1,1,22);
+        winner=shared.consume(Type.ATTACK,Phase.OUTPUT,1,22);
+        ok(winner!=null && "combat.triggerbot".equals(winner.owner),
+            "TriggerBot wins without physical AutoClicker candidate");
+        ok(!hit.accept(true,true,0,2,3,0,"normal",1,1,22),
+            "TriggerBot respects cooldown established by AutoClicker");
+        shared.request("combat.triggerbot",Type.ATTACK,Phase.OUTPUT,0,10,3,1,22);
+        winner=shared.consume(Type.ATTACK,Phase.OUTPUT,3,22);
+        ok(winner!=null && hit.accept(true,true,0,2,3,0,"normal",1,3,22),
+            "TriggerBot can fire after the shared Hit Select gap");
         p.reset();
         ok(p.state()==TriggerBotPolicy.State.IDLE,"panic reset disarms");
         System.out.println("TRIGGERBOT_PASS assertions="+checks);
