@@ -221,7 +221,7 @@ public final class ForgeCombatController {
         if (host.featureEnabled(TRIGGER_ID)) {
             boolean healthy = host.runFeature(TRIGGER_ID, new Runnable() {
                 public void run() {
-                    boolean eligible = !physicalDown && !held && !useHeld &&
+                    boolean eligible = triggerBindingValid() && !physicalDown && !held && !useHeld &&
                         !player.isUsingItem() && !aimAdjusted[0] &&
                         triggerTargetValid(player,target,sword);
                     java.util.UUID uuid = eligible ? target.getUniqueID() : null;
@@ -305,6 +305,7 @@ public final class ForgeCombatController {
             });
         } else if (selectedAttack != null && TRIGGER_ID.equals(selectedAttack.owner) &&
             attackApproved && host.featureEnabled(TRIGGER_ID) &&
+            triggerBindingValid() &&
             !mc.gameSettings.keyBindAttack.isKeyDown() &&
             !mc.gameSettings.keyBindUseItem.isKeyDown() &&
             !player.isUsingItem() && !aimAdjusted[0] &&
@@ -341,6 +342,14 @@ public final class ForgeCombatController {
             host.nativeAction(ModuleActionTelemetry.Lane.BLOCKHIT,
                 ModuleActionTelemetry.Event.REJECTED);
         }
+    }
+
+    /** Synthetic key pulses must not bind the GUI shortcut, unbound key or use key. */
+    private boolean triggerBindingValid() {
+        int attack=mc.gameSettings.keyBindAttack.getKeyCode();
+        int use=mc.gameSettings.keyBindUseItem.getKeyCode();
+        return attack!=0 && attack!=use &&
+            attack!=dev.ghostfusion.core.ReservedKeys.CLICK_GUI;
     }
 
     /** Fresh crosshair, world, reach and team validation at native boundary. */
