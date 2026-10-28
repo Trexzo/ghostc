@@ -111,3 +111,14 @@ There is no claim that the fallback is the intended full Slate interface. A new 
 `GuiSlateScaleMatrixTests` now models the actual Minecraft 1.8.9 minimum viewport factor rules, uses the real theme-aware `GuiLayout.calculate(screenW,screenH,layout,theme)` overload, and covers 11 common monitor resolutions, requested GUI scales Auto/1–4, and 25,000 seeded random physical viewports. For every full Slate workspace it checks search/clear disjointness, module and setting row hit gaps, slider/choice containment, tooltip footer exclusion, and content boundaries. Fallback/undersized cases verify safe admission. This is **simulated geometry acceptance**, not original Minecraft screenshot certification; real F7/ClickGUI render and font legibility still need testing at GUI Scale 2/3 as a milestone.
 
 The optional Slate diagnostics panel now follows the same crisp, shadow-free Minecraft font treatment as other Slate HUD components. Indigo and Graphite diagnostics preserve the previous shadowed text route. The Forge source wiring test enforces both paint branches.
+
+
+## R5 responsive Slate compact renderer — consistent styling under Auto GUI Scale
+
+The original single-column fallback UI (used when Minecraft's scaled viewport cannot admit the full Slate three-pane workspace) now has a Slate-specific visual branch. Its sidebar uses the same graphite/ice tokens, hover regions and live enabled-category counts as the wide view. Module rows use understated selection and hover surfaces, narrow ice accent marks, and restrained ON/OFF/RESET state chips rather than full-bright filled buttons.
+
+Compact setting rows now show human-readable `GuiSettingPresentation` labels, a genuine 27×13 Slate boolean switch, a slim slider track and bounded 4px handle, and an arrow for cycleable choices. A tested `GuiSlateCompactMetrics` helper reserves non-overlapping text budgets between module labels, keybind control columns, numeric values, sliders and choice arrows. Truncated module/setting labels have the same non-interactive Slate hover tooltip as the full workspace, with no tooltip above native toggle or setting-control zones.
+
+The source retains the existing `GuiHitZones.moduleIndex` and `GuiHitZones.settingIndex` for pointer ownership and keeps all `UiActions` calls and settings serialization unchanged. Legacy INDIGO and GRAPHITE/MINT paint branches keep their original solid buttons and values. The new `GuiSlateCompactMetricsTests` validates 50,000 deterministic random fallback layouts, control gaps, and a representative 480×270 scaled-GUI case. It is registered in Core Java 17/21 CI, alongside updated Forge source-wiring checks.
+
+**Scope and limits:** visual implementation plus deterministic layout tests only. Authentic original Minecraft 1.8.9 screenshots at GUI Scale Auto, 2 and 3, and interactive mouse/keyboard acceptance, remain prerequisites to calling this released or visually certified.
