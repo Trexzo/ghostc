@@ -669,9 +669,9 @@ public final class GhostClickGui extends GuiScreen {
         rect(sx,sy+GuiSlateCompactSearchGeometry.SURFACE_HEIGHT-1,sw,1,stroke);
         rect(sx,sy,1,GuiSlateCompactSearchGeometry.SURFACE_HEIGHT,stroke);
         rect(sx+sw-1,sy,1,GuiSlateCompactSearchGeometry.SURFACE_HEIGHT,stroke);
-        // Minimal original search glyph in the content gutter, outside
-        // the native textbox caret and all persisted click regions.
-        int gx=sx-11,gy=sy+7;
+        // Original glyph stays inside the search surface, with a full
+        // dedicated gutter before native caret and a separate clear button.
+        int gx=sx+7,gy=sy+7;
         rect(gx+1,gy,5,1,theme.muted);
         rect(gx,gy+1,1,5,theme.muted);
         rect(gx+6,gy+1,1,5,theme.muted);
