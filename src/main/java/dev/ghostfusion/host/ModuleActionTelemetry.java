@@ -14,7 +14,7 @@ import java.util.Map;
  * DISPATCHED: vanilla key/sprint API invoked, NOT an accepted hit/packet.
  */
 public final class ModuleActionTelemetry {
-    public enum Lane { CHEST, SORTER, ARMOR, WTAP, CLICKER, BLOCKHIT, TRIGGER }
+    public enum Lane { CHEST, SORTER, ARMOR, WTAP, CLICKER, BLOCKHIT, TRIGGER, JUMPRESET }
     public enum Event {
         ATTEMPT, LOCAL_CHANGE, TIMEOUT, CANCELLED, REJECTED,
         DISPATCHED, LOCAL_COMPLETE
