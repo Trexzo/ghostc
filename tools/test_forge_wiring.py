@@ -2412,6 +2412,9 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("HudEditorControls.tabAt(tabsX,tabsY,tabsWidth,mx,my)",gui)
         self.assertIn("slateEditor && item==hoveredTab",gui)
         self.assertIn("rect(bx,tabsY+16,bw,1,palette().accent);",gui)
+        self.assertIn("public static boolean overlaps(",overlap)
+        self.assertIn("collision query never mutates UI anchors",tests)
+        self.assertIn("HUD_OVERLAP_POLICY_PASS",content(".github/workflows/core-ci.yml"))
 
     def test_slate_diagnostics_overlay_uses_live_ui_style(self):
         source=self.feature
@@ -2422,9 +2425,6 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("0xFFAEAAFF",colors)
         self.assertIn("HudThemeTokens.of(\"slate\").accent",colors)
         self.assertIn("DIAGNOSTICS_HUD_STYLE_PASS",content(".github/workflows/core-ci.yml"))
-        self.assertIn("public static boolean overlaps(",overlap)
-        self.assertIn("collision query never mutates UI anchors",tests)
-        self.assertIn("HUD_OVERLAP_POLICY_PASS",content(".github/workflows/core-ci.yml"))
 
     def test_hud_snap_policy_has_opt_out_and_preview_only_guides(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
