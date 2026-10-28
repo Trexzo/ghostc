@@ -205,9 +205,11 @@ final class ForgeAutoRodController {
                !manualHotbar()) {
                 p.inventory.currentItem=policy.originalSlot();
                 mc.playerController.updateController();
+                boolean cast=policy.castObserved();
                 policy.committed(Action.RESTORE,epoch,tick);
                 host.nativeAction(ModuleActionTelemetry.Lane.AUTOROD,
-                    ModuleActionTelemetry.Event.LOCAL_COMPLETE);
+                    cast ? ModuleActionTelemetry.Event.LOCAL_COMPLETE :
+                           ModuleActionTelemetry.Event.CANCELLED);
             } else {
                 // A manual slot override wins. Clear the pending receipt;
                 // do not restore an old slot over the user's current choice.
