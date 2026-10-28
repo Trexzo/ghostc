@@ -60,8 +60,10 @@ public final class AutoRodPolicy {
         pending=Action.NONE;
         stageTick=-1;
         if(cooldownTicks!=cooldown) {
-            // Changed settings cannot borrow an earlier press/cooldown.
+            // Live configuration edits cancel an in-progress rod use and
+            // request a safe restoration instead of inheriting old consent.
             cooldown=cooldownTicks;armed=false;edge=false;
+            if(ownsHotbar())next=Action.RESTORE;
         }
         if(!attackPhysical)armed=true;
 
