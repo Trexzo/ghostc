@@ -30,6 +30,7 @@ import dev.ghostfusion.ui.HudPreviewArt;
 import dev.ghostfusion.ui.HudThemeTokens;
 import dev.ghostfusion.ui.HudSnapPolicy;
 import dev.ghostfusion.ui.HudOverlapPolicy;
+import dev.ghostfusion.ui.HudEditorConflicts;
 import dev.ghostfusion.ui.ModuleListLayout;
 import dev.ghostfusion.ui.HudFootprints;
 import dev.ghostfusion.ui.HudScaleLayout;
@@ -75,6 +76,10 @@ public final class GhostClickGui extends GuiScreen {
     private final HudDragCapture hudCapture = new HudDragCapture();
     private Widget draggingWidget; // null means the original Status HUD
     private final HudEditorControls hudControls = new HudEditorControls();
+    // Stable read-only preview references, reused for each paint: STATUS
+    // first, then Keystrokes/CPS/Target/ArrayList in F7 tab order.
+    private final Rect[] hudPreviewRects=
+        new Rect[HudEditorControls.Item.values().length];
     private final GuiSliderDrag sliderDrag = new GuiSliderDrag();
     private final GuiScrollDrag scrollDrag = new GuiScrollDrag();
     private final GuiToggleMotion slateToggleMotion = new GuiToggleMotion();
@@ -805,29 +810,26 @@ public final class GhostClickGui extends GuiScreen {
             rect(canvas.x,gy,canvas.width,1,editorStyle.previewGrid);
 
         Rect status=geometry.status(ui,statusPreviewWidth(),statusPreviewHeight());
+        hudPreviewRects[HudEditorControls.Item.STATUS.ordinal()]=status;
         drawHudMiniature(status,null,hudControls.selected()==HudEditorControls.Item.STATUS);
 
         for(Widget widget:Widget.values()) {
+            HudEditorControls.Item item=HudEditorControls.itemFor(widget);
             Rect r=hudPreviewRect(geometry,widget);
-            drawHudMiniature(r,widget,
-                hudControls.selected()==HudEditorControls.itemFor(widget));
+            hudPreviewRects[item.ordinal()]=r;
+            drawHudMiniature(r,widget,hudControls.selected()==item);
         }
-        // Highlight only collisions involving the selected HUD; no automatic moves.
-        Rect selectedRect=hudControls.selected()==HudEditorControls.Item.STATUS
-            ?status:hudPreviewRect(geometry,hudControls.selected().widget);
-        boolean hudOverlaps=false;
-        if(HudOverlapPolicy.overlaps(selectedRect,status) &&
-           hudControls.selected()!=HudEditorControls.Item.STATUS) {
-            hudConflictOutline(status);hudOverlaps=true;
-        }
-        for(Widget peer:Widget.values()) {
-            if(peer==hudControls.selected().widget)continue;
-            Rect other=hudPreviewRect(geometry,peer);
-            if(HudOverlapPolicy.overlaps(selectedRect,other)) {
-                hudConflictOutline(other);hudOverlaps=true;
+        // A single, read-only pass drives both peer outlines and a truthful
+        // named warning. No second list-footprint or font-width measurement.
+        int conflicts=HudEditorConflicts.mask(hudControls.selected(),hudPreviewRects);
+        boolean hudOverlaps=conflicts!=0;
+        if(hudOverlaps) {
+            for(HudEditorControls.Item peer:HudEditorControls.Item.values()) {
+                if(HudEditorConflicts.includes(conflicts,peer))
+                    hudConflictOutline(hudPreviewRects[peer.ordinal()]);
             }
+            hudConflictOutline(hudPreviewRects[hudControls.selected().ordinal()]);
         }
-        if(hudOverlaps)hudConflictOutline(selectedRect);
         if(hudDragging) {
             if(snapGuideX!=HudSnapPolicy.NO_GUIDE)
                 rect(Math.min(canvas.x+canvas.width-1,Math.max(canvas.x,snapGuideX)),
@@ -837,7 +839,8 @@ public final class GhostClickGui extends GuiScreen {
                     Math.max(canvas.y,snapGuideY)),canvas.width,1,editorStyle.snapGuide);
         }
         label(trim(hudOverlaps
-            ?"HUD overlap detected | Drag to separate | R: Reset"
+            ?HudEditorConflicts.message(hudControls.selected(),conflicts)+
+                " | Drag apart | R: Reset"
             :"1 Default 2 PvP 3 Stream | [ ] Resize | Alt: Free | 0: 1x | R: Position",
             w-side-20),
             previewX,previewY+previewH+8,editorStyle.helpText);
