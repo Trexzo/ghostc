@@ -123,6 +123,8 @@ public final class HostRuntime {
     private final Setting.Number aimVertical = new Setting.Number("vertical_fraction", 1.0, 0.1, 1.0);
     private final Setting.Number aimTargetHeight = new Setting.Number("target_height", 1.25, 0.4, 1.7);
     private final Setting.Bool aimLockTarget = new Setting.Bool("lock_target", false);
+    // Optional switching stability; zero exactly preserves the old instant choice.
+    private final Setting.Number aimSwitchDelay = new Setting.Number("switch_delay_ticks",0.0,0.0,10.0);
     private final Setting.Choice aimPriority = new Setting.Choice(
         "target_priority", "angular", "angular", "distance");
     // Opt-in TriggerBot: player crosshair dwell and bounded native click cadence.
@@ -259,7 +261,8 @@ public final class HostRuntime {
             bridgeLookahead, bridgeReleaseDelay, bridgeRequireBlocks, bridgeAllowSideways);
         modules.register(new FeatureModule("combat.aimassist", "Aim Assist", GhostModule.Category.COMBAT),
             0, aimRange, aimFov, aimSpeed, aimVisible, aimRequireClick,
-            aimHorizontal, aimVertical, aimTargetHeight, aimLockTarget, aimPriority);
+            aimHorizontal, aimVertical, aimTargetHeight, aimLockTarget, aimPriority,
+            aimSwitchDelay);
         modules.register(new FeatureModule("combat.clicker", "AutoClicker", GhostModule.Category.COMBAT),
             0, clickRate, clickEntitiesOnly, clickPattern, clickMinCps, clickMaxCps);
         modules.register(new FeatureModule("combat.triggerbot", "TriggerBot", GhostModule.Category.COMBAT),
@@ -503,6 +506,7 @@ public final class HostRuntime {
     public double aimVerticalFraction() { modules.assertOwnerThread(); return aimVertical.get(); }
     public double aimTargetHeight() { modules.assertOwnerThread(); return aimTargetHeight.get(); }
     public boolean aimLockTarget() { modules.assertOwnerThread(); return aimLockTarget.get(); }
+    public int aimSwitchDelayTicks() { modules.assertOwnerThread(); return aimSwitchDelay.get().intValue(); }
     public String aimTargetPriority() { modules.assertOwnerThread(); return aimPriority.get(); }
     public int triggerAcquireTicks() { modules.assertOwnerThread(); return triggerAcquire.get().intValue(); }
     public int triggerCooldownTicks() { modules.assertOwnerThread(); return triggerCooldown.get().intValue(); }
