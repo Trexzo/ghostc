@@ -2428,9 +2428,13 @@ class ForgeWiring(unittest.TestCase):
     def test_slate_diagnostics_overlay_uses_live_ui_style(self):
         source=self.feature
         colors=content("src/main/java/dev/ghostfusion/ui/DiagnosticsHudStyle.java")
-        self.assertIn("DiagnosticsHudStyle.of(host.ui().theme())",source)
-        self.assertIn("layout.textWidth,style.title",source)
-        self.assertIn("layout.textWidth,style.body",source)
+        self.assertIn("DiagnosticsHudStyle.of(selectedTheme)",source)
+        self.assertIn("boolean slate=selectedTheme==UiState.Theme.SLATE;",source)
+        self.assertIn("layout.textWidth,style.title,slate",source)
+        self.assertIn("layout.textWidth,style.body,slate",source)
+        self.assertIn("if(slate)mc.fontRendererObj.drawString(fitted,x,y,color);",source)
+        self.assertIn("else mc.fontRendererObj.drawStringWithShadow(fitted,x,y,color);",source)
+        self.assertIn("GUI_SLATE_SCALE_MATRIX_PASS",content(".github/workflows/core-ci.yml"))
         self.assertIn("0xFFAEAAFF",colors)
         self.assertIn("HudThemeTokens.of(\"slate\").accent",colors)
         self.assertIn("DIAGNOSTICS_HUD_STYLE_PASS",content(".github/workflows/core-ci.yml"))
