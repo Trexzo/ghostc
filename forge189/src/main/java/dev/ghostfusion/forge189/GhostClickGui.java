@@ -12,6 +12,7 @@ import dev.ghostfusion.ui.GuiHudEditorStyle;
 import dev.ghostfusion.ui.GuiToggleMotion;
 import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiSlateWorkspace;
+import dev.ghostfusion.ui.GuiSlateSearchGeometry;
 import dev.ghostfusion.ui.GuiSettingPresentation;
 import dev.ghostfusion.ui.GuiScrollIndicator;
 import dev.ghostfusion.ui.GuiScrollDrag;
@@ -146,9 +147,10 @@ public final class GhostClickGui extends GuiScreen {
     }
     private void syncSearch(GuiLayout g) {
         GuiSlateWorkspace pane=slateWorkspace(g);
-        int targetX=pane==null?g.searchX:pane.searchX();
-        int targetY=pane==null?g.searchY:pane.searchY();
-        int targetWidth=pane==null?g.searchWidth:pane.searchWidth();
+        int targetX=pane==null?g.searchX:GuiSlateSearchGeometry.fieldX(pane);
+        int targetY=pane==null?g.searchY:GuiSlateSearchGeometry.fieldY(pane);
+        int targetWidth=pane==null?g.searchWidth:
+            GuiSlateSearchGeometry.fieldWidth(pane);
         if (search!=null && searchPositionX==targetX &&
             searchPositionY==targetY && searchPositionWidth==targetWidth) return;
         String previous=search==null?ui.query():search.getText();
@@ -156,6 +158,10 @@ public final class GhostClickGui extends GuiScreen {
         GuiTextField resized=new GuiTextField(42,fontRendererObj,
             targetX,targetY,targetWidth,17);
         resized.setMaxStringLength(100);
+        if(pane!=null) {
+            resized.setEnableBackgroundDrawing(false);
+            resized.setTextColor(0xFFF1F4F6);
+        }
         resized.setText(previous);
         resized.setFocused(focused);
         search=resized;
@@ -179,15 +185,44 @@ public final class GhostClickGui extends GuiScreen {
         rect(x+3+(int)Math.round(12.0*enabledFraction),
             y+2,10,9,0xFFF0F3FA);
     }
+    /** Native Minecraft text field, original Slate visual surface and clear action. */
+    private void drawSlateSearch(GuiSlateWorkspace pane,int mx,int my) {
+        if(search==null)return;
+        GuiThemePalette color=palette();
+        int sx=pane.searchX(),sy=pane.searchY(),sw=pane.searchWidth();
+        boolean focused=search.isFocused();
+        boolean hovered=GuiSlateSearchGeometry.surfaceHit(pane,mx,my);
+        int outline=focused?color.accent:hovered?0xFF52616B:color.divider;
+        rect(sx,sy,sw,GuiSlateSearchGeometry.SURFACE_HEIGHT,
+            focused?0xFF253039:hovered?0xFF222B33:0xFF1B2329);
+        rect(sx,sy,sw,1,outline);
+        rect(sx,sy+GuiSlateSearchGeometry.SURFACE_HEIGHT-1,sw,1,outline);
+        rect(sx,sy,1,GuiSlateSearchGeometry.SURFACE_HEIGHT,outline);
+        rect(sx+sw-1,sy,1,GuiSlateSearchGeometry.SURFACE_HEIGHT,outline);
+        // No external font, asset, shader or per-frame allocation for the icon.
+        int glyphX=sx+9,glyphY=sy+7;
+        rect(glyphX+1,glyphY,5,1,color.muted);
+        rect(glyphX,glyphY+1,1,5,color.muted);
+        rect(glyphX+6,glyphY+1,1,5,color.muted);
+        rect(glyphX+1,glyphY+6,5,1,color.muted);
+        rect(glyphX+6,glyphY+6,2,2,color.muted);
+        rect(glyphX+8,glyphY+8,2,1,color.muted);
+        if(search.getText().isEmpty()&&!focused)
+            label("Search modules",GuiSlateSearchGeometry.fieldX(pane)+3,
+                sy+6,color.muted);
+        search.drawTextBox();
+        if(!search.getText().isEmpty()) {
+            int cx=GuiSlateSearchGeometry.clearX(pane);
+            int cy=GuiSlateSearchGeometry.clearY(pane);
+            boolean active=GuiSlateSearchGeometry.clearHit(pane,mx,my);
+            rect(cx,cy,16,15,active?0xFF344650:0xFF26323A);
+            label("X",cx+5,cy+4,active?color.text:color.muted);
+        }
+    }
     /** Dedicated Rise-style modules + settings panes, with native GUI input parity. */
     private void drawSlateModules(GuiSlateWorkspace pane,int mx,int my) {
         drawSlateSidebar(mx,my);
-        if(search!=null) {
-            search.drawTextBox();
-            if(search.getText().isEmpty()&&!search.isFocused())
-                label("Search modules...",pane.searchX()+5,pane.searchY()+5,
-                    palette().muted);
-        }
+        drawSlateSearch(pane,mx,my);
         GuiThemePalette color=palette();
         final long switchFrameTime=System.nanoTime();
         rect(pane.detailsX-6,pane.detailsY,1,pane.detailsHeight,color.divider);
@@ -215,8 +250,9 @@ public final class GhostClickGui extends GuiScreen {
             } else slateSwitch(pane.modulesX+pane.modulesWidth-35,yy+6,
                 slateToggleMotion.value(entry,enabled,switchFrameTime));
         }
-        drawSlateScrollIndicator(pane.modulesX+pane.modulesWidth+2,
-            pane.modulesY,pane.moduleRows*29,pane.moduleRows,filtered.size(),scroll);
+        drawSlateScrollIndicator(GuiScrollDrag.Lane.MODULES,
+            pane.modulesX+pane.modulesWidth+2,pane.modulesY,
+            pane.moduleRows*29,pane.moduleRows,filtered.size(),scroll,mx,my);
         label("CONFIGURATION",pane.detailsX+9,pane.detailsY+3,color.muted);
         // No eagerly-created description list or external font render path.
         if(selected==null) {
@@ -273,9 +309,10 @@ public final class GhostClickGui extends GuiScreen {
                     fontRendererObj.getStringWidth(text),yy+9,color.accent);
             }
         }
-        drawSlateScrollIndicator(pane.detailsX+pane.detailsWidth-5,
-            pane.settingY,pane.settingRows*30,
-            pane.settingRows,settings.size(),settingScroll);
+        drawSlateScrollIndicator(GuiScrollDrag.Lane.SETTINGS,
+            pane.detailsX+pane.detailsWidth-5,pane.settingY,
+            pane.settingRows*30,pane.settingRows,settings.size(),
+            settingScroll,mx,my);
         if(settings.size()>pane.settingRows)
             label((settingScroll+1)+"-"+Math.min(settings.size(),settingScroll+
                 pane.settingRows)+" / "+settings.size(),
@@ -391,13 +428,21 @@ public final class GhostClickGui extends GuiScreen {
         label("F7  CLOSE",x+11,y+h-29,theme.muted);
         label("ESC  CLOSE",x+11,y+h-16,theme.muted);
     }
-    private void drawSlateScrollIndicator(int atX,int atY,int height,
-                                            int visible,int total,int first) {
+    private void drawSlateScrollIndicator(GuiScrollDrag.Lane lane,
+                                          int atX,int atY,int height,
+                                          int visible,int total,int first,
+                                          int mx,int my) {
         int thumb=GuiScrollIndicator.height(height,total,visible);
         if(thumb<=0)return;
-        rect(atX,atY,2,height,0x24343D4D);
-        rect(atX,atY+GuiScrollIndicator.offset(height,total,visible,first),
-            2,thumb,palette().accent);
+        boolean dragging=scrollDrag.active()&&scrollDrag.lane()==lane;
+        boolean hovered=GuiScrollDrag.trackHit(mx,my,atX,atY,height);
+        int barWidth=(dragging||hovered)?3:2;
+        int barX=barWidth==3?atX-1:atX;
+        rect(barX,atY,barWidth,height,
+            (dragging||hovered)?0x553E515D:0x24343D4D);
+        rect(barX,atY+GuiScrollIndicator.offset(height,total,visible,first),
+            barWidth,thumb,
+            dragging?0xFFE1F0F4:hovered?0xFFC8E4EB:palette().accent);
     }
     private void drawSidebar() {
         int yy = y + 47;
@@ -917,6 +962,18 @@ public final class GhostClickGui extends GuiScreen {
             }
             return;
         }
+        GuiSlateWorkspace split=slateWorkspace(zone);
+        if(split!=null&&search!=null&&!search.getText().isEmpty()&&
+           GuiSlateSearchGeometry.clearHit(split,mx,my)) {
+            // Search-only action: never toggles or persists a module.
+            search.setText("");
+            ui.query("");
+            search.setFocused(true);
+            search.setCursorPositionEnd();
+            scroll=0;settingScroll=0;keyboardSetting=-1;
+            entries();
+            return;
+        }
         if (search != null) {
             search.mouseClicked(mx,my,button);
             if(search.isFocused())keyboardSetting=-1;
@@ -931,7 +988,6 @@ public final class GhostClickGui extends GuiScreen {
             return;
         }
         List<ModuleRegistry.Entry> filtered = entries();
-        GuiSlateWorkspace split=slateWorkspace(zone);
         if(split!=null) {
             int moduleScrollbar=scrollDrag.begin(GuiScrollDrag.Lane.MODULES,
                 mx,my,split.modulesX+split.modulesWidth+2,split.modulesY,
