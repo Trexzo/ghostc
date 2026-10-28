@@ -73,3 +73,10 @@ This is native-source implementation with offline tests only. Original in-game s
 - Slate tab hover uses the same `HudEditorControls.tabAt` geometry as mouse selection. A one-pixel ice-blue underline indicates the selected tab, while the legacy themes keep their existing appearance.
 - A new 40,000-case seeded regression checks both overlap bitmasks against an independent oracle and verifies every warning names its actual selected item. Forge wiring checks enforce the native implementation and the shared hit region.
 - Screenshots, GUI-scale pixel placement and FPS in original Minecraft 1.8.9 remain outstanding release gates. Tests prove source wiring and pure layout behavior, not the final on-screen appearance.
+
+
+## R5 palette parity — diagnostics overlay
+
+The optional diagnostics HUD was one remaining lavender/purple renderer under a fresh Slate UI. It now resolves a readonly `DiagnosticsHudStyle` from the active `UiState.Theme` and uses the Slate graphite background, ice-blue title and off-white text. Only the three paint colors change: compact/full row ordering, performance sampling, feature admission, overlay size and visibility are unchanged.
+
+The Indigo and Graphite profile paths retain all three original diagnostics colors, including their legacy lavender title. `DiagnosticsHudStyleTests` verifies that legacy pixel values are untouched, Slate values are the same shared palette as other HUDs, and 50,000 repeated theme lookups return the same immutable instances. The native Forge wiring test confirms `drawDiagnostics` reads the active UI theme rather than a hardcoded purple token.
