@@ -80,3 +80,14 @@ This is native-source implementation with offline tests only. Original in-game s
 The optional diagnostics HUD was one remaining lavender/purple renderer under a fresh Slate UI. It now resolves a readonly `DiagnosticsHudStyle` from the active `UiState.Theme` and uses the Slate graphite background, ice-blue title and off-white text. Only the three paint colors change: compact/full row ordering, performance sampling, feature admission, overlay size and visibility are unchanged.
 
 The Indigo and Graphite profile paths retain all three original diagnostics colors, including their legacy lavender title. `DiagnosticsHudStyleTests` verifies that legacy pixel values are untouched, Slate values are the same shared palette as other HUDs, and 50,000 repeated theme lookups return the same immutable instances. The native Forge wiring test confirms `drawDiagnostics` reads the active UI theme rather than a hardcoded purple token.
+
+
+## R5 control-affordance pass — Slate settings pane
+
+Slate's existing numeric setting bar now paints a **4×7 pixel slider thumb** over its neutral track; the thumb is always contained within the exact native drag lane, moves monotonically with the actual saved fraction and becomes brighter on hover/keyboard focus. This is a visual cue only — no changes to slider value calculation, cursor capture, server/game state, or user settings.
+
+Choice settings have a tiny 5-pixel downward chevron in the right gutter to communicate that a row cycles when clicked. The value is fitted into a reduced, geometry-verified text budget, preserving the full left label gap and preventing arrow/value collisions even on narrow Slate workspaces. This is original pixel art using Minecraft `Gui.drawRect`, without textures, assets, icons, or third-party UI code.
+
+`GuiSlateControlGeometry` is pure Java and allocation-free. The Core Java 17/21 pipeline now runs `GuiSlateControlGeometryTests`, covering 40,000 seeded screen layouts, slider extremes and 21 monotonic samples, label/choice gutters, viewport containment, and nonfinite/out-of-range fractions. The Forge wiring test confirms the real Minecraft painter uses these geometry methods. Existing Classic, Mint, Indigo and compact controls remain on their original render/input paths.
+
+**Native acceptance remains outstanding:** open original Minecraft 1.8.9 at GUI scales 1/2/3, verify the thumb, choice indicator, setting label truncation, pointer dragging, keyboard focus, and F7 search/capture do not collide. Compare visual hierarchy against the referenced Vape/Slinky/Rise interfaces without copying their artwork.
