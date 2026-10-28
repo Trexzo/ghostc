@@ -12,6 +12,7 @@ import dev.ghostfusion.ui.ModuleListMotion;
 import dev.ghostfusion.ui.ModuleListTextGeometry;
 import dev.ghostfusion.core.ModuleRegistry;
 import dev.ghostfusion.ui.HudThemeTokens;
+import dev.ghostfusion.ui.SlateHudKeyStyle;
 import dev.ghostfusion.features.SprintPolicy;
 import dev.ghostfusion.features.TargetHudPolicy;
 import dev.ghostfusion.features.HudLiveTargetGate;
@@ -239,18 +240,29 @@ public final class ForgeFeatureDriver {
             return;
         }
         HudThemeTokens theme=HudThemeTokens.of(appearance);
-        Gui.drawRect(x,y,x+width,y+17,pressed?theme.accent:theme.panel);
-        if("slate".equals(appearance)) {
-            // A restrained one-pixel aurora line, never text-obscuring full glow.
-            Gui.drawRect(x,y,x+width,y+1,pressed?theme.secondary:theme.frame);
-            if(!pressed)Gui.drawRect(x+1,y+15,x+width-1,y+16,theme.sheen);
+        boolean slate="slate".equals(appearance);
+        // Slate pressed keys use a restrained graphite shift with an ice
+        // underline, never a full-color button flash. Legacy Minimal is
+        // intentionally left pixel-identical.
+        Gui.drawRect(x,y,x+width,y+17,
+            slate?SlateHudKeyStyle.surface(pressed):
+                  pressed?theme.accent:theme.panel);
+        if(slate) {
+            Gui.drawRect(x,y,x+width,y+1,SlateHudKeyStyle.topEdge(pressed));
+            Gui.drawRect(x+1,y+16,x+width-1,y+17,
+                SlateHudKeyStyle.bottomEdge(pressed));
         }
         String fitted=HudTextFit.fit(label,Math.max(0,width-5),targetFontWidths);
         if(fitted.isEmpty())return;
         int textWidth=mc.fontRendererObj.getStringWidth(fitted);
-        mc.fontRendererObj.drawStringWithShadow(fitted,
-            x+(width-textWidth)/2,y+5,
-            pressed?0xFF121629:theme.text);
+        if(slate) {
+            mc.fontRendererObj.drawString(fitted,
+                x+(width-textWidth)/2,y+5,SlateHudKeyStyle.text(pressed));
+        } else {
+            mc.fontRendererObj.drawStringWithShadow(fitted,
+                x+(width-textWidth)/2,y+5,
+                pressed?0xFF121629:theme.text);
+        }
     }
     private void drawKeys(int sw,int sh) {
         // 1x remains the original byte-for-byte paint path.
@@ -325,8 +337,12 @@ public final class ForgeFeatureDriver {
             Gui.drawRect(x-2,y-2,x-1,bottom,theme.accent);
             if("slate".equals(appearance) && right>x)
                 Gui.drawRect(x-1,y-2,right,y-1,theme.sheen);
-            if(!text.isEmpty())
-                mc.fontRendererObj.drawStringWithShadow(text,x,y+1,theme.text);
+            if(!text.isEmpty()) {
+                // Match Slate ArrayList/Target/Keystrokes text rendering.
+                if("slate".equals(appearance))
+                    mc.fontRendererObj.drawString(text,x,y+1,theme.text);
+                else mc.fontRendererObj.drawStringWithShadow(text,x,y+1,theme.text);
+            }
         }
     }
     private void drawDiagnosticText(String value,int x,int y,int maxWidth,int color) {
