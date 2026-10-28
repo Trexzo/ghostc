@@ -29,7 +29,7 @@ public final class AutoRodPolicy {
     public int originalSlot() { check(); return original; }
     public int ownedRodSlot() { check(); return rod; }
     private void clearOwnership() {
-        original=rod=-1;
+        original=rod=-1;everUsed=false;
         pending=next=Action.NONE;
         stageTick=-1;
     }
@@ -80,7 +80,7 @@ public final class AutoRodPolicy {
         if(!active || !armed || !edge || rodSlot<0 ||
            rodSlot==currentSlot || (lastUse>=0&&tick-lastUse<cooldownTicks))
             return Action.NONE;
-        original=currentSlot;rod=rodSlot;
+        original=currentSlot;rod=rodSlot;everUsed=false;
         next=Action.SELECT;pending=Action.SELECT;stageTick=tick;
         return Action.SELECT;
     }
