@@ -94,6 +94,8 @@ jobs:
           grep -q 'MODULE_LIST_MOTION_PASS' .build/modulelist-motion.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.ModuleListLayoutTests | tee .build/modulelist.log
           grep -q 'MODULE_LIST_LAYOUT_PASS' .build/modulelist.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.ModuleListTextGeometryTests | tee .build/modulelist-text-geometry.log
+          grep -q 'MODULE_LIST_TEXT_GEOMETRY_PASS' .build/modulelist-text-geometry.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.UiTests | tee .build/ui.log
           grep -q 'UI_REGRESSION_PASS' .build/ui.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.ServicesTests | tee .build/services.log
