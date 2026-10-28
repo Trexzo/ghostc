@@ -125,6 +125,12 @@ public final class HostRuntime {
     private final Setting.Bool aimLockTarget = new Setting.Bool("lock_target", false);
     private final Setting.Choice aimPriority = new Setting.Choice(
         "target_priority", "angular", "angular", "distance");
+    // Opt-in TriggerBot: player crosshair dwell and bounded native click cadence.
+    private final Setting.Number triggerAcquire = new Setting.Number("acquire_ticks",2,1,10);
+    private final Setting.Number triggerCooldown = new Setting.Number("cooldown_ticks",4,2,20);
+    private final Setting.Number triggerRange = new Setting.Number("range",3.0,2.0,4.5);
+    private final Setting.Bool triggerSword = new Setting.Bool("require_sword",true);
+    private final Setting.Bool triggerIgnoreTeam = new Setting.Bool("ignore_teammates",true);
     private final Setting.Number clickRate = new Setting.Number("cps", 10.0, 4.0, 15.0);
     private final Setting.Bool clickEntitiesOnly = new Setting.Bool("entity_only", true);
     // Fixed mode is the unchanged legacy default; nonfixed uses a bounded
@@ -256,6 +262,8 @@ public final class HostRuntime {
             aimHorizontal, aimVertical, aimTargetHeight, aimLockTarget, aimPriority);
         modules.register(new FeatureModule("combat.clicker", "AutoClicker", GhostModule.Category.COMBAT),
             0, clickRate, clickEntitiesOnly, clickPattern, clickMinCps, clickMaxCps);
+        modules.register(new FeatureModule("combat.triggerbot", "TriggerBot", GhostModule.Category.COMBAT),
+            0, triggerAcquire,triggerCooldown,triggerRange,triggerSword,triggerIgnoreTeam);
         modules.register(new FeatureModule("combat.blockhit", "Block Hit", GhostModule.Category.COMBAT),
             0, blockInterval, blockRequireTarget, blockMode);
         modules.register(new FeatureModule("combat.hitselect", "Hit Select", GhostModule.Category.COMBAT),
@@ -496,6 +504,11 @@ public final class HostRuntime {
     public double aimTargetHeight() { modules.assertOwnerThread(); return aimTargetHeight.get(); }
     public boolean aimLockTarget() { modules.assertOwnerThread(); return aimLockTarget.get(); }
     public String aimTargetPriority() { modules.assertOwnerThread(); return aimPriority.get(); }
+    public int triggerAcquireTicks() { modules.assertOwnerThread(); return triggerAcquire.get().intValue(); }
+    public int triggerCooldownTicks() { modules.assertOwnerThread(); return triggerCooldown.get().intValue(); }
+    public double triggerRange() { modules.assertOwnerThread(); return triggerRange.get(); }
+    public boolean triggerRequireSword() { modules.assertOwnerThread(); return triggerSword.get(); }
+    public boolean triggerIgnoreTeammates() { modules.assertOwnerThread(); return triggerIgnoreTeam.get(); }
     public double clickCps() { modules.assertOwnerThread(); return clickRate.get(); }
     public boolean clickEntityOnly() { modules.assertOwnerThread(); return clickEntitiesOnly.get(); }
     public String clickPattern() { modules.assertOwnerThread(); return clickPattern.get(); }
