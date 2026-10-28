@@ -14,6 +14,7 @@ import dev.ghostfusion.ui.GuiToggleMotion;
 import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiSlateWorkspace;
 import dev.ghostfusion.ui.GuiSlateControlGeometry;
+import dev.ghostfusion.ui.GuiSlateTooltipLayout;
 import dev.ghostfusion.ui.GuiSlateSearchGeometry;
 import dev.ghostfusion.ui.GuiSettingPresentation;
 import dev.ghostfusion.ui.GuiScrollIndicator;
@@ -228,6 +229,30 @@ public final class GhostClickGui extends GuiScreen {
             label("X",cx+5,cy+4,active?color.text:color.muted);
         }
     }
+    /**
+     * Show longer human-readable labels only when the existing inline font
+     * budget would clip them. Read-only; no new focus or pointer hit regions.
+     * Respect the bottom strip reserved for warnings and keyboard hints.
+     */
+    private void drawSlateTooltip(String name,GuiSlateWorkspace pane,
+                                  int mx,int my,GuiThemePalette colors) {
+        if(name==null)return;
+        int panelX=x+side+8,panelY=y+30;
+        int panelWidth=w-side-16,panelHeight=h-30;
+        int textBudget=Math.min(GuiSlateTooltipLayout.MAX_TEXT_WIDTH,
+            Math.max(0,panelWidth-28));
+        String text=trim(name,textBudget);
+        if(text.isEmpty())return;
+        GuiSlateTooltipLayout.Frame box=GuiSlateTooltipLayout.place(
+            panelX,panelY,panelWidth,panelHeight,mx,my,
+            fontRendererObj.getStringWidth(text));
+        if(box==null)return;
+        rect(box.x+1,box.y+2,box.width,box.height,0x39000000);
+        rect(box.x,box.y,box.width,box.height,0xF21B252B);
+        rect(box.x,box.y,box.width,1,colors.frame);
+        rect(box.x,box.y,2,box.height,colors.accent);
+        label(text,box.textX,box.textY,colors.text);
+    }
     /** Dedicated Rise-style modules + settings panes, with native GUI input parity. */
     private void drawSlateModules(GuiSlateWorkspace pane,int mx,int my) {
         drawSlateSidebar(mx,my);
@@ -366,6 +391,29 @@ public final class GhostClickGui extends GuiScreen {
            GuiFooterText.warning(message,host.uiWarning()).isEmpty())
             label(trim(settingFooter,pane.detailsWidth-23),
                 pane.detailsX+10,y+h-20,color.muted);
+        // Inspect only the row under the real pointer, using its *existing*
+        // native hit test. Never show a tooltip above a slider/choice button.
+        String reveal=null;
+        int hoverModule=pane.moduleIndex(mx,my,scroll,filtered.size());
+        if(hoverModule>=0 && !pane.moduleToggleArea(mx)) {
+            String original=filtered.get(hoverModule).module().displayName();
+            if(!trim(original,pane.modulesWidth-61).equals(original))
+                reveal=original;
+        }
+        if(reveal==null && hoveredSetting>=0 &&
+           hoveredSetting<settings.size()) {
+            Map.Entry<String,Setting<?>> row=settings.get(hoveredSetting);
+            Setting<?> value=row.getValue();
+            int kind=value instanceof Setting.Bool?0:
+                value instanceof Setting.Number?1:2;
+            int budget=pane.settingLabelBudget(kind);
+            if(mx>=pane.detailsX+14 && mx<pane.detailsX+14+budget) {
+                String original=GuiSettingPresentation.label(row.getKey());
+                if(!trim(original,budget).equals(original))
+                    reveal=original;
+            }
+        }
+        if(reveal!=null)drawSlateTooltip(reveal,pane,mx,my,color);
     }
     private int bg() { return palette().background; }
     private int panel() { return palette().panel; }
