@@ -2,6 +2,7 @@ package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.features.AutoRodPolicy;
 import dev.ghostfusion.features.AutoRodPolicy.Action;
+import dev.ghostfusion.features.EspTeamPolicy;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.ModuleActionTelemetry;
 import dev.ghostfusion.services.ActionCoordinator;
@@ -51,6 +52,7 @@ final class ForgeAutoRodController {
         return false;
     }
     private void restoreIfOwned() {
+        boolean wasOwned=policy.ownsHotbar();
         EntityPlayerSP p=mc.thePlayer;
         boolean same=p!=null&&p==owner&&mc.theWorld==world &&
             mc.playerController!=null &&
@@ -63,6 +65,9 @@ final class ForgeAutoRodController {
             p.inventory.currentItem=restore;
             mc.playerController.updateController();
         }
+        if(wasOwned)
+            host.nativeAction(ModuleActionTelemetry.Lane.AUTOROD,
+                ModuleActionTelemetry.Event.CANCELLED);
         owner=null;world=null;
     }
     void reset() {
@@ -203,7 +208,11 @@ final class ForgeAutoRodController {
                 policy.committed(Action.RESTORE,epoch,tick);
                 host.nativeAction(ModuleActionTelemetry.Lane.AUTOROD,
                     ModuleActionTelemetry.Event.LOCAL_COMPLETE);
-            } else policy.cancelPrepared();
+            } else {
+                // A manual slot override wins. Clear the pending receipt;
+                // do not restore an old slot over the user's current choice.
+                restoreIfOwned();
+            }
             owner=null;world=null;
             return true;
         }
