@@ -131,6 +131,13 @@ public final class HostRuntime {
     private final Setting.Number aimMousePause = new Setting.Number("mouse_pause_ticks",3,1,10);
     private final Setting.Choice aimPriority = new Setting.Choice(
         "target_priority", "angular", "angular", "distance");
+    // Opt-in AutoRod: genuine physical attack edge -> rod use -> conditional restore.
+    private final Setting.Number rodCooldown = new Setting.Number(
+        "cooldown_ticks",30.0,10.0,100.0);
+    private final Setting.Number rodRange = new Setting.Number(
+        "range",3.25,2.0,4.5);
+    private final Setting.Bool rodSword = new Setting.Bool("require_sword",true);
+    private final Setting.Bool rodIgnoreTeam = new Setting.Bool("ignore_teammates",true);
     // Opt-in TriggerBot: player crosshair dwell and bounded native click cadence.
     private final Setting.Number triggerAcquire = new Setting.Number("acquire_ticks",2,1,10);
     private final Setting.Number triggerCooldown = new Setting.Number("cooldown_ticks",4,2,20);
@@ -278,6 +285,8 @@ public final class HostRuntime {
             0, clickRate, clickEntitiesOnly, clickPattern, clickMinCps, clickMaxCps);
         modules.register(new FeatureModule("combat.triggerbot", "TriggerBot", GhostModule.Category.COMBAT),
             0, triggerAcquire,triggerCooldown,triggerRange,triggerSword,triggerIgnoreTeam);
+        modules.register(new FeatureModule("combat.autorod", "AutoRod", GhostModule.Category.COMBAT),
+            0, rodCooldown,rodRange,rodSword,rodIgnoreTeam);
         modules.register(new FeatureModule("combat.blockhit", "Block Hit", GhostModule.Category.COMBAT),
             0, blockInterval, blockRequireTarget, blockMode);
         modules.register(new FeatureModule("combat.hitselect", "Hit Select", GhostModule.Category.COMBAT),
@@ -524,6 +533,10 @@ public final class HostRuntime {
     public int aimMouseThreshold() { modules.assertOwnerThread(); return aimMouseThreshold.get().intValue(); }
     public int aimMousePauseTicks() { modules.assertOwnerThread(); return aimMousePause.get().intValue(); }
     public String aimTargetPriority() { modules.assertOwnerThread(); return aimPriority.get(); }
+    public int rodCooldownTicks() { modules.assertOwnerThread(); return rodCooldown.get().intValue(); }
+    public double rodRange() { modules.assertOwnerThread(); return rodRange.get(); }
+    public boolean rodRequireSword() { modules.assertOwnerThread(); return rodSword.get(); }
+    public boolean rodIgnoreTeammates() { modules.assertOwnerThread(); return rodIgnoreTeam.get(); }
     public int triggerAcquireTicks() { modules.assertOwnerThread(); return triggerAcquire.get().intValue(); }
     public int triggerCooldownTicks() { modules.assertOwnerThread(); return triggerCooldown.get().intValue(); }
     public double triggerRange() { modules.assertOwnerThread(); return triggerRange.get(); }
