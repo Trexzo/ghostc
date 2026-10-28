@@ -23,6 +23,7 @@ import dev.ghostfusion.features.TargetHudDistanceText;
 import dev.ghostfusion.features.EspTeamPolicy;
 import dev.ghostfusion.features.TargetHudPalette;
 import dev.ghostfusion.features.TargetHudModernLayout;
+import dev.ghostfusion.features.TargetHudSlateBarGeometry;
 import dev.ghostfusion.features.TargetHudMotion;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
@@ -518,18 +519,38 @@ public final class ForgeFeatureDriver {
         mc.fontRendererObj.drawString(labels.name,x+9,
             y+layout.nameY,TargetHudMotion.fade(theme.text,alpha));
         if(health) {
-            int l=x+9,r=x+width-9,t=y+layout.trackY;
-            // The restrained neutral track and a clean filled bar avoid the
-            // old framed, multiple-stripe visual clutter.
-            Gui.drawRect(l,t,r,t+layout.trackHeight,
+            if(!TargetHudSlateBarGeometry.fits(width,height,
+                    mc.fontRendererObj.FONT_HEIGHT))return;
+            // One quiet horizontal separator separates legible combat
+            // identity from health, without adding a second glass panel.
+            Gui.drawRect(x+9,y+TargetHudSlateBarGeometry.DIVIDER_Y,
+                x+width-9,y+TargetHudSlateBarGeometry.DIVIDER_Y+1,
+                TargetHudMotion.fade(theme.frame,alpha*0.44));
+            int l=TargetHudSlateBarGeometry.left(x);
+            int r=TargetHudSlateBarGeometry.right(x,width);
+            int t=y+TargetHudSlateBarGeometry.TOP;
+            int barHeight=TargetHudSlateBarGeometry.HEIGHT;
+            // Slinky-inspired matte track; finer top highlight adds readable
+            // depth without the multicolor gradients found in older clients.
+            Gui.drawRect(l,t,r,t+barHeight,
                 TargetHudMotion.fade(theme.track,alpha));
-            int filled=(int)Math.round((r-l)*targetMotion.health());
+            int filled=TargetHudSlateBarGeometry.filled(r-l,targetMotion.health());
             if(filled>0) {
-                Gui.drawRect(l,t,l+filled,t+layout.trackHeight,
+                Gui.drawRect(l,t,l+filled,t+barHeight,
                     TargetHudMotion.fade(theme.accent,alpha));
+                if(filled>2)
+                    Gui.drawRect(l+1,t+1,l+filled-1,t+2,
+                        TargetHudMotion.fade(theme.secondary,alpha*0.57));
                 if(filled>4)
-                    Gui.drawRect(l+filled-2,t,l+filled,t+layout.trackHeight,
+                    Gui.drawRect(l+filled-2,t,l+filled,t+barHeight,
                         TargetHudMotion.fade(theme.secondary,alpha*0.88));
+            }
+            // Three low-contrast quarter ticks express scale when HP is
+            // partial; markers overlay both track and fill consistently.
+            for(int quarter=1;quarter<=3;quarter++) {
+                int at=l+TargetHudSlateBarGeometry.marker(r-l,quarter);
+                Gui.drawRect(at,t+1,at+1,t+barHeight-1,
+                    TargetHudMotion.fade(theme.frame,alpha*0.75));
             }
             mc.fontRendererObj.drawString(labels.healthLabel,
                 x+width-9-labels.healthLabelWidth,y+layout.healthLabelY,
