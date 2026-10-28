@@ -690,6 +690,15 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('HudTextFit.fit(label,Math.max(0,width-5),targetFontWidths)',self.feature)
         self.assertIn('getStringWidth(fitted)',self.feature)
         self.assertNotIn('label=label.substring(0,label.length()-1)',self.feature)
+        # Slate Keystrokes/CPS share shadow-free font behavior, while
+        # Classic and Minimal keep their existing paint branches.
+        self.assertIn('SlateHudKeyStyle.surface(pressed)',self.feature)
+        self.assertIn('SlateHudKeyStyle.bottomEdge(pressed)',self.feature)
+        self.assertIn('SlateHudKeyStyle.text(pressed)',self.feature)
+        self.assertIn('if(slate) {',self.feature)
+        self.assertIn('mc.fontRendererObj.drawString(fitted,',self.feature)
+        self.assertIn('mc.fontRendererObj.drawString(text,x,y+1,theme.text)',self.feature)
+        self.assertIn('SLATE_HUD_KEY_STYLE_PASS',content(".github/workflows/core-ci.yml"))
 
     def test_text_first_slate_module_list_has_stable_live_only_transitions(self):
         driver=self.feature
