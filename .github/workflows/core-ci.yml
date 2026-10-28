@@ -68,6 +68,8 @@ jobs:
           grep -q 'GUI_SLATE_CONTROL_GEOMETRY_PASS' .build/gui-slate-controls.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateTooltipLayoutTests | tee .build/gui-slate-tooltips.log
           grep -q 'GUI_SLATE_TOOLTIP_LAYOUT_PASS' .build/gui-slate-tooltips.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateScaleMatrixTests | tee .build/gui-slate-scale-matrix.log
+          grep -q 'GUI_SLATE_SCALE_MATRIX_PASS' .build/gui-slate-scale-matrix.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiKeyboardNavigationTests | tee .build/gui-keyboard.log
           grep -q 'GUI_KEYBOARD_NAVIGATION_PASS' .build/gui-keyboard.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.CoreTests | tee .build/test.log
