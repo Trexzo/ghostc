@@ -14,7 +14,7 @@ public final class ModuleInteractionStateMachine {
     public enum SprintOwner { NONE, VANILLA_OR_AUTO_SPRINT, WTAP }
     /** Diagnostic vocabulary is fixed: no free-form player/server data. */
     public enum Resource {
-        COMBAT, BRIDGE, VELOCITY, WTAP, AUTO_SPRINT,
+        COMBAT, BRIDGE, VELOCITY, WTAP, JUMP_RESET, AUTO_SPRINT,
         AUTO_ARMOR, INVENTORY_MANAGER, CHEST_STEALER
     }
     public enum Denial {
@@ -23,22 +23,30 @@ public final class ModuleInteractionStateMachine {
     }
 
     public static final class Enabled {
-        public final boolean combat, bridge, velocity, wtap, sprint;
+        public final boolean combat, bridge, velocity, wtap, sprint, jumpReset;
         public final boolean autoArmor, inventoryManager, chestStealer;
+        // Preserve exact previous test/call-site signature and behavior.
         public Enabled(boolean combat,boolean bridge,boolean velocity,
                        boolean wtap,boolean sprint,boolean autoArmor,
                        boolean inventoryManager,boolean chestStealer) {
+            this(combat,bridge,velocity,wtap,sprint,autoArmor,
+                 inventoryManager,chestStealer,false);
+        }
+        public Enabled(boolean combat,boolean bridge,boolean velocity,
+                       boolean wtap,boolean sprint,boolean autoArmor,
+                       boolean inventoryManager,boolean chestStealer,
+                       boolean jumpReset) {
             this.combat=combat;this.bridge=bridge;this.velocity=velocity;
             this.wtap=wtap;this.sprint=sprint;this.autoArmor=autoArmor;
             this.inventoryManager=inventoryManager;
-            this.chestStealer=chestStealer;
+            this.chestStealer=chestStealer;this.jumpReset=jumpReset;
         }
     }
     public static final class Frame {
         public final Phase phase;
         public final InventoryOwner inventoryOwner;
         public final SprintOwner sprintOwner;
-        public final boolean combat,bridge,velocity,wtap,autoSprint;
+        public final boolean combat,bridge,velocity,wtap,autoSprint,jumpReset;
         public final boolean chestStealer,autoArmor,inventoryManager;
         public final boolean transitioned;
         public final long generation,tick;
@@ -56,6 +64,9 @@ public final class ModuleInteractionStateMachine {
             bridge=worldInput&&enabled.bridge;
             velocity=worldInput&&enabled.velocity;
             wtap=worldInput&&enabled.wtap;
+            // A pending genuine attack already granted WTap sprint timing.
+            // Jump Reset observes damage, but never writes over that window.
+            jumpReset=worldInput&&enabled.jumpReset&&!wtapReserved;
             autoSprint=worldInput&&enabled.sprint&&!wtapReserved;
             chestStealer=owner==InventoryOwner.CHEST_STEALER;
             autoArmor=owner==InventoryOwner.AUTO_ARMOR;
@@ -74,6 +85,7 @@ public final class ModuleInteractionStateMachine {
                 case BRIDGE:on=enabled.bridge;game=true;break;
                 case VELOCITY:on=enabled.velocity;game=true;break;
                 case WTAP:on=enabled.wtap;game=true;break;
+                case JUMP_RESET:on=enabled.jumpReset;game=true;break;
                 case AUTO_SPRINT:on=enabled.sprint;game=true;break;
                 case AUTO_ARMOR:on=enabled.autoArmor;game=false;break;
                 case INVENTORY_MANAGER:on=enabled.inventoryManager;game=false;break;
@@ -93,7 +105,8 @@ public final class ModuleInteractionStateMachine {
             }
             if(resource==Resource.CHEST_STEALER && scene!=Scene.CHEST)
                 return Denial.WRONG_SCREEN;
-            if(resource==Resource.AUTO_SPRINT && enabled.wtap && wtapReserved)
+            if((resource==Resource.AUTO_SPRINT || resource==Resource.JUMP_RESET) &&
+               enabled.wtap && wtapReserved)
                 return Denial.WTAP_RESERVED;
             return Denial.NONE;
         }

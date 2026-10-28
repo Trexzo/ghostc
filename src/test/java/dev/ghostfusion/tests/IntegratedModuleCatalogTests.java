@@ -19,7 +19,7 @@ public final class IntegratedModuleCatalogTests {
         HostRuntime host=new HostRuntime(root);
         String[] modules={
             "combat.aimassist","combat.clicker","combat.triggerbot","combat.blockhit","combat.hitselect",
-            "combat.velocity","combat.wtap",
+            "combat.velocity","combat.wtap","combat.jumpreset",
             "movement.bridgeassist","movement.sprint",
             "inventory.cheststealer","inventory.manager","inventory.autoarmor",
             "hud.modulelist","hud.target","hud.keystrokes","hud.cps","render.esp"
@@ -50,6 +50,10 @@ public final class IntegratedModuleCatalogTests {
             "trading Hit Select registered");
         ok(host.modules().get("combat.wtap").settings().containsKey("reset_ticks"),
            "actual WTap sprint reset module and delay setting registered");
+        ok(host.modules().get("combat.jumpreset").settings().containsKey("min_hurt_time") &&
+           host.modules().get("combat.jumpreset").settings().containsKey("cooldown_ticks") &&
+           host.modules().get("combat.jumpreset").settings().containsKey("require_attack_held"),
+           "native Jump Reset is a real independently controllable combat module");
         ok(host.modules().get("combat.velocity").settings().containsKey("mode"),
            "packet vs hurt-mode is real registered Velocity control");
         ok(host.modules().get("combat.velocity").settings().containsKey("horizontal_percent") &&
@@ -169,6 +173,7 @@ public final class IntegratedModuleCatalogTests {
         loaded.close();
         VelocityTests.main(args);
         WTapTests.main(args);
+        JumpResetTests.main(args);
         ChestStealerTests.main(args);
         InventoryManagerTests.main(args);
         AutoArmorTests.main(args);
