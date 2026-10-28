@@ -468,8 +468,8 @@ public final class ForgeFeatureDriver {
         }
     }
     /**
-     * Slate v2: its own aurora-inspired composition, not a recolored Minimal.
-     * No textures, shaders, caches or simulated targets.
+     * Slate: matte graphite, a neutral HP track and a small ice-blue accent.
+     * No textures, shaders, simulated targets, or doubled font shadows.
      */
     private void drawSlateTarget(int x,int y,int width,int height,boolean health,
                                   TargetHudTextLayout.Result labels,EntityPlayer player) {
@@ -488,7 +488,7 @@ public final class ForgeFeatureDriver {
             TargetHudMotion.fade(theme.secondary,alpha*0.72));
         Gui.drawRect(x+9,y+height-2,x+width-9,y+height-1,
             TargetHudMotion.fade(theme.frame,alpha*0.55));
-        mc.fontRendererObj.drawStringWithShadow(labels.name,x+9,
+        mc.fontRendererObj.drawString(labels.name,x+9,
             y+layout.nameY,TargetHudMotion.fade(theme.text,alpha));
         if(health) {
             int l=x+9,r=x+width-9,t=y+layout.trackY;
@@ -504,7 +504,7 @@ public final class ForgeFeatureDriver {
                     Gui.drawRect(l+filled-2,t,l+filled,t+layout.trackHeight,
                         TargetHudMotion.fade(theme.secondary,alpha*0.88));
             }
-            mc.fontRendererObj.drawStringWithShadow(labels.healthLabel,
+            mc.fontRendererObj.drawString(labels.healthLabel,
                 x+width-9-labels.healthLabelWidth,y+layout.healthLabelY,
                 TargetHudMotion.fade(theme.muted,alpha));
         }
@@ -515,7 +515,7 @@ public final class ForgeFeatureDriver {
                 mc.thePlayer.posX,mc.thePlayer.posY,mc.thePlayer.posZ,
                 host.targetRange(),width-18,targetFontWidths);
             if(!distance.isEmpty())
-                mc.fontRendererObj.drawStringWithShadow(distance,
+                mc.fontRendererObj.drawString(distance,
                     x+width-9-mc.fontRendererObj.getStringWidth(distance),
                     distY,TargetHudMotion.fade(theme.muted,alpha));
         }
