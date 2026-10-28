@@ -31,7 +31,7 @@ public final class NativeCrosshairRayTests {
         ok(!ray(target,eye,new Vec3(0,2.4,3.1)),
             "look ray above the player's body must miss");
         AxisAlignedBB border=target.expand(.1,.1,.1);
-        ok(ray(border,eye,new Vec3(.36,1.62,3.1)),
+        ok(ray(border,eye,new Vec3(.55,1.62,3.1)),
             "native expanded collision border may admit near-edge view");
         ok(!AimTriggerHandoff.yieldCamera(true,true,false,false,true,true),
             "native ray alone never preempts physical held attack");
