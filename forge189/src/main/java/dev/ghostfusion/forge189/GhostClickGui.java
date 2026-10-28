@@ -29,7 +29,6 @@ import dev.ghostfusion.ui.HudPreviewGeometry;
 import dev.ghostfusion.ui.HudPreviewArt;
 import dev.ghostfusion.ui.HudThemeTokens;
 import dev.ghostfusion.ui.HudSnapPolicy;
-import dev.ghostfusion.ui.HudOverlapPolicy;
 import dev.ghostfusion.ui.HudEditorConflicts;
 import dev.ghostfusion.ui.ModuleListLayout;
 import dev.ghostfusion.ui.HudFootprints;
