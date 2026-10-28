@@ -234,7 +234,7 @@ public final class GhostClickGui extends GuiScreen {
      * budget would clip them. Read-only; no new focus or pointer hit regions.
      * Respect the bottom strip reserved for warnings and keyboard hints.
      */
-    private void drawSlateTooltip(String name,GuiSlateWorkspace pane,
+    private void drawSlateTooltip(String name,
                                   int mx,int my,GuiThemePalette colors) {
         if(name==null)return;
         int panelX=x+side+8,panelY=y+30;
@@ -413,7 +413,7 @@ public final class GhostClickGui extends GuiScreen {
                     reveal=original;
             }
         }
-        if(reveal!=null)drawSlateTooltip(reveal,pane,mx,my,color);
+        if(reveal!=null)drawSlateTooltip(reveal,mx,my,color);
     }
     private int bg() { return palette().background; }
     private int panel() { return palette().panel; }
