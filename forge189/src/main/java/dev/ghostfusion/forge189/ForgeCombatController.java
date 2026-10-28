@@ -3,6 +3,7 @@ package dev.ghostfusion.forge189;
 import dev.ghostfusion.features.AimAssistPolicy;
 import dev.ghostfusion.features.AimTargetLock;
 import dev.ghostfusion.features.AimTargetSwitchPolicy;
+import dev.ghostfusion.features.AimManualInputPolicy;
 import dev.ghostfusion.features.AimTriggerHandoff;
 import dev.ghostfusion.features.FixedClickScheduler;
 import dev.ghostfusion.features.PatternClickScheduler;
@@ -51,6 +52,7 @@ public final class ForgeCombatController {
     private final AimAssistPolicy aim = new AimAssistPolicy();
     private final AimTargetLock aimLock = new AimTargetLock();
     private final AimTargetSwitchPolicy aimSwitch = new AimTargetSwitchPolicy();
+    private final AimManualInputPolicy manualAim = new AimManualInputPolicy();
     private final FixedClickScheduler scheduler = new FixedClickScheduler();
     private final PatternClickScheduler patternScheduler = new PatternClickScheduler();
     private final HitSelectPolicy hitSelect = new HitSelectPolicy();
@@ -125,6 +127,7 @@ public final class ForgeCombatController {
         if (!host.featureEnabled(AIM_ID)) {
             aimLock.clear();
             aimSwitch.reset();
+            manualAim.reset();
         }
         final WorldSnapshot snapshot = session.snapshot();
         final boolean[] aimAdjusted = {false};
@@ -134,13 +137,28 @@ public final class ForgeCombatController {
                     if (yieldToTrigger) {
                         aimLock.clear();
                         aimSwitch.reset();
+                        manualAim.reset();
                         return;
                     }
                     if (host.aimRequireClick() && !held) {
                         aimLock.clear();
                         aimSwitch.reset();
+                        manualAim.reset();
                         return;
                     }
+                    // Only native Minecraft's sampled mouse-helper deltas can
+                    // veto our optional camera write. Legacy behavior is
+                    // unchanged unless the physical-input option is enabled.
+                    if (host.aimRespectMouse()) {
+                        if (mc.mouseHelper == null ||
+                            manualAim.suppressed(session.generation(),session.tick(),
+                                true,mc.mouseHelper.deltaX,mc.mouseHelper.deltaY,
+                                host.aimMouseThreshold(),host.aimMousePauseTicks())) {
+                            aimLock.clear();
+                            aimSwitch.reset();
+                            return;
+                        }
+                    } else manualAim.reset();
                     final boolean locking = host.aimLockTarget();
                     int preferred = aimLock.preferred(
                         session.generation(), session.tick(), locking);
@@ -223,6 +241,7 @@ public final class ForgeCombatController {
             if (!healthy) {
                 aimLock.clear();
                 aimSwitch.reset();
+                manualAim.reset();
                 session.rotations().cancel(AIM_ID);
             }
         }
@@ -444,6 +463,7 @@ public final class ForgeCombatController {
     void reset() {
         aimLock.reset();
         aimSwitch.reset();
+        manualAim.reset();
         scheduler.reset();
         patternScheduler.reset();
         physicalInput.reset();
