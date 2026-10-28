@@ -125,6 +125,9 @@ public final class CombatNativeEvidenceTests {
                ledger.count(Lane.TRIGGER,Event.REJECTED)==rejected &&
                diagnostics.count(Counter.COMBAT_NATIVE_ATTACK_CALLBACK)==callbacks,
                "native observations do not forge a synthetic-to-event link "+t);
+            ok(diagnostics.count(Counter.COMBAT_AIM_TRIGGER_YIELD)==
+                   (long)(t+1-clicked-triggered-rejected-callbacks),
+               "camera handoff cannot be mistaken for a click or callback "+t);
         }
         ok(clicked>5000 && triggered>5000 && rejected>5000 && callbacks>5000,
            "all distinct native receipt classes exercised");
