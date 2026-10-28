@@ -12,9 +12,9 @@ public final class GuiSlateCompactSearchGeometry {
     public static int surfaceX(GuiLayout g){return g.searchX-2;}
     public static int surfaceY(GuiLayout g){return g.searchY-2;}
     public static int surfaceWidth(GuiLayout g){return g.searchWidth+4;}
-    public static int fieldX(GuiLayout g){return g.searchX+5;}
+    public static int fieldX(GuiLayout g){return g.searchX+17;}
     public static int fieldY(GuiLayout g){return g.searchY;}
-    public static int fieldWidth(GuiLayout g){return Math.max(1,g.searchWidth-29);}
+    public static int fieldWidth(GuiLayout g){return Math.max(1,g.searchWidth-41);}
     public static int clearX(GuiLayout g){return surfaceX(g)+surfaceWidth(g)-18;}
     public static int clearY(GuiLayout g){return surfaceY(g)+3;}
     public static boolean surfaceHit(GuiLayout g,int mx,int my) {
