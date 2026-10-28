@@ -8,6 +8,7 @@ import dev.ghostfusion.features.HitSelectPolicy;
 import dev.ghostfusion.features.BlockHitPolicy;
 import dev.ghostfusion.features.PhysicalInputGate;
 import dev.ghostfusion.features.LiveCombatTargetGate;
+import dev.ghostfusion.features.TriggerBotPolicy;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.ModuleActionTelemetry;
@@ -37,6 +38,7 @@ import net.minecraft.util.MovingObjectPosition;
 public final class ForgeCombatController {
     private static final String AIM_ID = "combat.aimassist";
     private static final String CLICK_ID = "combat.clicker";
+    private static final String TRIGGER_ID = "combat.triggerbot";
     private static final String HIT_ID = "combat.hitselect";
     private static final String BLOCK_ID = "combat.blockhit";
 
@@ -47,6 +49,7 @@ public final class ForgeCombatController {
     private final FixedClickScheduler scheduler = new FixedClickScheduler();
     private final PatternClickScheduler patternScheduler = new PatternClickScheduler();
     private final HitSelectPolicy hitSelect = new HitSelectPolicy();
+    private final TriggerBotPolicy triggerBot = new TriggerBotPolicy();
     private final BlockHitPolicy blockHit = new BlockHitPolicy();
     private final PhysicalInputGate physicalInput = new PhysicalInputGate();
 
@@ -82,6 +85,7 @@ public final class ForgeCombatController {
         session.rotations().cancel(AIM_ID);
         if (!host.featureEnabled(AIM_ID)) aimLock.clear();
         final WorldSnapshot snapshot = session.snapshot();
+        final boolean[] aimAdjusted = {false};
         if (snapshot != null && host.featureEnabled(AIM_ID)) {
             boolean healthy = host.runFeature(AIM_ID, new Runnable() {
                 public void run() {
@@ -139,6 +143,7 @@ public final class ForgeCombatController {
                     if (AIM_ID.equals(rotation.owner)) {
                         player.rotationYaw = rotation.yaw;
                         player.rotationPitch = rotation.pitch;
+                        aimAdjusted[0] = true;
                         if (locking) aimLock.applied(
                             session.generation(), session.tick(),
                             suggestion.entityId, candidate.getUniqueID());
@@ -176,14 +181,16 @@ public final class ForgeCombatController {
         final boolean[] extraAttackQueued = {false};
 
         if (!host.featureEnabled(HIT_ID)) hitSelect.reset();
+        // Both sources propose to the SAME exclusive action coordinator.
+        // Physical attack hold owns the ordinary AutoClicker; TriggerBot
+        // does not synthesize extra attacks while a manual click is held.
         session.actions().cancelOwner(CLICK_ID);
+        session.actions().cancelOwner(TRIGGER_ID);
         if (host.featureEnabled(CLICK_ID)) {
             boolean healthy = host.runFeature(CLICK_ID, new Runnable() {
                 public void run() {
                     boolean eligible = !useHeld && !player.isUsingItem() &&
                         (!host.clickEntityOnly() || validTarget);
-                    // Fixed is bit-for-bit the original timing path; optional
-                    // balanced/range schedules remain single-pulse only.
                     final long now = System.nanoTime();
                     final boolean due;
                     if ("fixed".equals(host.clickPattern())) {
@@ -192,49 +199,72 @@ public final class ForgeCombatController {
                     } else {
                         scheduler.reset();
                         double first = host.clickMinCps(), second = host.clickMaxCps();
-                        // GUI sliders are independent; a temporary min/max
-                        // crossing is canonicalized, not a module fault.
                         due = patternScheduler.due(now, eligible, held,
                             Math.min(first, second), Math.max(first, second),
                             host.clickPattern());
                     }
-                    if (!due) return;
-                    final boolean[] allowed = {true};
-                    if (host.featureEnabled(HIT_ID)) {
-                        allowed[0] = false;
-                        // A faulty Hit Select disables only itself and rejects
-                        // this extra pulse; the clicker stays enabled.
-                        host.runFeature(HIT_ID, new Runnable() {
-                            public void run() {
-                                allowed[0] = hitSelect.accept(true,
-                                    !host.hitRequireTarget() || validTarget,
-                                    target == null ? 0 : target.hurtTime,
-                                    host.hitMaxHurtTime(), host.hitGapTicks(),
-                                    player.hurtTime, host.hitMode(),
-                                    host.hitTradeMinSelfHurt(),
-                                    session.tick(), session.generation());
-                            }
-                        });
-                    }
-                    if (!allowed[0]) return;
-                    session.actions().request(CLICK_ID, ActionCoordinator.Type.ATTACK,
-                        ActionCoordinator.Phase.OUTPUT, 0, 10,
-                        session.tick(), 1, session.generation());
-                    extraAttackQueued[0] = true;
+                    if (due) session.actions().request(CLICK_ID,
+                        ActionCoordinator.Type.ATTACK,ActionCoordinator.Phase.OUTPUT,
+                        0,20,session.tick(),1,session.generation());
                 }
             });
             if (!healthy) {
                 scheduler.reset();
                 patternScheduler.reset();
-                hitSelect.reset();
-                extraAttackQueued[0] = false;
                 session.actions().cancelOwner(CLICK_ID);
             }
         } else {
             scheduler.reset();
             patternScheduler.reset();
-            session.actions().cancelOwner(CLICK_ID);
         }
+
+        if (host.featureEnabled(TRIGGER_ID)) {
+            boolean healthy = host.runFeature(TRIGGER_ID, new Runnable() {
+                public void run() {
+                    boolean eligible = !physicalDown && !held && !useHeld &&
+                        !player.isUsingItem() && !aimAdjusted[0] &&
+                        triggerTargetValid(player,target,sword);
+                    java.util.UUID uuid = eligible ? target.getUniqueID() : null;
+                    if (triggerBot.due(session.generation(),session.tick(),
+                            eligible,uuid,host.triggerAcquireTicks(),
+                            host.triggerCooldownTicks()))
+                        session.actions().request(TRIGGER_ID,
+                            ActionCoordinator.Type.ATTACK,
+                            ActionCoordinator.Phase.OUTPUT,0,10,
+                            session.tick(),1,session.generation());
+                }
+            });
+            if (!healthy) {
+                triggerBot.reset();
+                session.actions().cancelOwner(TRIGGER_ID);
+            }
+        } else {
+            triggerBot.reset();
+        }
+
+        // Hit Select must evaluate the WINNING request only, never both
+        // candidate cooldowns. An arbitration loss is not a dispatched hit.
+        final ActionCoordinator.Decision selectedAttack = session.actions().consume(
+            ActionCoordinator.Type.ATTACK,ActionCoordinator.Phase.OUTPUT,
+            session.tick(),session.generation());
+        boolean approved = selectedAttack != null;
+        if (approved && host.featureEnabled(HIT_ID)) {
+            final boolean[] allowed = {false};
+            boolean healthy = host.runFeature(HIT_ID, new Runnable() {
+                public void run() {
+                    allowed[0] = hitSelect.accept(true,
+                        !host.hitRequireTarget() || validTarget,
+                        target == null ? 0 : target.hurtTime,
+                        host.hitMaxHurtTime(),host.hitGapTicks(),player.hurtTime,
+                        host.hitMode(),host.hitTradeMinSelfHurt(),
+                        session.tick(),session.generation());
+                }
+            });
+            approved = healthy && allowed[0];
+        }
+        final boolean attackApproved = approved;
+        extraAttackQueued[0] = attackApproved && selectedAttack!=null &&
+            CLICK_ID.equals(selectedAttack.owner);
 
         session.actions().cancelOwner(BLOCK_ID);
         if (host.featureEnabled(BLOCK_ID)) {
@@ -258,25 +288,36 @@ public final class ForgeCombatController {
             blockHit.reset();
         }
 
-        ActionCoordinator.Decision attack = session.actions().consume(
-            ActionCoordinator.Type.ATTACK, ActionCoordinator.Phase.OUTPUT,
-            session.tick(), session.generation());
-        if (attack != null && CLICK_ID.equals(attack.owner) &&
-            host.featureEnabled(CLICK_ID) && held && !useHeld && !player.isUsingItem() &&
-            (!host.clickEntityOnly() || validTarget) &&
-            (!host.featureEnabled(HIT_ID) || (!host.hitRequireTarget() || validTarget))) {
+        // Final native guard executes only the chosen, still-valid owner.
+        // The Forge key pulse uses Minecraft's normal key-input path; there
+        // are no packets, attackEntity calls or bypass controllers here.
+        if (selectedAttack != null && CLICK_ID.equals(selectedAttack.owner) &&
+            attackApproved && host.featureEnabled(CLICK_ID) &&
+            held && !useHeld && !player.isUsingItem() &&
+            (!host.clickEntityOnly() || validTarget)) {
             host.runFeature(CLICK_ID, new Runnable() {
                 public void run() {
-                    // Normal vanilla key path, not direct attackEntity/packets.
                     KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
                     host.diagnostics().record(Counter.EXTRA_ATTACK);
                     host.nativeAction(ModuleActionTelemetry.Lane.CLICKER,
                         ModuleActionTelemetry.Event.DISPATCHED);
                 }
             });
-        } else if(attack!=null && CLICK_ID.equals(attack.owner)) {
-            // Coordinator emitted an attack, but the last native safety
-            // check declined it. This is not a "missed server hit".
+        } else if (selectedAttack != null && TRIGGER_ID.equals(selectedAttack.owner) &&
+            attackApproved && host.featureEnabled(TRIGGER_ID) &&
+            !mc.gameSettings.keyBindAttack.isKeyDown() &&
+            !mc.gameSettings.keyBindUseItem.isKeyDown() &&
+            !player.isUsingItem() && !aimAdjusted[0] &&
+            triggerTargetValid(player,target,sword)) {
+            host.runFeature(TRIGGER_ID, new Runnable() {
+                public void run() {
+                    triggerBot.dispatched(session.generation(),session.tick(),
+                        target.getUniqueID());
+                    KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
+                    host.diagnostics().record(Counter.EXTRA_ATTACK);
+                }
+            });
+        } else if (selectedAttack != null && CLICK_ID.equals(selectedAttack.owner)) {
             host.nativeAction(ModuleActionTelemetry.Lane.CLICKER,
                 ModuleActionTelemetry.Event.REJECTED);
         }
@@ -302,6 +343,24 @@ public final class ForgeCombatController {
         }
     }
 
+    /** Fresh crosshair, world, reach and team validation at native boundary. */
+    private boolean triggerTargetValid(EntityPlayerSP player,
+                                       EntityLivingBase target,boolean sword) {
+        if (!(target instanceof EntityPlayer) || mc.theWorld==null ||
+            mc.currentScreen!=null || !mc.inGameHasFocus ||
+            mc.objectMouseOver==null ||
+            mc.objectMouseOver.typeOfHit!=MovingObjectPosition.MovingObjectType.ENTITY ||
+            mc.objectMouseOver.entityHit!=target ||
+            mc.theWorld.getEntityByID(target.getEntityId())!=target ||
+            target==player || target.isDead || target.getHealth()<=0 ||
+            target.isInvisible() || !player.canEntityBeSeen(target) ||
+            player.getDistanceToEntity(target)>host.triggerRange() ||
+            (host.triggerRequireSword() && !sword))
+            return false;
+        return !host.triggerIgnoreTeammates() || player.getTeam()==null ||
+            player.getTeam()!=target.getTeam();
+    }
+
     /** Clears timers and all pending owned intents on world or focus change. */
     void reset() {
         aimLock.reset();
@@ -309,11 +368,13 @@ public final class ForgeCombatController {
         patternScheduler.reset();
         physicalInput.reset();
         hitSelect.reset();
+        triggerBot.reset();
         blockHit.reset();
         SessionServices session = host.services();
         if (!session.connected()) return;
         session.rotations().cancel(AIM_ID);
         session.actions().cancelOwner(CLICK_ID);
+        session.actions().cancelOwner(TRIGGER_ID);
         session.actions().cancelOwner(BLOCK_ID);
     }
 }
