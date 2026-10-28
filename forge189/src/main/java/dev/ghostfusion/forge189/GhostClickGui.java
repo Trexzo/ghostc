@@ -974,6 +974,18 @@ public final class GhostClickGui extends GuiScreen {
             entries();
             return;
         }
+        if(split!=null&&search!=null&&
+           GuiSlateSearchGeometry.surfaceHit(split,mx,my)) {
+            // The whole search surface is a focus target. Native field clicks
+            // keep their caret placement; icon/padding clicks enter at the end.
+            search.mouseClicked(mx,my,button);
+            if(!search.isFocused()) {
+                search.setFocused(true);
+                search.setCursorPositionEnd();
+            }
+            keyboardSetting=-1;
+            return;
+        }
         if (search != null) {
             search.mouseClicked(mx,my,button);
             if(search.isFocused())keyboardSetting=-1;
