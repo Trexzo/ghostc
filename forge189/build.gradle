@@ -79,3 +79,14 @@ task nativeCombatKeyProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeCombatKeyBindingTests'
 }
 check.dependsOn nativeCombatKeyProbe
+
+
+// R3.55 mandatory actual Minecraft 1.8.9 EntityPlayerSP.jump() linkage
+// and hurt-edge state-machine probe, Linux/Windows JDK8. This does not
+// launch Minecraft or imply a server-accepted jump.
+task nativeJumpResetProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeJumpResetTests'
+}
+check.dependsOn nativeJumpResetProbe
