@@ -6,6 +6,7 @@ import dev.ghostfusion.ui.HudFootprints;
 import dev.ghostfusion.ui.HudWidgetViewport;
 import dev.ghostfusion.ui.HudScaleLayout;
 import dev.ghostfusion.ui.DiagnosticsHudLayout;
+import dev.ghostfusion.ui.DiagnosticsHudStyle;
 import dev.ghostfusion.ui.HudTextFit;
 import dev.ghostfusion.ui.ModuleListLayout;
 import dev.ghostfusion.ui.ModuleListMotion;
@@ -429,15 +430,18 @@ public final class ForgeFeatureDriver {
             sw,sh,mc.fontRendererObj.FONT_HEIGHT);
         if(layout.rows==0)return;
         int x=layout.x, y=layout.y;
-        Gui.drawRect(x,y,x+layout.width,y+layout.height,0xC31B2133);
+        // The default Slate profile should never inherit the purple
+        // development overlay. Legacy profile colors stay unchanged.
+        DiagnosticsHudStyle style=DiagnosticsHudStyle.of(host.ui().theme());
+        Gui.drawRect(x,y,x+layout.width,y+layout.height,style.panel);
         drawDiagnosticText("GhostC " + GhostCMod.CLIENT_VERSION +
-            " diagnostics",x+5,y+5,layout.textWidth,0xFFAEAAFF);
+            " diagnostics",x+5,y+5,layout.textWidth,style.title);
         // Compact panels evaluate ONLY the rows the layout can actually paint.
         // Full panels retain exactly the original fourteen labels and order.
         DiagnosticLines lines=new DiagnosticLines();
         for(int slot=0;slot<layout.rows;slot++)
             drawDiagnosticText(lines.row(layout.sourceRow(slot)),x+5,
-                layout.rowY(slot),layout.textWidth,0xFFC9D1DF);
+                layout.rowY(slot),layout.textWidth,style.body);
         // Focus/suppression remains in the saved local report.
     }
     /**
