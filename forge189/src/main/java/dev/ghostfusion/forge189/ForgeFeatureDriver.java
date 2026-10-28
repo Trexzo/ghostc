@@ -9,6 +9,8 @@ import dev.ghostfusion.ui.DiagnosticsHudLayout;
 import dev.ghostfusion.ui.HudTextFit;
 import dev.ghostfusion.ui.ModuleListLayout;
 import dev.ghostfusion.ui.ModuleListMotion;
+import dev.ghostfusion.ui.ModuleListTextGeometry;
+import dev.ghostfusion.core.ModuleRegistry;
 import dev.ghostfusion.ui.HudThemeTokens;
 import dev.ghostfusion.features.SprintPolicy;
 import dev.ghostfusion.features.TargetHudPolicy;
@@ -95,7 +97,7 @@ public final class ForgeFeatureDriver {
         boolean focused = mc.currentScreen == null && mc.inGameHasFocus && host.worldPresent();
         cps.mouse(button, Mouse.getEventButtonState(), System.nanoTime(), focused);
     }
-    void reset() { cps.clear(); targetMotion.reset(); }
+    void reset() { cps.clear(); targetMotion.reset(); moduleListMotion.reset(); }
     void render3d(final float partialTicks) {
         host.runFeature("render.esp", new Runnable() {
             public void run() { esp.draw(partialTicks); }
@@ -123,6 +125,10 @@ public final class ForgeFeatureDriver {
         drawFeature("hud.diagnostics", new Runnable() {
             public void run() { drawDiagnostics(sw,sh); }
         });
+        // A disabled/faulted Module List never renders, so evict its
+        // previous visual entry timelines before it can be re-enabled.
+        if(host.modules().get("hud.modulelist").state()!=ModuleRegistry.State.ENABLED)
+            moduleListMotion.reset();
         drawFeature("hud.modulelist", new Runnable() {
             public void run() { drawEnabledModules(sw,sh); }
         });
@@ -161,6 +167,9 @@ public final class ForgeFeatureDriver {
         final int classicAccent=host.ui().theme()==dev.ghostfusion.ui.UiState.Theme.GRAPHITE
             ? 0xFFB9C5D6 : 0xFFA59AFF;
         final int accent="classic".equals(appearance)?classicAccent:theme.accent;
+        // Switching away and back to Slate should start fresh motion,
+        // without changing a single legacy Classic/Minimal pixel.
+        if(!"slate".equals(appearance))moduleListMotion.reset();
         if("slate".equals(appearance)) {
             // A Slinky/Rise-inspired, text-first overlay; original Minecraft
             // lifecycle still controls visibility, not the animation cache.
@@ -171,11 +180,12 @@ public final class ForgeFeatureDriver {
             for(ModuleListLayout.Row row:frame.rows) {
                 double phase=moduleListMotion.observe(row.id);
                 int alpha=ModuleListMotion.fade(theme.text,phase);
-                int measured=mc.fontRendererObj.getStringWidth(row.label);
-                int textX=right?row.x+row.width-6-measured:row.x+6;
-                int direction=right?1:-1;
-                int travel=(int)Math.round((1.0-phase)*7.0)*direction;
-                textX=Math.max(0,Math.min(sw-measured,textX+travel));
+                // Vanilla FontRenderer can treat almost-zero alpha as fully
+                // opaque; skip those entry frames instead of flashing names.
+                if((alpha>>>24)<4)continue;
+                // Cached layout width avoids measuring the same glyphs twice.
+                int textX=ModuleListTextGeometry.x(
+                    row,row.textWidth,sw,right,phase);
                 if(background) {
                     // At 1x this is intentionally almost transparent.
                     Gui.drawRect(row.x,row.y,row.x+row.width,row.y+row.height,
@@ -186,7 +196,9 @@ public final class ForgeFeatureDriver {
                     Gui.drawRect(markerX,row.y+2,markerX+2,row.y+row.height-2,
                         ModuleListMotion.fade(theme.accent,phase*0.72));
                 }
-                mc.fontRendererObj.drawStringWithShadow(row.label,textX,row.textY,alpha);
+                // Matte Slate text is intentionally crisp, without the
+                // doubled vanilla font shadow used by Classic/Minimal.
+                mc.fontRendererObj.drawString(row.label,textX,row.textY,alpha);
             }
             moduleListMotion.endFrame();
             return;
