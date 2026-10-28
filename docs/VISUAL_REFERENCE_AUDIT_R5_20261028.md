@@ -53,3 +53,14 @@ The same isolated stacked PR now includes:
 - Two new pure-Java regressions: 40k randomized text-placement viewports/anchors/transitions, plus 10k randomized enabled-count toggles. Tests are included in Core Java17/21 CI and Forge JDK8 still compiles the real painter.
 
 **Evidence limit:** passing compile/geometry tests is not a substitute for screenshots and frame-time from original Minecraft 1.8.9. No gameplay input arbitration, module combat logic, packet hooks or shader resources were modified in this pass.
+
+
+## R5 continued — quiet Keystrokes and CPS (2026-10-28)
+
+The Slate-native 1.8.9 overlay now expresses physical key presses via a restrained dark graphite panel rather than flooding the whole 25×17 / 83×17 key with bright ice-blue. Each pressed key retains a 1px ice-blue bottom rule and off-white label, whereas the unpressed keys show a quieter muted label. Top hairline and small bottom accent are drawn using original Minecraft `Gui.drawRect` calls, without effects, bloom or textures.
+
+Slate Keystrokes and CPS render native Minecraft `drawString` (no doubled shadow), consistent with the updated Slate ArrayList and Target HUD. **Classic and Minimal remain on their previous painter branches**; the physical key source is still vanilla `GameSettings.getKeyDisplayString`, not hardcoded WASD or artificial input. Existing per-HUD scaling, viewport admission, profile preference and GUI ownership are unchanged.
+
+`SlateHudKeyStyle` is an immutable zero-allocation color policy with a 50k-repeat regression. The regression requires readable RGB contrast for both idle and pressed key labels and confirms the pressed surface never equals a bright full-card accent. The Forge source wiring test asserts that the game-side renderer actually uses the palette and shadow-free Slate paths.
+
+This is native-source implementation with offline tests only. Original in-game screenshot, actual font legibility at Minecraft GUI scales 1–3, color blending, and rendering overhead still require acceptance inside Minecraft 1.8.9 before release.
