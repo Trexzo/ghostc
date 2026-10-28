@@ -84,6 +84,8 @@ jobs:
           grep -q 'SLATE_LEGACY_MIGRATION_PASS' .build/slate-legacy.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiThemePaletteTests | tee .build/gui-theme.log
           grep -q 'GUI_THEME_PALETTE_PASS' .build/gui-theme.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiCategoryActivityTests | tee .build/gui-category-activity.log
+          grep -q 'GUI_CATEGORY_ACTIVITY_PASS' .build/gui-category-activity.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiToggleMotionTests | tee .build/gui-toggle-motion.log
           grep -q 'GUI_TOGGLE_MOTION_PASS' .build/gui-toggle-motion.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudThemeTokensTests | tee .build/hud-theme-tokens.log
