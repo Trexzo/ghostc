@@ -263,8 +263,19 @@ public final class GhostClickGui extends GuiScreen {
         ModuleRegistry.Entry entry;
         try {entry=host.modules().get(selected);}
         catch(IllegalArgumentException ignored){return;}
-        label(trim(entry.module().displayName(),pane.detailsWidth-22),
+        // Surface true registry state rather than implying selection means active.
+        // Reserve measured space so the status never collides with long names.
+        String status=entry.state()==ModuleRegistry.State.FAULTED?"FAULT":
+            entry.state()==ModuleRegistry.State.ENABLED?"ACTIVE":"OFF";
+        int statusColor=entry.state()==ModuleRegistry.State.FAULTED?0xFFEBA4AF:
+            entry.state()==ModuleRegistry.State.ENABLED?color.accent:color.muted;
+        int statusX=pane.detailsX+pane.detailsWidth-16-
+            fontRendererObj.getStringWidth(status);
+        label(trim(entry.module().displayName(),
+            Math.max(0,statusX-pane.detailsX-27)),
             pane.detailsX+9,pane.detailsY+23,color.text);
+        rect(statusX-9,pane.detailsY+26,4,4,statusColor);
+        label(status,statusX,pane.detailsY+23,statusColor);
         rect(pane.detailsX+9,pane.detailsY+44,pane.detailsWidth-18,1,color.divider);
         rect(pane.detailsX+9,pane.bindingY,pane.detailsWidth-18,24,0x48313942);
         label("KEYBIND",pane.detailsX+16,pane.bindingY+8,color.muted);
@@ -279,12 +290,16 @@ public final class GhostClickGui extends GuiScreen {
             Math.max(0,settings.size()-pane.settingRows)));
         keyboardSetting=GuiSettingKeyboard.visibleFocus(
             keyboardSetting,settingScroll,settings.size(),pane.settingRows);
+        final int hoveredSetting=pane.settingIndex(mx,my,settingScroll,settings.size());
         for(int i=settingScroll;i<settings.size()&&i<settingScroll+pane.settingRows;i++){
             Map.Entry<String,Setting<?>> row=settings.get(i);
             Setting<?> setting=row.getValue();
             int yy=pane.settingY+(i-settingScroll)*30;
-            if(i==keyboardSetting)
-                rect(pane.detailsX+8,yy,pane.detailsWidth-16,27,0x50333E46);
+            // Subdued hover treatment shows where a click will act, using
+            // the exact same hit geometry as the native input path.
+            if(i==keyboardSetting || i==hoveredSetting)
+                rect(pane.detailsX+8,yy,pane.detailsWidth-16,27,
+                    i==keyboardSetting?0x50333E46:0x25333E46);
             rect(pane.detailsX+9,yy+26,pane.detailsWidth-18,1,0x263E4558);
             int kind=setting instanceof Setting.Bool?0:
                 setting instanceof Setting.Number?1:2;
@@ -313,9 +328,19 @@ public final class GhostClickGui extends GuiScreen {
             pane.detailsX+pane.detailsWidth-5,pane.settingY,
             pane.settingRows*30,pane.settingRows,settings.size(),
             settingScroll,mx,my);
-        if(settings.size()>pane.settingRows)
-            label((settingScroll+1)+"-"+Math.min(settings.size(),settingScroll+
-                pane.settingRows)+" / "+settings.size(),
+        // The quiet footer gives keyboard users the same discoverability
+        // as pointer users, but never paints across warnings.
+        String settingFooter=null;
+        if(keyboardSetting>=0 && keyboardSetting<settings.size())
+            settingFooter=GuiSettingKeyboard.hint(
+                settings.get(keyboardSetting).getValue());
+        else if(settings.size()>pane.settingRows)
+            settingFooter=(settingScroll+1)+"-"+
+                Math.min(settings.size(),settingScroll+pane.settingRows)+
+                " / "+settings.size()+"  SCROLL";
+        if(settingFooter!=null &&
+           GuiFooterText.warning(message,host.uiWarning()).isEmpty())
+            label(trim(settingFooter,pane.detailsWidth-23),
                 pane.detailsX+10,y+h-20,color.muted);
     }
     private int bg() { return palette().background; }
