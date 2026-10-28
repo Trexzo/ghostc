@@ -100,3 +100,13 @@ task nativeAutoRodProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeAutoRodTests'
 }
 check.dependsOn nativeAutoRodProbe
+
+
+// R3.57 mandatory genuine Minecraft 1.8.9 ItemSnowball and vanilla
+// sendUseItem / held hotbar method linkage (headless Java8 only).
+task nativeAutoSnowballProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeAutoSnowballTests'
+}
+check.dependsOn nativeAutoSnowballProbe

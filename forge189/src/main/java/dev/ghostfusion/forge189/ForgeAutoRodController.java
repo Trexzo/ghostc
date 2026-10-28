@@ -70,6 +70,7 @@ final class ForgeAutoRodController {
                 ModuleActionTelemetry.Event.CANCELLED);
         owner=null;world=null;
     }
+    boolean ownsHotbar() { return policy.ownsHotbar(); }
     void reset() {
         try { restoreIfOwned(); }
         finally {policy.reset();host.services().actions().cancelOwner(MODULE);}
