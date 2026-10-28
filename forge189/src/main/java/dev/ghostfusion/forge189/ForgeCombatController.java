@@ -2,6 +2,7 @@ package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.features.AimAssistPolicy;
 import dev.ghostfusion.features.AimTargetLock;
+import dev.ghostfusion.features.AimTriggerHandoff;
 import dev.ghostfusion.features.FixedClickScheduler;
 import dev.ghostfusion.features.PatternClickScheduler;
 import dev.ghostfusion.features.HitSelectPolicy;
@@ -25,6 +26,8 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemSword;
 import net.minecraft.util.MovingObjectPosition;
+import net.minecraft.util.Vec3;
+import net.minecraft.util.AxisAlignedBB;
 
 /**
  * Sole Forge owner of optional local combat writes.
@@ -80,6 +83,36 @@ public final class ForgeCombatController {
             mc.gameSettings.keyBindUseItem.getKeyCode());
         if (physicalDown && !held) host.diagnostics().record(Counter.INPUT_SUPPRESSED);
 
+        // Snapshot the current crosshair exactly once for all combat policies.
+        EntityLivingBase found = null;
+        if (mc.objectMouseOver != null &&
+            mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY &&
+            mc.objectMouseOver.entityHit instanceof EntityLivingBase) {
+            EntityLivingBase candidate=(EntityLivingBase)mc.objectMouseOver.entityHit;
+            // objectMouseOver is produced during rendering and may still
+            // reference a despawned entity. Require exact current-world
+            // object identity, not merely matching entity IDs.
+            if(LiveCombatTargetGate.eligible(candidate,
+                    mc.theWorld.getEntityByID(candidate.getEntityId()),player,
+                    candidate.isDead,candidate.getHealth()))
+                found=candidate;
+        }
+        final EntityLivingBase target = found;
+        final boolean validTarget = target != null;
+        final boolean useHeld = mc.gameSettings.keyBindUseItem.isKeyDown();
+        ItemStack equipped = player.getHeldItem();
+        final boolean sword = equipped != null && equipped.getItem() instanceof ItemSword;
+        final boolean[] extraAttackQueued = {false};
+
+        // A native, live player already under the physical crosshair owns
+        // the current camera tick when unheld TriggerBot is active. This
+        // avoids perpetual Aim Assist re-rotation starving acquisition.
+        // TriggerBot must STILL earn its own UUID-based dwell and attack grant.
+        final boolean yieldToTrigger = AimTriggerHandoff.yieldCamera(
+            host.featureEnabled(TRIGGER_ID),physicalDown,useHeld,
+            player.isUsingItem(),triggerBindingValid(),
+            triggerTargetValid(player,target,sword));
+
         // Cancel any previous owned request before scheduling the new one.
         // This also makes disabled, focus-lost and failing modules fail closed.
         session.rotations().cancel(AIM_ID);
@@ -89,6 +122,10 @@ public final class ForgeCombatController {
         if (snapshot != null && host.featureEnabled(AIM_ID)) {
             boolean healthy = host.runFeature(AIM_ID, new Runnable() {
                 public void run() {
+                    if (yieldToTrigger) {
+                        aimLock.clear();
+                        return;
+                    }
                     if (host.aimRequireClick() && !held) {
                         aimLock.clear();
                         return;
@@ -158,27 +195,6 @@ public final class ForgeCombatController {
                 session.rotations().cancel(AIM_ID);
             }
         }
-
-        // Snapshot the current crosshair exactly once for all combat policies.
-        EntityLivingBase found = null;
-        if (mc.objectMouseOver != null &&
-            mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY &&
-            mc.objectMouseOver.entityHit instanceof EntityLivingBase) {
-            EntityLivingBase candidate=(EntityLivingBase)mc.objectMouseOver.entityHit;
-            // objectMouseOver is produced during rendering and may still
-            // reference a despawned entity. Require exact current-world
-            // object identity, not merely matching entity IDs.
-            if(LiveCombatTargetGate.eligible(candidate,
-                    mc.theWorld.getEntityByID(candidate.getEntityId()),player,
-                    candidate.isDead,candidate.getHealth()))
-                found=candidate;
-        }
-        final EntityLivingBase target = found;
-        final boolean validTarget = target != null;
-        final boolean useHeld = mc.gameSettings.keyBindUseItem.isKeyDown();
-        ItemStack equipped = player.getHeldItem();
-        final boolean sword = equipped != null && equipped.getItem() instanceof ItemSword;
-        final boolean[] extraAttackQueued = {false};
 
         if (!host.featureEnabled(HIT_ID)) hitSelect.reset();
         // Both sources propose to the SAME exclusive action coordinator.
@@ -373,6 +389,20 @@ public final class ForgeCombatController {
             player.getDistanceToEntity(target)>host.triggerRange() ||
             (host.triggerRequireSword() && !sword))
             return false;
+        // Rendering's objectMouseOver is a cache. Revalidate the actual
+        // current camera ray against the target's live native bounding box;
+        // stale render/camera observations cannot authorize a click.
+        if(!Float.isFinite(player.rotationYaw) ||
+           !Float.isFinite(player.rotationPitch)) return false;
+        Vec3 origin=player.getPositionEyes(1.0F);
+        Vec3 direction=player.getLook(1.0F);
+        double range=host.triggerRange();
+        Vec3 end=origin.addVector(direction.xCoord*range,
+            direction.yCoord*range,direction.zCoord*range);
+        float border=target.getCollisionBorderSize();
+        AxisAlignedBB bounds=target.getEntityBoundingBox().expand(
+            border,border,border);
+        if(bounds.calculateIntercept(origin,end)==null)return false;
         return !host.triggerIgnoreTeammates() || player.getTeam()==null ||
             player.getTeam()!=target.getTeam();
     }
