@@ -122,3 +122,22 @@ Compact setting rows now show human-readable `GuiSettingPresentation` labels, a 
 The source retains the existing `GuiHitZones.moduleIndex` and `GuiHitZones.settingIndex` for pointer ownership and keeps all `UiActions` calls and settings serialization unchanged. Legacy INDIGO and GRAPHITE/MINT paint branches keep their original solid buttons and values. The new `GuiSlateCompactMetricsTests` validates 50,000 deterministic random fallback layouts, control gaps, and a representative 480×270 scaled-GUI case. It is registered in Core Java 17/21 CI, alongside updated Forge source-wiring checks.
 
 **Scope and limits:** visual implementation plus deterministic layout tests only. Authentic original Minecraft 1.8.9 screenshots at GUI Scale Auto, 2 and 3, and interactive mouse/keyboard acceptance, remain prerequisites to calling this released or visually certified.
+
+
+## R5 visual reference pass — actual source imagery (28 October 2026)
+
+This iteration explicitly compared **real interface references**, not speculative purple/Nebula themes. Reference links are for design study only; GhostC copies no proprietary artwork, icons, text descriptions, fonts or code.
+
+1. **Vape V4 — official Quick Start screenshot:** https://docs.vape.gg/intro/quick-start , showing an intentionally small dark navigation column, a separate module list, and restrained affordances. Takeaway: distinct navigation and control ownership; don't overload the list with colorful rectangles.
+2. **Slinky — official module settings imagery:** https://slinky.gg/ , showing dark, low-noise setting controls and consistent vertical rhythm. Takeaway: favor legibility, consistent control alignment and subtle surfaces. Do **not** copy its orange accent or proprietary elements.
+3. **Rise 6 — visual reference screenshot:** https://vantage.rip/rise/rise_gui.png , showing a category/search sidebar, module title and quieter secondary text within each row. Takeaway: establish two-level information hierarchy without inventing content absent from GhostC's registry.
+
+### Source-backed implementation
+
+GhostC's `GhostModule` interface exposes `displayName()` and `category()` and its `ModuleRegistry.Entry` exposes the **current** bound key. It has **no description field**. The Slate 29-pixel module row now draws its original title at `y+3`, with a small muted second line at `y+15` showing the truthful category plus bound key (if any); the 27-pixel interaction footprint and native 29-pixel row stride remain unchanged. The selected module's settings title has a matching muted category breadcrumb at `detailsY+34` above the existing divider. The switch, fault/reset state, selection and scroll behavior are untouched.
+
+The new pure-Java `GuiSlateModuleCaption` removes hostile/control-like key names, caps shortcut display at 12 ASCII characters, preserves an empty/unbound key as category-only, and uses Minecraft font fitting in Forge rather than guessed fixed-width strings. Its `GuiSlateModuleCaptionTests` suite validates all categories and 40,000 deterministic generated key strings against an independent font-width budget. Forge wiring assertions require the actual new row and breadcrumb paint calls.
+
+### What still needs visual acceptance
+
+Capture both **full Slate** and **compact Slate** in original Minecraft 1.8.9 at GUI Scale 2, 3 and Auto. At minimum, check: long title shortening, category/keybind secondary baseline, STATUS/FAULT distinction, live toggles, two-column gutters, search focus, F7 editor and overall black/graphite/ice-blue contrast. Do not call the screenshots finished until they exist; CI compilation alone is not a pixel-perfect visual review.
