@@ -12,6 +12,7 @@ import dev.ghostfusion.ui.HudTextFit;
 import dev.ghostfusion.ui.ModuleListLayout;
 import dev.ghostfusion.ui.ModuleListMotion;
 import dev.ghostfusion.ui.ModuleListTextGeometry;
+import dev.ghostfusion.ui.ModuleListSlateRowGeometry;
 import dev.ghostfusion.core.ModuleRegistry;
 import dev.ghostfusion.ui.HudThemeTokens;
 import dev.ghostfusion.ui.SlateHudKeyStyle;
@@ -191,18 +192,35 @@ public final class ForgeFeatureDriver {
                 // Cached layout width avoids measuring the same glyphs twice.
                 int textX=ModuleListTextGeometry.x(
                     row,row.textWidth,sw,right,phase);
-                if(background) {
-                    // At 1x this is intentionally almost transparent.
-                    Gui.drawRect(row.x,row.y,row.x+row.width,row.y+row.height,
-                        ModuleListMotion.fade(0x27151A25,phase));
+                if(background||stripe) {
+                    // Slinky/Vape-inspired text-first overlay: each moving
+                    // caption gets its own measured-width surface rather
+                    // than a slab sized to the longest enabled module.
+                    int surfaceWidth=ModuleListSlateRowGeometry.width(row);
+                    int surfaceX=ModuleListSlateRowGeometry.x(row,textX,sw);
+                    if(background) {
+                        Gui.drawRect(surfaceX,row.y,
+                            surfaceX+surfaceWidth,row.y+row.height,
+                            ModuleListMotion.fade(0x55151A20,phase));
+                        // One faint bottom hairline, matching the Slate HUD
+                        // palette without strong glow or rounded textures.
+                        if(row.height>=5)
+                            Gui.drawRect(surfaceX+3,row.y+row.height-1,
+                                surfaceX+surfaceWidth-3,row.y+row.height,
+                                ModuleListMotion.fade(theme.frame,phase*0.65));
+                    }
+                    if(stripe) {
+                        int markerX=ModuleListSlateRowGeometry.railX(
+                            surfaceX,surfaceWidth,right);
+                        int markerY=ModuleListSlateRowGeometry.railY(row);
+                        int markerHeight=ModuleListSlateRowGeometry.railHeight(row);
+                        Gui.drawRect(markerX,markerY,
+                            markerX+2,markerY+markerHeight,
+                            ModuleListMotion.fade(theme.accent,phase*0.75));
+                    }
                 }
-                if(stripe) {
-                    int markerX=right?row.x+row.width-2:row.x;
-                    Gui.drawRect(markerX,row.y+2,markerX+2,row.y+row.height-2,
-                        ModuleListMotion.fade(theme.accent,phase*0.72));
-                }
-                // Matte Slate text is intentionally crisp, without the
-                // doubled vanilla font shadow used by Classic/Minimal.
+                // Crisp font treatment is identical to the Target HUD;
+                // no second vanilla text shadow or RGB cycling.
                 mc.fontRendererObj.drawString(row.label,textX,row.textY,alpha);
             }
             moduleListMotion.endFrame();
