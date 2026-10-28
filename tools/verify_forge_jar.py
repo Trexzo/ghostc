@@ -37,6 +37,7 @@ REQUIRED = (
     "dev/ghostfusion/forge189/ForgePingReadout.class",
     "dev/ghostfusion/ui/DiagnosticsHudLayout.class",
     "dev/ghostfusion/ui/HudTextFit.class",
+    "dev/ghostfusion/ui/ModuleListSlateRowGeometry.class",
     "dev/ghostfusion/ui/GuiSliderDrag.class",
     "dev/ghostfusion/ui/HudDragCapture.class",
     "dev/ghostfusion/ui/GuiSettingKeyboard.class",
