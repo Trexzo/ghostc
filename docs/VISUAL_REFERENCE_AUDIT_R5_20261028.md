@@ -141,3 +141,10 @@ The new pure-Java `GuiSlateModuleCaption` removes hostile/control-like key names
 ### What still needs visual acceptance
 
 Capture both **full Slate** and **compact Slate** in original Minecraft 1.8.9 at GUI Scale 2, 3 and Auto. At minimum, check: long title shortening, category/keybind secondary baseline, STATUS/FAULT distinction, live toggles, two-column gutters, search focus, F7 editor and overall black/graphite/ice-blue contrast. Do not call the screenshots finished until they exist; CI compilation alone is not a pixel-perfect visual review.
+
+
+### Reference-led search empty state (same 28 October pass)
+
+The Rise 6 screenshot at https://vantage.rip/rise/rise_gui.png demonstrates that search and module discovery should have clear, legible information hierarchy instead of a dead blank panel. On the Slate three-pane Modules page, a zero-result filtered view now draws one restrained 156×56-or-smaller card centered **within the actual visible module-row viewport**. It says **NO RESULTS** and either **CHANGE SEARCH** or **CHANGE CATEGORY**, based on whether a search string exists. The details panel provides a corresponding **NOTHING TO CONFIGURE** notice. This is not a new clickable action or module and does not change filtering, selection, keybind capture or scroll state.
+
+A separate `GuiSlateEmptyStateLayout` helper computes card placement without referencing Forge, LWJGL, font assets or game runtime. `GuiSlateEmptyStateLayoutTests` checks 40,000 seeded scaled viewports for horizontal containment, row-region containment, icon-free text padding and stable height; the Forge wiring suite verifies the actual `filtered.isEmpty()` paint branch. The card uses GhostC's own restrained graphite/ice colors, not copied Rise assets. Native screenshot acceptance remains outstanding.
