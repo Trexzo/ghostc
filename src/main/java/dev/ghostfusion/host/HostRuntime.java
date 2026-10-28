@@ -131,6 +131,13 @@ public final class HostRuntime {
     private final Setting.Number aimMousePause = new Setting.Number("mouse_pause_ticks",3,1,10);
     private final Setting.Choice aimPriority = new Setting.Choice(
         "target_priority", "angular", "angular", "distance");
+    // Opt-in AutoSnowball shares exclusive native hotbar/use ownership with AutoRod.
+    private final Setting.Number snowballCooldown = new Setting.Number(
+        "cooldown_ticks",20.0,10.0,100.0);
+    private final Setting.Number snowballRange = new Setting.Number(
+        "range",3.25,2.0,4.5);
+    private final Setting.Bool snowballSword = new Setting.Bool("require_sword",true);
+    private final Setting.Bool snowballIgnoreTeam = new Setting.Bool("ignore_teammates",true);
     // Opt-in AutoRod: genuine physical attack edge -> rod use -> conditional restore.
     private final Setting.Number rodCooldown = new Setting.Number(
         "cooldown_ticks",30.0,10.0,100.0);
@@ -287,6 +294,8 @@ public final class HostRuntime {
             0, triggerAcquire,triggerCooldown,triggerRange,triggerSword,triggerIgnoreTeam);
         modules.register(new FeatureModule("combat.autorod", "AutoRod", GhostModule.Category.COMBAT),
             0, rodCooldown,rodRange,rodSword,rodIgnoreTeam);
+        modules.register(new FeatureModule("combat.autosnowball", "AutoSnowball", GhostModule.Category.COMBAT),
+            0, snowballCooldown,snowballRange,snowballSword,snowballIgnoreTeam);
         modules.register(new FeatureModule("combat.blockhit", "Block Hit", GhostModule.Category.COMBAT),
             0, blockInterval, blockRequireTarget, blockMode);
         modules.register(new FeatureModule("combat.hitselect", "Hit Select", GhostModule.Category.COMBAT),
@@ -533,6 +542,10 @@ public final class HostRuntime {
     public int aimMouseThreshold() { modules.assertOwnerThread(); return aimMouseThreshold.get().intValue(); }
     public int aimMousePauseTicks() { modules.assertOwnerThread(); return aimMousePause.get().intValue(); }
     public String aimTargetPriority() { modules.assertOwnerThread(); return aimPriority.get(); }
+    public int snowballCooldownTicks() { modules.assertOwnerThread(); return snowballCooldown.get().intValue(); }
+    public double snowballRange() { modules.assertOwnerThread(); return snowballRange.get(); }
+    public boolean snowballRequireSword() { modules.assertOwnerThread(); return snowballSword.get(); }
+    public boolean snowballIgnoreTeammates() { modules.assertOwnerThread(); return snowballIgnoreTeam.get(); }
     public int rodCooldownTicks() { modules.assertOwnerThread(); return rodCooldown.get().intValue(); }
     public double rodRange() { modules.assertOwnerThread(); return rodRange.get(); }
     public boolean rodRequireSword() { modules.assertOwnerThread(); return rodSword.get(); }
