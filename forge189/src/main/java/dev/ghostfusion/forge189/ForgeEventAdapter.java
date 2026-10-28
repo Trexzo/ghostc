@@ -47,6 +47,7 @@ public final class ForgeEventAdapter {
     private final ForgeBridgeAssistController bridge;
     private final ForgeVelocityController velocity;
     private final ForgeWTapController wtap;
+    private final ForgeJumpResetController jumpReset;
     private final ForgeChestStealerController chestStealer;
     private final ForgeInventoryManagerController inventoryManager;
     private final ForgeAutoArmorController autoArmor;
@@ -78,6 +79,7 @@ public final class ForgeEventAdapter {
         this.bridge = new ForgeBridgeAssistController(minecraft,host);
         this.velocity = new ForgeVelocityController(minecraft,host);
         this.wtap = new ForgeWTapController(minecraft,host);
+        this.jumpReset = new ForgeJumpResetController(minecraft,host);
         this.chestStealer = new ForgeChestStealerController(minecraft,host);
         this.inventoryManager = new ForgeInventoryManagerController(minecraft,host);
         this.autoArmor = new ForgeAutoArmorController(minecraft,host);
@@ -103,6 +105,7 @@ public final class ForgeEventAdapter {
             bridge.reset();
             velocity.reset();
             wtap.reset();
+            jumpReset.reset();
             chestStealer.reset();
             inventoryManager.reset();
             autoArmor.reset();
@@ -117,6 +120,7 @@ public final class ForgeEventAdapter {
             bridge.reset();
             velocity.reset();
             wtap.reset();
+            jumpReset.reset();
             chestStealer.reset();
             inventoryManager.reset();
             autoArmor.reset();
@@ -129,6 +133,7 @@ public final class ForgeEventAdapter {
             bridge.reset();
             velocity.reset();
             wtap.reset();
+            jumpReset.reset();
             chestStealer.reset();
             inventoryManager.reset();
             autoArmor.reset();
@@ -278,7 +283,8 @@ public final class ForgeEventAdapter {
                 host.featureEnabled("movement.sprint"),
                 host.featureEnabled("inventory.autoarmor"),
                 host.featureEnabled("inventory.manager"),
-                host.featureEnabled("inventory.cheststealer"));
+                host.featureEnabled("inventory.cheststealer"),
+                host.featureEnabled("combat.jumpreset"));
         ModuleInteractionStateMachine.Frame plan=moduleState.advance(
             host.services().generation(),host.services().tick(),
             worldReady && host.services().connected(),
@@ -301,7 +307,7 @@ public final class ForgeEventAdapter {
             if(plan.inventoryManager)host.diagnostics().record(Counter.MODULE_SORTER_GRANT);
             if(plan.chestStealer)host.diagnostics().record(Counter.MODULE_CHEST_GRANT);
             boolean gameplayRequested=enabled.combat||enabled.bridge||
-                enabled.velocity||enabled.wtap||enabled.sprint;
+                enabled.velocity||enabled.wtap||enabled.sprint||enabled.jumpReset;
             if(gameplayRequested && worldReady &&
                scene!=ModuleInteractionStateMachine.Scene.GAME)
                 host.diagnostics().record(Counter.MODULE_GAMEPLAY_GUI_DENIED);
@@ -318,6 +324,10 @@ public final class ForgeEventAdapter {
         if(plan.bridge)bridge.tick();else bridge.reset();
         if(plan.velocity)velocity.tick();else velocity.reset();
         if(plan.wtap)wtap.tick();else wtap.reset();
+        // WTap's reserved sprint window takes precedence over a damage-edge
+        // jump. Bridge Assist already settled native sneak for this frame.
+        // Never replay a skipped hurt edge on a later allowed frame.
+        if(plan.jumpReset)jumpReset.tick();else jumpReset.reset();
 
         // Exactly one inventory controller may observe/write per GUI tick.
         // Releasing a controller resets its pending transfer; no hidden
@@ -375,6 +385,7 @@ public final class ForgeEventAdapter {
                 bridge.reset();
                 velocity.reset();
                 wtap.reset();
+            jumpReset.reset();
                 chestStealer.reset();
                 inventoryManager.reset();
                 autoArmor.reset();
@@ -585,6 +596,7 @@ public final class ForgeEventAdapter {
                 bridge.reset();
                 velocity.reset();
                 wtap.reset();
+            jumpReset.reset();
                 chestStealer.reset();
                 inventoryManager.reset();
                 autoArmor.reset();
