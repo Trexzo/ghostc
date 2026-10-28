@@ -473,6 +473,19 @@ public final class GhostClickGui extends GuiScreen {
             label(hudPage ? "MODULES" : "[MODULES]", menuX, y + 11, hudPage ? 0xFFB5B6C1 : 0xFFFFFFFF);
             label(hudPage ? "[HUD]" : "HUD", menuX + 76, y + 11, hudPage ? 0xFFFFFFFF : 0xFFB5B6C1);
         }
+        // At Minecraft Auto GUI scale, even a 1080p display can resolve to
+        // 480x270 scaled pixels and use the safe compact renderer instead of
+        // the three-pane Slate workspace. Explain the difference rather than
+        // silently presenting an old layout as the intended full Slate UI.
+        if(theme.slate && modern==null && !hudPage &&
+           ui.layout()==UiState.Layout.WIDE) {
+            String compactHint="REDUCE GUI SCALE";
+            int hintX=x+side+137;
+            // Real Minecraft font measurement keeps this noninteractive hint
+            // away from the HUD tab and the layout/theme buttons.
+            if(hintX+fontRendererObj.getStringWidth(compactHint)<=x+w-105)
+                label(compactHint,hintX,y+11,theme.muted);
+        }
         rect(x + w - 99, y + 6, 40, 17, panel());
         rect(x + w - 55, y + 6, 50, 17, panel());
         label(ui.layout() == UiState.Layout.WIDE ? "WIDE" : "SMALL", x + w - 96, y + 10, 0xFFF2F3FF);
