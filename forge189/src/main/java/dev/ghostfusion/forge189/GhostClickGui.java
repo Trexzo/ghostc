@@ -16,6 +16,7 @@ import dev.ghostfusion.ui.GuiSlateWorkspace;
 import dev.ghostfusion.ui.GuiSlateControlGeometry;
 import dev.ghostfusion.ui.GuiSlateCompactMetrics;
 import dev.ghostfusion.ui.GuiSlateModuleCaption;
+import dev.ghostfusion.ui.GuiSlateEmptyStateLayout;
 import dev.ghostfusion.ui.GuiSlateTooltipLayout;
 import dev.ghostfusion.ui.GuiSlateSearchGeometry;
 import dev.ghostfusion.ui.GuiSettingPresentation;
@@ -296,11 +297,28 @@ public final class GhostClickGui extends GuiScreen {
         drawSlateScrollIndicator(GuiScrollDrag.Lane.MODULES,
             pane.modulesX+pane.modulesWidth+2,pane.modulesY,
             pane.moduleRows*29,pane.moduleRows,filtered.size(),scroll,mx,my);
+        if(filtered.isEmpty()) {
+            // Rise-style search results feedback with no invented module
+            // descriptions and no new pointer/action surfaces.
+            GuiSlateEmptyStateLayout.Frame empty=GuiSlateEmptyStateLayout.of(pane);
+            if(empty!=null) {
+                rect(empty.x,empty.y,empty.width,empty.height,color.idleModule);
+                rect(empty.x,empty.y,2,empty.height,color.accent);
+                rect(empty.x+9,empty.y+25,empty.width-18,1,color.divider);
+                label("NO RESULTS",empty.titleX,empty.titleY,color.text);
+                String hint=search!=null&&!search.getText().isEmpty()?
+                    "CHANGE SEARCH":"CHANGE CATEGORY";
+                label(trim(hint,empty.width-24),
+                    empty.titleX,empty.hintY,color.muted);
+            }
+        }
         label("CONFIGURATION",pane.detailsX+9,pane.detailsY+3,color.muted);
         // No eagerly-created description list or external font render path.
         if(selected==null) {
             keyboardSetting=-1;
-            label("No matching modules",pane.detailsX+9,pane.detailsY+28,color.muted);
+            label("NOTHING TO CONFIGURE",pane.detailsX+9,pane.detailsY+28,color.text);
+            label("Adjust search or category",pane.detailsX+9,
+                pane.detailsY+45,color.muted);
             return;
         }
         ModuleRegistry.Entry entry;
