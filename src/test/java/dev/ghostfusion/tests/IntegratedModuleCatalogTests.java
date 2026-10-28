@@ -18,7 +18,7 @@ public final class IntegratedModuleCatalogTests {
         Path root=Files.createTempDirectory("ghostc-r335-integrated-");
         HostRuntime host=new HostRuntime(root);
         String[] modules={
-            "combat.aimassist","combat.clicker","combat.blockhit","combat.hitselect",
+            "combat.aimassist","combat.clicker","combat.triggerbot","combat.blockhit","combat.hitselect",
             "combat.velocity","combat.wtap",
             "movement.bridgeassist","movement.sprint",
             "inventory.cheststealer","inventory.manager","inventory.autoarmor",
@@ -35,6 +35,10 @@ public final class IntegratedModuleCatalogTests {
             "selectable Aim Assist angular/distance priority registered");
         ok(host.modules().get("combat.clicker").settings().containsKey("pattern"),
             "actual AutoClicker pattern mode registered");
+        ok(host.modules().get("combat.triggerbot").settings().containsKey("acquire_ticks") &&
+           host.modules().get("combat.triggerbot").settings().containsKey("cooldown_ticks") &&
+           host.modules().get("combat.triggerbot").settings().containsKey("range"),
+           "TriggerBot has native target acquisition, cooldown and range settings");
         ok(host.modules().get("combat.blockhit").settings().containsKey("mode"),
             "event-mode Block Hit registered");
         ok(host.modules().get("combat.hitselect").settings().containsKey("trade_min_self_hurt"),
@@ -68,6 +72,9 @@ public final class IntegratedModuleCatalogTests {
         host.worldPresence(true);
         host.uiActions().cycle("combat.aimassist","target_priority");
         host.uiActions().cycle("combat.clicker","pattern");
+        host.uiActions().fraction("combat.triggerbot","acquire_ticks",.4);
+        host.uiActions().fraction("combat.triggerbot","cooldown_ticks",.5);
+        host.uiActions().bool("combat.triggerbot","require_sword");
         host.uiActions().cycle("combat.blockhit","mode");
         host.uiActions().cycle("combat.hitselect","mode");
         host.uiActions().cycle("hud.target","skin");
@@ -89,12 +96,17 @@ public final class IntegratedModuleCatalogTests {
             ok(host.featureEnabled(id),"integrated module can enable "+id);
         }
         ok("distance".equals(host.aimTargetPriority()),"actual distance ranking setting live");
+        ok(host.triggerAcquireTicks()>1 && host.triggerCooldownTicks()>4 &&
+           !host.triggerRequireSword(),
+           "TriggerBot settings are editable with the shared profile UI");
         ok("balanced".equals(host.clickPattern()),"actual patterned click scheduler setting live");
         ok("post_attack".equals(host.blockMode()),"actual post-hit block mode live");
         ok("ready".equals(host.hitMode()),"actual ready hit select live");
         ok("minimal".equals(host.targetSkin()),"real minimal Target HUD skin live");
         ok("minimal".equals(host.moduleListAppearance()),"real Module List appearance live");
         ok("minimal".equals(host.keysAppearance()),"real Keystrokes skin live");
+        final int triggerDelay=host.triggerAcquireTicks();
+        final int triggerCooldown=host.triggerCooldownTicks();
         final int armorDelay=host.autoArmorClickDelay();
         ok(armorDelay>5 && host.autoArmorUpgrade(),
            "native AutoArmor click delay and upgrade mode active in GUI");
@@ -123,6 +135,10 @@ public final class IntegratedModuleCatalogTests {
         for(String id:modules)
             ok(!loaded.featureEnabled(id),"Panic persisted disabled state "+id);
         ok("distance".equals(loaded.aimTargetPriority()),"Aim ranking survived Panic");
+        ok(loaded.triggerAcquireTicks()==triggerDelay &&
+           loaded.triggerCooldownTicks()==triggerCooldown &&
+           !loaded.triggerRequireSword(),
+           "Panic saves TriggerBot settings without re-enabling it");
         ok("balanced".equals(loaded.clickPattern()),"Click timing survived Panic");
         ok("post_attack".equals(loaded.blockMode()),"Block mode survived Panic");
         ok("ready".equals(loaded.hitMode()),"HitSelect mode survived Panic");
@@ -155,6 +171,7 @@ public final class IntegratedModuleCatalogTests {
         ModuleInteractionDiagnosticsTests.main(args);
         ModuleActionTelemetryTests.main(args);
         LiveAcceptanceCoverageTests.main(args);
+        TriggerBotTests.main(args);
         ok(count>65,"real integrated module and persisted profile coverage");
         System.out.println("INTEGRATED_MODULE_CATALOG_PASS assertions="+count);
     }

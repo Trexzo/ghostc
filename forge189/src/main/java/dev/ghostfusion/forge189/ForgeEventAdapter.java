@@ -268,6 +268,7 @@ public final class ForgeEventAdapter {
         boolean combatEnabled =
             host.featureEnabled("combat.aimassist") ||
             host.featureEnabled("combat.clicker") ||
+            host.featureEnabled("combat.triggerbot") ||
             host.featureEnabled("combat.blockhit") ||
             host.featureEnabled("combat.hitselect");
         ModuleInteractionStateMachine.Enabled enabled =
