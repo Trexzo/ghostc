@@ -248,11 +248,12 @@ public final class ForgeCombatController {
             ActionCoordinator.Type.ATTACK,ActionCoordinator.Phase.OUTPUT,
             session.tick(),session.generation());
         boolean approved = selectedAttack != null;
-        if (approved && host.featureEnabled(HIT_ID)) {
+        final boolean hitGateUsed = approved && host.featureEnabled(HIT_ID);
+        if (hitGateUsed) {
             final boolean[] allowed = {false};
             boolean healthy = host.runFeature(HIT_ID, new Runnable() {
                 public void run() {
-                    allowed[0] = hitSelect.accept(true,
+                    allowed[0] = hitSelect.preview(true,
                         !host.hitRequireTarget() || validTarget,
                         target == null ? 0 : target.hurtTime,
                         host.hitMaxHurtTime(),host.hitGapTicks(),player.hurtTime,
@@ -261,11 +262,51 @@ public final class ForgeCombatController {
                 }
             });
             approved = healthy && allowed[0];
+            if (!approved) hitSelect.cancelPrepared();
         }
         final boolean attackApproved = approved;
-        extraAttackQueued[0] = attackApproved && selectedAttack!=null &&
-            CLICK_ID.equals(selectedAttack.owner);
-
+        // Final native guard executes only the chosen, still-valid owner.
+        // The Block Hit post-attack transition below observes a real pulse,
+        // not merely a selected ActionCoordinator request.
+        // The Forge key pulse uses Minecraft's normal key-input path; there
+        // are no packets, attackEntity calls or bypass controllers here.
+        if (selectedAttack != null && CLICK_ID.equals(selectedAttack.owner) &&
+            attackApproved && host.featureEnabled(CLICK_ID) &&
+            held && !useHeld && !player.isUsingItem() &&
+            (!host.clickEntityOnly() || validTarget)) {
+            host.runFeature(CLICK_ID, new Runnable() {
+                public void run() {
+                    KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
+                    if (hitGateUsed) hitSelect.committed(session.tick(),session.generation());
+                    extraAttackQueued[0] = true;
+                    host.diagnostics().record(Counter.EXTRA_ATTACK);
+                    host.nativeAction(ModuleActionTelemetry.Lane.CLICKER,
+                        ModuleActionTelemetry.Event.DISPATCHED);
+                }
+            });
+        } else if (selectedAttack != null && TRIGGER_ID.equals(selectedAttack.owner) &&
+            attackApproved && host.featureEnabled(TRIGGER_ID) &&
+            triggerBindingValid() &&
+            !mc.gameSettings.keyBindAttack.isKeyDown() &&
+            !mc.gameSettings.keyBindUseItem.isKeyDown() &&
+            !player.isUsingItem() && !aimAdjusted[0] &&
+            triggerTargetValid(player,target,sword)) {
+            host.runFeature(TRIGGER_ID, new Runnable() {
+                public void run() {
+                    KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
+                    if (hitGateUsed) hitSelect.committed(session.tick(),session.generation());
+                    triggerBot.dispatched(session.generation(),session.tick(),
+                        target.getUniqueID());
+                    host.diagnostics().record(Counter.EXTRA_ATTACK);
+                }
+            });
+        } else if (selectedAttack != null && CLICK_ID.equals(selectedAttack.owner)) {
+            host.nativeAction(ModuleActionTelemetry.Lane.CLICKER,
+                ModuleActionTelemetry.Event.REJECTED);
+        }
+        // A prepared Hit Select candidate not dispatched must never
+        // consume a cooldown or survive into the next frame.
+        if (hitGateUsed) hitSelect.cancelPrepared();
         session.actions().cancelOwner(BLOCK_ID);
         if (host.featureEnabled(BLOCK_ID)) {
             boolean healthy = host.runFeature(BLOCK_ID, new Runnable() {
@@ -288,40 +329,6 @@ public final class ForgeCombatController {
             blockHit.reset();
         }
 
-        // Final native guard executes only the chosen, still-valid owner.
-        // The Forge key pulse uses Minecraft's normal key-input path; there
-        // are no packets, attackEntity calls or bypass controllers here.
-        if (selectedAttack != null && CLICK_ID.equals(selectedAttack.owner) &&
-            attackApproved && host.featureEnabled(CLICK_ID) &&
-            held && !useHeld && !player.isUsingItem() &&
-            (!host.clickEntityOnly() || validTarget)) {
-            host.runFeature(CLICK_ID, new Runnable() {
-                public void run() {
-                    KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
-                    host.diagnostics().record(Counter.EXTRA_ATTACK);
-                    host.nativeAction(ModuleActionTelemetry.Lane.CLICKER,
-                        ModuleActionTelemetry.Event.DISPATCHED);
-                }
-            });
-        } else if (selectedAttack != null && TRIGGER_ID.equals(selectedAttack.owner) &&
-            attackApproved && host.featureEnabled(TRIGGER_ID) &&
-            triggerBindingValid() &&
-            !mc.gameSettings.keyBindAttack.isKeyDown() &&
-            !mc.gameSettings.keyBindUseItem.isKeyDown() &&
-            !player.isUsingItem() && !aimAdjusted[0] &&
-            triggerTargetValid(player,target,sword)) {
-            host.runFeature(TRIGGER_ID, new Runnable() {
-                public void run() {
-                    triggerBot.dispatched(session.generation(),session.tick(),
-                        target.getUniqueID());
-                    KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
-                    host.diagnostics().record(Counter.EXTRA_ATTACK);
-                }
-            });
-        } else if (selectedAttack != null && CLICK_ID.equals(selectedAttack.owner)) {
-            host.nativeAction(ModuleActionTelemetry.Lane.CLICKER,
-                ModuleActionTelemetry.Event.REJECTED);
-        }
 
         ActionCoordinator.Decision use = session.actions().consume(
             ActionCoordinator.Type.USE, ActionCoordinator.Phase.OUTPUT,
