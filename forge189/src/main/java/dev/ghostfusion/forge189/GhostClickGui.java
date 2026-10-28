@@ -13,6 +13,7 @@ import dev.ghostfusion.ui.GuiHudEditorStyle;
 import dev.ghostfusion.ui.GuiToggleMotion;
 import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiSlateWorkspace;
+import dev.ghostfusion.ui.GuiSlateControlGeometry;
 import dev.ghostfusion.ui.GuiSlateSearchGeometry;
 import dev.ghostfusion.ui.GuiSettingPresentation;
 import dev.ghostfusion.ui.GuiScrollIndicator;
@@ -323,13 +324,28 @@ public final class GhostClickGui extends GuiScreen {
                 int bx=pane.sliderX(),bw=pane.sliderWidth();
                 rect(bx,yy+13,bw,3,color.barTrack);
                 rect(bx,yy+13,(int)Math.round(bw*frac),3,color.accent);
+                // Four-pixel handle, contained by the exact native slider
+                // drag lane. Visual feedback does not adjust live values.
+                rect(GuiSlateControlGeometry.thumbX(pane,frac),yy+11,4,7,
+                    i==keyboardSetting||i==hoveredSetting?
+                        color.text:color.secondary);
                 label(trim(GuiSettingPresentation.number(row.getKey(),value.get()),
                     pane.sliderWidth()),bx,yy+2,color.muted);
             } else {
+                // A restrained down chevron signals cycle-on-click, while
+                // the fitted choice value cannot collide with the icon.
                 String text=trim(GuiSettingPresentation.choice(setting.serialize()),
-                    pane.choiceValueWidth());
-                label(text,pane.detailsX+pane.detailsWidth-16-
+                    GuiSlateControlGeometry.choiceBudget(pane));
+                label(text,GuiSlateControlGeometry.choiceTextRight(pane)-
                     fontRendererObj.getStringWidth(text),yy+9,color.accent);
+                int cx=GuiSlateControlGeometry.chevronX(pane);
+                int chevronColor=i==keyboardSetting||i==hoveredSetting?
+                    color.accent:color.muted;
+                rect(cx,yy+12,1,1,chevronColor);
+                rect(cx+1,yy+13,1,1,chevronColor);
+                rect(cx+2,yy+14,1,1,chevronColor);
+                rect(cx+3,yy+13,1,1,chevronColor);
+                rect(cx+4,yy+12,1,1,chevronColor);
             }
         }
         drawSlateScrollIndicator(GuiScrollDrag.Lane.SETTINGS,
