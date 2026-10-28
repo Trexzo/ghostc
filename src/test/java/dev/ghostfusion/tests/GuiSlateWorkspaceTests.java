@@ -1,6 +1,7 @@
 package dev.ghostfusion.tests;
 import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiSlateWorkspace;
+import dev.ghostfusion.ui.GuiSlateSearchGeometry;
 import dev.ghostfusion.ui.UiState;
 import java.util.Random;
 public final class GuiSlateWorkspaceTests {
@@ -21,6 +22,17 @@ public final class GuiSlateWorkspaceTests {
         ok(p.moduleRows>=8&&p.settingRows>=6,"full height independent scroll");
         ok(p.modulesY>=p.detailsY+24,"module caption cannot touch first row");
         ok(p.modulesY>=p.searchY()+29,"search and first module row are separate");
+        ok(GuiSlateSearchGeometry.fieldX(p)>=p.searchX()+20,
+           "search icon has its own left gutter");
+        ok(GuiSlateSearchGeometry.fieldX(p)+GuiSlateSearchGeometry.fieldWidth(p)
+           <GuiSlateSearchGeometry.clearX(p),
+           "native caret area never overlaps clear button");
+        ok(GuiSlateSearchGeometry.clearHit(p,
+           GuiSlateSearchGeometry.clearX(p)+8,
+           GuiSlateSearchGeometry.clearY(p)+7),"clear button receives click");
+        ok(!GuiSlateSearchGeometry.clearHit(p,
+           GuiSlateSearchGeometry.fieldX(p)+2,
+           GuiSlateSearchGeometry.fieldY(p)+6),"input cannot clear itself");
         ok(p.moduleIndex(p.modulesX,p.modulesY,0,200)==0,"first module");
         ok(p.moduleIndex(p.modulesX,p.modulesY+26,0,200)==-1,"module gap");
         ok(p.moduleIndex(p.modulesX,p.modulesY+29,2,200)==3,"scrolled module");
@@ -40,6 +52,17 @@ public final class GuiSlateWorkspaceTests {
                "horizontal viewport containment "+i);
             ok(pane.settingY+pane.settingRows*30<=zone.y+zone.height,
                "vertical viewport containment "+i);
+            ok(GuiSlateSearchGeometry.fieldX(pane)+
+               GuiSlateSearchGeometry.fieldWidth(pane)<
+               GuiSlateSearchGeometry.clearX(pane),
+               "search input and clear never collide "+i);
+            ok(GuiSlateSearchGeometry.clearX(pane)+16<=
+               pane.searchX()+pane.searchWidth() &&
+               GuiSlateSearchGeometry.clearY(pane)+15<=
+               pane.searchY()+GuiSlateSearchGeometry.SURFACE_HEIGHT,
+               "clear is contained "+i);
+            ok(pane.searchY()+GuiSlateSearchGeometry.SURFACE_HEIGHT<
+               pane.modulesY,"search is above list "+i);
             int mx=zone.x+rng.nextInt(zone.width);
             int my=zone.y+rng.nextInt(zone.height);
             ok(!(pane.moduleArea(mx,my)&&pane.settingArea(mx,my)),
