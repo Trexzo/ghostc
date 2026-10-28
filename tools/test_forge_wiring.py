@@ -699,8 +699,15 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("moduleListMotion.observe(row.id)",driver)
         self.assertIn("moduleListMotion.endFrame();",driver)
         self.assertIn("ModuleListMotion.fade(theme.text,phase)",driver)
-        self.assertIn("row.x+row.width-6-measured",driver)
-        self.assertIn("public final String label,id;",layout)
+        # Slate placement now lives in a tested, allocation-free geometry
+        # helper instead of repeating font measurement in the Forge painter.
+        geometry=content("src/main/java/dev/ghostfusion/ui/ModuleListTextGeometry.java")
+        self.assertIn("ModuleListTextGeometry.x(",driver)
+        self.assertIn("row,row.textWidth,sw,right,phase",driver)
+        self.assertIn("public final int x,y,width,height,textX,textY,textWidth;",layout)
+        self.assertIn("MAX_TRAVEL=7",geometry)
+        self.assertIn("ModuleListTextGeometryTests",content(".github/workflows/core-ci.yml"))
+        self.assertIn("moduleListMotion.reset();",driver)
         self.assertIn("disabled item immediately removed",tests)
         self.assertIn("MODULE_LIST_MOTION_PASS",content(".github/workflows/core-ci.yml"))
         self.assertIn("Iterator<Map.Entry<String,State>>",motion)
