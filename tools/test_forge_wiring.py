@@ -1002,6 +1002,27 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('actionPhaseIsolationAndCapacity();',tests)
         self.assertIn('at most one action per TYPE per tick despite two phases',tests)
 
+    def test_native_combat_keybinding_acceptance_is_mandatory(self):
+        # A native KeyBinding boundary must run under ForgeGradle check;
+        # pure action-policy simulations alone are insufficient evidence.
+        gradle=content("forge189/build.gradle")
+        native=content("forge189/src/test/java/dev/ghostfusion/forge189/NativeCombatKeyBindingTests.java")
+        combat=(FORGE/"ForgeCombatController.java").read_text(encoding="utf-8")
+        wtap=(FORGE/"ForgeWTapController.java").read_text(encoding="utf-8")
+        self.assertIn("check.dependsOn nativeCombatKeyProbe",gradle)
+        self.assertIn("NativeCombatKeyBindingTests",gradle)
+        self.assertIn("KeyBinding.onTick(attackCode)",native)
+        self.assertIn("KeyBinding.setKeyBindState(attackCode,physicalHeld)",native)
+        self.assertIn("attack.isPressed()==attackDispatched",native)
+        self.assertIn("hit.committed(t,epoch)",native)
+        self.assertIn("trigger.dispatched(epoch,t,target)",native)
+        self.assertIn("KeyBinding.onTick(useCode)",native)
+        self.assertIn("block.due(",native)
+        self.assertIn("KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode())",combat)
+        self.assertIn("KeyBinding.onTick(mc.gameSettings.keyBindUseItem.getKeyCode())",combat)
+        self.assertIn("AttackEntityEvent",content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeEventAdapter.java"))
+        self.assertIn("void attack(final Entity rawTarget)",wtap)
+
     def test_snapshot_publication_and_aim_final_live_target_fence(self):
         combat=(FORGE/"ForgeCombatController.java").read_text(encoding="utf-8")
         adapter=self.adapter
