@@ -108,10 +108,14 @@ public final class ForgeCombatController {
         // the current camera tick when unheld TriggerBot is active. This
         // avoids perpetual Aim Assist re-rotation starving acquisition.
         // TriggerBot must STILL earn its own UUID-based dwell and attack grant.
+        final boolean triggerEnabled = host.featureEnabled(TRIGGER_ID);
+        final boolean safeAttackBinding = triggerEnabled && triggerBindingValid();
+        final boolean nativeCrosshair = safeAttackBinding && !physicalDown &&
+            !useHeld && !player.isUsingItem() &&
+            triggerTargetValid(player,target,sword);
         final boolean yieldToTrigger = AimTriggerHandoff.yieldCamera(
-            host.featureEnabled(TRIGGER_ID),physicalDown,useHeld,
-            player.isUsingItem(),triggerBindingValid(),
-            triggerTargetValid(player,target,sword));
+            triggerEnabled,physicalDown,useHeld,player.isUsingItem(),
+            safeAttackBinding,nativeCrosshair);
 
         // Cancel any previous owned request before scheduling the new one.
         // This also makes disabled, focus-lost and failing modules fail closed.
@@ -400,8 +404,10 @@ public final class ForgeCombatController {
         Vec3 end=origin.addVector(direction.xCoord*range,
             direction.yCoord*range,direction.zCoord*range);
         float border=target.getCollisionBorderSize();
-        AxisAlignedBB bounds=target.getEntityBoundingBox().expand(
-            border,border,border);
+        AxisAlignedBB box=target.getEntityBoundingBox();
+        if(box==null || !Float.isFinite(border) || border<0 || border>1.0F)
+            return false;
+        AxisAlignedBB bounds=box.expand(border,border,border);
         if(bounds.calculateIntercept(origin,end)==null)return false;
         return !host.triggerIgnoreTeammates() || player.getTeam()==null ||
             player.getTeam()!=target.getTeam();
