@@ -1002,6 +1002,39 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('actionPhaseIsolationAndCapacity();',tests)
         self.assertIn('at most one action per TYPE per tick despite two phases',tests)
 
+    def test_jump_reset_native_module_and_single_owner_are_integrated(self):
+        adapter=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeEventAdapter.java")
+        native=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeJumpResetController.java")
+        policy=content("src/main/java/dev/ghostfusion/features/JumpResetPolicy.java")
+        arbiter=content("src/main/java/dev/ghostfusion/features/ModuleInteractionStateMachine.java")
+        host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
+        gradle=content("forge189/build.gradle")
+        native_test=content("forge189/src/test/java/dev/ghostfusion/forge189/NativeJumpResetTests.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/JumpResetTests.java")
+        catalog=content("src/test/java/dev/ghostfusion/tests/IntegratedModuleCatalogTests.java")
+        self.assertIn('new FeatureModule("combat.jumpreset", "Jump Reset"',host)
+        self.assertIn('new Setting.Bool(\n        "require_attack_held",true)',host)
+        self.assertIn("host.featureEnabled(\"combat.jumpreset\")",adapter)
+        self.assertIn("new ForgeJumpResetController(minecraft,host)",adapter)
+        self.assertIn("if(plan.jumpReset)jumpReset.tick();else jumpReset.reset();",adapter)
+        self.assertLess(adapter.index("if(plan.velocity)velocity.tick()"),
+                        adapter.index("if(plan.jumpReset)jumpReset.tick()"))
+        self.assertIn("Resource.JUMP_RESET",arbiter)
+        self.assertIn("enabled.jumpReset&&!wtapReserved",arbiter)
+        self.assertIn("p.jump();",native)
+        self.assertIn("policy.committed(epoch,tick);",native)
+        self.assertLess(native.index("p.jump();"),native.index("policy.committed(epoch,tick);"))
+        self.assertIn("!mc.gameSettings.keyBindJump.isKeyDown()",native)
+        self.assertIn("!mc.gameSettings.keyBindSneak.isKeyDown()",native)
+        self.assertIn("mc.theWorld.getEntityByID(p.getEntityId())==p",native)
+        self.assertNotIn("player.motionY=",native)
+        self.assertNotIn("KeyBinding.setKeyBindState",native)
+        self.assertIn("owner thread",policy)
+        self.assertIn("check.dependsOn nativeJumpResetProbe",gradle)
+        self.assertIn('EntityPlayerSP.class.getMethod("jump")',native_test)
+        self.assertIn("JumpResetTests.main(args);",catalog)
+        self.assertIn("random();",tests)
+
     def test_native_combat_evidence_keeps_keys_distinct_from_real_events(self):
         # Source wiring is mandatory for later opt-in original-game evidence.
         # A dispatched synthetic KeyBinding must never be counted as a
