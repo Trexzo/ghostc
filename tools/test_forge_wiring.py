@@ -1002,6 +1002,34 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('actionPhaseIsolationAndCapacity();',tests)
         self.assertIn('at most one action per TYPE per tick despite two phases',tests)
 
+    def test_native_combat_evidence_keeps_keys_distinct_from_real_events(self):
+        # Source wiring is mandatory for later opt-in original-game evidence.
+        # A dispatched synthetic KeyBinding must never be counted as a
+        # server hit or a genuine AttackEntityEvent callback.
+        combat=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeCombatController.java")
+        adapter=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeEventAdapter.java")
+        ledger=content("src/main/java/dev/ghostfusion/host/ModuleActionTelemetry.java")
+        diagnostic=content("src/main/java/dev/ghostfusion/host/RuntimeDiagnostics.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/CombatNativeEvidenceTests.java")
+        catalog=content("src/test/java/dev/ghostfusion/tests/IntegratedModuleCatalogTests.java")
+        self.assertIn("BLOCKHIT, TRIGGER",ledger)
+        self.assertIn("ModuleActionTelemetry.Lane.TRIGGER",combat)
+        self.assertIn("ModuleActionTelemetry.Event.DISPATCHED",combat)
+        self.assertIn("ModuleActionTelemetry.Event.REJECTED",combat)
+        self.assertIn("COMBAT_AIM_TRIGGER_YIELD",combat)
+        self.assertIn("COMBAT_AIM_MOUSE_YIELD",combat)
+        self.assertIn("if(host.diagnosticsEnabled() &&",adapter)
+        self.assertIn("event.entityPlayer!=minecraft.thePlayer",adapter)
+        self.assertIn("minecraft.theWorld.getEntityByID(event.target.getEntityId())==event.target",adapter)
+        self.assertIn("Counter.COMBAT_NATIVE_ATTACK_CALLBACK",adapter)
+        self.assertIn("wtap.attack(event.target);",adapter)
+        self.assertIn('counter.name().startsWith("COMBAT_")',diagnostic)
+        self.assertIn("ACTION_TRIGGER_DISPATCHED",diagnostic)
+        self.assertIn("COMBAT_NATIVE_ATTACK_CALLBACK",diagnostic)
+        self.assertIn("hostOptInAndLegacyBackup();",tests)
+        self.assertIn("randomIndependentLanes();",tests)
+        self.assertIn("CombatNativeEvidenceTests.main(args);",catalog)
+
     def test_native_combat_keybinding_acceptance_is_mandatory(self):
         # A native KeyBinding boundary must run under ForgeGradle check;
         # pure action-policy simulations alone are insufficient evidence.
