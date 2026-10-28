@@ -346,6 +346,13 @@ public final class ForgeEventAdapter {
         // World/player identity is checked at the native event boundary.
         if(event.entityPlayer!=minecraft.thePlayer ||
            !worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) return;
+        // This native Forge callback is independent of our queued click.
+        // It can be canceled or rejected by a server, so it proves no hit.
+        if(host.diagnosticsEnabled() &&
+           event.target instanceof net.minecraft.entity.EntityLivingBase &&
+           event.target!=minecraft.thePlayer &&
+           minecraft.theWorld.getEntityByID(event.target.getEntityId())==event.target)
+            host.diagnostics().record(Counter.COMBAT_NATIVE_ATTACK_CALLBACK);
         wtap.attack(event.target);
     }
 
