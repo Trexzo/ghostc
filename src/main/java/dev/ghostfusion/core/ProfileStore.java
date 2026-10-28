@@ -138,6 +138,11 @@ public final class ProfileStore {
                 // Missing legacy or newly introduced settings must use their
                 // constructor defaults, not state left by a previous profile.
                 String chosen = raw == null ? s.serializeDefault() : raw;
+                // Backward compatible only for the four visual HUD settings.
+                boolean legacyHudSkin=("hud.target".equals(id) && "skin".equals(s.id())) ||
+                    (("hud.keystrokes".equals(id)||"hud.cps".equals(id)||
+                      "hud.modulelist".equals(id)) && "appearance".equals(s.id()));
+                if(legacyHudSkin && "nebula".equals(chosen))chosen="slate";
                 s.parse(chosen);
                 stage.settings.put(s, chosen);
             }

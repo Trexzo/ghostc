@@ -1,0 +1,81 @@
+package dev.ghostfusion.tests;
+import dev.ghostfusion.ui.GuiLayout;
+import dev.ghostfusion.ui.GuiSlateWorkspace;
+import dev.ghostfusion.ui.GuiSlateSearchGeometry;
+import dev.ghostfusion.ui.UiState;
+import java.util.Random;
+public final class GuiSlateWorkspaceTests {
+    private static int checks;
+    private static void ok(boolean good,String detail) {
+        checks++;if(!good)throw new AssertionError(detail);
+    }
+    public static void main(String[] args){
+        UiState ui=new UiState();
+        GuiLayout g=GuiLayout.calculate(1920,1080,UiState.Layout.WIDE);
+        ok(ui.theme()==UiState.Theme.SLATE,"Slate first-run theme");
+        ui.theme(UiState.Theme.INDIGO);
+        ok(GuiSlateWorkspace.of(g,ui)==null,"Indigo unchanged");
+        ui.theme(UiState.Theme.SLATE);
+        GuiSlateWorkspace p=GuiSlateWorkspace.of(g,ui);
+        ok(p!=null&&p.detailsX>p.modulesX+p.modulesWidth,
+           "distinct modules and settings panels");
+        ok(p.moduleRows>=8&&p.settingRows>=6,"full height independent scroll");
+        ok(p.modulesY>=p.detailsY+24,"module caption cannot touch first row");
+        ok(p.modulesY>=p.searchY()+29,"search and first module row are separate");
+        ok(GuiSlateSearchGeometry.fieldX(p)>=p.searchX()+20,
+           "search icon has its own left gutter");
+        ok(GuiSlateSearchGeometry.fieldX(p)+GuiSlateSearchGeometry.fieldWidth(p)
+           <GuiSlateSearchGeometry.clearX(p),
+           "native caret area never overlaps clear button");
+        ok(GuiSlateSearchGeometry.clearHit(p,
+           GuiSlateSearchGeometry.clearX(p)+8,
+           GuiSlateSearchGeometry.clearY(p)+7),"clear button receives click");
+        ok(!GuiSlateSearchGeometry.clearHit(p,
+           GuiSlateSearchGeometry.fieldX(p)+2,
+           GuiSlateSearchGeometry.fieldY(p)+6),"input cannot clear itself");
+        ok(p.moduleIndex(p.modulesX,p.modulesY,0,200)==0,"first module");
+        ok(p.moduleIndex(p.modulesX,p.modulesY+26,0,200)==-1,"module gap");
+        ok(p.moduleIndex(p.modulesX,p.modulesY+29,2,200)==3,"scrolled module");
+        ok(p.settingIndex(p.detailsX+9,p.settingY,0,200)==0,"first setting");
+        ok(p.settingIndex(p.detailsX+9,p.settingY+27,0,200)==-1,"setting gap");
+        ok(p.settingIndex(p.detailsX+9,p.settingY+30,3,200)==4,
+           "scrolled setting");
+        ok(!p.keybindArea(p.modulesX,p.bindingY),"binding is independent");
+        ok(!p.moduleArea(p.detailsX,p.modulesY),"modules do not overlap detail");
+        Random rng=new Random(271026L);
+        for(int i=0;i<50000;i++){
+            GuiLayout zone=GuiLayout.calculate(1+rng.nextInt(2600),
+                1+rng.nextInt(1600),UiState.Layout.WIDE);
+            GuiSlateWorkspace pane=GuiSlateWorkspace.of(zone,ui);
+            if(pane==null)continue;
+            ok(pane.modulesX>=zone.x&&pane.detailsX+pane.detailsWidth<=zone.x+zone.width,
+               "horizontal viewport containment "+i);
+            ok(pane.settingY+pane.settingRows*30<=zone.y+zone.height,
+               "vertical viewport containment "+i);
+            ok(GuiSlateSearchGeometry.fieldX(pane)+
+               GuiSlateSearchGeometry.fieldWidth(pane)<
+               GuiSlateSearchGeometry.clearX(pane),
+               "search input and clear never collide "+i);
+            ok(GuiSlateSearchGeometry.clearX(pane)+16<=
+               pane.searchX()+pane.searchWidth() &&
+               GuiSlateSearchGeometry.clearY(pane)+15<=
+               pane.searchY()+GuiSlateSearchGeometry.SURFACE_HEIGHT,
+               "clear is contained "+i);
+            ok(pane.searchY()+GuiSlateSearchGeometry.SURFACE_HEIGHT<
+               pane.modulesY,"search is above list "+i);
+            int mx=zone.x+rng.nextInt(zone.width);
+            int my=zone.y+rng.nextInt(zone.height);
+            ok(!(pane.moduleArea(mx,my)&&pane.settingArea(mx,my)),
+               "independent input ownership "+i);
+            int module=pane.moduleIndex(mx,my,rng.nextInt(8),12);
+            int setting=pane.settingIndex(mx,my,rng.nextInt(8),12);
+            ok(module<12&&setting<12,"row indices bounded "+i);
+            if(module>=0)ok(pane.moduleArea(mx,my),"module selection drawn "+i);
+            if(setting>=0)ok(pane.settingArea(mx,my),"setting selection drawn "+i);
+        }
+        ui.layout(UiState.Layout.COMPACT);
+        ok(GuiSlateWorkspace.of(GuiLayout.calculate(1920,1080,
+            UiState.Layout.COMPACT),ui)==null,"compact fallback");
+        System.out.println("GUI_SLATE_WORKSPACE_PASS checks="+checks);
+    }
+}

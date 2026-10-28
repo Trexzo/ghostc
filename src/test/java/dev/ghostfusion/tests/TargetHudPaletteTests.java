@@ -41,6 +41,12 @@ public final class TargetHudPaletteTests {
            (glass.accent>>>24)==0xFF &&
            (glass.outline>>>24)>0,
            "glass overlay colors retain visible ARGB channels");
+        TargetHudPalette minimal=TargetHudPalette.of("minimal");
+        TargetHudPalette slate=TargetHudPalette.of("slate");
+        ok(minimal!=classic && slate!=glass && minimal!=slate,
+            "modern skins retain separate immutable color identity");
+        ok(minimal.secondary!=0 && slate.secondary!=0,
+            "modern skins have distinct secondary accents");
         invalid(null);invalid("");invalid("GLASS");invalid("default");
         Random random=new Random(2562026L);
         for(int i=0;i<100000;i++){
@@ -53,9 +59,11 @@ public final class TargetHudPaletteTests {
     private static void profile() throws Exception {
         Path path=Files.createTempDirectory("ghostc-r256-target-skin-");
         HostRuntime host=new HostRuntime(path);
-        ok("classic".equals(host.targetSkin()),"legacy profile defaults to classic");
-        ok("classic".equals(host.modules().get("hud.target").settings().get("skin").serialize()),
-           "existing ClickGUI exposes a typed skin choice");
+        ok("slate".equals(host.targetSkin()),"fresh Target HUD defaults to Slate");
+        ok("slate".equals(host.modules().get("hud.target").settings().get("skin").serialize()),
+           "ClickGUI exposes the saved-compatible Slate skin ID");
+        host.uiActions().cycle("hud.target","skin");
+        ok("classic".equals(host.targetSkin()),"explicit Classic style remains available");
         host.uiActions().cycle("hud.target","skin");
         ok("glass".equals(host.targetSkin()),"GUI setting immediately selects glass");
         host.persist();
@@ -63,8 +71,21 @@ public final class TargetHudPaletteTests {
         HostRuntime loaded=new HostRuntime(path);
         ok("glass".equals(loaded.targetSkin()),"glass skin survives profile restoration");
         loaded.uiActions().cycle("hud.target","skin");
+        ok("minimal".equals(loaded.targetSkin()),"GUI selects Minimal");
+        loaded.uiActions().cycle("hud.target","skin");
+        ok("slate".equals(loaded.targetSkin()),"GUI selects Slate");
+        loaded.uiActions().cycle("hud.target","skin");
         ok("classic".equals(loaded.targetSkin()),"GUI cycles back to classic");
+        // Persist Slate independently to confirm new choice roundtrips safely.
+        loaded.uiActions().cycle("hud.target","skin");
+        loaded.uiActions().cycle("hud.target","skin");
+        loaded.uiActions().cycle("hud.target","skin");
+        ok("slate".equals(loaded.targetSkin()),"reselect Slate through GUI");
         loaded.persist();loaded.close();
+        HostRuntime slate=new HostRuntime(path);
+        ok("slate".equals(slate.targetSkin()),"Slate survives profile reload");
+        slate.uiActions().cycle("hud.target","skin");
+        slate.persist();slate.close();
         HostRuntime classic=new HostRuntime(path);
         ok("classic".equals(classic.targetSkin()),"restored classic remains stable");
         classic.close();

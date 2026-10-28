@@ -379,8 +379,9 @@ public final class SettingDefaultResetTests {
         Path dir=Files.createTempDirectory("ghostc-r265-default");
         HostRuntime host=new HostRuntime(dir);
         ok(!host.targetDistance(),"existing Target HUD distance default is false");
-        ok("classic".equals(host.targetSkin()),"existing Target HUD classic default");
+        ok("slate".equals(host.targetSkin()),"fresh Target HUD uses Slate by default");
         host.uiActions().bool("hud.target","show_distance");
+        host.uiActions().cycle("hud.target","skin");
         host.uiActions().cycle("hud.target","skin");
         host.uiActions().fraction("render.esp","red",1.0);
         ok(host.targetDistance() && "glass".equals(host.targetSkin()),
@@ -391,11 +392,11 @@ public final class SettingDefaultResetTests {
             "actual host Choice default restored");
         ok(host.uiActions().reset("render.esp","red"),
             "actual host Number default restored");
-        ok(!host.targetDistance() && "classic".equals(host.targetSkin()),
+        ok(!host.targetDistance() && "slate".equals(host.targetSkin()),
             "host live values match original defaults");
         host.persist();host.close();
         HostRuntime loaded=new HostRuntime(dir);
-        ok(!loaded.targetDistance() && "classic".equals(loaded.targetSkin()),
+        ok(!loaded.targetDistance() && "slate".equals(loaded.targetSkin()),
             "reset state survives saved profile reload");
         ok(Math.abs(((Setting.Number)loaded.modules().get("render.esp")
             .settings().get("red")).get()-.62)<1e-9,

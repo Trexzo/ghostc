@@ -35,6 +35,28 @@ public final class GuiLayout {
         sidebar=Math.min(sidebar,Math.max(0,width/3));
         return new GuiLayout(x,y,width,height,sidebar);
     }
+    /**
+     * Slate has a genuinely larger workspace when the game viewport permits.
+     * Other themes, and COMPACT mode, keep their established dimensions.
+     * Both native painting and hit testing MUST use this same overload.
+     */
+    public static GuiLayout calculate(int screenWidth,int screenHeight,
+                                      UiState.Layout style,UiState.Theme theme) {
+        if(theme==null)throw new IllegalArgumentException("visual theme");
+        if(theme!=UiState.Theme.SLATE||style!=UiState.Layout.WIDE)
+            return calculate(screenWidth,screenHeight,style);
+        if(screenWidth<1||screenHeight<1)
+            throw new IllegalArgumentException("viewport/layout");
+        int width=Math.max(1,Math.min(740,
+            screenWidth>16?screenWidth-16:screenWidth));
+        int height=Math.max(1,Math.min(480,
+            screenHeight>12?screenHeight-12:screenHeight));
+        int x=Math.max(0,(screenWidth-width)/2);
+        int y=Math.max(0,(screenHeight-height)/2);
+        int sidebar=Math.min(122,Math.max(0,width-34));
+        sidebar=Math.min(sidebar,Math.max(0,width/3));
+        return new GuiLayout(x,y,width,height,sidebar);
+    }
     public boolean insidePanel(int screenWidth,int screenHeight) {
         return x>=0&&y>=0&&width>0&&height>0&&
             x+width<=screenWidth&&y+height<=screenHeight&&

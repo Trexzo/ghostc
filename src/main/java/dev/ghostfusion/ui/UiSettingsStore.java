@@ -70,8 +70,10 @@ public final class UiSettingsStore {
         // Never borrow potentially edited values from the current live UI.
         final UiState.Layout layout = UiState.Layout.valueOf(
             p.getProperty("layout", UiState.DEFAULT_LAYOUT.name()));
-        final UiState.Theme theme = UiState.Theme.valueOf(
-            p.getProperty("theme", UiState.DEFAULT_THEME.name()));
+        final String storedTheme=p.getProperty("theme",UiState.DEFAULT_THEME.name());
+        // Accept the retired schema-1 token on load, never as an active choice.
+        final UiState.Theme theme=UiState.Theme.valueOf(
+            "NEBULA".equals(storedTheme)?"SLATE":storedTheme);
         final double x = Double.parseDouble(
             p.getProperty("hud.x", Double.toString(UiState.DEFAULT_HUD_X)));
         final double y = Double.parseDouble(

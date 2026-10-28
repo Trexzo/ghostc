@@ -131,7 +131,7 @@ public final class HudEditorControlsTests {
             int y0=selected.widget==null?state.pixelY(screenH,footprintH):
                 state.widgets().pixelY(selected.widget,screenH,footprintH);
             // All other anchors must stay bitwise stable.
-            double[] before=new double[8];
+            double[] before=new double[2+2*HudPositions.Widget.values().length];
             before[0]=state.hudX();before[1]=state.hudY();
             for(HudPositions.Widget widget:HudPositions.Widget.values()) {
                 before[2+widget.ordinal()*2]=state.widgets().x(widget);

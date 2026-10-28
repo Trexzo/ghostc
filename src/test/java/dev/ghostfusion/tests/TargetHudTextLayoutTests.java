@@ -126,7 +126,7 @@ public final class TargetHudTextLayoutTests {
         Path dir=Files.createTempDirectory("ghostc-r228-hud");
         HostRuntime host=new HostRuntime(dir);
         ok("values".equals(host.targetHealthText()),"legacy values default");
-        ok("classic".equals(host.targetSkin()),"legacy visual skin defaults to classic");
+        ok("slate".equals(host.targetSkin()),"fresh visual skin defaults to Slate");
         host.uiActions().cycle("hud.target","health_text");
         ok("percent".equals(host.targetHealthText()),"percentage GUI option");
         host.persist();host.close();
