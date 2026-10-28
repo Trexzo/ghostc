@@ -119,7 +119,7 @@ public final class AutoSnowballTests {
         ModuleInteractionStateMachine state=new ModuleInteractionStateMachine();
         ModuleInteractionStateMachine.Enabled enabled=
             new ModuleInteractionStateMachine.Enabled(
-                true,true,true,true,true,true,true,true,true,true);
+                true,true,true,true,true,true,true,true,true,true,true);
         ModuleInteractionStateMachine.Frame frame=state.advance(1,0,true,
             ModuleInteractionStateMachine.Scene.GAME,true,enabled,false);
         ok(frame.autoSnowball && frame.combat && frame.jumpReset && frame.wtap,
@@ -127,19 +127,19 @@ public final class AutoSnowballTests {
         frame=state.advance(1,1,true,ModuleInteractionStateMachine.Scene.GAME,
                             true,enabled,true);
         ok(!frame.autoSnowball && !frame.jumpReset &&
-           frame.denial(ModuleInteractionStateMachine.Resource.AUTO_ROD)==
+           frame.denial(ModuleInteractionStateMachine.Resource.AUTO_SNOWBALL)==
                 ModuleInteractionStateMachine.Denial.WTAP_RESERVED,
             "genuine native WTap reservation preempts AutoSnowball");
         frame=state.advance(1,2,true,ModuleInteractionStateMachine.Scene.CHEST,
                             true,enabled,false);
         ok(!frame.autoSnowball &&
-           frame.denial(ModuleInteractionStateMachine.Resource.AUTO_ROD)==
+           frame.denial(ModuleInteractionStateMachine.Resource.AUTO_SNOWBALL)==
                ModuleInteractionStateMachine.Denial.WRONG_SCREEN,
             "chest transfer/GUI cannot operate snowball");
         frame=state.advance(1,3,true,ModuleInteractionStateMachine.Scene.GAME,
                             false,enabled,false);
         ok(!frame.autoSnowball &&
-           frame.denial(ModuleInteractionStateMachine.Resource.AUTO_ROD)==
+           frame.denial(ModuleInteractionStateMachine.Resource.AUTO_SNOWBALL)==
                ModuleInteractionStateMachine.Denial.WINDOW_INACTIVE,
             "lost physical focus denies AutoSnowball");
         ModuleInteractionStateMachine.Enabled legacy=
@@ -148,7 +148,7 @@ public final class AutoSnowballTests {
         frame=state.advance(1,4,true,ModuleInteractionStateMachine.Scene.GAME,
                             true,legacy,false);
         ok(!frame.autoSnowball &&
-           frame.denial(ModuleInteractionStateMachine.Resource.AUTO_ROD)==
+           frame.denial(ModuleInteractionStateMachine.Resource.AUTO_SNOWBALL)==
                ModuleInteractionStateMachine.Denial.DISABLED,
             "old 9-argument Enabled never accidentally opts into AutoSnowball");
     }
