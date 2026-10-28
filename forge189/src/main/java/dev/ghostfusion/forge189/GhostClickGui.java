@@ -717,9 +717,19 @@ public final class GhostClickGui extends GuiScreen {
                 rect(x+side+9,ry+7,2,11,compactTheme.accent);
             label(trim(e.module().displayName(),
                 slateCompact?GuiSlateCompactMetrics.moduleLabelBudget(compactZone):
-                    Math.max(60,w-side-97)),x+side+15,ry+8,
+                    Math.max(60,w-side-97)),x+side+15,
+                slateCompact?ry+3:ry+8,
                 slateCompact?(focused?compactTheme.text:compactTheme.muted):
                     focused?0xFFFFFFFF:0xFFE4E7F0);
+            if(slateCompact) {
+                // Match the wide Slate two-level hierarchy at GUI Scale Auto.
+                // Only real registry metadata appears on the second line.
+                String keyName=e.keybind()==0?null:Keyboard.getKeyName(e.keybind());
+                label(trim(GuiSlateModuleCaption.of(e.module().category(),keyName),
+                    GuiSlateCompactMetrics.moduleLabelBudget(compactZone)),
+                    x+side+15,ry+15,
+                    focused?compactTheme.secondary:compactTheme.muted);
+            }
             boolean enabled = e.state() == ModuleRegistry.State.ENABLED;
             boolean faulted = e.state() == ModuleRegistry.State.FAULTED;
             int right = x + w - 54;
