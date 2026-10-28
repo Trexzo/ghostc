@@ -135,6 +135,8 @@ public final class ForgeCombatController {
             boolean healthy = host.runFeature(AIM_ID, new Runnable() {
                 public void run() {
                     if (yieldToTrigger) {
+                        if(host.diagnosticsEnabled())
+                            host.diagnostics().record(Counter.COMBAT_AIM_TRIGGER_YIELD);
                         aimLock.clear();
                         aimSwitch.reset();
                         manualAim.reset();
@@ -154,6 +156,8 @@ public final class ForgeCombatController {
                             manualAim.suppressed(session.generation(),session.tick(),
                                 true,mc.mouseHelper.deltaX,mc.mouseHelper.deltaY,
                                 host.aimMouseThreshold(),host.aimMousePauseTicks())) {
+                            if(host.diagnosticsEnabled())
+                                host.diagnostics().record(Counter.COMBAT_AIM_MOUSE_YIELD);
                             aimLock.clear();
                             aimSwitch.reset();
                             return;
@@ -364,10 +368,17 @@ public final class ForgeCombatController {
                     triggerBot.dispatched(session.generation(),session.tick(),
                         target.getUniqueID());
                     host.diagnostics().record(Counter.EXTRA_ATTACK);
+                    // Only this actual local native key pulse enters the
+                    // TriggerBot lane. It is not a hit or server ACK.
+                    host.nativeAction(ModuleActionTelemetry.Lane.TRIGGER,
+                        ModuleActionTelemetry.Event.DISPATCHED);
                 }
             });
         } else if (selectedAttack != null && CLICK_ID.equals(selectedAttack.owner)) {
             host.nativeAction(ModuleActionTelemetry.Lane.CLICKER,
+                ModuleActionTelemetry.Event.REJECTED);
+        } else if (selectedAttack != null && TRIGGER_ID.equals(selectedAttack.owner)) {
+            host.nativeAction(ModuleActionTelemetry.Lane.TRIGGER,
                 ModuleActionTelemetry.Event.REJECTED);
         }
         // A prepared Hit Select candidate not dispatched must never
