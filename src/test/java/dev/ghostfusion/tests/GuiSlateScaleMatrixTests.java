@@ -80,7 +80,7 @@ public final class GuiSlateScaleMatrixTests {
            "choice arrow stays inside real settings column");
         GuiSlateTooltipLayout.Frame tooltip=GuiSlateTooltipLayout.place(
             g.x+g.sidebar+8,g.y+30,g.width-g.sidebar-16,
-            g.height-30,p.settingY,p.settingY+26,250);
+            g.height-30,p.detailsX+30,p.settingY+26,250);
         ok(tooltip!=null &&
            tooltip.y+tooltip.height<=g.y+g.height-20,
            "long-label hover respects real Slate footer");
