@@ -793,12 +793,22 @@ public final class GhostClickGui extends GuiScreen {
         label(String.format(java.util.Locale.ROOT,"%.2fx",zoom.get()),
             x+w-57,y+49,palette().secondary);
         int tabsX=x+side+12, tabsY=y+62, tabsWidth=w-side-24;
+        // Hover and click share HudEditorControls.tabAt(), so a highlighted
+        // pixel is always an actionable pixel; never stretch the hitbox.
+        boolean slateEditor=ui.theme()==UiState.Theme.SLATE;
+        HudEditorControls.Item hoveredTab=
+            HudEditorControls.tabAt(tabsX,tabsY,tabsWidth,mx,my);
         for (HudEditorControls.Item item:HudEditorControls.Item.values()) {
             int bx=HudEditorControls.tabLeft(tabsX,tabsWidth,item);
             int bw=HudEditorControls.tabWidth(tabsWidth,item);
-            rect(bx,tabsY,bw,17,item==hudControls.selected()?editorStyle.selectedTab:panel());
+            boolean chosen=item==hudControls.selected();
+            int tabColor=chosen?editorStyle.selectedTab:
+                slateEditor && item==hoveredTab?palette().idleSetting:panel();
+            rect(bx,tabsY,bw,17,tabColor);
             label(trim(item.label,bw-5),bx+3,tabsY+4,
-                item==hudControls.selected()?editorStyle.selectedText:editorStyle.idleText);
+                chosen?editorStyle.selectedText:editorStyle.idleText);
+            if(slateEditor && chosen)
+                rect(bx,tabsY+16,bw,1,palette().accent);
         }
         rect(previewX,previewY,previewW,previewH,editorStyle.previewSurround);
         HudPreviewGeometry geometry=previewGeometry();
