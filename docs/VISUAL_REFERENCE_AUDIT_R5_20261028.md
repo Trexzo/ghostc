@@ -64,3 +64,12 @@ Slate Keystrokes and CPS render native Minecraft `drawString` (no doubled shadow
 `SlateHudKeyStyle` is an immutable zero-allocation color policy with a 50k-repeat regression. The regression requires readable RGB contrast for both idle and pressed key labels and confirms the pressed surface never equals a bright full-card accent. The Forge source wiring test asserts that the game-side renderer actually uses the palette and shadow-free Slate paths.
 
 This is native-source implementation with offline tests only. Original in-game screenshot, actual font legibility at Minecraft GUI scales 1–3, color blending, and rendering overhead still require acceptance inside Minecraft 1.8.9 before release.
+
+
+## F7 workspace polish — named overlap feedback and tab hit zones
+
+- The F7 preview now measures Status, Keys, CPS, Target HUD and ArrayList **once per GUI frame** and reuses exactly those footprints for both paint and overlap classification. Each selected item gets a precise warning (for example, `List overlaps CPS +1`), not an unexplained generic warning. All colliding outlines remain visible; no widgets get moved automatically.
+- `HudEditorConflicts.mask` is a pure Java, allocation-free five-bit collision classifier using the existing half-open `HudOverlapPolicy`. It excludes the selected widget, supports multiple peers, and never writes saved coordinates.
+- Slate tab hover uses the same `HudEditorControls.tabAt` geometry as mouse selection. A one-pixel ice-blue underline indicates the selected tab, while the legacy themes keep their existing appearance.
+- A new 40,000-case seeded regression checks both overlap bitmasks against an independent oracle and verifies every warning names its actual selected item. Forge wiring checks enforce the native implementation and the shared hit region.
+- Screenshots, GUI-scale pixel placement and FPS in original Minecraft 1.8.9 remain outstanding release gates. Tests prove source wiring and pure layout behavior, not the final on-screen appearance.
