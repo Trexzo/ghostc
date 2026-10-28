@@ -8,6 +8,7 @@ import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.ui.UiState;
 import dev.ghostfusion.ui.GuiThemePalette;
+import dev.ghostfusion.ui.GuiCategoryActivity;
 import dev.ghostfusion.ui.GuiHudEditorStyle;
 import dev.ghostfusion.ui.GuiToggleMotion;
 import dev.ghostfusion.ui.GuiLayout;
@@ -77,6 +78,9 @@ public final class GhostClickGui extends GuiScreen {
     private final GuiSliderDrag sliderDrag = new GuiSliderDrag();
     private final GuiScrollDrag scrollDrag = new GuiScrollDrag();
     private final GuiToggleMotion slateToggleMotion = new GuiToggleMotion();
+    // Reuse counter buffer instead of creating category tally objects on
+    // every Forge GUI frame. Index 0 = all; ordinal+1 = named category.
+    private final int[] slateCategoryCounts=new int[GuiCategoryActivity.COUNT];
     private int dragX, dragY, scroll, settingScroll;
     // -1 = keyboard focus on module list; >=0 selects a setting row.
     private int keyboardSetting=-1;
@@ -436,6 +440,7 @@ public final class GhostClickGui extends GuiScreen {
     private void drawSlateSidebar(int mx,int my) {
         GuiThemePalette theme=palette();
         label("NAVIGATION",x+10,y+49,theme.muted);
+        GuiCategoryActivity.tally(host.modules(),slateCategoryCounts);
         String[] captions={"All","Combat","Movement","World","Render","Utility"};
         GhostModule.Category[] categories=GhostModule.Category.values();
         for(int i=0;i<captions.length;i++){
@@ -447,6 +452,12 @@ public final class GhostClickGui extends GuiScreen {
                 rect(x+4,yy,side-8,19,active?0x45485C74:0x222F3D4C);
             if(active)rect(x+4,yy+5,2,9,theme.accent);
             label(captions[i],x+13,yy+6,active?theme.text:theme.muted);
+            String activity=GuiCategoryActivity.label(slateCategoryCounts[i]);
+            if(!activity.isEmpty()) {
+                // Quiet right-aligned indicators; no oversized badge boxes.
+                int activityX=x+side-12-fontRendererObj.getStringWidth(activity);
+                label(activity,activityX,yy+6,active?theme.accent:theme.muted);
+            }
         }
         rect(x+12,y+h-53,side-24,1,theme.divider);
         label("CTRL+F  SEARCH",x+11,y+h-44,theme.muted);
