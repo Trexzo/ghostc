@@ -67,3 +67,15 @@ task nativeRayProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeCrosshairRayTests'
 }
 check.dependsOn nativeRayProbe
+
+
+// R3.53 mandatory native attack-key boundary: actual Minecraft 1.8.9
+// KeyBinding.onTick / isPressed / physical pressed state, driven through
+// real shared AutoClicker/TriggerBot/HitSelect/BlockHit policies. Runs on
+// Linux and Windows JDK8. No launched client or server ACK is implied.
+task nativeCombatKeyProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeCombatKeyBindingTests'
+}
+check.dependsOn nativeCombatKeyProbe
