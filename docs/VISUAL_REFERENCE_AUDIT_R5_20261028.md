@@ -162,3 +162,20 @@ The new `GuiSlateCompactSearchGeometry` is the source of truth for drawing, text
 ### Matching module hierarchy at compact GUI scales
 
 Compact Slate module rows now use exactly the same **primary title + muted actual category/keybind** information structure as the full Slate workspace, anchored at `ry+3` and `ry+15` inside the existing 25px painted row. They reuse the tested `GuiSlateModuleCaption` sanitizer and the compact label pixel-width budget. This follows the two-tier type hierarchy visible in Rise rather than the older one-line or neon-box module UI; there is no fake descriptive copy. Legacy Indigo/Mint rows keep their previous single-line `ry+8` paint path. Input row hitboxes, toggles, keybind capture and active states are unchanged.
+
+
+## R5 Target HUD visual pass — source-based Vape / Slinky / Rise references (28 October)
+
+**Reference policy:** use public documentation for composition, hierarchy and restraint, not copied assets, shaders, fonts or source code.
+
+- **Vape V4** — https://docs.vape.gg/features/overlays/ explicitly describes `Target Info` as a compact HUD overlay for target health, potion usage and similar context. We retain GhostC's truthful live name, health and distance labels in a 160px card, without implying unsupported potion/state telemetry.
+- **Slinky** — https://slinky.gg/ and https://t.me/s/SlinkyUpdates describe the client and configurable mod overlays, including padding, text/detail colors and subtle overlay surfaces. We keep Slate's existing matte graphite surface, muted secondary text and limited ice-blue accents; we do not add heavier rounded GPU shadows or invent additional settings.
+- **Rise NextGen** — https://beta.riseclient.com/ features a Target HUD in its duel footage. We carry over the principle of readable opponent identity and low-noise health emphasis, not its brand artwork or combat mechanics.
+
+### Actual visual implementation
+
+`ForgeFeatureDriver.drawSlateTarget` now keeps its existing 160×43 (HP on) / 160×29 (HP off) card and true Minecraft name/health/distance data, while adding a faint horizontal separator below the text row, a matte five-pixel HP track with a light upper highlight, a slim active-end marker and **three quiet quarter-position ticks**. The ticks are not colored damage thresholds; they are neutral scale guides at 25%, 50% and 75%, while health itself remains the existing ice-blue fill. The arrangement reads as one restrained layered card rather than several brightly-colored stripes. There are no new player/head textures, icons, or gradient shaders.
+
+All track calculations and quarter marker positions use the allocation-free pure Java `TargetHudSlateBarGeometry`. `fits()` admits the name baseline, divider, five-pixel track and y+33 distance baseline together, so small synthetic cards are rejected rather than half-painted. `filled()` clamps nonfinite/out-of-range health fractions, although the live Target HUD also retains `TargetHudMotion`'s own bounded smoothing. `TargetHudSlateBarGeometryTests` exercises **50,000 seeded widths/origins/heights/fractions**, zero/full/NaN and true 160px insets. Core CI runs this suite on Java 17/21; Forge source wiring asserts real `drawSlateTarget` use, and JAR verification requires the class.
+
+**Isolation:** Classic, Glass and Minimal Target HUD painters remain unchanged; target acquisition, world/entity identity checks, live health/invisibility/range admission, team filtering, animation activation, save format, drag anchors and scaling remain unchanged. No combat module or parallel development branch has been edited. Genuine Minecraft 1.8.9 visual screenshots at GUI scales Auto/2/3 are still required for pixel-level acceptance.
