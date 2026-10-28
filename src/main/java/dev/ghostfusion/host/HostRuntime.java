@@ -180,6 +180,13 @@ public final class HostRuntime {
         "allow_custom_names",false);
     private final Setting.Number wtapDelay = new Setting.Number(
         "reset_ticks",1.0,1.0,3.0);
+    // Native hurt-edge jump only. Opt-in and conservative by default.
+    private final Setting.Number jumpMinHurt = new Setting.Number(
+        "min_hurt_time",8.0,1.0,10.0);
+    private final Setting.Number jumpCooldown = new Setting.Number(
+        "cooldown_ticks",12.0,2.0,40.0);
+    private final Setting.Bool jumpRequireAttack = new Setting.Bool(
+        "require_attack_held",true);
     // Existing hurt-edge mode remains default; packet mode is explicit opt-in.
     private final Setting.Choice velocityMode=new Setting.Choice(
         "mode","hurt","hurt","packet");
@@ -279,6 +286,8 @@ public final class HostRuntime {
             0, velocityHorizontal, velocityVertical, velocityMode);
         modules.register(new FeatureModule("combat.wtap", "WTap / Sprint Reset", GhostModule.Category.COMBAT),
             0, wtapDelay);
+        modules.register(new FeatureModule("combat.jumpreset", "Jump Reset", GhostModule.Category.COMBAT),
+            0, jumpMinHurt, jumpCooldown, jumpRequireAttack);
         modules.register(new FeatureModule("inventory.autoarmor", "AutoArmor",
             GhostModule.Category.UTILITY), 0,
             autoArmorOpenDelay,autoArmorClickDelay,autoArmorUpgrade);
@@ -560,6 +569,15 @@ public final class HostRuntime {
     }
     public int wtapDelayTicks() {
         modules.assertOwnerThread();return (int)Math.round(wtapDelay.get());
+    }
+    public int jumpResetMinHurtTime() {
+        modules.assertOwnerThread();return jumpMinHurt.get().intValue();
+    }
+    public int jumpResetCooldownTicks() {
+        modules.assertOwnerThread();return jumpCooldown.get().intValue();
+    }
+    public boolean jumpResetRequireAttackHeld() {
+        modules.assertOwnerThread();return jumpRequireAttack.get();
     }
     public String velocityMode() {
         modules.assertOwnerThread();return velocityMode.get();
