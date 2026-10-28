@@ -2446,6 +2446,8 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("GuiHitZones.settingIndex(compactZone,mx,my,settingScroll,settings.size())",gui)
         self.assertIn("slateSwitch(right-31,sY+3,slateToggleMotion.value(setting,",gui)
         self.assertIn("settingsTheme.selectedModule:settingsTheme.idleSetting",gui)
+        self.assertIn("overModule=GuiHitZones.moduleIndex(",gui)
+        self.assertIn("if(reveal!=null)drawSlateTooltip(reveal,mx,my,compactTheme);",gui)
         self.assertIn("0x664B597D:0x442D344A",gui)
         self.assertIn('String compactHint="REDUCE GUI SCALE";',gui)
         self.assertIn("theme.slate && modern==null && !hudPage",gui)
