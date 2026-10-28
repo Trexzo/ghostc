@@ -29,6 +29,8 @@ public final class IntegratedModuleCatalogTests {
             ok(host.modules().get(id).state()==ModuleRegistry.State.DISABLED,
                 "new profile opts out of "+id);
         }
+        ok(host.modules().get("combat.aimassist").settings().containsKey("switch_delay_ticks"),
+            "Aim Assist opt-in target switching delay available through real F7");
         ok(host.modules().get("combat.aimassist").settings().containsKey("lock_target"),
             "opt-in Aim Assist live UUID target lock registered");
         ok(host.modules().get("combat.aimassist").settings().containsKey("target_priority"),
@@ -174,6 +176,7 @@ public final class IntegratedModuleCatalogTests {
         TriggerBotTests.main(args);
         AttackCommitTests.main(args);
         AimTriggerHandoffTests.main(args);
+        AimTargetSwitchTests.main(args);
         ok(count>65,"real integrated module and persisted profile coverage");
         System.out.println("INTEGRATED_MODULE_CATALOG_PASS assertions="+count);
     }
