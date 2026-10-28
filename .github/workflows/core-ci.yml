@@ -56,6 +56,8 @@ jobs:
           grep -q 'TARGET_HUD_MODERN_LAYOUT_PASS' .build/target-hud-modern.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudSlateBarGeometryTests | tee .build/target-hud-slate-bar.log
           grep -q 'TARGET_HUD_SLATE_BAR_GEOMETRY_PASS' .build/target-hud-slate-bar.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudSlateReadoutGeometryTests | tee .build/target-hud-slate-readout.log
+          grep -q 'TARGET_HUD_SLATE_READOUT_GEOMETRY_PASS' .build/target-hud-slate-readout.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudPaletteTests | tee .build/target-hud-palette.log
           grep -q 'TARGET_HUD_PALETTE_PASS' .build/target-hud-palette.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSearchFocusTests | tee .build/gui-search-focus.log
