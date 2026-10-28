@@ -1014,7 +1014,9 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("demand.admit(stillVisible,currentDistanceSq)",adapter)
         self.assertIn("p.getEntityId(),p.posX,p.posY,p.posZ,health,true,stillVisible,true",adapter)
         self.assertIn("Entity live=mc.theWorld.getEntityByID(suggestion.entityId);",combat)
-        self.assertIn("if(!(live instanceof EntityPlayer))return;",combat)
+        # R3.51: invalid native target must actively clear BOTH retained
+        # camera identities before any write, not depend on one-line layout.
+        self.assertRegex(combat, r"if\s*\(\s*!\s*\(live\s+instanceof\s+EntityPlayer\)\s*\)\s*\{\s*aimLock\.clear\(\);\s*aimSwitch\.reset\(\);\s*return;\s*\}")
         self.assertIn("candidate.isInvisible(),host.aimVisibleOnly()",combat)
         self.assertIn("suggestion.sameTargetPosition(candidate.posX,candidate.posY,candidate.posZ)",combat)
         self.assertLess(combat.index("suggestion.sameTargetPosition("),
