@@ -14,6 +14,7 @@ import dev.ghostfusion.ui.GuiToggleMotion;
 import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiSlateWorkspace;
 import dev.ghostfusion.ui.GuiSlateControlGeometry;
+import dev.ghostfusion.ui.GuiSlateCompactMetrics;
 import dev.ghostfusion.ui.GuiSlateTooltipLayout;
 import dev.ghostfusion.ui.GuiSlateSearchGeometry;
 import dev.ghostfusion.ui.GuiSettingPresentation;
@@ -561,26 +562,46 @@ public final class GhostClickGui extends GuiScreen {
             barWidth,thumb,
             dragging?0xFFE1F0F4:hovered?0xFFC8E4EB:palette().accent);
     }
-    private void drawSidebar() {
+    private void drawSidebar(int mx,int my) {
+        GuiThemePalette theme=palette();
+        boolean slate=theme.slate;
         int yy = y + 47;
-        label("FILTER", x + 10, yy, 0xFF979DAF);
+        label(slate?"NAVIGATION":"FILTER",x+10,yy,
+            slate?theme.muted:0xFF979DAF);
         yy += 18;
         String[] names = {"ALL", "COMBAT", "MOVEMENT", "WORLD", "RENDER", "UTILITY"};
+        GuiLayout zone=GuiLayout.calculate(width,height,ui.layout(),ui.theme());
+        int hovered=slate?GuiChrome.categoryIndex(zone,mx,my):-1;
+        if(slate)GuiCategoryActivity.tally(host.modules(),slateCategoryCounts);
         for (int i = 0; i < names.length; i++) {
             GhostModule.Category c = i == 0 ? null : GhostModule.Category.valueOf(names[i]);
             boolean active = ui.category() == c;
-            if (active) {
+            if (active || (slate&&hovered==i)) {
                 rect(x + 4, yy - 3, side - 8, 19,
-                    palette().slate?palette().selectedCategory:0x556B83EA);
-                if(palette().slate)rect(x+4,yy-3,2,19,palette().accent);
+                    slate?(active?theme.selectedCategory:theme.idleSetting):0x556B83EA);
+                if(slate && active)rect(x+4,yy+2,2,9,theme.accent);
             }
-            if (yy < y + h - 48) label(names[i], x + 12, yy + 1,
-                active ? accent() : 0xFFD4D7E0);
+            if (yy < y + h - 48) {
+                label(names[i],x+12,yy+1,
+                    slate?(active?theme.text:theme.muted):
+                        active?accent():0xFFD4D7E0);
+                if(slate) {
+                    String activity=GuiCategoryActivity.label(slateCategoryCounts[i]);
+                    int activityX=x+side-12-fontRendererObj.getStringWidth(activity);
+                    if(!activity.isEmpty() &&
+                       activityX>=x+12+fontRendererObj.getStringWidth(names[i])+7)
+                        label(activity,activityX,yy+1,
+                            active?theme.accent:theme.muted);
+                }
+            }
             yy += 23;
         }
-        label("UP/DOWN", x + 10, y + h - 48, 0xFF929BAC);
-        label("F7: CLOSE", x + 10, y + h - 35, 0xFF929BAC);
-        label("ESC: CLOSE", x + 10, y + h - 23, 0xFF929BAC);
+        label(slate?"UP / DOWN":"UP/DOWN", x+10,y+h-48,
+            slate?theme.muted:0xFF929BAC);
+        label(slate?"F7  CLOSE":"F7: CLOSE", x+10,y+h-35,
+            slate?theme.muted:0xFF929BAC);
+        label(slate?"ESC  CLOSE":"ESC: CLOSE", x+10,y+h-23,
+            slate?theme.muted:0xFF929BAC);
     }
     private List<ModuleRegistry.Entry> entries() {
         List<ModuleRegistry.Entry> filtered=ui.filtered(host.modules());
@@ -600,8 +621,11 @@ public final class GhostClickGui extends GuiScreen {
         GuiSlateWorkspace workspace=slateWorkspace(
             GuiLayout.calculate(width,height,ui.layout(),ui.theme()));
         if(workspace!=null) {drawSlateModules(workspace,mx,my);return;}
-        drawSidebar();
+        drawSidebar(mx,my);
         if (search != null) search.drawTextBox();
+        GuiLayout compactZone=GuiLayout.calculate(width,height,ui.layout(),ui.theme());
+        GuiThemePalette compactTheme=palette();
+        boolean slateCompact=compactTheme.slate;
         List<ModuleRegistry.Entry> filtered = entries();
         scroll = Math.max(0, Math.min(scroll, Math.max(0, filtered.size() - visibleRows)));
         int end = Math.min(filtered.size(), scroll + visibleRows);
@@ -610,23 +634,39 @@ public final class GhostClickGui extends GuiScreen {
             int ry = listY + (i - scroll) * 28;
             if (ry + 27 > listY + listH) break;
             boolean focused = e.module().id().equals(selected);
-            GuiThemePalette style=palette();
+            boolean hovered=slateCompact &&
+                GuiHitZones.moduleIndex(compactZone,mx,my,scroll,filtered.size())==i;
             rect(x + side + 9, ry, w - side - 20, 25,
-                style.slate?(focused?style.selectedModule:style.idleModule)
-                            :(focused?0x664B597D:0x442D344A));
-            if(style.slate && focused)
-                rect(x+side+9,ry,2,25,style.accent);
-            label(trim(e.module().displayName(), Math.max(60, w - side - 97)),
-                    x + side + 15, ry + 8, focused ? 0xFFFFFFFF : 0xFFE4E7F0);
+                slateCompact?(focused?compactTheme.selectedModule:
+                    hovered?compactTheme.selectedSetting:compactTheme.idleModule)
+                    :(focused?0x664B597D:0x442D344A));
+            if(slateCompact && focused)
+                rect(x+side+9,ry+7,2,11,compactTheme.accent);
+            label(trim(e.module().displayName(),
+                slateCompact?GuiSlateCompactMetrics.moduleLabelBudget(compactZone):
+                    Math.max(60,w-side-97)),x+side+15,ry+8,
+                slateCompact?(focused?compactTheme.text:compactTheme.muted):
+                    focused?0xFFFFFFFF:0xFFE4E7F0);
             boolean enabled = e.state() == ModuleRegistry.State.ENABLED;
             boolean faulted = e.state() == ModuleRegistry.State.FAULTED;
             int right = x + w - 54;
-            rect(right, ry + 5, 39, 15,
-                faulted ? 0xFFAA5360 : enabled ? accent() : 0xFF586073);
-            // RESET is a distinct safe action, not another enable attempt.
-            label(faulted ? "RESET" : enabled ? "ON" : "OFF",
-                right + (faulted ? 5 : 9), ry + 8,
-                enabled && !faulted ? 0xFF101320 : 0xFFFFFFFF);
+            if(slateCompact) {
+                // Quiet state chip, not an opaque neon-colored toggle.
+                rect(right,ry+5,39,15,
+                    faulted?0x665A343F:
+                        enabled?compactTheme.selectedSetting:compactTheme.idleSetting);
+                rect(right,ry+5,2,15,
+                    faulted?0xFFEBA4AF:
+                        enabled?compactTheme.accent:compactTheme.divider);
+            } else
+                rect(right,ry+5,39,15,
+                    faulted?0xFFAA5360:enabled?accent():0xFF586073);
+            // Keep the exact old hit region and reset action.
+            label(faulted?"RESET":enabled?"ON":"OFF",
+                right+(faulted?5:9),ry+8,
+                slateCompact?(faulted?0xFFEBA4AF:
+                    enabled?compactTheme.accent:compactTheme.muted):
+                    enabled&&!faulted?0xFF101320:0xFFFFFFFF);
         }
         int sy = listY + listH + 5;
         rect(x + side + 9, sy - 4, w - side - 20, 1, palette().divider);
@@ -642,7 +682,10 @@ public final class GhostClickGui extends GuiScreen {
             label(trim("FAULT: "+e.lastFault()+"  (RESET to clear)",
                 Math.max(0,w-side-39)),x+side+13,sy+4,0xFFFFB3A6);
         else
-            label("SETTINGS  " + e.module().displayName(), x + side + 13, sy + 4, accent());
+            label(slateCompact?
+                trim("SETTINGS  "+e.module().displayName(),Math.max(0,w-side-30)):
+                "SETTINGS  "+e.module().displayName(),
+                x+side+13,sy+4,accent());
         int bindY = sy + 22;
         rect(x + side + 11, bindY, w - side - 26, 18,
             palette().slate?palette().idleSetting:0x66394359);
@@ -655,29 +698,73 @@ public final class GhostClickGui extends GuiScreen {
         settingScroll = Math.max(0, Math.min(settingScroll, Math.max(0, settings.size() - available)));
         keyboardSetting=GuiSettingKeyboard.visibleFocus(
             keyboardSetting,settingScroll,settings.size(),available);
+        final long compactSwitchFrameTime=slateCompact?System.nanoTime():0L;
+        final int hoveredSetting=slateCompact?
+            GuiHitZones.settingIndex(compactZone,mx,my,settingScroll,settings.size()):-1;
         for (int i = settingScroll; i < settings.size() && i < settingScroll + available; i++) {
             Map.Entry<String, Setting<?>> kv = settings.get(i);
             Setting<?> setting = kv.getValue();
-            GuiThemePalette settingsTheme=palette();
+            GuiThemePalette settingsTheme=compactTheme;
             rect(x + side + 11, sY, w - side - 26, 19,
-                settingsTheme.slate?(i==keyboardSetting
-                    ?settingsTheme.selectedSetting:settingsTheme.idleSetting)
+                slateCompact?(i==keyboardSetting?
+                    settingsTheme.selectedSetting:
+                    i==hoveredSetting?settingsTheme.selectedModule:settingsTheme.idleSetting)
                     :(i==keyboardSetting ? 0x886A588D : 0x443B465C));
-            label(trim(setting.id(), Math.max(30, (w - side) / 2 - 14)), x + side + 15, sY + 5, 0xFFE0E4EF);
-            int right = x + w - 17;
-            if (setting instanceof Setting.Number) {
-                Setting.Number number = (Setting.Number) setting;
-                double fraction = NumericSliderScale.fraction(
+            int kind=setting instanceof Setting.Bool?0:
+                setting instanceof Setting.Number?1:2;
+            String caption=slateCompact?
+                GuiSettingPresentation.label(setting.id()):setting.id();
+            label(trim(caption,slateCompact?
+                GuiSlateCompactMetrics.labelBudget(compactZone,kind):
+                Math.max(30,(w-side)/2-14)),x+side+15,sY+5,
+                slateCompact?settingsTheme.text:0xFFE0E4EF);
+            int right=x+w-17;
+            if(slateCompact && setting instanceof Setting.Bool) {
+                slateSwitch(right-31,sY+3,slateToggleMotion.value(setting,
+                    ((Setting.Bool)setting).get(),compactSwitchFrameTime));
+            } else if(setting instanceof Setting.Number) {
+                Setting.Number number=(Setting.Number)setting;
+                double fraction=NumericSliderScale.fraction(
                     number.get(),number.min(),number.max());
-                int barWidth = Math.max(33, (w - side) / 3);
-                rect(right - barWidth, sY + 7, barWidth, 6, palette().barTrack);
-                rect(right - barWidth, sY + 7, (int) (barWidth * fraction), 6, accent());
-                label(String.format(java.util.Locale.ROOT, "%.2f", number.get()), right - barWidth - 37, sY + 5, 0xFFC6CBD7);
+                int barWidth=slateCompact?
+                    GuiSlateCompactMetrics.barWidth(compactZone):
+                    Math.max(33,(w-side)/3);
+                if(slateCompact) {
+                    rect(right-barWidth,sY+9,barWidth,3,settingsTheme.barTrack);
+                    rect(right-barWidth,sY+9,(int)Math.round(barWidth*fraction),
+                        3,settingsTheme.accent);
+                    int thumb=right-barWidth+(int)Math.round((barWidth-4)*fraction);
+                    rect(thumb,sY+7,4,7,
+                        i==keyboardSetting||i==hoveredSetting?
+                            settingsTheme.text:settingsTheme.secondary);
+                    label(trim(GuiSettingPresentation.number(setting.id(),number.get()),36),
+                        right-barWidth-39,sY+5,settingsTheme.muted);
+                } else {
+                    rect(right-barWidth,sY+7,barWidth,6,palette().barTrack);
+                    rect(right-barWidth,sY+7,(int)(barWidth*fraction),6,accent());
+                    label(String.format(java.util.Locale.ROOT,"%.2f",number.get()),
+                        right-barWidth-37,sY+5,0xFFC6CBD7);
+                }
+            } else if(slateCompact) {
+                String displayed=trim(GuiSettingPresentation.choice(setting.serialize()),
+                    GuiSlateCompactMetrics.choiceBudget(compactZone));
+                int textRight=GuiSlateCompactMetrics.choiceX(compactZone)+
+                    GuiSlateCompactMetrics.choiceBudget(compactZone);
+                label(displayed,textRight-fontRendererObj.getStringWidth(displayed),
+                    sY+5,settingsTheme.accent);
+                int arrow=GuiSlateCompactMetrics.choiceArrowX(compactZone);
+                int marker=i==keyboardSetting||i==hoveredSetting?
+                    settingsTheme.accent:settingsTheme.muted;
+                rect(arrow,sY+8,1,1,marker);
+                rect(arrow+1,sY+9,1,1,marker);
+                rect(arrow+2,sY+10,1,1,marker);
+                rect(arrow+3,sY+9,1,1,marker);
+                rect(arrow+4,sY+8,1,1,marker);
             } else {
-                label(trim(setting.serialize(), Math.max(30, (w - side) / 3)),
-                    x + w - 17 - Math.min((w - side) / 3, 90), sY + 5, accent());
+                label(trim(setting.serialize(),Math.max(30,(w-side)/3)),
+                    x+w-17-Math.min((w-side)/3,90),sY+5,accent());
             }
-            sY += 22;
+            sY+=22;
         }
         // Footer has an 18px reserved strip below visible settings; never
         // paint keyboard help over the keybind row. Warnings own this footer.
