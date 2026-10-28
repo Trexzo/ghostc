@@ -15,6 +15,7 @@ import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiSlateWorkspace;
 import dev.ghostfusion.ui.GuiSlateControlGeometry;
 import dev.ghostfusion.ui.GuiSlateCompactMetrics;
+import dev.ghostfusion.ui.GuiSlateModuleCaption;
 import dev.ghostfusion.ui.GuiSlateTooltipLayout;
 import dev.ghostfusion.ui.GuiSlateSearchGeometry;
 import dev.ghostfusion.ui.GuiSettingPresentation;
@@ -274,9 +275,16 @@ public final class GhostClickGui extends GuiScreen {
                 rect(pane.modulesX,yy,pane.modulesWidth,26,
                     active?0x5B35424B:0x24313B43);
             rect(pane.modulesX+6,yy+25,pane.modulesWidth-12,1,0x304D5669);
-            if(active)rect(pane.modulesX+1,yy+9,2,8,color.accent);
+            if(active)rect(pane.modulesX+1,yy+8,2,11,color.accent);
+            // Rise-inspired hierarchy: the name is primary; the quieter
+            // second line shows only real registry category and keybind.
             label(trim(entry.module().displayName(),pane.modulesWidth-61),
-                pane.modulesX+10,yy+8,active?color.text:color.muted);
+                pane.modulesX+10,yy+3,active?color.text:color.muted);
+            String keyName=entry.keybind()==0?null:
+                Keyboard.getKeyName(entry.keybind());
+            label(trim(GuiSlateModuleCaption.of(entry.module().category(),keyName),
+                pane.modulesWidth-61),pane.modulesX+10,yy+15,
+                active?color.secondary:color.muted);
             boolean enabled=entry.state()==ModuleRegistry.State.ENABLED;
             boolean faulted=entry.state()==ModuleRegistry.State.FAULTED;
             if(faulted) {
@@ -311,6 +319,10 @@ public final class GhostClickGui extends GuiScreen {
             pane.detailsX+9,pane.detailsY+23,color.text);
         rect(statusX-9,pane.detailsY+26,4,4,statusColor);
         label(status,statusX,pane.detailsY+23,statusColor);
+        // A distinct second-level breadcrumb, like the reference clients,
+        // uses registry metadata rather than invented module descriptions.
+        label(GuiSlateModuleCaption.category(entry.module().category()),
+            pane.detailsX+9,pane.detailsY+34,color.muted);
         rect(pane.detailsX+9,pane.detailsY+44,pane.detailsWidth-18,1,color.divider);
         rect(pane.detailsX+9,pane.bindingY,pane.detailsWidth-18,24,0x48313942);
         label("KEYBIND",pane.detailsX+16,pane.bindingY+8,color.muted);
