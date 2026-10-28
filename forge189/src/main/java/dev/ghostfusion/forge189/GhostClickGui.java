@@ -19,6 +19,7 @@ import dev.ghostfusion.ui.GuiSlateModuleCaption;
 import dev.ghostfusion.ui.GuiSlateEmptyStateLayout;
 import dev.ghostfusion.ui.GuiSlateTooltipLayout;
 import dev.ghostfusion.ui.GuiSlateSearchGeometry;
+import dev.ghostfusion.ui.GuiSlateCompactSearchGeometry;
 import dev.ghostfusion.ui.GuiSettingPresentation;
 import dev.ghostfusion.ui.GuiScrollIndicator;
 import dev.ghostfusion.ui.GuiScrollDrag;
@@ -160,10 +161,14 @@ public final class GhostClickGui extends GuiScreen {
     }
     private void syncSearch(GuiLayout g) {
         GuiSlateWorkspace pane=slateWorkspace(g);
-        int targetX=pane==null?g.searchX:GuiSlateSearchGeometry.fieldX(pane);
-        int targetY=pane==null?g.searchY:GuiSlateSearchGeometry.fieldY(pane);
-        int targetWidth=pane==null?g.searchWidth:
-            GuiSlateSearchGeometry.fieldWidth(pane);
+        boolean compactSlate=pane==null && ui.theme()==UiState.Theme.SLATE &&
+            GuiChrome.interactive(g);
+        int targetX=pane!=null?GuiSlateSearchGeometry.fieldX(pane):
+            compactSlate?GuiSlateCompactSearchGeometry.fieldX(g):g.searchX;
+        int targetY=pane!=null?GuiSlateSearchGeometry.fieldY(pane):
+            compactSlate?GuiSlateCompactSearchGeometry.fieldY(g):g.searchY;
+        int targetWidth=pane!=null?GuiSlateSearchGeometry.fieldWidth(pane):
+            compactSlate?GuiSlateCompactSearchGeometry.fieldWidth(g):g.searchWidth;
         if (search!=null && searchPositionX==targetX &&
             searchPositionY==targetY && searchPositionWidth==targetWidth) return;
         String previous=search==null?ui.query():search.getText();
@@ -171,7 +176,7 @@ public final class GhostClickGui extends GuiScreen {
         GuiTextField resized=new GuiTextField(42,fontRendererObj,
             targetX,targetY,targetWidth,17);
         resized.setMaxStringLength(100);
-        if(pane!=null) {
+        if(pane!=null || compactSlate) {
             resized.setEnableBackgroundDrawing(false);
             resized.setTextColor(0xFFF1F4F6);
         }
@@ -647,15 +652,53 @@ public final class GhostClickGui extends GuiScreen {
         }
         return filtered;
     }
+    /** Vape-inspired compact search treatment: inset native input and a
+     * genuinely separate clear target, retaining its original owner keys. */
+    private void drawSlateCompactSearch(GuiLayout g,int mx,int my) {
+        if(search==null)return;
+        GuiThemePalette theme=palette();
+        int sx=GuiSlateCompactSearchGeometry.surfaceX(g);
+        int sy=GuiSlateCompactSearchGeometry.surfaceY(g);
+        int sw=GuiSlateCompactSearchGeometry.surfaceWidth(g);
+        boolean focus=search.isFocused();
+        boolean hover=GuiSlateCompactSearchGeometry.surfaceHit(g,mx,my);
+        int stroke=focus?theme.accent:hover?0xFF52616B:theme.divider;
+        rect(sx,sy,sw,GuiSlateCompactSearchGeometry.SURFACE_HEIGHT,
+            focus?0xFF253039:hover?0xFF222B33:0xFF1B2329);
+        rect(sx,sy,sw,1,stroke);
+        rect(sx,sy+GuiSlateCompactSearchGeometry.SURFACE_HEIGHT-1,sw,1,stroke);
+        rect(sx,sy,1,GuiSlateCompactSearchGeometry.SURFACE_HEIGHT,stroke);
+        rect(sx+sw-1,sy,1,GuiSlateCompactSearchGeometry.SURFACE_HEIGHT,stroke);
+        // Minimal original search glyph in the content gutter, outside
+        // the native textbox caret and all persisted click regions.
+        int gx=sx-11,gy=sy+7;
+        rect(gx+1,gy,5,1,theme.muted);
+        rect(gx,gy+1,1,5,theme.muted);
+        rect(gx+6,gy+1,1,5,theme.muted);
+        rect(gx+1,gy+6,5,1,theme.muted);
+        rect(gx+6,gy+6,2,2,theme.muted);
+        if(search.getText().isEmpty()&&!focus)
+            label("Search modules",GuiSlateCompactSearchGeometry.fieldX(g)+3,
+                sy+6,theme.muted);
+        search.drawTextBox();
+        if(!search.getText().isEmpty()) {
+            int cx=GuiSlateCompactSearchGeometry.clearX(g);
+            int cy=GuiSlateCompactSearchGeometry.clearY(g);
+            boolean clearHover=GuiSlateCompactSearchGeometry.clearHit(g,mx,my);
+            rect(cx,cy,14,15,clearHover?0xFF344650:0xFF26323A);
+            label("X",cx+4,cy+4,clearHover?theme.text:theme.muted);
+        }
+    }
     private void drawModules(int mx, int my) {
-        GuiSlateWorkspace workspace=slateWorkspace(
-            GuiLayout.calculate(width,height,ui.layout(),ui.theme()));
+        GuiLayout compactZone=GuiLayout.calculate(width,height,ui.layout(),ui.theme());
+        GuiSlateWorkspace workspace=slateWorkspace(compactZone);
         if(workspace!=null) {drawSlateModules(workspace,mx,my);return;}
         drawSidebar(mx,my);
-        if (search != null) search.drawTextBox();
-        GuiLayout compactZone=GuiLayout.calculate(width,height,ui.layout(),ui.theme());
         GuiThemePalette compactTheme=palette();
         boolean slateCompact=compactTheme.slate;
+        if(slateCompact && GuiChrome.interactive(compactZone))
+            drawSlateCompactSearch(compactZone,mx,my);
+        else if(search!=null)search.drawTextBox();
         List<ModuleRegistry.Entry> filtered = entries();
         scroll = Math.max(0, Math.min(scroll, Math.max(0, filtered.size() - visibleRows)));
         int end = Math.min(filtered.size(), scroll + visibleRows);
@@ -1231,6 +1274,30 @@ public final class GhostClickGui extends GuiScreen {
             return;
         }
         GuiSlateWorkspace split=slateWorkspace(zone);
+        if(split==null && ui.theme()==UiState.Theme.SLATE && search!=null &&
+           !search.getText().isEmpty() &&
+           GuiSlateCompactSearchGeometry.clearHit(zone,mx,my)) {
+            // Identical clear/focus state transition as the full Slate bar.
+            search.setText("");
+            ui.query("");
+            search.setFocused(true);
+            search.setCursorPositionEnd();
+            scroll=0;settingScroll=0;keyboardSetting=-1;
+            entries();
+            return;
+        }
+        if(split==null && ui.theme()==UiState.Theme.SLATE && search!=null &&
+           GuiSlateCompactSearchGeometry.surfaceHit(zone,mx,my)) {
+            // The entire native search chrome is focusable; no module or
+            // setting input can share these exact y coordinates.
+            search.mouseClicked(mx,my,button);
+            if(!search.isFocused()) {
+                search.setFocused(true);
+                search.setCursorPositionEnd();
+            }
+            keyboardSetting=-1;
+            return;
+        }
         if(split!=null&&search!=null&&!search.getText().isEmpty()&&
            GuiSlateSearchGeometry.clearHit(split,mx,my)) {
             // Search-only action: never toggles or persists a module.
