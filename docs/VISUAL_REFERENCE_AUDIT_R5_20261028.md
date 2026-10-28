@@ -1,0 +1,40 @@
+# GhostC R5 — visual reference audit and Slate quality bar
+
+Review date: 2026-10-28. Target: Minecraft 1.8.9 Forge. Scope: visual/UI only; this is **not** a claim of competitor parity or of tested in-game appearance.
+
+## First-party visual references (not code or asset sources)
+
+- **Vape V4:** official quick-start and overlay documentation: https://docs.vape.gg/intro/quick-start and https://docs.vape.gg/features/overlays/ . Reference: simple category navigation, explicit module/settings affordances, independently positionable overlays, clean enabled/disabled states and no distracting surfaces. Its changelog also records a Central GUI mode and Text GUI improvements: https://www.vape.gg/changelog/v4 .
+- **Slinky:** https://slinky.gg/ . Reference: near-black surfaces, understated compact toggles, tabs/profiles and high signal-to-noise settings. Remains a relevant Minecraft 1.8.9 reference. Its colors, graphics and assets must NOT be duplicated.
+- **Rise NextGen:** https://beta.riseclient.com/ and https://riseclient.com/ . Reference: obvious search and category hierarchy, modular settings, clear descriptions and human-readable numeric units; its current public NextGen page advertises Minecraft 1.8.9–26.2 and visual controls. The original Rise 6 and new NextGen screenshots are not identical; avoid treating older images as current gameplay evidence.
+- **Secondary check:** Drip (https://drip.gg/) for restraint and market positioning, not a code or rendering model.
+
+## Decisions: original GhostC visual identity
+
+- **Slate** = matte graphite base `#121519`, surface `#1B2026`, off-white text `#F1F4F6`, muted copy `#98A5AF`, ice-blue emphasis `#A7D3E0`; status danger remains a quiet rose. These are design directions consistent with current first-party tokens, not borrowed client assets.
+- **Explicitly reject** Nebula, violet/purple-as-default, bloom/aurora, neon full-row fills, giant cards, fake blur, font shadow stacks or shaders added solely for decoration. Historical persisted `nebula` tokens may remain compatibility-readable, never user-selectable.
+- **ClickGUI** = three-pane category/module/details workspace where supported; no cross-pane input overlap. Search stays above the module list; scrollbars track real row counts; settings retain full display values and clipped labels.
+- **Enabled Module List** = thin, text-first, width-sort, right aligned (or left when anchored left), first-activation 180 ms motion, no background or stripes by default. Never show disabled/faulted modules.
+- **HUD** = restrained target health presentation, compact CPS/Keystrokes, individually configurable scale and drag positions. The F7 editor's silhouettes must be labeled as previews, not live data. Preserve existing Classic and saved user customizations.
+
+## What was already built in visual PR #164 as of this review
+
+Slate Wide 740×480 themed workspace; `GuiSlateWorkspace` hit geometry; native Minecraft search input with Ctrl+F; independent module/settings scrolling; animated switches; restrained proportional scroll indicators; readable setting presentation; opt-in text-first Module List; modular Target/CPS/Keystrokes styles; F7 preview/presets/snap/collision handling.
+
+## Small refinement in the companion stacked PR
+
+- Show an explicit **ACTIVE / OFF / FAULT** status alongside the selected module's name, with a pixel-measured name budget so long labels cannot paint over status.
+- Add low-alpha pointer-hover states for Slate settings rows using `GuiSlateWorkspace.settingIndex`, exactly matching existing native click-hit geometry. Keyboard focus remains distinct.
+- Reuse existing keyboard-setting hints in the Slate footer. Suppress hints when a warning owns the shared footer; show scroll progress when settings overflow.
+
+## Next material visual work, in priority order
+
+1. **Actual Minecraft 1.8.9 screenshots** of ClickGUI, F7 editor, in-game Module List, Target HUD and Keystrokes at common GUI scales. Don't represent web mockups as project screenshots.
+2. **Typography**: assess readability with the actual Minecraft font at 854×480 and 1920×1080, plus GUI scales 1–3. Only adopt a custom font renderer if it works natively with no GL state leakage, clipping errors, or unacceptable frame cost.
+3. **Interactions**: confirm slider drag, wheel, scrollbar thumb, search clear, Ctrl+F, keyboard capture/cancel, fault reset and category changes on real game input. Pure geometry tests are not sufficient.
+4. **Overlays**: evaluate anchor/scale combinations at 0.75×, 1.00× and 1.75×, corners and HUD collisions at 640×360/854×480/1920×1080. Check Unicode/suffix measurements, potion/scoreboard overlap and module enable/disable transitions.
+5. **Performance**: compare idle/GUI/HUD frame-time and GL state against the previous build in Minecraft; keep no per-frame font loading, texture reallocation, network effects or unnecessary shaders.
+
+### Merge/release boundaries
+
+Do not alter combat timing, packets, rotations, target selection, inventory arbitration or module execution. This visual refinement is intentionally **stacked on** PR #164, not merged into `main` or the combat integration branch. Compilation/CI can verify type safety and geometry; a live Minecraft session is still needed to prove aesthetics, responsiveness and FPS.
