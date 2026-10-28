@@ -26,8 +26,8 @@ public final class GuiSlateCompactSearchGeometryTests {
            "search surface stays in module content panel");
         ok(sy>=g.y+30&&sy+21<=g.listY,
            "search surface does not collide with header or module list");
-        ok(tx>=sx+5&&tx+tw+7<=cx,
-           "native textbox caret remains outside clear control");
+        ok(tx>=sx+17&&tx+tw+7<=cx,
+           "native textbox has dedicated icon space and avoids clear control");
         ok(ty>=sy&&ty+17<=sy+21,
            "native input fits its custom surface");
         ok(cx+14<=sx+sw&&cy+15<=sy+21,
