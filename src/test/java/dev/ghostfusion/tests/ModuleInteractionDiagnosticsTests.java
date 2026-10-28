@@ -22,7 +22,7 @@ public final class ModuleInteractionDiagnosticsTests {
         checks++;if(!good)throw new AssertionError(reason);
     }
     private static Enabled all() {
-        return new Enabled(true,true,true,true,true,true,true,true,true);
+        return new Enabled(true,true,true,true,true,true,true,true,true,true);
     }
     private static void decisions() {
         ModuleInteractionStateMachine m=new ModuleInteractionStateMachine();
@@ -37,6 +37,7 @@ public final class ModuleInteractionDiagnosticsTests {
         f=m.advance(1,2,true,Scene.GAME,true,all(),true);
         ok(f.denial(Resource.AUTO_SPRINT)==Denial.WTAP_RESERVED &&
            f.denial(Resource.JUMP_RESET)==Denial.WTAP_RESERVED &&
+           f.denial(Resource.AUTO_ROD)==Denial.WTAP_RESERVED &&
            f.denial(Resource.WTAP)==Denial.NONE &&
            f.denial(Resource.VELOCITY)==Denial.NONE &&
            f.denial(Resource.COMBAT)==Denial.NONE,
@@ -92,7 +93,7 @@ public final class ModuleInteractionDiagnosticsTests {
             Enabled e=new Enabled(rng.nextBoolean(),rng.nextBoolean(),
                 rng.nextBoolean(),rng.nextBoolean(),rng.nextBoolean(),
                 rng.nextBoolean(),rng.nextBoolean(),rng.nextBoolean(),
-                rng.nextBoolean());
+                rng.nextBoolean(),rng.nextBoolean());
             Frame f=m.advance(generation,tick++,world,scene,foreground,e,reserved);
             for(Resource r:Resource.values()) {
                 Denial why=f.denial(r);
@@ -118,6 +119,9 @@ public final class ModuleInteractionDiagnosticsTests {
             if(f.jumpReset)
                 ok(f.denial(Resource.JUMP_RESET)==Denial.NONE,
                    "native Jump Reset grant must match public state-machine denial");
+            if(f.autoRod)
+                ok(f.denial(Resource.AUTO_ROD)==Denial.NONE,
+                   "AutoRod own native hotbar/input grant must match the state machine");
             String owned=ModuleInteractionReadout.ownership(f);
             String held=ModuleInteractionReadout.suppression(f);
             ok(owned.length()<130 && held.length()<130 &&
