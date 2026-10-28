@@ -24,6 +24,7 @@ import dev.ghostfusion.features.EspTeamPolicy;
 import dev.ghostfusion.features.TargetHudPalette;
 import dev.ghostfusion.features.TargetHudModernLayout;
 import dev.ghostfusion.features.TargetHudSlateBarGeometry;
+import dev.ghostfusion.features.TargetHudSlateReadoutGeometry;
 import dev.ghostfusion.features.TargetHudMotion;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
@@ -558,14 +559,26 @@ public final class ForgeFeatureDriver {
         }
         if(host.targetDistance()) {
             int distY=y+(health?layout.distanceWithHealthY:layout.distanceWithoutHealthY);
+            int labelWidth=mc.fontRendererObj.getStringWidth(
+                TargetHudSlateReadoutGeometry.TITLE);
+            int budget=TargetHudSlateReadoutGeometry.valueBudget(width,labelWidth);
             String distance=TargetHudDistanceText.format(
                 player.posX,player.posY,player.posZ,
                 mc.thePlayer.posX,mc.thePlayer.posY,mc.thePlayer.posZ,
-                host.targetRange(),width-18,targetFontWidths);
-            if(!distance.isEmpty())
-                mc.fontRendererObj.drawString(distance,
-                    x+width-9-mc.fontRendererObj.getStringWidth(distance),
-                    distY,TargetHudMotion.fade(theme.muted,alpha));
+                host.targetRange(),budget,targetFontWidths);
+            if(!distance.isEmpty()) {
+                int valueWidth=mc.fontRendererObj.getStringWidth(distance);
+                if(TargetHudSlateReadoutGeometry.separated(width,labelWidth,valueWidth)) {
+                    // A muted left caption adds rhythm; measured live distance
+                    // remains right aligned and can never collide with it.
+                    mc.fontRendererObj.drawString(TargetHudSlateReadoutGeometry.TITLE,
+                        x+TargetHudSlateReadoutGeometry.INSET,distY,
+                        TargetHudMotion.fade(theme.muted,alpha*0.78));
+                    mc.fontRendererObj.drawString(distance,
+                        TargetHudSlateReadoutGeometry.valueX(x,width,valueWidth),
+                        distY,TargetHudMotion.fade(theme.secondary,alpha));
+                }
+            }
         }
     }
     private void drawTarget(int sw,int sh) {
