@@ -253,3 +253,10 @@ The Forge `GhostClickGui.drawSlateType` method renders these strings with a matr
 - Long-name tooltips compare against the actual *scaled* fitted title, so clip discovery matches painted text.
 
 This is a genuine paint-path hierarchy improvement but **not** yet a custom antialiased font renderer. Fractional scaling of bitmap glyphs may cause visual softness depending on Minecraft GUI scale; screenshots and FPS measurements at GUI Scale Auto/2/3 are required before declaring it superior to the reference clients. If fractional rendering is visibly worse, retain the measured layout contracts and replace only the scoped paint backend after native evidence.
+
+
+### Slate Target HUD shares the new primary/secondary font system
+
+The native `ForgeFeatureDriver` now renders the **same actual live player name** at the primary scale (1.125×), measuring and re-fitting it against the original 160px card and the health-text column before painting. For the 9px Minecraft font, its y+6 baseline occupies 11 logical pixels, clearing the existing Slate y+18 name/health separator. The same live HP value and live-distance formatter remain unchanged; their labels are rendered at the smaller secondary scale (0.875×) with explicitly scaled measured widths. `TargetHudSlateReadoutGeometry` still owns right alignment and the 8px title/value separation; its budget is converted to *source* font pixels before asking `TargetHudDistanceText.format` to fit a value.
+
+The paint-only `drawSlateHudText` method uses scoped GL matrix push/pop with no imported fonts, permanent GL filtering changes, player/target acquisition changes or persisted settings. Classic, Glass and Minimal skins remain untouched. This is proportional bitmap text, not a new antialiasing renderer; in-game screenshot and frame-time acceptance are still needed.
