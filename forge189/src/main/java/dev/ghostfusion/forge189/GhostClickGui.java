@@ -523,7 +523,9 @@ public final class GhostClickGui extends GuiScreen {
         rect(x, y, side, h, panel());
         rect(x, y, w, 30, theme.header);
         if(theme.slate)drawSlateChrome(theme);
-        label("GHOSTC", x + 10, y + 10, accent());
+        if(theme.slate)
+            drawSlateType("GHOSTC",x+10,y+9,accent(),GuiSlateTypeScale.PRIMARY);
+        else label("GHOSTC",x+10,y+10,accent());
         int menuX = x + side + 8;
         GuiSlateWorkspace modern=slateWorkspace(
             GuiLayout.calculate(width,height,ui.layout(),ui.theme()));
@@ -1101,7 +1103,10 @@ public final class GhostClickGui extends GuiScreen {
         if (previewW<1 || previewH<1) return;
         // F7 inherits the active theme, including its actual preview surface.
         GuiHudEditorStyle editorStyle=GuiHudEditorStyle.of(ui.theme());
-        label("HUD POSITION EDITOR",x+side+12,y+49,accent());
+        if(ui.theme()==UiState.Theme.SLATE)
+            drawSlateType("HUD POSITION EDITOR",x+side+12,y+48,
+                accent(),GuiSlateTypeScale.PRIMARY);
+        else label("HUD POSITION EDITOR",x+side+12,y+49,accent());
         drawHudPresetSidebar();
         // Display the scale of the selected widget in a fixed, readable place.
         String editorModule=HudScaleEditor.moduleId(hudControls.selected());
@@ -1119,7 +1124,9 @@ public final class GhostClickGui extends GuiScreen {
             double positionY=selectedItem.widget==null?ui.hudY():
                 ui.widgets().y(selectedItem.widget);
             int infoX=x+side+12+
-                fontRendererObj.getStringWidth("HUD POSITION EDITOR")+9;
+                GuiSlateTypeScale.displayWidth(
+                    fontRendererObj.getStringWidth("HUD POSITION EDITOR"),
+                    GuiSlateTypeScale.PRIMARY)+9;
             int infoBudget=x+w-64-infoX;
             if(infoBudget>=55)
                 label(trim(HudEditorSlateCanvasGeometry.coordinateLabel(
