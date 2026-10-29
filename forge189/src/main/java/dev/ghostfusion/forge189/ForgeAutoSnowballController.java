@@ -181,7 +181,7 @@ final class ForgeAutoSnowballController {
             lane,ActionCoordinator.Phase.OUTPUT,tick,epoch);
         if(selected==null||!MODULE.equals(selected.owner)) {
             policy.cancelPrepared();
-            restoreIfOwned();
+            restoreIfOwned(false); // denied optional OUTPUT, not human input
             return false;
         }
         if(wanted==Action.SELECT) {
