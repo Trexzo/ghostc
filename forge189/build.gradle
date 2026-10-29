@@ -110,3 +110,13 @@ task nativeAutoSnowballProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeAutoSnowballTests'
 }
 check.dependsOn nativeAutoSnowballProbe
+
+
+// R3.59 mandatory original Minecraft 1.8.9 native target identity
+// and same-player next-tick fence proof under Java 8.
+task nativeProjectileTargetFenceProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeProjectileTargetFenceTests'
+}
+check.dependsOn nativeProjectileTargetFenceProbe

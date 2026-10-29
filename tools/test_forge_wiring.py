@@ -1070,6 +1070,35 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('PlayerControllerMP.class.getMethod("sendUseItem"',native_probe)
         self.assertIn("seeded();",tests)
 
+    def test_projectile_original_target_identity_and_exact_use_tick(self):
+        rod=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeAutoRodController.java")
+        snow=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeAutoSnowballController.java")
+        fence=content("src/main/java/dev/ghostfusion/features/ProjectileTargetFence.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/ProjectileTargetFenceTests.java")
+        native=content("forge189/src/test/java/dev/ghostfusion/forge189/NativeProjectileTargetFenceTests.java")
+        catalog=content("src/test/java/dev/ghostfusion/tests/IntegratedModuleCatalogTests.java")
+        gradle=content("forge189/build.gradle")
+        for controller in (rod,snow):
+            self.assertIn("private EntityPlayer targetCandidate(EntityPlayerSP p)",controller)
+            self.assertIn("mc.theWorld.getEntityByID(target.getEntityId())!=target",controller)
+            self.assertIn("targetFence.selected(epoch,tick,targetCandidate.getUniqueID()",controller)
+            self.assertIn("boolean sameTarget=targetFence.allowUse(epoch,tick,",controller)
+            self.assertIn("!sameTarget",controller)
+            self.assertIn("targetFence.reset();",controller)
+            self.assertIn("Double.isFinite(dist)&&dist<=range*range ? target : null",controller)
+            self.assertLess(controller.index("targetFence.selected(epoch,tick,"),
+                            controller.index("targetFence.allowUse(epoch,tick,"))
+        self.assertIn("tick-selectedTick==1",fence)
+        self.assertIn("target.equals(currentId) && currentNativeId==entityId",fence)
+        self.assertIn("generation==epoch",fence)
+        self.assertIn("consumed=true;",fence)
+        self.assertIn("target already selected",fence)
+        self.assertIn("ProjectileTargetFenceTests.main(args);",catalog)
+        self.assertIn("seeded();",tests)
+        self.assertIn("check.dependsOn nativeProjectileTargetFenceProbe",gradle)
+        self.assertIn('EntityPlayer.class.getMethod("getUniqueID")',native)
+        self.assertIn('World.class.getMethod("getEntityByID"',native)
+
     def test_projectile_manual_input_event_latch_and_conflict_guard(self):
         adapter=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeEventAdapter.java")
         rod=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeAutoRodController.java")
