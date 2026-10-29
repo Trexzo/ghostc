@@ -268,7 +268,7 @@ The paint-only `drawSlateHudText` method uses scoped GL matrix push/pop with no 
 
 ### Implemented and safety boundary
 
-`GuiSlateSmoothRaster` is an independent Java 8 / AWT CPU raster with the JRE logical `Dialog` face, antialiased glyph edges, real `FontMetrics` width/ascent, Unicode-safe `HudTextFit` clipping and hard **512×48** maximum surface. Its packed alpha-only glyph pixels are tinted by the existing Slate color policy, not copied source assets. The separate Forge `SlateSmoothFontRenderer` uploads these glyphs as temporary white/alpha GL textures, reuses a bounded **96-entry access-order cache**, restores GL texture/color/enable/pixel-store states around upload/painting, and releases its textures when the ClickGUI closes. It does not read combat state or write profiles. It is **off by default** and requires explicit JVM property:
+`GuiSlateSmoothRaster` is an independent Java 8 / AWT CPU raster with the JRE logical `Dialog` face, antialiased glyph edges, real `FontMetrics` width/ascent, Unicode-safe `HudTextFit` clipping and hard **512×48** maximum surface. Its packed alpha-only glyph pixels are tinted by the existing Slate color policy, not copied source assets. The separate Forge `SlateSmoothFontRenderer` uploads these glyphs as temporary white/alpha GL textures, reuses a bounded **96-entry GPU texture cache** plus a separate bounded **192-entry AWT text-metrics/fit cache** to avoid per-frame raster/FontMetrics allocations, restores GL texture/color/enable/pixel-store states around upload/painting, and releases its textures when the ClickGUI closes. It does not read combat state or write profiles. It is **off by default** and requires explicit JVM property:
 
 `-Dghostc.slate.smoothFontExperimental=true`
 
