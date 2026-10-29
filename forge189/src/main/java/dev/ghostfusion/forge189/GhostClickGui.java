@@ -10,6 +10,7 @@ import dev.ghostfusion.ui.UiState;
 import dev.ghostfusion.ui.GuiThemePalette;
 import dev.ghostfusion.ui.GuiCategoryActivity;
 import dev.ghostfusion.ui.GuiHudEditorStyle;
+import dev.ghostfusion.ui.HudEditorSlateCanvasGeometry;
 import dev.ghostfusion.ui.GuiToggleMotion;
 import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiSlateWorkspace;
@@ -1016,13 +1017,26 @@ public final class GhostClickGui extends GuiScreen {
     private void drawHudMiniature(Rect bounds,Widget widget,boolean selected) {
         miniatureTheme=miniatureThemeFor(widget);
         HudPreviewArt.paint(bounds,widget,miniaturePainter);
-        if(selected) {
-            // Preview-only selection outline. The collision-warning outline wins later.
+        if(selected && ui.theme()!=UiState.Theme.SLATE) {
+            // Legacy preserves its former full outline; Slate uses short,
+            // high-contrast corner brackets after all miniatures are drawn.
             rect(bounds.x,bounds.y,bounds.width,1,miniatureTheme.accent);
             rect(bounds.x,bounds.y+bounds.height-1,bounds.width,1,miniatureTheme.accent);
             rect(bounds.x,bounds.y,1,bounds.height,miniatureTheme.accent);
             rect(bounds.x+bounds.width-1,bounds.y,1,bounds.height,miniatureTheme.accent);
         }
+    }
+    /** Purely presentational, inset selection handles; never resize widgets. */
+    private void hudSlateOutline(Rect r,int color) {
+        int edge=HudEditorSlateCanvasGeometry.corner(r);
+        rect(r.x,r.y,edge,1,color);
+        rect(r.x,r.y,1,edge,color);
+        rect(r.x+r.width-edge,r.y,edge,1,color);
+        rect(r.x+r.width-1,r.y,1,edge,color);
+        rect(r.x,r.y+r.height-1,edge,1,color);
+        rect(r.x,r.y+r.height-edge,1,edge,color);
+        rect(r.x+r.width-edge,r.y+r.height-1,edge,1,color);
+        rect(r.x+r.width-1,r.y+r.height-edge,1,edge,color);
     }
     /** F7 preset actions intentionally change HUD anchors only. */
     private void applyHudLayoutPreset(Preset preset) {
@@ -1064,6 +1078,22 @@ public final class GhostClickGui extends GuiScreen {
                 .get(editorModule).settings().get("scale");
         label(String.format(java.util.Locale.ROOT,"%.2fx",zoom.get()),
             x+w-57,y+49,palette().secondary);
+        if(ui.theme()==UiState.Theme.SLATE) {
+            // The same normalized anchors used by actual drag/persistence,
+            // presented as quiet, truthful selected-widget metadata.
+            HudEditorControls.Item selectedItem=hudControls.selected();
+            double positionX=selectedItem.widget==null?ui.hudX():
+                ui.widgets().x(selectedItem.widget);
+            double positionY=selectedItem.widget==null?ui.hudY():
+                ui.widgets().y(selectedItem.widget);
+            int infoX=x+side+12+
+                fontRendererObj.getStringWidth("HUD POSITION EDITOR")+9;
+            int infoBudget=x+w-64-infoX;
+            if(infoBudget>=55)
+                label(trim(HudEditorSlateCanvasGeometry.coordinateLabel(
+                    selectedItem,positionX,positionY),infoBudget),
+                    infoX,y+49,palette().muted);
+        }
         int tabsX=x+side+12, tabsY=y+62, tabsWidth=w-side-24;
         // Hover and click share HudEditorControls.tabAt(), so a highlighted
         // pixel is always an actionable pixel; never stretch the hitbox.
@@ -1086,10 +1116,25 @@ public final class GhostClickGui extends GuiScreen {
         HudPreviewGeometry geometry=previewGeometry();
         Rect canvas=geometry.canvas;
         rect(canvas.x,canvas.y,canvas.width,canvas.height,editorStyle.previewCanvas);
-        for(int gx=canvas.x+30;gx<canvas.x+canvas.width;gx+=30)
-            rect(gx,canvas.y,1,canvas.height,editorStyle.previewGrid);
-        for(int gy=canvas.y+30;gy<canvas.y+canvas.height;gy+=30)
-            rect(canvas.x,gy,canvas.width,1,editorStyle.previewGrid);
+        if(slateEditor) {
+            // Slinky-style breathing room and Vape-style positioning:
+            // adaptive third-lines instead of a dense fixed 30px grid.
+            for(int third=1;third<=2;third++) {
+                int gx=HudEditorSlateCanvasGeometry.gridX(canvas,third);
+                int gy=HudEditorSlateCanvasGeometry.gridY(canvas,third);
+                if(gx>=0)rect(gx,canvas.y,1,canvas.height,editorStyle.previewGrid);
+                if(gy>=0)rect(canvas.x,gy,canvas.width,1,editorStyle.previewGrid);
+            }
+            int cx=HudEditorSlateCanvasGeometry.centerX(canvas);
+            int cy=HudEditorSlateCanvasGeometry.centerY(canvas);
+            rect(cx,canvas.y,1,canvas.height,0x285E8291);
+            rect(canvas.x,cy,canvas.width,1,0x285E8291);
+        } else {
+            for(int gx=canvas.x+30;gx<canvas.x+canvas.width;gx+=30)
+                rect(gx,canvas.y,1,canvas.height,editorStyle.previewGrid);
+            for(int gy=canvas.y+30;gy<canvas.y+canvas.height;gy+=30)
+                rect(canvas.x,gy,canvas.width,1,editorStyle.previewGrid);
+        }
 
         Rect status=geometry.status(ui,statusPreviewWidth(),statusPreviewHeight());
         hudPreviewRects[HudEditorControls.Item.STATUS.ordinal()]=status;
@@ -1100,6 +1145,18 @@ public final class GhostClickGui extends GuiScreen {
             Rect r=hudPreviewRect(geometry,widget);
             hudPreviewRects[item.ordinal()]=r;
             drawHudMiniature(r,widget,hudControls.selected()==item);
+        }
+        if(slateEditor) {
+            // Hover respects original preview click priority, so the
+            // visually highlighted widget is the one a click would select.
+            HudEditorControls.Item underPointer=
+                HudEditorSlateCanvasGeometry.hovered(
+                    canvas,hudPreviewRects,mx,my);
+            if(underPointer!=null && underPointer!=hudControls.selected())
+                hudSlateOutline(hudPreviewRects[underPointer.ordinal()],
+                    editorStyle.idleText);
+            hudSlateOutline(hudPreviewRects[hudControls.selected().ordinal()],
+                palette().accent);
         }
         // A single, read-only pass drives both peer outlines and a truthful
         // named warning. No second list-footprint or font-width measurement.
