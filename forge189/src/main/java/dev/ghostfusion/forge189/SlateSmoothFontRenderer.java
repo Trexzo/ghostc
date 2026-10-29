@@ -1,0 +1,157 @@
+package dev.ghostfusion.forge189;
+
+import dev.ghostfusion.ui.GuiSlateSmoothRaster;
+import java.nio.ByteBuffer;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import org.lwjgl.BufferUtils;
+import org.lwjgl.opengl.GL11;
+
+/**
+ * Experimental original Slate font renderer, never enabled by default.
+ * Java2D raster work is separate from bounded GL texture allocation.
+ *
+ * Render thread only. Every draw restores GL enable/color/texture attributes;
+ * the owning GUI releases textures when closed. Any raster/upload failure
+ * disables this optional renderer and the caller uses vanilla FontRenderer.
+ */
+final class SlateSmoothFontRenderer {
+    private static final int MAX_TEXTURES=96;
+    private static final int MAX_PIXELS=GuiSlateSmoothRaster.MAX_WIDTH*48;
+    private final LinkedHashMap<Key,Texture> textures=
+        new LinkedHashMap<Key,Texture>(128,0.75f,true);
+    private final boolean requested=
+        Boolean.getBoolean("ghostc.slate.smoothFontExperimental");
+    private boolean failed;
+
+    boolean enabled() {return requested&&!failed;}
+
+    boolean draw(String raw,int x,int y,int argb,int size,boolean bold,
+                 int pixelBudget,int heightBudget) {
+        if(!enabled() || raw==null || raw.isEmpty() || pixelBudget<4 ||
+           heightBudget<8)return false;
+        try {
+            String fitted=GuiSlateSmoothRaster.fit(raw,size,bold,
+                Math.min(GuiSlateSmoothRaster.MAX_WIDTH,pixelBudget));
+            if(fitted.isEmpty())return false;
+            Key key=new Key(fitted,size,bold);
+            Texture texture=textures.get(key);
+            if(texture!=null&&!GL11.glIsTexture(texture.id)) {
+                textures.remove(key);
+                texture=null; // context reset: upload only when valid
+            }
+            if(texture==null) {
+                GuiSlateSmoothRaster.Run raster=
+                    GuiSlateSmoothRaster.raster(fitted,size,bold);
+                if(raster.width>pixelBudget||raster.height>heightBudget||
+                   raster.width*raster.height>MAX_PIXELS)return false;
+                texture=upload(raster);
+                textures.put(key,texture);
+                if(textures.size()>MAX_TEXTURES) {
+                    Iterator<Map.Entry<Key,Texture>> i=textures.entrySet().iterator();
+                    Map.Entry<Key,Texture> eldest=i.next();
+                    i.remove();
+                    GL11.glDeleteTextures(eldest.getValue().id);
+                }
+            } else if(texture.width>pixelBudget||texture.height>heightBudget)
+                return false;
+            paint(texture,x,y,argb);
+            return true;
+        } catch(RuntimeException error) {
+            failed=true;
+            close();
+            return false;
+        } catch(LinkageError error) {
+            failed=true;
+            close();
+            return false;
+        }
+    }
+
+    private static Texture upload(GuiSlateSmoothRaster.Run raster) {
+        int id=GL11.glGenTextures();
+        if(id<=0)throw new IllegalStateException("Slate font texture");
+        try {
+            ByteBuffer rgba=BufferUtils.createByteBuffer(raster.pixels.length*4);
+            for(int pixel:raster.pixels) {
+                rgba.put((byte)255).put((byte)255).put((byte)255)
+                    .put((byte)(pixel>>>24));
+            }
+            rgba.flip();
+            // Scope texture, pixel-store and binding state during upload.
+            GL11.glPushAttrib(GL11.GL_TEXTURE_BIT|GL11.GL_PIXEL_MODE_BIT);
+            try {
+                GL11.glBindTexture(GL11.GL_TEXTURE_2D,id);
+                GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT,1);
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D,
+                    GL11.GL_TEXTURE_MIN_FILTER,GL11.GL_LINEAR);
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D,
+                    GL11.GL_TEXTURE_MAG_FILTER,GL11.GL_LINEAR);
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D,
+                    GL11.GL_TEXTURE_WRAP_S,33071); // GL_CLAMP_TO_EDGE
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D,
+                    GL11.GL_TEXTURE_WRAP_T,33071);
+                GL11.glTexImage2D(GL11.GL_TEXTURE_2D,0,GL11.GL_RGBA,
+                    raster.width,raster.height,0,GL11.GL_RGBA,
+                    GL11.GL_UNSIGNED_BYTE,rgba);
+            } finally {
+                GL11.glPopAttrib();
+            }
+            return new Texture(id,raster.width,raster.height);
+        } catch(RuntimeException problem) {
+            GL11.glDeleteTextures(id);
+            throw problem;
+        }
+    }
+
+    private static void paint(Texture glyph,int x,int y,int argb) {
+        GL11.glPushAttrib(GL11.GL_ENABLE_BIT|GL11.GL_COLOR_BUFFER_BIT|
+            GL11.GL_TEXTURE_BIT|GL11.GL_CURRENT_BIT);
+        try {
+            GL11.glEnable(GL11.GL_TEXTURE_2D);
+            GL11.glEnable(GL11.GL_BLEND);
+            GL11.glDisable(GL11.GL_LIGHTING);
+            GL11.glBlendFunc(GL11.GL_SRC_ALPHA,GL11.GL_ONE_MINUS_SRC_ALPHA);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D,glyph.id);
+            GL11.glColor4f((argb>>>16&255)/255F,(argb>>>8&255)/255F,
+                (argb&255)/255F,(argb>>>24&255)/255F);
+            GL11.glBegin(GL11.GL_QUADS);
+            GL11.glTexCoord2f(0,0);GL11.glVertex2f(x,y);
+            GL11.glTexCoord2f(1,0);GL11.glVertex2f(x+glyph.width,y);
+            GL11.glTexCoord2f(1,1);GL11.glVertex2f(x+glyph.width,y+glyph.height);
+            GL11.glTexCoord2f(0,1);GL11.glVertex2f(x,y+glyph.height);
+            GL11.glEnd();
+        } finally {
+            GL11.glPopAttrib();
+        }
+    }
+
+    void close() {
+        for(Texture t:textures.values())GL11.glDeleteTextures(t.id);
+        textures.clear();
+    }
+
+    private static final class Texture {
+        final int id,width,height;
+        Texture(int id,int width,int height) {
+            this.id=id;this.width=width;this.height=height;
+        }
+    }
+    private static final class Key {
+        final String text;
+        final int size;
+        final boolean bold;
+        Key(String text,int size,boolean bold) {
+            this.text=text;this.size=size;this.bold=bold;
+        }
+        @Override public int hashCode() {
+            return (text.hashCode()*31+size)*31+(bold?1:0);
+        }
+        @Override public boolean equals(Object other) {
+            if(!(other instanceof Key))return false;
+            Key key=(Key)other;
+            return size==key.size&&bold==key.bold&&text.equals(key.text);
+        }
+    }
+}
