@@ -83,7 +83,12 @@ public final class ProjectileInventoryFence {
         }
         return allowed;
     }
-    /** Mark only after genuine native sendUseItem returned success. */
+    /**
+     * Mark after the genuine non-spectator native sendUseItem invocation
+     * RETURNS, regardless of its local-stack-change boolean. Vanilla 1.8.9
+     * returns false for an unchanged fishing rod even after enqueueing use.
+     * This receipt proves neither remote delivery nor server item use.
+     */
     public void nativeUsed(long generation,long tick) {
         check();
         if(!selected||!checkedUse||!approvedUse||used||generation!=epoch||
