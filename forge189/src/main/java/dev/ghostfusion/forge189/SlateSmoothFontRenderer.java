@@ -18,7 +18,12 @@ import org.lwjgl.opengl.GL11;
  */
 final class SlateSmoothFontRenderer {
     private static final int MAX_TEXTURES=96;
+    private static final int MAX_FITTED=192;
     private static final int MAX_PIXELS=GuiSlateSmoothRaster.MAX_WIDTH*48;
+    // Most module captions are unchanged for hundreds of frames. Avoid
+    // constructing AWT FontMetrics/Graphics2D anew on each paint.
+    private final LinkedHashMap<FitKey,String> fitted=
+        new LinkedHashMap<FitKey,String>(256,0.75f,true);
     private final LinkedHashMap<Key,Texture> textures=
         new LinkedHashMap<Key,Texture>(128,0.75f,true);
     private final boolean requested=
@@ -32,10 +37,17 @@ final class SlateSmoothFontRenderer {
         if(!enabled() || raw==null || raw.isEmpty() || pixelBudget<4 ||
            heightBudget<8)return false;
         try {
-            String fitted=GuiSlateSmoothRaster.fit(raw,size,bold,
-                Math.min(GuiSlateSmoothRaster.MAX_WIDTH,pixelBudget));
-            if(fitted.isEmpty())return false;
-            Key key=new Key(fitted,size,bold);
+            int allowed=Math.min(GuiSlateSmoothRaster.MAX_WIDTH,pixelBudget);
+            FitKey request=new FitKey(raw,size,bold,allowed);
+            String text=fitted.get(request);
+            if(text==null) {
+                text=GuiSlateSmoothRaster.fit(raw,size,bold,allowed);
+                fitted.put(request,text);
+                if(fitted.size()>MAX_FITTED)
+                    fitted.remove(fitted.keySet().iterator().next());
+            }
+            if(text.isEmpty())return false;
+            Key key=new Key(text,size,bold);
             Texture texture=textures.get(key);
             if(texture!=null&&!GL11.glIsTexture(texture.id)) {
                 textures.remove(key);
@@ -43,7 +55,7 @@ final class SlateSmoothFontRenderer {
             }
             if(texture==null) {
                 GuiSlateSmoothRaster.Run raster=
-                    GuiSlateSmoothRaster.raster(fitted,size,bold);
+                    GuiSlateSmoothRaster.raster(text,size,bold);
                 if(raster.width>pixelBudget||raster.height>heightBudget||
                    raster.width*raster.height>MAX_PIXELS)return false;
                 texture=upload(raster);
@@ -130,6 +142,25 @@ final class SlateSmoothFontRenderer {
     void close() {
         for(Texture t:textures.values())GL11.glDeleteTextures(t.id);
         textures.clear();
+        fitted.clear();
+    }
+
+    private static final class FitKey {
+        final String text;
+        final int size,budget;
+        final boolean bold;
+        FitKey(String text,int size,boolean bold,int budget) {
+            this.text=text;this.size=size;this.bold=bold;this.budget=budget;
+        }
+        @Override public int hashCode() {
+            return ((text.hashCode()*31+size)*31+(bold?1:0))*31+budget;
+        }
+        @Override public boolean equals(Object obj) {
+            if(!(obj instanceof FitKey))return false;
+            FitKey that=(FitKey)obj;
+            return size==that.size&&bold==that.bold&&budget==that.budget&&
+                text.equals(that.text);
+        }
     }
 
     private static final class Texture {
