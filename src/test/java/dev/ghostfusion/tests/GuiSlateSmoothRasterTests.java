@@ -42,6 +42,43 @@ public final class GuiSlateSmoothRasterTests {
             "GHOSTC",11,true);
         ok(wide.inkWidth>0&&wide.width>wide.inkWidth,
             "glyph side padding is explicit");
+        // The old renderer used the full metrics line (ascent, descent and
+        // leading), so a 10px title occupied 16px and could not render in
+        // the native 12/14px Slate rows. Only actual ink plus AA guard rows
+        // should count against that native row-height budget.
+        for(int size:new int[]{8,10}) {
+            for(String caption:new String[]{"GHOSTC","Auto Clicker",
+                    "Combat / RSHIFT","RANGE","gjpqy"}) {
+                GuiSlateSmoothRaster.Run run=
+                    GuiSlateSmoothRaster.raster(caption,size,size==10);
+                java.awt.Font font=new java.awt.Font(java.awt.Font.DIALOG,
+                    size==10?java.awt.Font.BOLD:java.awt.Font.PLAIN,size);
+                java.awt.Graphics2D graphics=new java.awt.image.BufferedImage(
+                    1,1,java.awt.image.BufferedImage.TYPE_INT_ARGB).createGraphics();
+                int original=graphics.getFontMetrics(font).getHeight()+2;
+                graphics.dispose();
+                ok(run.height>=1&&run.height<=original,
+                    "visible glyph rectangle never exceeds full metrics line");
+                int first=-1,last=-1;
+                for(int row=0;row<run.height;row++) {
+                    for(int x=0;x<run.width;x++) {
+                        if((run.pixels[row*run.width+x]>>>24)!=0) {
+                            if(first<0)first=row;
+                            last=row;
+                        }
+                    }
+                }
+                ok(first>=0 && first<=1,
+                    "cropped glyph top has at most one transparent guard row");
+                ok(last>=run.height-2 && last<run.height,
+                    "cropped glyph bottom has at most one AA guard row");
+            }
+        }
+        GuiSlateSmoothRaster.Run whitespace=GuiSlateSmoothRaster.raster(
+            "   ",8,false);
+        ok(whitespace.height==1,"whitespace uses minimal transparent row");
+        ok(whitespace.pixels.length==whitespace.width,
+            "whitespace allocation is width bounded");
         reject(()->GuiSlateSmoothRaster.fit("Name",6,false,100),
             "too small font rejected");
         reject(()->GuiSlateSmoothRaster.fit("Name",23,false,100),
