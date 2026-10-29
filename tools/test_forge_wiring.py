@@ -2517,6 +2517,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("fitted.clear();",smooth)
         self.assertIn("GL11.glDeleteTextures(",smooth)
         self.assertIn("GL11.glPushAttrib(",smooth)
+        self.assertIn("GL11.glDisable(GL11.GL_ALPHA_TEST);",smooth)
         self.assertIn("GL11.glPopAttrib();",smooth)
         self.assertIn("GuiSlateSmoothRaster.fit(",smooth)
         self.assertIn("GuiSlateSmoothRaster.raster(",smooth)
