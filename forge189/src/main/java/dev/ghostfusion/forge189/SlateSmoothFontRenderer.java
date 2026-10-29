@@ -50,8 +50,11 @@ final class SlateSmoothFontRenderer {
             Key key=new Key(text,size,bold);
             Texture texture=textures.get(key);
             if(texture!=null&&!GL11.glIsTexture(texture.id)) {
-                textures.remove(key);
-                texture=null; // context reset: upload only when valid
+                // A recreated OpenGL context invalidates *all* prior numeric
+                // texture identities. Never delete those stale IDs: a new
+                // context may already have reused the same integers.
+                textures.clear();
+                texture=null;
             }
             if(texture==null) {
                 GuiSlateSmoothRaster.Run raster=
@@ -129,6 +132,11 @@ final class SlateSmoothFontRenderer {
             GL11.glDisable(GL11.GL_ALPHA_TEST);
             GL11.glBlendFunc(GL11.GL_SRC_ALPHA,GL11.GL_ONE_MINUS_SRC_ALPHA);
             GL11.glBindTexture(GL11.GL_TEXTURE_2D,glyph.id);
+            // A caller may have left the fixed-function texture environment
+            // as REPLACE. Force MODULATE so Slate's text color and alpha
+            // multiply with white glyph coverage; GL_TEXTURE_BIT restores it.
+            GL11.glTexEnvi(GL11.GL_TEXTURE_ENV,GL11.GL_TEXTURE_ENV_MODE,
+                GL11.GL_MODULATE);
             GL11.glColor4f((argb>>>16&255)/255F,(argb>>>8&255)/255F,
                 (argb&255)/255F,(argb>>>24&255)/255F);
             GL11.glBegin(GL11.GL_QUADS);
@@ -143,9 +151,22 @@ final class SlateSmoothFontRenderer {
     }
 
     void close() {
-        for(Texture t:textures.values())GL11.glDeleteTextures(t.id);
-        textures.clear();
-        fitted.clear();
+        // Resource teardown must never prevent the original Minecraft GUI
+        // from closing, or prevent fallback after a failed GL operation.
+        try {
+            for(Texture t:textures.values()) {
+                try {
+                    GL11.glDeleteTextures(t.id);
+                } catch(RuntimeException ignored) {
+                    // A destroyed GL context can reject deletion.
+                } catch(LinkageError ignored) {
+                    // Optional renderer must not break vanilla shutdown.
+                }
+            }
+        } finally {
+            textures.clear();
+            fitted.clear();
+        }
     }
 
     private static final class FitKey {
