@@ -141,6 +141,12 @@ final class ForgeAutoSnowballController {
         boolean attackHeld=physical(attackCode);
         boolean manualUse=physical(useCode)||
             mc.gameSettings.keyBindUseItem.isKeyDown();
+        if(ourSlot && manualUse) {
+            // Real player use-item input always wins. Do not move the
+            // selected hotbar slot behind the player's right click.
+            reset(true);
+            return false;
+        }
         boolean safeBinding=attackCode!=0&&useCode!=0&&attackCode!=useCode &&
             attackCode!=dev.ghostfusion.core.ReservedKeys.CLICK_GUI &&
             useCode!=dev.ghostfusion.core.ReservedKeys.CLICK_GUI;
