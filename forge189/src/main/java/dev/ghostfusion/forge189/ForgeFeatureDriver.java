@@ -15,6 +15,7 @@ import dev.ghostfusion.ui.ModuleListTextGeometry;
 import dev.ghostfusion.ui.ModuleListSlateRowGeometry;
 import dev.ghostfusion.core.ModuleRegistry;
 import dev.ghostfusion.ui.HudThemeTokens;
+import dev.ghostfusion.ui.GuiSlateTypeScale;
 import dev.ghostfusion.ui.SlateHudKeyStyle;
 import dev.ghostfusion.features.SprintPolicy;
 import dev.ghostfusion.features.TargetHudPolicy;
@@ -518,6 +519,21 @@ public final class ForgeFeatureDriver {
      * Slate: matte graphite, a neutral HP track and a small ice-blue accent.
      * No textures, shaders, simulated targets, or doubled font shadows.
      */
+    /**
+     * Pixel-measured first-party type hierarchy on the Slate Target HUD.
+     * No global font texture changes or extra world/player reads.
+     */
+    private void drawSlateHudText(String text,int x,int y,int color,double scale) {
+        if(text==null||text.isEmpty())return;
+        GL11.glPushMatrix();
+        try {
+            GL11.glTranslated(x,y,0);
+            GL11.glScaled(scale,scale,1);
+            mc.fontRendererObj.drawString(text,0,0,color);
+        } finally {
+            GL11.glPopMatrix();
+        }
+    }
     private void drawSlateTarget(int x,int y,int width,int height,boolean health,
                                   TargetHudTextLayout.Result labels,EntityPlayer player) {
         TargetHudModernLayout layout=TargetHudModernLayout.of("slate");
@@ -535,8 +551,15 @@ public final class ForgeFeatureDriver {
             TargetHudMotion.fade(theme.secondary,alpha*0.72));
         Gui.drawRect(x+9,y+height-2,x+width-9,y+height-1,
             TargetHudMotion.fade(theme.frame,alpha*0.55));
-        mc.fontRendererObj.drawString(labels.name,x+9,
-            y+layout.nameY,TargetHudMotion.fade(theme.text,alpha));
+        // Reserve a true measured health-column width even when the primary
+        // bitmap name glyphs are scaled up; no overlap with the live HP text.
+        int healthPixels=health?GuiSlateTypeScale.displayWidth(
+            labels.healthLabelWidth,GuiSlateTypeScale.SECONDARY):0;
+        int nameBudget=Math.max(0,width-18-(health?healthPixels+6:0));
+        String primaryName=GuiSlateTypeScale.fit(labels.name,nameBudget,
+            GuiSlateTypeScale.PRIMARY,targetFontWidths);
+        drawSlateHudText(primaryName,x+9,y+layout.nameY-1,
+            TargetHudMotion.fade(theme.text,alpha),GuiSlateTypeScale.PRIMARY);
         if(health) {
             if(!TargetHudSlateBarGeometry.fits(width,height,
                     mc.fontRendererObj.FONT_HEIGHT))return;
@@ -571,30 +594,36 @@ public final class ForgeFeatureDriver {
                 Gui.drawRect(at,t+1,at+1,t+barHeight-1,
                     TargetHudMotion.fade(theme.frame,alpha*0.75));
             }
-            mc.fontRendererObj.drawString(labels.healthLabel,
-                x+width-9-labels.healthLabelWidth,y+layout.healthLabelY,
-                TargetHudMotion.fade(theme.muted,alpha));
+            drawSlateHudText(labels.healthLabel,
+                x+width-9-healthPixels,y+layout.healthLabelY,
+                TargetHudMotion.fade(theme.muted,alpha),GuiSlateTypeScale.SECONDARY);
         }
         if(host.targetDistance()) {
             int distY=y+(health?layout.distanceWithHealthY:layout.distanceWithoutHealthY);
-            int labelWidth=mc.fontRendererObj.getStringWidth(
-                TargetHudSlateReadoutGeometry.TITLE);
+            int labelWidth=GuiSlateTypeScale.displayWidth(
+                mc.fontRendererObj.getStringWidth(TargetHudSlateReadoutGeometry.TITLE),
+                GuiSlateTypeScale.SECONDARY);
             int budget=TargetHudSlateReadoutGeometry.valueBudget(width,labelWidth);
             String distance=TargetHudDistanceText.format(
                 player.posX,player.posY,player.posZ,
                 mc.thePlayer.posX,mc.thePlayer.posY,mc.thePlayer.posZ,
-                host.targetRange(),budget,targetFontWidths);
+                host.targetRange(),GuiSlateTypeScale.sourceBudget(
+                    budget,GuiSlateTypeScale.SECONDARY),targetFontWidths);
             if(!distance.isEmpty()) {
-                int valueWidth=mc.fontRendererObj.getStringWidth(distance);
+                int valueWidth=GuiSlateTypeScale.displayWidth(
+                    mc.fontRendererObj.getStringWidth(distance),
+                    GuiSlateTypeScale.SECONDARY);
                 if(TargetHudSlateReadoutGeometry.separated(width,labelWidth,valueWidth)) {
-                    // A muted left caption adds rhythm; measured live distance
-                    // remains right aligned and can never collide with it.
-                    mc.fontRendererObj.drawString(TargetHudSlateReadoutGeometry.TITLE,
+                    // A softer, smaller second tier uses measured true output
+                    // pixels; legacy skins and live distance sources unchanged.
+                    drawSlateHudText(TargetHudSlateReadoutGeometry.TITLE,
                         x+TargetHudSlateReadoutGeometry.INSET,distY,
-                        TargetHudMotion.fade(theme.muted,alpha*0.78));
-                    mc.fontRendererObj.drawString(distance,
+                        TargetHudMotion.fade(theme.muted,alpha*0.78),
+                        GuiSlateTypeScale.SECONDARY);
+                    drawSlateHudText(distance,
                         TargetHudSlateReadoutGeometry.valueX(x,width,valueWidth),
-                        distY,TargetHudMotion.fade(theme.secondary,alpha));
+                        distY,TargetHudMotion.fade(theme.secondary,alpha),
+                        GuiSlateTypeScale.SECONDARY);
                 }
             }
         }
