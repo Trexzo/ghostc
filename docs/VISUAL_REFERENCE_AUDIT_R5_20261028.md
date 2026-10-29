@@ -203,3 +203,24 @@ Prior to this pass, Slate's optional background rendered *every* enabled-module 
 The primary module labels are still **crisp and shadow-free** in Slate, while the Classic and Minimal HUD painter branches remain pixel-identical to the earlier version. Disabled or faulted modules are excluded by the unchanged `ModuleListLayout`, and `ModuleListMotion` retains its existing bounded entry animation and eviction behavior. Existing settings still govern background and accent visibility; there are **no new user options**, saved profile changes or sorting/placement semantics.
 
 `ModuleListSlateRowGeometryTests` runs 50,000 deterministic random real-layout viewports, checking per-label width, on-screen containment across 21 animation phases, label-inside-surface containment, short rail placement, left/right/custom anchoring and deliberately invalid geometry. Its CI marker is required on Java 17/21, the Forge source-wiring suite asserts real use by the painter, and the reobfuscated JAR verifier requires the new class. This is source/geometry and build validation only: **genuine original Minecraft 1.8.9 screenshots** and legibility checks at GUI Scale 2/3/Auto are still required before visual release certification.
+
+
+## R5 F7 Slate HUD editor — user-owned source references (29 October 2026)
+
+### Inspected references and provenance
+
+The user's ChatGPT Library contains `Vape_vs_Slinky_Deep_Source_Comparison_2026-10-12.md`, an earlier structural comparison of official Vape documentation and the user's recovered Slinky source bundle. The original `Slinky-SourceBuild-And-WindowsBundle.zip`, `VapeV4.21-latest.zip`, and `Rise 6.9.5.zip` were **not directly retrievable as Library ZIP attachments** in this review. Instead, the following **user-owned GitHub repositories** were inspected directly; they are recovered/community code, not guaranteed to match signed vendor releases:
+
+- `Trexzo/OpenSlinky` — `SlinkyClient/src/main/java/dev/slinky/client/gui/GuiPresentation.java`, `GuiWidgets.java`, and `settings/ModuleSettingsLayout.java`: explicit font-width-aware text alignment, hover-aware widget highlights, spatial separation of settings sections and controls, and independently measured text areas.
+- `Trexzo/VapeV4.21` — `src/main/java/gg/vape/module/none/TextGuiSettingsFrame.java`: HUD editor/overlay component with persisted positioning, right-side anchoring and configuration controls. No geometry, private assets, or implementation copied.
+- The saved Rise visual research from `Inklistrad text(10).txt` and previously reviewed UI image remains a secondary composition reference: clear hierarchy, restrained text-first overlays and enough space around settings.
+
+### Implemented original GhostC visual decisions
+
+`HudEditorSlateCanvasGeometry` now drives a **responsive thirds grid** rather than a dense fixed 30px matrix in Slate, with quieter center axes inside the actual letterboxed preview. The Indigo/Graphite editor path still draws its old 30px grid. This follows Slinky's emphasis on measured composition rather than a fixed-size ornament.
+
+The selected preview is now indicated with short **ice-blue corner brackets** that scale down to very small Minecraft GUI preview rectangles; a different hovered widget gets a muted outline. Topmost hover resolution deliberately follows the actual native click order (`Module List -> Target -> CPS -> Keys -> Status`) without introducing new input regions or changing selection. The selected-item header shows its **real normalized anchor** as `Status X 10% Y 20%` style metadata, and the scale readout remains at the right. This draws on Vape's explicit overlay placement controls without implementing proprietary gestures.
+
+The new `HudEditorSlateCanvasGeometryTests` suite checks **50,000 seeded letterboxed viewport combinations**, guide containment, centered corner bounds, actual preview hover priority, safe handling of tiny GUI scales and finite normalized position strings. Core Java CI executes the suite; Forge source checks require the new visual methods and legacy-theme guard; Forge artifact verification requires `HudEditorSlateCanvasGeometry.class`.
+
+**Safety and acceptance:** This is read-only editor presentation. Existing drag/nudge/snap, original screenshot preview footprints, click regions, profile persistence, HUD widgets and combat features remain untouched. Source/CI passing is not pixel-level proof: original Minecraft 1.8.9 captures at GUI Scale Auto, 2 and 3 remain an explicit visual quality gate.
