@@ -3,6 +3,7 @@ package dev.ghostfusion.forge189;
 import dev.ghostfusion.features.AutoSnowballPolicy;
 import dev.ghostfusion.features.AutoSnowballPolicy.Action;
 import dev.ghostfusion.features.EspTeamPolicy;
+import dev.ghostfusion.features.ProjectileTargetFence;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.ModuleActionTelemetry;
 import dev.ghostfusion.services.ActionCoordinator;
@@ -29,6 +30,7 @@ final class ForgeAutoSnowballController {
     private final Minecraft mc;
     private final HostRuntime host;
     private final AutoSnowballPolicy policy=new AutoSnowballPolicy();
+    private final ProjectileTargetFence targetFence=new ProjectileTargetFence();
     private EntityPlayerSP owner;
     private World world;
     ForgeAutoSnowballController(Minecraft minecraft,HostRuntime runtime) {
@@ -70,12 +72,17 @@ final class ForgeAutoSnowballController {
             host.nativeAction(ModuleActionTelemetry.Lane.AUTOSNOWBALL,
                 ModuleActionTelemetry.Event.CANCELLED);
         owner=null;world=null;
+        targetFence.reset();
     }
     boolean ownsHotbar() { return policy.ownsHotbar(); }
     void reset() { reset(false); }
     void reset(boolean manualOverride) {
         try { restoreIfOwned(manualOverride); }
-        finally {policy.reset();host.services().actions().cancelOwner(MODULE);}
+        finally {
+            policy.reset();
+            targetFence.reset();
+            host.services().actions().cancelOwner(MODULE);
+        }
     }
     /** True reserves optional combat ATTACK/USE/camera for the current tick. */
     boolean tick(boolean manualOverride) {
@@ -105,22 +112,22 @@ final class ForgeAutoSnowballController {
         }
         return -1;
     }
-    private boolean targetValid(EntityPlayerSP p) {
+    private EntityPlayer targetCandidate(EntityPlayerSP p) {
         MovingObjectPosition hit=mc.objectMouseOver;
         if(hit==null||hit.typeOfHit!=MovingObjectPosition.MovingObjectType.ENTITY ||
-           !(hit.entityHit instanceof EntityPlayer))return false;
-        Entity target=hit.entityHit;
+           !(hit.entityHit instanceof EntityPlayer))return null;
+        EntityPlayer target=(EntityPlayer)hit.entityHit;
         if(target==p||mc.theWorld.getEntityByID(target.getEntityId())!=target ||
-           target.isDead||((EntityPlayer)target).getHealth()<=0 ||
-           !p.canEntityBeSeen(target))return false;
+           target.isDead||target.getHealth()<=0 ||
+           !p.canEntityBeSeen(target))return null;
         if(host.snowballIgnoreTeammates() &&
-           EspTeamPolicy.exclude(p.getTeam(),((EntityPlayer)target).getTeam()))
-            return false;
+           EspTeamPolicy.exclude(p.getTeam(),target.getTeam()))
+            return null;
         double dx=target.posX-p.posX,dy=target.posY-p.posY,
                dz=target.posZ-p.posZ;
         double dist=dx*dx+dy*dy+dz*dz;
         double range=host.snowballRange();
-        return Double.isFinite(dist)&&dist<=range*range;
+        return Double.isFinite(dist)&&dist<=range*range ? target : null;
     }
     private boolean evaluate() {
         EntityPlayerSP p=mc.thePlayer;
@@ -154,7 +161,8 @@ final class ForgeAutoSnowballController {
             !p.isDead&&Double.isFinite(p.getHealth())&&p.getHealth()>0 &&
             !p.capabilities.isFlying&&!p.isRiding()&&
             !p.isUsingItem();
-        boolean target=validPlayer&&safeBinding&&!manualUse&&targetValid(p);
+        final EntityPlayer targetCandidate=targetCandidate(p);
+        boolean target=validPlayer&&safeBinding&&!manualUse&&targetCandidate!=null;
         ItemStack held=p.getHeldItem();
         boolean start=target&&!manualHotbar()&&
             (!host.snowballRequireSword() ||
@@ -194,13 +202,24 @@ final class ForgeAutoSnowballController {
             p.inventory.currentItem=snowball;
             mc.playerController.updateController();
             policy.committed(Action.SELECT,epoch,tick);
+            // The slot and target were selected together. The next native
+            // USE can only address this exact player on the exact next tick.
+            targetFence.selected(epoch,tick,targetCandidate.getUniqueID(),
+                targetCandidate.getEntityId());
             host.nativeAction(ModuleActionTelemetry.Lane.AUTOSNOWBALL,
                 ModuleActionTelemetry.Event.ATTEMPT);
             return true;
         }
         if(wanted==Action.USE) {
             ItemStack snowballStack=p.getHeldItem();
-            if(!active||snowballStack==null||
+            // Fresh native range/visibility/crosshair checks are necessary
+            // but not sufficient: reject a different player after SELECT,
+            // even when that new opponent is otherwise valid/in range.
+            boolean sameTarget=targetFence.allowUse(epoch,tick,
+                targetCandidate==null?null:targetCandidate.getUniqueID(),
+                targetCandidate==null?-1:targetCandidate.getEntityId(),
+                target);
+            if(!active||!sameTarget||snowballStack==null||
                !(snowballStack.getItem() instanceof ItemSnowball)) {
                 policy.cancelPrepared();return true;
             }
@@ -231,6 +250,7 @@ final class ForgeAutoSnowballController {
                 restoreIfOwned(true);
             }
             owner=null;world=null;
+            targetFence.reset();
             return true;
         }
         return true;
