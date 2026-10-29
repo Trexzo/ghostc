@@ -4,6 +4,7 @@ import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.PanicController;
 import dev.ghostfusion.features.ModuleInteractionStateMachine;
 import dev.ghostfusion.features.ProjectileManualInputGate;
+import dev.ghostfusion.features.ProjectileOwnerArbiter;
 import dev.ghostfusion.features.ModuleInteractionReadout;
 import dev.ghostfusion.features.LiveAcceptanceCoverage;
 import net.minecraft.client.gui.inventory.GuiInventory;
@@ -350,18 +351,26 @@ public final class ForgeEventAdapter {
         // simultaneous new physical-attack edge, then Snowball can propose.
         boolean rodOwns=false,snowballOwns=false;
         final boolean manualSlotEvent=projectileManual.take();
-        if(manualSlotEvent) {
-            // Actual human hotbar intent wins even if a wheel/key tap
-            // changed away and back before native currentItem was sampled.
+        ProjectileOwnerArbiter.Owner prior=ProjectileOwnerArbiter.observed(
+            autoRod.ownsHotbar(),autoSnowball.ownsHotbar());
+        boolean projectileConflict=prior==ProjectileOwnerArbiter.Owner.CONFLICT;
+        if(manualSlotEvent || projectileConflict) {
+            // A human hotbar event always wins. A double owner indicates a
+            // bug and must never cause either optional item-use transaction.
             autoRod.reset(true);
             autoSnowball.reset(true);
         } else {
-            if(!plan.autoRod || autoSnowball.ownsHotbar())autoRod.reset();
+            if(!plan.autoRod ||
+                !ProjectileOwnerArbiter.mayStartRod(prior,false))
+                autoRod.reset();
             else rodOwns=autoRod.tick(false);
-            if(!plan.autoSnowball || rodOwns)autoSnowball.reset();
+            if(!plan.autoSnowball ||
+               !ProjectileOwnerArbiter.mayStartSnowball(prior,false,rodOwns))
+                autoSnowball.reset();
             else snowballOwns=autoSnowball.tick(false);
         }
-        if(plan.combat && !rodOwns && !snowballOwns && !manualSlotEvent)
+        if(plan.combat && !rodOwns && !snowballOwns &&
+           !manualSlotEvent && !projectileConflict)
             combat.tick();
         else combat.reset();
         if(plan.bridge)bridge.tick();else bridge.reset();
