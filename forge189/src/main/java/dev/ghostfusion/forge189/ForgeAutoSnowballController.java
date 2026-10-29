@@ -271,9 +271,9 @@ final class ForgeAutoSnowballController {
                 policy.cancelPrepared();return true;
             }
             // Vanilla 1.8.9 returns false when the LOCAL ItemStack did not
-            // change. It has nevertheless submitted the use packet before
-            // calling useItemRightClick in non-spectator mode. Fishing rods
-            // normally return the SAME stack; false is NOT a rejected cast.
+            // change. It nevertheless submitted the use packet before
+            // calling useItemRightClick in non-spectator mode. Creative-mode
+            // snowballs may remain unchanged; false is NOT rejected use.
             boolean localChanged=mc.playerController.sendUseItem(
                 p,mc.theWorld,snowballStack);
             useOutcome=ProjectileNativeUseResult.classify(
