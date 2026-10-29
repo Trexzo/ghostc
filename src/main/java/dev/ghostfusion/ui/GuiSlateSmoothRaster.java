@@ -98,7 +98,28 @@ public final class GuiSlateSmoothRaster {
         } finally {
             g.dispose();
         }
-        int[] pixels=image.getRGB(0,0,width,height,null,0,width);
-        return new Run(cleaned,width,height,advance,pixels);
+        // FontMetrics.getHeight() reserves ascent, descent and line gap,
+        // not the visible glyph bounding box. Keeping those blank scanlines
+        // made 8/10px text fail compact 11/12px height budgets and silently
+        // fall back to Minecraft's bitmap font. Trim only transparent rows;
+        // retain full measured horizontal advance and one AA guard row.
+        int[] full=image.getRGB(0,0,width,height,null,0,width);
+        int minInk=height,maxInk=-1;
+        for(int row=0;row<height;row++) {
+            for(int col=0;col<width;col++) {
+                if((full[row*width+col]>>>24)!=0) {
+                    if(row<minInk)minInk=row;
+                    if(row>maxInk)maxInk=row;
+                }
+            }
+        }
+        if(maxInk<0)
+            return new Run(cleaned,width,1,advance,new int[width]);
+        int first=Math.max(0,minInk-1);
+        int last=Math.min(height,maxInk+2);
+        int croppedHeight=last-first;
+        int[] pixels=new int[width*croppedHeight];
+        System.arraycopy(full,first*width,pixels,0,pixels.length);
+        return new Run(cleaned,width,croppedHeight,advance,pixels);
     }
 }
