@@ -280,3 +280,14 @@ When the flag is absent, the existing Minecraft text rendering executes unchange
 
 
 **Antialias coverage safeguard:** The experimental painter temporarily disables the fixed-function `GL_ALPHA_TEST` threshold while drawing the white/alpha texture, preserving low-alpha edge pixels produced by AWT. The surrounding `GL_ENABLE_BIT` attribute scope restores Minecraft's previous alpha-test state immediately. This is a paint-only, opt-in behavior with a Forge source-contract assertion; it does not enable the smooth-font trial by default.
+
+
+### R5 experimental font ink-bounds corrective pass (29 October)
+
+**Issue identified through actual raster metrics:** The first experimental Java2D raster allocated a texture with `FontMetrics.getHeight()+2`, which includes ascent/descent/leading whitespace not present in the painted letters. In one local headless Java 21 sample, the 10px title font reserved 16px and the 8px secondary font 14px, exceeding GhostC's deliberately fixed 12–14px module-title and 11–12px metadata budgets. This made the smooth renderer silently fall back to Minecraft despite having useful visible glyphs.
+
+**Fix:** `GuiSlateSmoothRaster.raster` now scans each ARGB glyph row for nontransparent pixels, crops only **fully transparent rows**, and retains a one-row antialias guard above and below the actual glyph envelope. It preserves the original horizontal font advance and text budget (no horizontal squeezing or new hitboxes). Whitespace-only strings return a single transparent row. JRE logical fonts vary by platform, so these local bounds are not guarantees for Windows.
+
+**Additional GL safety:** The Forge paint path forces `GL_MODULATE` within its existing `GL_TEXTURE_BIT` state scope, ensuring the Slate accent/text tint multiplies the glyph's white-alpha texture even when another renderer left the texture environment in REPLACE mode. An invalid cached GL texture triggers invalidation of all stale identities (not deletions from a possibly new context); GUI-close cleanup is best-effort and cannot interrupt the vanilla close/fallback path after a GL failure. Source/CI tests now require the crop logic, explicit tint modulation and resilient disposal.
+
+**Remaining acceptance:** Confirm native 1.8.9 (Auto/2/3) actual glyph legibility, baseline and descender clarity, no GL texture-state contamination, bounded GPU texture growth, and frame-time cost with the experimental flag explicitly enabled. **Production stays on Minecraft's original font and the PR stays draft.**
