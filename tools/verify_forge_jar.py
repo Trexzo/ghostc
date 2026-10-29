@@ -18,6 +18,8 @@ REQUIRED = (
     "dev/ghostfusion/forge189/ForgeEventAdapter.class",
     "dev/ghostfusion/forge189/ForgeCombatController.class",
     "dev/ghostfusion/forge189/GhostClickGui.class",
+    "dev/ghostfusion/forge189/SlateSmoothFontRenderer.class",
+    "dev/ghostfusion/ui/GuiSlateSmoothRaster.class",
     "dev/ghostfusion/host/HostRuntime.class",
     "dev/ghostfusion/core/ModuleRegistry.class",
     "dev/ghostfusion/services/SessionServices.class",
