@@ -5,6 +5,8 @@ import dev.ghostfusion.features.AutoSnowballPolicy.Action;
 import dev.ghostfusion.features.EspTeamPolicy;
 import dev.ghostfusion.features.ProjectileTargetFence;
 import dev.ghostfusion.features.ProjectileInventoryFence;
+import dev.ghostfusion.features.ProjectileNativeUseResult;
+import dev.ghostfusion.features.ProjectileNativeUseResult.Outcome;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.ModuleActionTelemetry;
 import dev.ghostfusion.services.ActionCoordinator;
@@ -33,6 +35,7 @@ final class ForgeAutoSnowballController {
     private final AutoSnowballPolicy policy=new AutoSnowballPolicy();
     private final ProjectileTargetFence targetFence=new ProjectileTargetFence();
     private final ProjectileInventoryFence inventoryFence=new ProjectileInventoryFence();
+    private Outcome useOutcome=Outcome.NOT_INVOKED;
     private EntityPlayerSP owner;
     private World world;
     ForgeAutoSnowballController(Minecraft minecraft,HostRuntime runtime) {
@@ -92,6 +95,7 @@ final class ForgeAutoSnowballController {
         owner=null;world=null;
         targetFence.reset();
         inventoryFence.reset();
+        useOutcome=Outcome.NOT_INVOKED;
     }
     boolean ownsHotbar() { return policy.ownsHotbar(); }
     void reset() { reset(false); }
@@ -101,6 +105,7 @@ final class ForgeAutoSnowballController {
             policy.reset();
             targetFence.reset();
             inventoryFence.reset();
+            useOutcome=Outcome.NOT_INVOKED;
             host.services().actions().cancelOwner(MODULE);
         }
     }
@@ -180,7 +185,8 @@ final class ForgeAutoSnowballController {
         boolean validPlayer=mc.theWorld.getEntityByID(p.getEntityId())==p &&
             !p.isDead&&Double.isFinite(p.getHealth())&&p.getHealth()>0 &&
             !p.capabilities.isFlying&&!p.isRiding()&&
-            !p.isUsingItem();
+            !p.isUsingItem()&&
+            !mc.playerController.isSpectator();
         final EntityPlayer targetCandidate=targetCandidate(p);
         boolean target=validPlayer&&safeBinding&&!manualUse&&targetCandidate!=null;
         ItemStack held=p.getHeldItem();
@@ -258,19 +264,26 @@ final class ForgeAutoSnowballController {
                 snowballStack,item(snowballStack),count(snowballStack),damage(snowballStack));
             if(!active||!sameTarget||!exactItem||snowballStack==null||
                snowballStack.stackSize<1||
-               !(snowballStack.getItem() instanceof ItemSnowball)) {
+               !(snowballStack.getItem() instanceof ItemSnowball) ||
+               mc.playerController.isSpectator()) {
+                // Spectator mode and pre-use native veto cannot dispatch.
+                // Safe RESTORE is still required after an owned SELECT.
                 policy.cancelPrepared();return true;
             }
-            // Genuine vanilla 1.8.9 right-click player controller method:
-            // the game manages the snowball entity, animation and held item.
-            // Boolean return is a local result, never server hit proof.
-            boolean used=mc.playerController.sendUseItem(p,mc.theWorld,snowballStack);
-            if(used) {
-                policy.committed(Action.USE,epoch,tick);
-                inventoryFence.nativeUsed(epoch,tick);
-                host.nativeAction(ModuleActionTelemetry.Lane.AUTOSNOWBALL,
-                    ModuleActionTelemetry.Event.DISPATCHED);
-            } else policy.cancelPrepared();
+            // Vanilla 1.8.9 returns false when the LOCAL ItemStack did not
+            // change. It has nevertheless submitted the use packet before
+            // calling useItemRightClick in non-spectator mode. Fishing rods
+            // normally return the SAME stack; false is NOT a rejected cast.
+            boolean localChanged=mc.playerController.sendUseItem(
+                p,mc.theWorld,snowballStack);
+            useOutcome=ProjectileNativeUseResult.classify(
+                false,true,localChanged);
+            policy.committed(Action.USE,epoch,tick);
+            inventoryFence.nativeUsed(epoch,tick);
+            // Local native submission only, never proof of server receipt,
+            // spawned hook/projectile or a PvP hit.
+            host.nativeAction(ModuleActionTelemetry.Lane.AUTOSNOWBALL,
+                ModuleActionTelemetry.Event.DISPATCHED);
             return true;
         }
         if(wanted==Action.RESTORE) {
@@ -281,8 +294,10 @@ final class ForgeAutoSnowballController {
                 boolean cast=policy.castObserved();
                 policy.committed(Action.RESTORE,epoch,tick);
                 host.nativeAction(ModuleActionTelemetry.Lane.AUTOSNOWBALL,
-                    cast ? ModuleActionTelemetry.Event.LOCAL_COMPLETE :
-                           ModuleActionTelemetry.Event.CANCELLED);
+                    !cast ? ModuleActionTelemetry.Event.CANCELLED :
+                    useOutcome.localChange() ?
+                        ModuleActionTelemetry.Event.LOCAL_CHANGE :
+                        ModuleActionTelemetry.Event.LOCAL_COMPLETE);
             } else {
                 // Manual native input wins even if it left the slot at our
                 // synthetic value. Never write stale original selection.
@@ -291,6 +306,7 @@ final class ForgeAutoSnowballController {
             owner=null;world=null;
             targetFence.reset();
             inventoryFence.reset();
+            useOutcome=Outcome.NOT_INVOKED;
             return true;
         }
         return true;
