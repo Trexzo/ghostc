@@ -130,3 +130,13 @@ task nativeProjectileInventoryFenceProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeProjectileInventoryFenceTests'
 }
 check.dependsOn nativeProjectileInventoryFenceProbe
+
+
+// R3.61: require original Minecraft 1.8.9 PlayerControllerMP.sendUseItem
+// local-mutation boolean and spectator guard verification on Java8 Forge.
+task nativeProjectileUseOutcomeProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeProjectileUseOutcomeTests'
+}
+check.dependsOn nativeProjectileUseOutcomeProbe
