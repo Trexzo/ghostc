@@ -18,6 +18,7 @@ import dev.ghostfusion.ui.GuiSlateWorkspace;
 import dev.ghostfusion.ui.GuiSlateControlGeometry;
 import dev.ghostfusion.ui.GuiSlateCompactMetrics;
 import dev.ghostfusion.ui.GuiSlateModuleCaption;
+import dev.ghostfusion.ui.GuiSlateTypeScale;
 import dev.ghostfusion.ui.GuiSlateEmptyStateLayout;
 import dev.ghostfusion.ui.GuiSlateTooltipLayout;
 import dev.ghostfusion.ui.GuiSlateSearchGeometry;
@@ -286,13 +287,17 @@ public final class GhostClickGui extends GuiScreen {
             if(active)rect(pane.modulesX+1,yy+8,2,11,color.accent);
             // Rise-inspired hierarchy: the name is primary; the quieter
             // second line shows only real registry category and keybind.
-            label(trim(entry.module().displayName(),pane.modulesWidth-61),
-                pane.modulesX+10,yy+3,active?color.text:color.muted);
+            String primary=GuiSlateTypeScale.fit(entry.module().displayName(),
+                pane.modulesWidth-61,GuiSlateTypeScale.PRIMARY,guiFontWidths);
+            drawSlateType(primary,pane.modulesX+10,yy+2,
+                active?color.text:color.muted,GuiSlateTypeScale.PRIMARY);
             String keyName=entry.keybind()==0?null:
                 Keyboard.getKeyName(entry.keybind());
-            label(trim(GuiSlateModuleCaption.of(entry.module().category(),keyName),
-                pane.modulesWidth-61),pane.modulesX+10,yy+15,
-                active?color.secondary:color.muted);
+            String metadata=GuiSlateTypeScale.fit(
+                GuiSlateModuleCaption.of(entry.module().category(),keyName),
+                pane.modulesWidth-61,GuiSlateTypeScale.SECONDARY,guiFontWidths);
+            drawSlateType(metadata,pane.modulesX+10,yy+16,
+                active?color.secondary:color.muted,GuiSlateTypeScale.SECONDARY);
             boolean enabled=entry.state()==ModuleRegistry.State.ENABLED;
             boolean faulted=entry.state()==ModuleRegistry.State.FAULTED;
             if(faulted) {
@@ -339,15 +344,18 @@ public final class GhostClickGui extends GuiScreen {
             entry.state()==ModuleRegistry.State.ENABLED?color.accent:color.muted;
         int statusX=pane.detailsX+pane.detailsWidth-16-
             fontRendererObj.getStringWidth(status);
-        label(trim(entry.module().displayName(),
-            Math.max(0,statusX-pane.detailsX-27)),
-            pane.detailsX+9,pane.detailsY+23,color.text);
+        String heading=GuiSlateTypeScale.fit(entry.module().displayName(),
+            Math.max(0,statusX-pane.detailsX-27),GuiSlateTypeScale.PRIMARY,
+            guiFontWidths);
+        drawSlateType(heading,pane.detailsX+9,pane.detailsY+21,
+            color.text,GuiSlateTypeScale.PRIMARY);
         rect(statusX-9,pane.detailsY+26,4,4,statusColor);
         label(status,statusX,pane.detailsY+23,statusColor);
         // A distinct second-level breadcrumb, like the reference clients,
         // uses registry metadata rather than invented module descriptions.
-        label(GuiSlateModuleCaption.category(entry.module().category()),
-            pane.detailsX+9,pane.detailsY+34,color.muted);
+        drawSlateType(GuiSlateModuleCaption.category(entry.module().category()),
+            pane.detailsX+9,pane.detailsY+34,
+            color.muted,GuiSlateTypeScale.SECONDARY);
         rect(pane.detailsX+9,pane.detailsY+44,pane.detailsWidth-18,1,color.divider);
         rect(pane.detailsX+9,pane.bindingY,pane.detailsWidth-18,24,0x48313942);
         label("KEYBIND",pane.detailsX+16,pane.bindingY+8,color.muted);
@@ -435,7 +443,8 @@ public final class GhostClickGui extends GuiScreen {
         int hoverModule=pane.moduleIndex(mx,my,scroll,filtered.size());
         if(hoverModule>=0 && !pane.moduleToggleArea(mx)) {
             String original=filtered.get(hoverModule).module().displayName();
-            if(!trim(original,pane.modulesWidth-61).equals(original))
+            if(!GuiSlateTypeScale.fit(original,pane.modulesWidth-61,
+                    GuiSlateTypeScale.PRIMARY,guiFontWidths).equals(original))
                 reveal=original;
         }
         if(reveal==null && hoveredSetting>=0 &&
@@ -462,9 +471,24 @@ public final class GhostClickGui extends GuiScreen {
     private void rect(int rx, int ry, int rw, int rh, int color) {
         if (rw > 0 && rh > 0) drawRect(rx, ry, rx + rw, ry + rh, color);
     }
+    /**
+     * Scoped scale of Minecraft's own font glyphs. Unlike a global smooth-font
+     * filter, this does not modify any texture parameter, Minecraft font state,
+     * hitbox, GL blend state or third-party assets. Model computes pixel fit.
+     */
+    private void drawSlateType(String value,int atX,int atY,int color,double scale) {
+        if(value==null || value.isEmpty())return;
+        org.lwjgl.opengl.GL11.glPushMatrix();
+        try {
+            org.lwjgl.opengl.GL11.glTranslated(atX,atY,0);
+            org.lwjgl.opengl.GL11.glScaled(scale,scale,1);
+            fontRendererObj.drawString(value,0,0,color);
+        } finally {
+            org.lwjgl.opengl.GL11.glPopMatrix();
+        }
+    }
     private void label(String value, int atX, int atY, int color) {
-        // Pixel fonts still require future native acceptance, but Slate avoids
-        // doubled drop shadows that make the default font look blurry/crowded.
+        // Existing Minecraft renderer stays the primary unscaled path.
         if(ui.theme()==UiState.Theme.SLATE)
             fontRendererObj.drawString(value,atX,atY,color);
         else fontRendererObj.drawStringWithShadow(value,atX,atY,color);
@@ -717,20 +741,25 @@ public final class GhostClickGui extends GuiScreen {
                     :(focused?0x664B597D:0x442D344A));
             if(slateCompact && focused)
                 rect(x+side+9,ry+7,2,11,compactTheme.accent);
-            label(trim(e.module().displayName(),
-                slateCompact?GuiSlateCompactMetrics.moduleLabelBudget(compactZone):
-                    Math.max(60,w-side-97)),x+side+15,
-                slateCompact?ry+3:ry+8,
-                slateCompact?(focused?compactTheme.text:compactTheme.muted):
-                    focused?0xFFFFFFFF:0xFFE4E7F0);
             if(slateCompact) {
-                // Match the wide Slate two-level hierarchy at GUI Scale Auto.
-                // Only real registry metadata appears on the second line.
+                // Measured 10/8px two-level typography at Minecraft GUI Auto:
+                // no change to action/hitbox positions or registry membership.
+                int budget=GuiSlateCompactMetrics.moduleLabelBudget(compactZone);
+                drawSlateType(GuiSlateTypeScale.fit(e.module().displayName(),budget,
+                    GuiSlateTypeScale.PRIMARY,guiFontWidths),
+                    x+side+15,ry+2,
+                    focused?compactTheme.text:compactTheme.muted,
+                    GuiSlateTypeScale.PRIMARY);
                 String keyName=e.keybind()==0?null:Keyboard.getKeyName(e.keybind());
-                label(trim(GuiSlateModuleCaption.of(e.module().category(),keyName),
-                    GuiSlateCompactMetrics.moduleLabelBudget(compactZone)),
-                    x+side+15,ry+15,
-                    focused?compactTheme.secondary:compactTheme.muted);
+                drawSlateType(GuiSlateTypeScale.fit(
+                    GuiSlateModuleCaption.of(e.module().category(),keyName),budget,
+                    GuiSlateTypeScale.SECONDARY,guiFontWidths),
+                    x+side+15,ry+14,
+                    focused?compactTheme.secondary:compactTheme.muted,
+                    GuiSlateTypeScale.SECONDARY);
+            } else {
+                label(trim(e.module().displayName(),Math.max(60,w-side-97)),
+                    x+side+15,ry+8,focused?0xFFFFFFFF:0xFFE4E7F0);
             }
             boolean enabled = e.state() == ModuleRegistry.State.ENABLED;
             boolean faulted = e.state() == ModuleRegistry.State.FAULTED;
@@ -872,8 +901,10 @@ public final class GhostClickGui extends GuiScreen {
                 compactZone,mx,my,scroll,filtered.size());
             if(overModule>=0 && mx<x+w-60) {
                 String original=filtered.get(overModule).module().displayName();
-                if(!trim(original,GuiSlateCompactMetrics.moduleLabelBudget(
-                    compactZone)).equals(original))reveal=original;
+                if(!GuiSlateTypeScale.fit(original,
+                    GuiSlateCompactMetrics.moduleLabelBudget(compactZone),
+                    GuiSlateTypeScale.PRIMARY,guiFontWidths).equals(original))
+                    reveal=original;
             }
             if(reveal==null && hoveredSetting>=0 &&
                hoveredSetting<settings.size()) {
