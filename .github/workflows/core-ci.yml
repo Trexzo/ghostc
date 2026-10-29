@@ -78,6 +78,8 @@ jobs:
           grep -q 'GUI_SLATE_COMPACT_METRICS_PASS' .build/gui-slate-compact-metrics.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateModuleCaptionTests | tee .build/gui-slate-module-captions.log
           grep -q 'GUI_SLATE_MODULE_CAPTION_PASS' .build/gui-slate-module-captions.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateTypeScaleTests | tee .build/gui-slate-type-scale.log
+          grep -q 'GUI_SLATE_TYPE_SCALE_PASS' .build/gui-slate-type-scale.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateEmptyStateLayoutTests | tee .build/gui-slate-empty-state.log
           grep -q 'GUI_SLATE_EMPTY_STATE_PASS' .build/gui-slate-empty-state.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateCompactSearchGeometryTests | tee .build/gui-slate-compact-search.log
