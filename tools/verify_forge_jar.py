@@ -40,6 +40,7 @@ REQUIRED = (
     "dev/ghostfusion/ui/ModuleListSlateRowGeometry.class",
     "dev/ghostfusion/ui/GuiSliderDrag.class",
     "dev/ghostfusion/ui/HudDragCapture.class",
+    "dev/ghostfusion/ui/HudEditorSlateCanvasGeometry.class",
     "dev/ghostfusion/ui/GuiSettingKeyboard.class",
     "dev/ghostfusion/ui/GuiSearchFocus.class",
     "dev/ghostfusion/ui/GuiKeybindCapture.class",
