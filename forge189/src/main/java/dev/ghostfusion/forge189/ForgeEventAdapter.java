@@ -427,6 +427,10 @@ public final class ForgeEventAdapter {
         if (Keyboard.getEventKeyState() && !Keyboard.isRepeatEvent() &&
             minecraft.currentScreen==null && minecraft.inGameHasFocus &&
             worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) {
+            // A short manually rebound use-item tap is as authoritative as
+            // a hotbar selection. It may be released by the next END tick.
+            if(minecraft.gameSettings.keyBindUseItem.getKeyCode()==code)
+                projectileManual.mark();
             for(net.minecraft.client.settings.KeyBinding hotbar :
                 minecraft.gameSettings.keyBindsHotbar) {
                 if(hotbar.getKeyCode()==code) {
@@ -476,8 +480,13 @@ public final class ForgeEventAdapter {
         host.diagnostics().record(Counter.MOUSE_CALLBACK);
         if (!worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) return;
         if(minecraft.currentScreen==null && minecraft.inGameHasFocus &&
-           Mouse.isCreated() && Mouse.getEventDWheel()!=0)
-            projectileManual.mark();
+           Mouse.isCreated()) {
+            int useCode=minecraft.gameSettings.keyBindUseItem.getKeyCode();
+            boolean manualUse=useCode<0 && Mouse.getEventButtonState() &&
+                Mouse.getEventButton()==useCode+100;
+            if(Mouse.getEventDWheel()!=0 || manualUse)
+                projectileManual.mark();
+        }
         features.mouseInput();
     }
 
