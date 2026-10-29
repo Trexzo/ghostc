@@ -2487,7 +2487,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('if(filtered.isEmpty()) {',(FORGE/"GhostClickGui.java").read_text(encoding="utf-8"))
         self.assertIn("GuiSlateModuleCaption.of(entry.module().category(),keyName)",(FORGE/"GhostClickGui.java").read_text(encoding="utf-8"))
         self.assertIn("GuiSlateModuleCaption.category(entry.module().category())",(FORGE/"GhostClickGui.java").read_text(encoding="utf-8"))
-        self.assertIn("pane.modulesX+10,yy+15",(FORGE/"GhostClickGui.java").read_text(encoding="utf-8"))
+        self.assertIn("pane.modulesX+10,yy+16",(FORGE/"GhostClickGui.java").read_text(encoding="utf-8"))
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         self.assertIn("drawSidebar(mx,my);",gui)
         self.assertIn("GuiChrome.categoryIndex(zone,mx,my)",gui)
