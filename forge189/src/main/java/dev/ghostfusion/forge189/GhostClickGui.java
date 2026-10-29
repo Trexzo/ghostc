@@ -91,6 +91,8 @@ public final class GhostClickGui extends GuiScreen {
     private final GuiSliderDrag sliderDrag = new GuiSliderDrag();
     private final GuiScrollDrag scrollDrag = new GuiScrollDrag();
     private final GuiToggleMotion slateToggleMotion = new GuiToggleMotion();
+    // Never active unless -Dghostc.slate.smoothFontExperimental=true.
+    private final SlateSmoothFontRenderer smoothSlateFont=new SlateSmoothFontRenderer();
     // Reuse counter buffer instead of creating category tally objects on
     // every Forge GUI frame. Index 0 = all; ordinal+1 = named category.
     private final int[] slateCategoryCounts=new int[GuiCategoryActivity.COUNT];
@@ -290,14 +292,16 @@ public final class GhostClickGui extends GuiScreen {
             String primary=GuiSlateTypeScale.fit(entry.module().displayName(),
                 pane.modulesWidth-61,GuiSlateTypeScale.PRIMARY,guiFontWidths);
             drawSlateType(primary,pane.modulesX+10,yy+2,
-                active?color.text:color.muted,GuiSlateTypeScale.PRIMARY);
+                active?color.text:color.muted,GuiSlateTypeScale.PRIMARY,
+                pane.modulesWidth-61,14);
             String keyName=entry.keybind()==0?null:
                 Keyboard.getKeyName(entry.keybind());
             String metadata=GuiSlateTypeScale.fit(
                 GuiSlateModuleCaption.of(entry.module().category(),keyName),
                 pane.modulesWidth-61,GuiSlateTypeScale.SECONDARY,guiFontWidths);
             drawSlateType(metadata,pane.modulesX+10,yy+16,
-                active?color.secondary:color.muted,GuiSlateTypeScale.SECONDARY);
+                active?color.secondary:color.muted,GuiSlateTypeScale.SECONDARY,
+                pane.modulesWidth-61,12);
             boolean enabled=entry.state()==ModuleRegistry.State.ENABLED;
             boolean faulted=entry.state()==ModuleRegistry.State.FAULTED;
             if(faulted) {
@@ -348,14 +352,16 @@ public final class GhostClickGui extends GuiScreen {
             Math.max(0,statusX-pane.detailsX-27),GuiSlateTypeScale.PRIMARY,
             guiFontWidths);
         drawSlateType(heading,pane.detailsX+9,pane.detailsY+21,
-            color.text,GuiSlateTypeScale.PRIMARY);
+            color.text,GuiSlateTypeScale.PRIMARY,
+            Math.max(0,statusX-pane.detailsX-27),13);
         rect(statusX-9,pane.detailsY+26,4,4,statusColor);
         label(status,statusX,pane.detailsY+23,statusColor);
         // A distinct second-level breadcrumb, like the reference clients,
         // uses registry metadata rather than invented module descriptions.
         drawSlateType(GuiSlateModuleCaption.category(entry.module().category()),
             pane.detailsX+9,pane.detailsY+34,
-            color.muted,GuiSlateTypeScale.SECONDARY);
+            color.muted,GuiSlateTypeScale.SECONDARY,
+            pane.detailsWidth-18,10);
         rect(pane.detailsX+9,pane.detailsY+44,pane.detailsWidth-18,1,color.divider);
         rect(pane.detailsX+9,pane.bindingY,pane.detailsWidth-18,24,0x48313942);
         label("KEYBIND",pane.detailsX+16,pane.bindingY+8,color.muted);
@@ -476,8 +482,15 @@ public final class GhostClickGui extends GuiScreen {
      * filter, this does not modify any texture parameter, Minecraft font state,
      * hitbox, GL blend state or third-party assets. Model computes pixel fit.
      */
-    private void drawSlateType(String value,int atX,int atY,int color,double scale) {
+    private void drawSlateType(String value,int atX,int atY,int color,double scale,
+                               int pixelBudget,int heightBudget) {
         if(value==null || value.isEmpty())return;
+        // Experimental antialiased system font uses its own exact raster bounds.
+        // Width and height admission are caller-owned, never inferred from
+        // a different font's measured glyphs. Failure keeps vanilla fallback.
+        if(pixelBudget>0&&heightBudget>0 &&
+           smoothSlateFont.draw(value,atX,atY,color,
+               scale>=1?10:8,scale>=1,pixelBudget,heightBudget))return;
         org.lwjgl.opengl.GL11.glPushMatrix();
         try {
             org.lwjgl.opengl.GL11.glTranslated(atX,atY,0);
@@ -524,7 +537,8 @@ public final class GhostClickGui extends GuiScreen {
         rect(x, y, w, 30, theme.header);
         if(theme.slate)drawSlateChrome(theme);
         if(theme.slate)
-            drawSlateType("GHOSTC",x+10,y+9,accent(),GuiSlateTypeScale.PRIMARY);
+            drawSlateType("GHOSTC",x+10,y+9,accent(),GuiSlateTypeScale.PRIMARY,
+                Math.max(0,side-20),17);
         else label("GHOSTC",x+10,y+10,accent());
         int menuX = x + side + 8;
         GuiSlateWorkspace modern=slateWorkspace(
@@ -751,14 +765,14 @@ public final class GhostClickGui extends GuiScreen {
                     GuiSlateTypeScale.PRIMARY,guiFontWidths),
                     x+side+15,ry+2,
                     focused?compactTheme.text:compactTheme.muted,
-                    GuiSlateTypeScale.PRIMARY);
+                    GuiSlateTypeScale.PRIMARY,budget,12);
                 String keyName=e.keybind()==0?null:Keyboard.getKeyName(e.keybind());
                 drawSlateType(GuiSlateTypeScale.fit(
                     GuiSlateModuleCaption.of(e.module().category(),keyName),budget,
                     GuiSlateTypeScale.SECONDARY,guiFontWidths),
                     x+side+15,ry+14,
                     focused?compactTheme.secondary:compactTheme.muted,
-                    GuiSlateTypeScale.SECONDARY);
+                    GuiSlateTypeScale.SECONDARY,budget,11);
             } else {
                 label(trim(e.module().displayName(),Math.max(60,w-side-97)),
                     x+side+15,ry+8,focused?0xFFFFFFFF:0xFFE4E7F0);
@@ -1105,7 +1119,10 @@ public final class GhostClickGui extends GuiScreen {
         GuiHudEditorStyle editorStyle=GuiHudEditorStyle.of(ui.theme());
         if(ui.theme()==UiState.Theme.SLATE)
             drawSlateType("HUD POSITION EDITOR",x+side+12,y+48,
-                accent(),GuiSlateTypeScale.PRIMARY);
+                accent(),GuiSlateTypeScale.PRIMARY,
+                GuiSlateTypeScale.displayWidth(
+                    fontRendererObj.getStringWidth("HUD POSITION EDITOR"),
+                    GuiSlateTypeScale.PRIMARY),14);
         else label("HUD POSITION EDITOR",x+side+12,y+49,accent());
         drawHudPresetSidebar();
         // Display the scale of the selected widget in a fixed, readable place.
@@ -1948,6 +1965,7 @@ public final class GhostClickGui extends GuiScreen {
         super.keyTyped(character,keyCode);
     }
     @Override public void onGuiClosed() {
+        smoothSlateFont.close();
         scrollDrag.end();
         finishSliderDrag();
         boolean endedHudDrag=hudDragging;
