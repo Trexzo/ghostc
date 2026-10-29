@@ -28,6 +28,8 @@ public final class ProjectileTargetFence {
         check();
         if(generation<0||tick<0||id==null||nativeId<0)
             throw new IllegalArgumentException("invalid projectile target");
+        if(target!=null && !consumed)
+            throw new IllegalStateException("projectile target already selected");
         epoch=generation;
         selectedTick=tick;
         target=id;
