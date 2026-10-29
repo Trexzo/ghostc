@@ -11,6 +11,7 @@ import dev.ghostfusion.ui.GuiThemePalette;
 import dev.ghostfusion.ui.GuiCategoryActivity;
 import dev.ghostfusion.ui.GuiHudEditorStyle;
 import dev.ghostfusion.ui.HudEditorSlateCanvasGeometry;
+import dev.ghostfusion.ui.HudEditorSlateTabTypography;
 import dev.ghostfusion.ui.GuiToggleMotion;
 import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiSlateWorkspace;
@@ -1104,13 +1105,32 @@ public final class GhostClickGui extends GuiScreen {
             int bx=HudEditorControls.tabLeft(tabsX,tabsWidth,item);
             int bw=HudEditorControls.tabWidth(tabsWidth,item);
             boolean chosen=item==hudControls.selected();
-            int tabColor=chosen?editorStyle.selectedTab:
-                slateEditor && item==hoveredTab?palette().idleSetting:panel();
-            rect(bx,tabsY,bw,17,tabColor);
-            label(trim(item.label,bw-5),bx+3,tabsY+4,
-                chosen?editorStyle.selectedText:editorStyle.idleText);
-            if(slateEditor && chosen)
-                rect(bx,tabsY+16,bw,1,palette().accent);
+            if(slateEditor) {
+                // Source-reference: Slinky measured centered tab glyphs.
+                // Native tabAt() owns the very same equal-width hit zones.
+                int surface=chosen?editorStyle.selectedTab:
+                    item==hoveredTab?palette().idleSetting:palette().idleModule;
+                rect(bx,tabsY,bw,17,surface);
+                int textBudget=HudEditorSlateTabTypography.labelBudget(bw);
+                String caption=trim(item.label,textBudget);
+                if(!caption.isEmpty()) {
+                    int measured=fontRendererObj.getStringWidth(caption);
+                    label(caption,HudEditorSlateTabTypography.labelX(bx,bw,measured),
+                        tabsY+4,chosen?editorStyle.selectedText:editorStyle.idleText);
+                }
+                if(chosen) {
+                    int inset=HudEditorSlateTabTypography.underlineInset(bw);
+                    rect(bx+inset,tabsY+16,
+                        HudEditorSlateTabTypography.underlineWidth(bw),
+                        1,palette().accent);
+                }
+            } else {
+                // Preserve both legacy themes' original UI pixels.
+                int tabColor=chosen?editorStyle.selectedTab:panel();
+                rect(bx,tabsY,bw,17,tabColor);
+                label(trim(item.label,bw-5),bx+3,tabsY+4,
+                    chosen?editorStyle.selectedText:editorStyle.idleText);
+            }
         }
         rect(previewX,previewY,previewW,previewH,editorStyle.previewSurround);
         HudPreviewGeometry geometry=previewGeometry();
