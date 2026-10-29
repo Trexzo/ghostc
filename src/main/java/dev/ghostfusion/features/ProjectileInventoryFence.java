@@ -74,8 +74,13 @@ public final class ProjectileInventoryFence {
             stackMatches(projectile,projectileItem,projectileCount,projectileDamage,
                          currentProjectile,currentProjectileItem,
                          currentProjectileCount,currentProjectileDamage);
-        checkedUse=true;
-        approvedUse=allowed;
+        // A duplicate validation is denied but must never retroactively
+        // erase the first approved native-write receipt. The caller still
+        // cannot use a duplicate result to dispatch another item action.
+        if(!checkedUse) {
+            checkedUse=true;
+            approvedUse=allowed;
+        }
         return allowed;
     }
     /** Mark only after genuine native sendUseItem returned success. */
