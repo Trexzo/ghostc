@@ -3,6 +3,8 @@ package dev.ghostfusion.forge189;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.PanicController;
 import dev.ghostfusion.features.ModuleInteractionStateMachine;
+import dev.ghostfusion.features.ProjectileManualInputGate;
+import dev.ghostfusion.features.ProjectileOwnerArbiter;
 import dev.ghostfusion.features.ModuleInteractionReadout;
 import dev.ghostfusion.features.LiveAcceptanceCoverage;
 import net.minecraft.client.gui.inventory.GuiInventory;
@@ -31,6 +33,7 @@ import net.minecraftforge.fml.common.gameevent.InputEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.common.network.FMLNetworkEvent;
 import org.lwjgl.input.Keyboard;
+import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 import net.minecraft.client.gui.ScaledResolution;
 import java.util.Locale;
@@ -57,6 +60,9 @@ public final class ForgeEventAdapter {
     // native actions. Render-only modules remain independent.
     private final ModuleInteractionStateMachine moduleState =
         new ModuleInteractionStateMachine();
+    // Captures short wheel / hotbar number-key taps BEFORE their next END tick.
+    private final ProjectileManualInputGate projectileManual =
+        new ProjectileManualInputGate();
     private ModuleInteractionStateMachine.Frame lastArbitration;
     // Passive evidence is recorded ONLY with explicit F7 Diagnostics opt-in.
     // No game entity, packet object or channel reference is retained.
@@ -112,6 +118,7 @@ public final class ForgeEventAdapter {
             jumpReset.reset();
             autoRod.reset();
             autoSnowball.reset();
+            projectileManual.reset();
             chestStealer.reset();
             inventoryManager.reset();
             autoArmor.reset();
@@ -129,6 +136,7 @@ public final class ForgeEventAdapter {
             jumpReset.reset();
             autoRod.reset();
             autoSnowball.reset();
+            projectileManual.reset();
             chestStealer.reset();
             inventoryManager.reset();
             autoArmor.reset();
@@ -144,6 +152,7 @@ public final class ForgeEventAdapter {
             jumpReset.reset();
             autoRod.reset();
             autoSnowball.reset();
+            projectileManual.reset();
             chestStealer.reset();
             inventoryManager.reset();
             autoArmor.reset();
@@ -341,11 +350,28 @@ public final class ForgeEventAdapter {
         // owner keeps the slot until its RESTORE; otherwise Rod wins a
         // simultaneous new physical-attack edge, then Snowball can propose.
         boolean rodOwns=false,snowballOwns=false;
-        if(!plan.autoRod || autoSnowball.ownsHotbar())autoRod.reset();
-        else rodOwns=autoRod.tick();
-        if(!plan.autoSnowball || rodOwns)autoSnowball.reset();
-        else snowballOwns=autoSnowball.tick();
-        if(plan.combat && !rodOwns && !snowballOwns)combat.tick();
+        final boolean manualSlotEvent=projectileManual.take();
+        ProjectileOwnerArbiter.Owner prior=ProjectileOwnerArbiter.observed(
+            autoRod.ownsHotbar(),autoSnowball.ownsHotbar());
+        boolean projectileConflict=prior==ProjectileOwnerArbiter.Owner.CONFLICT;
+        if(manualSlotEvent || projectileConflict) {
+            // A human hotbar event always wins. A double owner indicates a
+            // bug and must never cause either optional item-use transaction.
+            autoRod.reset(true);
+            autoSnowball.reset(true);
+        } else {
+            if(!plan.autoRod ||
+                !ProjectileOwnerArbiter.mayStartRod(prior,false))
+                autoRod.reset();
+            else rodOwns=autoRod.tick(false);
+            if(!plan.autoSnowball ||
+               !ProjectileOwnerArbiter.mayStartSnowball(prior,false,rodOwns))
+                autoSnowball.reset();
+            else snowballOwns=autoSnowball.tick(false);
+        }
+        if(plan.combat && !rodOwns && !snowballOwns &&
+           !manualSlotEvent && !projectileConflict)
+            combat.tick();
         else combat.reset();
         if(plan.bridge)bridge.tick();else bridge.reset();
         if(plan.velocity)velocity.tick();else velocity.reset();
@@ -398,6 +424,21 @@ public final class ForgeEventAdapter {
         int code = Keyboard.getEventKey();
         // Event code 0 means no keyboard key; no keybind should fire.
         if (code == 0) return;
+        if (Keyboard.getEventKeyState() && !Keyboard.isRepeatEvent() &&
+            minecraft.currentScreen==null && minecraft.inGameHasFocus &&
+            worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) {
+            // A short manually rebound use-item tap is as authoritative as
+            // a hotbar selection. It may be released by the next END tick.
+            if(minecraft.gameSettings.keyBindUseItem.getKeyCode()==code)
+                projectileManual.mark();
+            for(net.minecraft.client.settings.KeyBinding hotbar :
+                minecraft.gameSettings.keyBindsHotbar) {
+                if(hotbar.getKeyCode()==code) {
+                    projectileManual.mark();
+                    break;
+                }
+            }
+        }
 
         // F6 Panic/Disable All, with immediate release of owned Bridge Assist
         // Sneak state. The same physical key can remain pressed by the player.
@@ -414,6 +455,7 @@ public final class ForgeEventAdapter {
             jumpReset.reset();
             autoRod.reset();
             autoSnowball.reset();
+            projectileManual.reset();
                 chestStealer.reset();
                 inventoryManager.reset();
                 autoArmor.reset();
@@ -437,6 +479,14 @@ public final class ForgeEventAdapter {
     public void onMouse(InputEvent.MouseInputEvent event) {
         host.diagnostics().record(Counter.MOUSE_CALLBACK);
         if (!worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) return;
+        if(minecraft.currentScreen==null && minecraft.inGameHasFocus &&
+           Mouse.isCreated()) {
+            int useCode=minecraft.gameSettings.keyBindUseItem.getKeyCode();
+            boolean manualUse=useCode<0 && Mouse.getEventButtonState() &&
+                Mouse.getEventButton()==useCode+100;
+            if(Mouse.getEventDWheel()!=0 || manualUse)
+                projectileManual.mark();
+        }
         features.mouseInput();
     }
 
@@ -627,6 +677,7 @@ public final class ForgeEventAdapter {
             jumpReset.reset();
             autoRod.reset();
             autoSnowball.reset();
+            projectileManual.reset();
                 chestStealer.reset();
                 inventoryManager.reset();
                 autoArmor.reset();

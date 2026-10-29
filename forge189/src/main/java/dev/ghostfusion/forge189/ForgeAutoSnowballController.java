@@ -51,7 +51,7 @@ final class ForgeAutoSnowballController {
             if(physical(key.getKeyCode()))return true;
         return false;
     }
-    private void restoreIfOwned() {
+    private void restoreIfOwned(boolean manualOverride) {
         boolean wasOwned=policy.ownsHotbar();
         EntityPlayerSP p=mc.thePlayer;
         boolean same=p!=null&&p==owner&&mc.theWorld==world &&
@@ -60,7 +60,8 @@ final class ForgeAutoSnowballController {
         int slot=p==null?-1:p.inventory.currentItem;
         // Does not silently overwrite a manual slot selection, including
         // when the user has already scrolled to something else.
-        int restore=policy.relinquish(slot,same,manualHotbar());
+        int restore=policy.relinquish(slot,same,
+            manualOverride || manualHotbar());
         if(restore>=0&&same) {
             p.inventory.currentItem=restore;
             mc.playerController.updateController();
@@ -71,12 +72,19 @@ final class ForgeAutoSnowballController {
         owner=null;world=null;
     }
     boolean ownsHotbar() { return policy.ownsHotbar(); }
-    void reset() {
-        try { restoreIfOwned(); }
+    void reset() { reset(false); }
+    void reset(boolean manualOverride) {
+        try { restoreIfOwned(manualOverride); }
         finally {policy.reset();host.services().actions().cancelOwner(MODULE);}
     }
     /** True reserves optional combat ATTACK/USE/camera for the current tick. */
-    boolean tick() {
+    boolean tick(boolean manualOverride) {
+        if(manualOverride) {
+            // A number-key tap or wheel event is authoritative even if the
+            // slot was changed away and back between END ticks.
+            reset(true);
+            return false;
+        }
         if(mc.thePlayer==null||mc.theWorld==null||mc.playerController==null||
            mc.currentScreen!=null||!mc.inGameHasFocus||
            !host.services().connected()||!host.featureEnabled(MODULE)) {
@@ -124,7 +132,7 @@ final class ForgeAutoSnowballController {
         // A human hotbar key and wheel-changed currentItem always outrank us.
         if(ourSlot && (manualHotbar() ||
             p.inventory.currentItem!=policy.ownedSnowballSlot())) {
-            restoreIfOwned();
+            restoreIfOwned(true);
             policy.reset();
             return false;
         }
@@ -133,6 +141,12 @@ final class ForgeAutoSnowballController {
         boolean attackHeld=physical(attackCode);
         boolean manualUse=physical(useCode)||
             mc.gameSettings.keyBindUseItem.isKeyDown();
+        if(ourSlot && manualUse) {
+            // Real player use-item input always wins. Do not move the
+            // selected hotbar slot behind the player's right click.
+            reset(true);
+            return false;
+        }
         boolean safeBinding=attackCode!=0&&useCode!=0&&attackCode!=useCode &&
             attackCode!=dev.ghostfusion.core.ReservedKeys.CLICK_GUI &&
             useCode!=dev.ghostfusion.core.ReservedKeys.CLICK_GUI;
@@ -167,7 +181,7 @@ final class ForgeAutoSnowballController {
             lane,ActionCoordinator.Phase.OUTPUT,tick,epoch);
         if(selected==null||!MODULE.equals(selected.owner)) {
             policy.cancelPrepared();
-            restoreIfOwned();
+            restoreIfOwned(false); // denied optional OUTPUT, not human input
             return false;
         }
         if(wanted==Action.SELECT) {
@@ -212,9 +226,9 @@ final class ForgeAutoSnowballController {
                     cast ? ModuleActionTelemetry.Event.LOCAL_COMPLETE :
                            ModuleActionTelemetry.Event.CANCELLED);
             } else {
-                // A manual slot override wins. Clear the pending receipt;
-                // do not restore an old slot over the user's current choice.
-                restoreIfOwned();
+                // Manual native input wins even if it left the slot at our
+                // synthetic value. Never write stale original selection.
+                restoreIfOwned(true);
             }
             owner=null;world=null;
             return true;
