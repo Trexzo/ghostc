@@ -21,7 +21,7 @@ public final class ProjectileInventoryFence {
     private int sourceSlot=-1,projectileSlot=-1;
     private Object source,sourceItem,projectile,projectileItem;
     private int sourceCount,sourceDamage,projectileCount,projectileDamage;
-    private boolean selected,checkedUse,used;
+    private boolean selected,checkedUse,approvedUse,used;
 
     private void check() {
         if(Thread.currentThread()!=owner)
@@ -52,7 +52,7 @@ public final class ProjectileInventoryFence {
         sourceCount=originalCount;sourceDamage=originalDamage;
         projectile=selectedStack;projectileItem=selectedItem;
         projectileCount=selectedCount;projectileDamage=selectedDamage;
-        selected=true;checkedUse=false;used=false;
+        selected=true;checkedUse=approvedUse=used=false;
     }
     private boolean sourceMatches(Object current,Object item,int count,int damage) {
         return stackMatches(source,sourceItem,sourceCount,sourceDamage,
@@ -75,12 +75,13 @@ public final class ProjectileInventoryFence {
                          currentProjectile,currentProjectileItem,
                          currentProjectileCount,currentProjectileDamage);
         checkedUse=true;
+        approvedUse=allowed;
         return allowed;
     }
     /** Mark only after genuine native sendUseItem returned success. */
     public void nativeUsed(long generation,long tick) {
         check();
-        if(!selected||!checkedUse||used||generation!=epoch||
+        if(!selected||!checkedUse||!approvedUse||used||generation!=epoch||
            tick!=selectedTick+1)
             throw new IllegalStateException("projectile inventory unapproved native use");
         used=true;
@@ -107,6 +108,6 @@ public final class ProjectileInventoryFence {
         sourceSlot=projectileSlot=-1;
         source=sourceItem=projectile=projectileItem=null;
         sourceCount=sourceDamage=projectileCount=projectileDamage=0;
-        selected=checkedUse=used=false;
+        selected=checkedUse=approvedUse=used=false;
     }
 }
