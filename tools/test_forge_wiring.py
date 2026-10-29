@@ -1070,6 +1070,41 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('PlayerControllerMP.class.getMethod("sendUseItem"',native_probe)
         self.assertIn("seeded();",tests)
 
+    def test_projectile_inventory_identity_and_depletion_native_admission(self):
+        rod=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeAutoRodController.java")
+        snow=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeAutoSnowballController.java")
+        fence=content("src/main/java/dev/ghostfusion/features/ProjectileInventoryFence.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/ProjectileInventoryFenceTests.java")
+        native=content("forge189/src/test/java/dev/ghostfusion/forge189/NativeProjectileInventoryFenceTests.java")
+        catalog=content("src/test/java/dev/ghostfusion/tests/IntegratedModuleCatalogTests.java")
+        gradle=content("forge189/build.gradle")
+        for controller in (rod,snow):
+            self.assertIn("new ProjectileInventoryFence()",controller)
+            self.assertIn("inventoryFence.selected(epoch,tick,originalSlot,",controller)
+            self.assertIn("boolean exactItem=inventoryFence.allowUse(epoch,tick,",controller)
+            self.assertIn("inventoryFence.nativeUsed(epoch,tick);",controller)
+            self.assertIn("inventoryFence.mayRestore(host.services().generation()",controller)
+            self.assertIn("boolean unchanged=same && inventoryRestoreSafe(p);",controller)
+            self.assertIn("&& inventoryRestoreSafe(p))",controller)
+            self.assertIn("inventoryFence.reset();",controller)
+            self.assertIn("private static int damage(ItemStack s)",controller)
+            self.assertIn("private static int count(ItemStack s)",controller)
+            self.assertIn("!sameTarget||!exactItem",controller)
+            self.assertLess(controller.index("inventoryFence.selected(epoch,tick,"),
+                            controller.index("inventoryFence.allowUse(epoch,tick,"))
+            self.assertLess(controller.index("boolean exactItem=inventoryFence.allowUse"),
+                            controller.index("mc.playerController.sendUseItem("))
+        self.assertIn("current==expected && currentItem==expectedItem",fence)
+        self.assertIn("currentSize==expectedSize && currentDamage==expectedDamage",fence)
+        self.assertIn("tick-selectedTick==1",fence)
+        self.assertIn("selected=checkedUse=approvedUse=used=false;",fence)
+        self.assertIn("(currentProjectile==projectile||(used&&currentProjectile==null))",fence)
+        self.assertIn("ProjectileInventoryFenceTests.main(args);",catalog)
+        self.assertIn("seeded();",tests)
+        self.assertIn("check.dependsOn nativeProjectileInventoryFenceProbe",gradle)
+        self.assertIn('ItemStack.class.getField("stackSize")',native)
+        self.assertIn('ItemStack.class.getMethod("getItemDamage")',native)
+
     def test_projectile_original_target_identity_and_exact_use_tick(self):
         rod=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeAutoRodController.java")
         snow=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeAutoSnowballController.java")

@@ -4,6 +4,7 @@ import dev.ghostfusion.features.AutoRodPolicy;
 import dev.ghostfusion.features.AutoRodPolicy.Action;
 import dev.ghostfusion.features.EspTeamPolicy;
 import dev.ghostfusion.features.ProjectileTargetFence;
+import dev.ghostfusion.features.ProjectileInventoryFence;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.ModuleActionTelemetry;
 import dev.ghostfusion.services.ActionCoordinator;
@@ -31,6 +32,7 @@ final class ForgeAutoRodController {
     private final HostRuntime host;
     private final AutoRodPolicy policy=new AutoRodPolicy();
     private final ProjectileTargetFence targetFence=new ProjectileTargetFence();
+    private final ProjectileInventoryFence inventoryFence=new ProjectileInventoryFence();
     private EntityPlayerSP owner;
     private World world;
     ForgeAutoRodController(Minecraft minecraft,HostRuntime runtime) {
@@ -53,6 +55,18 @@ final class ForgeAutoRodController {
             if(physical(key.getKeyCode()))return true;
         return false;
     }
+    private static Object item(ItemStack s) {return s==null?null:s.getItem();}
+    private static int count(ItemStack s) {return s==null?0:s.stackSize;}
+    private static int damage(ItemStack s) {return s==null?0:s.getItemDamage();}
+
+    private boolean inventoryRestoreSafe(EntityPlayerSP p) {
+        if(p==null||!policy.ownsHotbar())return false;
+        int source=policy.originalSlot(),selected=policy.ownedRodSlot();
+        ItemStack original=p.inventory.getStackInSlot(source);
+        ItemStack projectile=p.inventory.getStackInSlot(selected);
+        return inventoryFence.mayRestore(host.services().generation(),source,selected,
+            original,item(original),count(original),damage(original),projectile);
+    }
     private void restoreIfOwned(boolean manualOverride) {
         boolean wasOwned=policy.ownsHotbar();
         EntityPlayerSP p=mc.thePlayer;
@@ -62,7 +76,11 @@ final class ForgeAutoRodController {
         int slot=p==null?-1:p.inventory.currentItem;
         // Does not silently overwrite a manual slot selection, including
         // when the user has already scrolled to something else.
-        int restore=policy.relinquish(slot,same,
+        // A changed original hotbar stack is a human/server inventory action;
+        // do not restore to that slot just because the temporary projectile
+        // slot still happens to be selected.
+        boolean unchanged=same && inventoryRestoreSafe(p);
+        int restore=policy.relinquish(slot,unchanged,
             manualOverride || manualHotbar());
         if(restore>=0&&same) {
             p.inventory.currentItem=restore;
@@ -73,6 +91,7 @@ final class ForgeAutoRodController {
                 ModuleActionTelemetry.Event.CANCELLED);
         owner=null;world=null;
         targetFence.reset();
+        inventoryFence.reset();
     }
     boolean ownsHotbar() { return policy.ownsHotbar(); }
     void reset() { reset(false); }
@@ -81,6 +100,7 @@ final class ForgeAutoRodController {
         finally {
             policy.reset();
             targetFence.reset();
+            inventoryFence.reset();
             host.services().actions().cancelOwner(MODULE);
         }
     }
@@ -198,10 +218,21 @@ final class ForgeAutoRodController {
                !(p.inventory.getStackInSlot(rod).getItem() instanceof ItemFishingRod)) {
                 policy.cancelPrepared();return false;
             }
+            final int originalSlot=p.inventory.currentItem;
+            final ItemStack sourceStack=p.inventory.getStackInSlot(originalSlot);
+            final ItemStack projectileStack=p.inventory.getStackInSlot(rod);
+            if(projectileStack.stackSize<1) {
+                policy.cancelPrepared();return false;
+            }
             owner=p;world=mc.theWorld;
             p.inventory.currentItem=rod;
             mc.playerController.updateController();
             policy.committed(Action.SELECT,epoch,tick);
+            // Bind both native inventory stacks BEFORE anything can be used.
+            inventoryFence.selected(epoch,tick,originalSlot,rod,
+                sourceStack,item(sourceStack),count(sourceStack),damage(sourceStack),
+                projectileStack,item(projectileStack),
+                count(projectileStack),damage(projectileStack));
             // The slot and target were selected together. The next native
             // USE can only address this exact player on the exact next tick.
             targetFence.selected(epoch,tick,targetCandidate.getUniqueID(),
@@ -219,7 +250,14 @@ final class ForgeAutoRodController {
                 targetCandidate==null?null:targetCandidate.getUniqueID(),
                 targetCandidate==null?-1:targetCandidate.getEntityId(),
                 target);
-            if(!active||!sameTarget||rodStack==null||
+            final int sourceSlot=policy.originalSlot();
+            final int ownedSlot=policy.ownedRodSlot();
+            final ItemStack sourceNow=p.inventory.getStackInSlot(sourceSlot);
+            boolean exactItem=inventoryFence.allowUse(epoch,tick,sourceSlot,ownedSlot,
+                sourceNow,item(sourceNow),count(sourceNow),damage(sourceNow),
+                rodStack,item(rodStack),count(rodStack),damage(rodStack));
+            if(!active||!sameTarget||!exactItem||rodStack==null||
+               rodStack.stackSize<1||
                !(rodStack.getItem() instanceof ItemFishingRod)) {
                 policy.cancelPrepared();return true;
             }
@@ -229,6 +267,7 @@ final class ForgeAutoRodController {
             boolean used=mc.playerController.sendUseItem(p,mc.theWorld,rodStack);
             if(used) {
                 policy.committed(Action.USE,epoch,tick);
+                inventoryFence.nativeUsed(epoch,tick);
                 host.nativeAction(ModuleActionTelemetry.Lane.AUTOROD,
                     ModuleActionTelemetry.Event.DISPATCHED);
             } else policy.cancelPrepared();
@@ -236,7 +275,7 @@ final class ForgeAutoRodController {
         }
         if(wanted==Action.RESTORE) {
             if(p.inventory.currentItem==policy.ownedRodSlot()&&
-               !manualHotbar()) {
+               !manualHotbar() && inventoryRestoreSafe(p)) {
                 p.inventory.currentItem=policy.originalSlot();
                 mc.playerController.updateController();
                 boolean cast=policy.castObserved();
@@ -251,6 +290,7 @@ final class ForgeAutoRodController {
             }
             owner=null;world=null;
             targetFence.reset();
+            inventoryFence.reset();
             return true;
         }
         return true;
