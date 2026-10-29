@@ -229,3 +229,27 @@ The new `HudEditorSlateCanvasGeometryTests` suite checks **50,000 seeded letterb
 ### Slinky-derived *principle*, original F7 tab typography
 
 The recovered `Trexzo/OpenSlinky/SlinkyClient/src/main/java/dev/slinky/client/gui/GuiPresentation.java` measures actual font advance and centers glyphs within controls; `GuiWidgets.java` separates hovered/selected control visuals from text and geometry. GhostC now follows that general ergonomic idea with independently implemented `HudEditorSlateTabTypography`: each F7 tab fits its own actual Minecraft `FontRenderer` text budget, centers the measured glyph run in the same `HudEditorControls.tabAt` click region, and draws a short centered ice-blue active underline. Hovered tabs use a quiet graphite surface. **Only Slate is changed**; Indigo and Graphite retain their previous 17px row and left-aligned text. The separate `HudEditorSlateTabTypographyTests` covers 50,000 deterministic parent widths and selected tabs, checking centering, underline containment and tiny viewport cases. CI and Forge artifact verifier enforce it. No proprietary control layouts, colors, fonts or art are copied.
+
+
+## R5 Slate measured typography — owned Slinky/Vape source references (29 October 2026)
+
+**Reference origin:** The ChatGPT Library comparison `Vape_vs_Slinky_Deep_Source_Comparison_2026-10-12.md` and earlier saved visual audits; the directly accessible user-owned `Trexzo/OpenSlinky` and `Trexzo/VapeV4.21` repositories. These recovered/community projects do not establish official release or binary parity. Original archived vendor ZIPs were not separately available for this turn.
+
+### Findings used for this batch
+
+- `Trexzo/OpenSlinky/SlinkyClient/src/main/java/dev/slinky/client/render/font/CanvasFonts.java` exposes an isolated font engine that measures text and manages its own GPU atlas and font lifecycles. `FontServices.java` derives glyph bounds and cursor advances from actual metrics, while `GameFontProvider.java` demonstrates that the in-game Minecraft glyph resources can be used instead of licensing third-party font files. These indicate why a single flat 9-pixel text size is an incomplete typography system, but we do **not** copy their engine or assets.
+- `Trexzo/VapeV4.21/src/main/java/gg/vape/module/none/TextGuiSettingsFrame.java` exposes separate `smoothFont`, `scale`, `shadow`, and `animations` settings for Text GUI. These demonstrate the importance of explicit control over type presentation; they do **not** guarantee how proprietary official Vape renders.
+- GhostC already has measured `HudTextFit.fit` based on the current Minecraft font and a scoped `RenderStateGuard`. This is a reliable base to introduce a true type hierarchy while retaining Java 8 and 1.8.9 compatibility.
+
+### Implemented
+
+Added original, allocation-light `GuiSlateTypeScale` that bounds actual measured glyph advances in **post-scale output pixels**, with `PRIMARY=1.125` and `SECONDARY=0.875`. It accepts the active Minecraft `FontRenderer.getStringWidth` measurement, uses bounded Unicode-aware fitting, and rejects invalid/nonfinite scales. Source-independent `GuiSlateTypeScaleTests` exercise 60,000 deterministic variable-width font/sample/budget cases, supplementary codepoints, Minecraft formatting markers and row-baseline admission.
+
+The Forge `GhostClickGui.drawSlateType` method renders these strings with a matrix push/translate/scale and guaranteed pop. It does not mutate global font assets, texture filtering, OpenGL shader state, Minecraft profile values or input hitboxes. The scale is currently **only an internal Slate design token**, not a newly persisted setting.
+
+- **Wide Slate**: module name uses the larger title at `yy+2`, real category/keybind secondary line uses the smaller text at `yy+16`, and the selected module's details heading/breadcrumb share the hierarchy at `detailsY+21` / `+34`. Widths are fitted after scaling, leaving the state-switch/status regions untouched.
+- **Compact Slate**: equivalent title at `ry+2` and metadata at `ry+14` remain inside the original 25px module row and use the original clickable bounds. Legacy Indigo/Graphite rows retain their original one-line rendering.
+- **Slate global headers**: the GhostC wordmark and F7 HUD editor heading gain the same primary scale. The selected anchor readout is horizontally positioned with the **scaled actual measured title width**, preventing text overlap.
+- Long-name tooltips compare against the actual *scaled* fitted title, so clip discovery matches painted text.
+
+This is a genuine paint-path hierarchy improvement but **not** yet a custom antialiased font renderer. Fractional scaling of bitmap glyphs may cause visual softness depending on Minecraft GUI scale; screenshots and FPS measurements at GUI Scale Auto/2/3 are required before declaring it superior to the reference clients. If fractional rendering is visibly worse, retain the measured layout contracts and replace only the scoped paint backend after native evidence.
