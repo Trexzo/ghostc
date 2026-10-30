@@ -42,3 +42,7 @@ Acceptance thresholds/observations:
 ## Decision rule
 
 Leave the smooth font **disabled by default** unless paired screenshots clearly improve readability and spacing, diagnostic counts show actual paint use, no lifecycle state leak occurs, and native rendering performance is acceptable. A fallback to vanilla is a safe behavior, not evidence that the smooth font works. Retain this visual-only PR as draft; the parallel combat branch remains untouched.
+
+## 30 October — pre-upload geometry and repeat-fallback optimization
+
+The experimental font now checks actual raster width and baseline-safe vertical placement **before** uploading a texture. A bounded 96-entry, geometry-only negative cache remembers non-fitting glyph runs: a repeat at the same small row dimensions falls back without another Java2D rasterization, while a larger budget can retry normally. Closing the GUI and invalidating the OpenGL texture context clear the denial cache. No text is logged, and the default font path is unchanged. Core randomized admission checks and Forge source contracts cover the ordering; native frame-time and screenshot acceptance still remain outstanding.

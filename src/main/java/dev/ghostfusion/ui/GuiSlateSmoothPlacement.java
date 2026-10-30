@@ -11,6 +11,21 @@ package dev.ghostfusion.ui;
 public final class GuiSlateSmoothPlacement {
     private GuiSlateSmoothPlacement() { }
 
+    /**
+     * Check actual measured width and baseline-safe height together.
+     * A failed admission must never require an OpenGL texture upload.
+     * A later larger pixel/height budget can admit the same cached glyph.
+     */
+    public static int admittedTop(int glyphWidth,int croppedHeight,
+                                  int baselineFromTop,int pixelBudget,
+                                  int heightBudget) {
+        if(glyphWidth<1||glyphWidth>GuiSlateSmoothRaster.MAX_WIDTH||
+           pixelBudget<0||pixelBudget>GuiSlateSmoothRaster.MAX_WIDTH)
+            throw new IllegalArgumentException("Slate smooth glyph width");
+        int top=top(croppedHeight,baselineFromTop,heightBudget);
+        return glyphWidth<=pixelBudget?top:-1;
+    }
+
     /** Baseline is three pixels above the end of the admitted text row. */
     public static int top(int croppedHeight,int baselineFromTop,
                           int heightBudget) {

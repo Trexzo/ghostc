@@ -30,6 +30,34 @@ public final class GuiSlateSmoothPlacementTests {
                    "rejection exactly matches unsafe glyph box");
             }
         }
+        // A bounded denial-cache entry carries only glyph geometry.
+        // Rechecking with the same budget must reject without raster work,
+        // while widening the budget can correctly admit the same run.
+        for(int i=0;i<50000;i++) {
+            int width=1+rng.nextInt(512);
+            int height=1+rng.nextInt(48);
+            int baseline=rng.nextInt(97)-48;
+            int pixelBudget=rng.nextInt(513);
+            int rowBudget=1+rng.nextInt(48);
+            int original=GuiSlateSmoothPlacement.top(height,baseline,rowBudget);
+            int admitted=GuiSlateSmoothPlacement.admittedTop(width,height,
+                baseline,pixelBudget,rowBudget);
+            ok(admitted==(width<=pixelBudget?original:-1),
+                "pixel and baseline checks agree before GPU allocation");
+            if(admitted<0) {
+                ok(GuiSlateSmoothPlacement.admittedTop(width,height,
+                    baseline,pixelBudget,rowBudget)==-1,
+                    "same cached denied dimensions remain rejected");
+            }
+        }
+        ok(GuiSlateSmoothPlacement.admittedTop(20,6,5,19,12)==-1,
+            "narrow width rejects glyph");
+        ok(GuiSlateSmoothPlacement.admittedTop(20,6,5,20,12)>=0,
+            "larger width readmits same cached glyph");
+        invalid(()->GuiSlateSmoothPlacement.admittedTop(0,5,2,10,12),
+            "invalid glyph width");
+        invalid(()->GuiSlateSmoothPlacement.admittedTop(1,5,2,513,12),
+            "invalid width budget");
         int accepted=0;
         String[] samples={"GHOSTC","Auto Clicker","RANGE",
             "gjpqy","III","WWW","Type & Shift"};

@@ -21,6 +21,7 @@ import org.lwjgl.opengl.GL11;
 final class SlateSmoothFontRenderer {
     private static final int MAX_TEXTURES=96;
     private static final int MAX_FITTED=192;
+    private static final int MAX_DENIED=96;
     private static final int MAX_PIXELS=GuiSlateSmoothRaster.MAX_WIDTH*48;
     // Most module captions are unchanged for hundreds of frames. Avoid
     // constructing AWT FontMetrics/Graphics2D anew on each paint.
@@ -28,6 +29,11 @@ final class SlateSmoothFontRenderer {
         new LinkedHashMap<FitKey,String>(256,0.75f,true);
     private final LinkedHashMap<Key,Texture> textures=
         new LinkedHashMap<Key,Texture>(128,0.75f,true);
+    // Cache only the dimensions of non-fitting glyph runs. Without this,
+    // small native GUI rows rasterize the same rejected text every frame.
+    // A larger row can retry, and closing the GUI clears the bounded cache.
+    private final LinkedHashMap<Key,Bounds> denied=
+        new LinkedHashMap<Key,Bounds>(128,0.75f,true);
     private final boolean requested=
         Boolean.getBoolean("ghostc.slate.smoothFontExperimental");
     // Aggregate-only local trial output; no glyph strings, player/module
@@ -66,17 +72,37 @@ final class SlateSmoothFontRenderer {
                 // texture identities. Never delete those stale IDs: a new
                 // context may already have reused the same integers.
                 textures.clear();
+                denied.clear();
                 texture=null;
             }
+            int top;
             if(texture==null) {
+                Bounds refusal=denied.get(key);
+                if(refusal!=null &&
+                   GuiSlateSmoothPlacement.admittedTop(refusal.width,
+                       refusal.height,refusal.baselineFromTop,
+                       pixelBudget,heightBudget)<0)return false;
                 GuiSlateSmoothRaster.Run raster=
                     GuiSlateSmoothRaster.raster(text,size,bold);
                 if(diagnostics)trial.raster();
-                if(raster.width>pixelBudget||raster.height>heightBudget||
-                   raster.width*raster.height>MAX_PIXELS)return false;
+                if(raster.width*raster.height>MAX_PIXELS)return false;
+                // Admit actual glyph geometry *before* allocating a GPU
+                // texture. Rejecting after upload wasted GPU work in short
+                // Slate rows and repeated costly AWT work every frame.
+                top=GuiSlateSmoothPlacement.admittedTop(raster.width,
+                    raster.height,raster.baselineFromTop,
+                    pixelBudget,heightBudget);
+                if(top<0) {
+                    denied.put(key,new Bounds(raster.width,raster.height,
+                        raster.baselineFromTop));
+                    if(denied.size()>MAX_DENIED)
+                        denied.remove(denied.keySet().iterator().next());
+                    return false;
+                }
                 texture=upload(raster);
                 if(diagnostics)trial.upload();
                 textures.put(key,texture);
+                denied.remove(key);
                 if(textures.size()>MAX_TEXTURES) {
                     Iterator<Map.Entry<Key,Texture>> i=textures.entrySet().iterator();
                     Map.Entry<Key,Texture> eldest=i.next();
@@ -84,13 +110,12 @@ final class SlateSmoothFontRenderer {
                     GL11.glDeleteTextures(eldest.getValue().id);
                     if(diagnostics)trial.evict();
                 }
-            } else if(texture.width>pixelBudget||texture.height>heightBudget)
-                return false;
-            // Never align cropped text by its top edge. A capital-only
-            // caption and a descender-heavy one must share one baseline.
-            int top=GuiSlateSmoothPlacement.top(texture.height,
-                texture.baselineFromTop,heightBudget);
-            if(top<0)return false;
+            } else {
+                top=GuiSlateSmoothPlacement.admittedTop(texture.width,
+                    texture.height,texture.baselineFromTop,
+                    pixelBudget,heightBudget);
+                if(top<0)return false;
+            }
             paint(texture,x,y+top,argb);
             painted=true;
             return true;
@@ -202,6 +227,7 @@ final class SlateSmoothFontRenderer {
         } finally {
             textures.clear();
             fitted.clear();
+            denied.clear();
         }
     }
 
@@ -223,6 +249,13 @@ final class SlateSmoothFontRenderer {
         }
     }
 
+    private static final class Bounds {
+        final int width,height,baselineFromTop;
+        Bounds(int width,int height,int baselineFromTop) {
+            this.width=width;this.height=height;
+            this.baselineFromTop=baselineFromTop;
+        }
+    }
     private static final class Texture {
         final int id,width,height,baselineFromTop;
         Texture(int id,int width,int height,int baselineFromTop) {
