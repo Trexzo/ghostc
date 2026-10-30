@@ -2526,7 +2526,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("GL11.glPopAttrib();",smooth)
         self.assertIn("GuiSlateSmoothRaster.fit(",smooth)
         self.assertIn("System.arraycopy(full,first*width,pixels,0,pixels.length);",raster)
-        self.assertIn("return new Run(cleaned,width,1,advance,new int[width]);",raster)
+        self.assertIn("return new Run(cleaned,width,1,advance,0,new int[width]);",raster)
         self.assertIn("GuiSlateSmoothRaster.raster(",smooth)
         self.assertIn("RenderingHints.VALUE_TEXT_ANTIALIAS_ON",raster)
         self.assertIn("smoothSlateFont.draw(value,atX,atY,color,",gui)
