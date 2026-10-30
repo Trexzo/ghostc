@@ -2,6 +2,7 @@ package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.ui.GuiSlateSmoothRaster;
 import dev.ghostfusion.ui.GuiSlateSmoothPlacement;
+import dev.ghostfusion.ui.GuiSlateSmoothTrialMetrics;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -29,6 +30,12 @@ final class SlateSmoothFontRenderer {
         new LinkedHashMap<Key,Texture>(128,0.75f,true);
     private final boolean requested=
         Boolean.getBoolean("ghostc.slate.smoothFontExperimental");
+    // Aggregate-only local trial output; no glyph strings, player/module
+    // names, personal identifiers or gameplay data are ever emitted.
+    private final boolean diagnostics=requested &&
+        Boolean.getBoolean("ghostc.slate.fontDiagnostics");
+    private final GuiSlateSmoothTrialMetrics trial=
+        new GuiSlateSmoothTrialMetrics();
     private boolean failed;
 
     boolean enabled() {return requested&&!failed;}
@@ -37,6 +44,8 @@ final class SlateSmoothFontRenderer {
                  int pixelBudget,int heightBudget) {
         if(!enabled() || raw==null || raw.isEmpty() || pixelBudget<4 ||
            heightBudget<8)return false;
+        final long started=diagnostics?System.nanoTime():0L;
+        boolean painted=false;
         try {
             int allowed=Math.min(GuiSlateSmoothRaster.MAX_WIDTH,pixelBudget);
             FitKey request=new FitKey(raw,size,bold,allowed);
@@ -46,6 +55,8 @@ final class SlateSmoothFontRenderer {
                 fitted.put(request,text);
                 if(fitted.size()>MAX_FITTED)
                     fitted.remove(fitted.keySet().iterator().next());
+            } else if(diagnostics) {
+                trial.hit();
             }
             if(text.isEmpty())return false;
             Key key=new Key(text,size,bold);
@@ -60,15 +71,18 @@ final class SlateSmoothFontRenderer {
             if(texture==null) {
                 GuiSlateSmoothRaster.Run raster=
                     GuiSlateSmoothRaster.raster(text,size,bold);
+                if(diagnostics)trial.raster();
                 if(raster.width>pixelBudget||raster.height>heightBudget||
                    raster.width*raster.height>MAX_PIXELS)return false;
                 texture=upload(raster);
+                if(diagnostics)trial.upload();
                 textures.put(key,texture);
                 if(textures.size()>MAX_TEXTURES) {
                     Iterator<Map.Entry<Key,Texture>> i=textures.entrySet().iterator();
                     Map.Entry<Key,Texture> eldest=i.next();
                     i.remove();
                     GL11.glDeleteTextures(eldest.getValue().id);
+                    if(diagnostics)trial.evict();
                 }
             } else if(texture.width>pixelBudget||texture.height>heightBudget)
                 return false;
@@ -78,15 +92,22 @@ final class SlateSmoothFontRenderer {
                 texture.baselineFromTop,heightBudget);
             if(top<0)return false;
             paint(texture,x,y+top,argb);
+            painted=true;
             return true;
         } catch(RuntimeException error) {
             failed=true;
+            if(diagnostics)trial.error();
             close();
             return false;
         } catch(LinkageError error) {
             failed=true;
+            if(diagnostics)trial.error();
             close();
             return false;
+        } finally {
+            if(diagnostics)trial.draw(painted,
+                Math.max(0L,System.nanoTime()-started),
+                textures.size(),fitted.size());
         }
     }
 
@@ -154,6 +175,14 @@ final class SlateSmoothFontRenderer {
             GL11.glEnd();
         } finally {
             GL11.glPopAttrib();
+        }
+    }
+
+    void reportAndClose() {
+        try {
+            if(diagnostics)System.out.println(trial.report());
+        } finally {
+            close();
         }
     }
 
