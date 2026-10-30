@@ -160,3 +160,13 @@ task nativeProjectileHookProvenanceProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeProjectileHookProvenanceTests'
 }
 check.dependsOn nativeProjectileHookProvenanceProbe
+
+
+// R3.65 mandatory original Forge 1.8.9 Java8 KeyBinding and AttackEntityEvent
+// linkage with read-only frame acceptance; NO game or server is launched.
+task nativeCombatFrameAcceptanceProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeCombatFrameAcceptanceTests'
+}
+check.dependsOn nativeCombatFrameAcceptanceProbe
