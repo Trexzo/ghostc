@@ -191,6 +191,7 @@ public final class IntegratedModuleCatalogTests {
         ProjectileObservationTests.main(args);
         ProjectileReconciliationTests.main(args);
         ProjectileHookProvenanceTests.main(args);
+        CombatFrameAcceptanceTests.main(args);
         ChestStealerTests.main(args);
         InventoryManagerTests.main(args);
         AutoArmorTests.main(args);
