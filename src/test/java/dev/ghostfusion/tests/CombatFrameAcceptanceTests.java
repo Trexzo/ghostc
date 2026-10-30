@@ -130,7 +130,7 @@ public final class CombatFrameAcceptanceTests {
     private static void randomized() {
         CombatFrameAcceptance a=new CombatFrameAcceptance();
         Random rng=new Random(365189L);
-        long violations=0,exclusive=0,manual=0,conflicts=0,rearmed=0;
+        long violations=0,exclusive=0,manualFrames=0,conflicts=0,rearmed=0;
         long epoch=5,tick=0;
         boolean priorProjectile=false;
         for(int i=0;i<80000;i++) {
@@ -157,11 +157,11 @@ public final class CombatFrameAcceptanceTests {
             priorProjectile=rod||snow;
             if(got==Result.UNEXPECTED_NATIVE_WRITE)violations++;
             if(got==Result.PROJECTILE_EXCLUSIVE)exclusive++;
-            if(got==Result.MANUAL_OVERRIDE)manual++;
+            if(got==Result.MANUAL_OVERRIDE)manualFrames++;
             if(got==Result.OWNER_CONFLICT)conflicts++;
             if(got==Result.POST_PROJECTILE_REARM)rearmed++;
         }
-        ok(violations>6000&&exclusive>5000&&manual>1000&&conflicts>100,
+        ok(violations>6000&&exclusive>5000&&manualFrames>1000&&conflicts>100,
            "80k includes suppressed and illegally written frames");
         ok(rearmed>300,"80k includes handoff after projectile release");
         ok(checks>80000,"80k cases exercised");
