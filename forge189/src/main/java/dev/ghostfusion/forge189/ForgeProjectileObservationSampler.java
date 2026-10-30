@@ -1,6 +1,7 @@
 package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.features.ProjectileObservationWindow;
+import dev.ghostfusion.features.ProjectileInventoryReconciliation;
 import dev.ghostfusion.features.ProjectileObservationWindow.Outcome;
 import dev.ghostfusion.features.ProjectileObservationWindow.Signal;
 import dev.ghostfusion.host.HostRuntime;
@@ -23,7 +24,9 @@ final class ForgeProjectileObservationSampler {
     private EntityPlayerSP rodPlayer,snowPlayer;
     private World rodWorld,snowWorld;
     private ItemStack snowStack;
-    private int snowSlot=-1,snowCount=-1;
+    private Object snowItem;
+    private int snowSlot=-1,snowCount=-1,snowDamage;
+    private boolean snowNativeLocalMutation;
 
     ForgeProjectileObservationSampler(Minecraft client,HostRuntime runtime) {
         if(client==null||runtime==null)
@@ -36,12 +39,16 @@ final class ForgeProjectileObservationSampler {
         rod.arm(generation,tick);
     }
     void armSnowball(EntityPlayerSP player,World world,long generation,long tick,
-                     int slot,ItemStack originalStack,int originalCount) {
+                     int slot,ItemStack originalStack,int originalCount,
+                     boolean nativeLocalMutation) {
         if(player==null||world==null||slot<0||slot>8||
            originalStack==null||originalCount<1)
             throw new IllegalArgumentException("snowball observation");
         snowPlayer=player;snowWorld=world;
         snowStack=originalStack;snowSlot=slot;snowCount=originalCount;
+        snowItem=originalStack.getItem();
+        snowDamage=originalStack.getItemDamage();
+        snowNativeLocalMutation=nativeLocalMutation;
         snowball.arm(generation,tick);
     }
     void sample() {
@@ -64,16 +71,18 @@ final class ForgeProjectileObservationSampler {
             Signal signal=Signal.NONE;
             if(same) {
                 ItemStack now=snowPlayer.inventory.getStackInSlot(snowSlot);
-                if(now==null || (now==snowStack&&now.stackSize<snowCount))
-                    signal=Signal.SNOWBALL_COUNT_DECREASED;
-                else if(now!=snowStack||now.stackSize>snowCount)
-                    signal=Signal.INVENTORY_REPLACED;
+                signal=ProjectileInventoryReconciliation.classify(
+                    snowStack,snowItem,snowCount,snowDamage,snowNativeLocalMutation,
+                    now,now==null?null:now.getItem(),
+                    now==null?0:now.stackSize,
+                    now==null?0:now.getItemDamage());
             }
             Outcome o=snowball.observe(epoch,tick,same,signal);
             record(o,false);
             if(!snowball.pending()) {
                 snowPlayer=null;snowWorld=null;snowStack=null;
-                snowSlot=snowCount=-1;
+                snowItem=null;snowSlot=snowCount=-1;snowDamage=0;
+                snowNativeLocalMutation=false;
             }
         }
     }
@@ -102,6 +111,7 @@ final class ForgeProjectileObservationSampler {
         rod.reset();snowball.reset();
         rodPlayer=snowPlayer=null;
         rodWorld=snowWorld=null;
-        snowStack=null;snowSlot=snowCount=-1;
+        snowStack=null;snowItem=null;snowSlot=snowCount=-1;
+        snowDamage=0;snowNativeLocalMutation=false;
     }
 }
