@@ -14,8 +14,10 @@ public final class GuiSlateSmoothPlacement {
     /** Baseline is three pixels above the end of the admitted text row. */
     public static int top(int croppedHeight,int baselineFromTop,
                           int heightBudget) {
+        // A punctuation-only glyph can begin *below* the font baseline;
+        // negative baseline offsets are valid and must not kill the trial.
         if(croppedHeight<1||croppedHeight>48||
-           baselineFromTop<0||baselineFromTop>48||
+           baselineFromTop < -48||baselineFromTop>48||
            heightBudget<1||heightBudget>48)
             throw new IllegalArgumentException("Slate smooth glyph box");
         final int baseline=heightBudget-3;
