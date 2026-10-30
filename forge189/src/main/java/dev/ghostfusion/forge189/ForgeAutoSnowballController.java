@@ -290,7 +290,7 @@ final class ForgeAutoSnowballController {
             // Observes CLIENT inventory, not a server acknowledgement.
             if(observations!=null)
                 observations.armSnowball(p,mc.theWorld,epoch,tick,
-                    ownedSlot,snowballStack,quantityBeforeNativeUse);
+                    ownedSlot,snowballStack,quantityBeforeNativeUse,localChanged);
             // Local native submission only, never proof of server receipt,
             // spawned hook/projectile or a PvP hit.
             host.nativeAction(ModuleActionTelemetry.Lane.AUTOSNOWBALL,
