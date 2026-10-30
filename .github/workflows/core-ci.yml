@@ -82,6 +82,10 @@ jobs:
           grep -q 'GUI_SLATE_TYPE_SCALE_PASS' .build/gui-slate-type-scale.log
           java -Djava.awt.headless=true -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateSmoothRasterTests | tee .build/gui-slate-smooth-raster.log
           grep -q 'GUI_SLATE_SMOOTH_RASTER_PASS' .build/gui-slate-smooth-raster.log
+          java -Djava.awt.headless=true -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateSmoothPlacementTests | tee .build/gui-slate-smooth-placement.log
+          grep -q 'GUI_SLATE_SMOOTH_PLACEMENT_PASS' .build/gui-slate-smooth-placement.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateSmoothTrialMetricsTests | tee .build/gui-slate-smooth-trial-metrics.log
+          grep -q 'GUI_SLATE_SMOOTH_TRIAL_METRICS_PASS' .build/gui-slate-smooth-trial-metrics.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateEmptyStateLayoutTests | tee .build/gui-slate-empty-state.log
           grep -q 'GUI_SLATE_EMPTY_STATE_PASS' .build/gui-slate-empty-state.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateCompactSearchGeometryTests | tee .build/gui-slate-compact-search.log
