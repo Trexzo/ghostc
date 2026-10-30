@@ -19,6 +19,7 @@ import dev.ghostfusion.ui.GuiSlateControlGeometry;
 import dev.ghostfusion.ui.GuiSlateCompactMetrics;
 import dev.ghostfusion.ui.GuiSlateModuleCaption;
 import dev.ghostfusion.ui.GuiSlateTypeScale;
+import dev.ghostfusion.ui.GuiSlateSettingsEmptyState;
 import dev.ghostfusion.ui.GuiSlateEmptyStateLayout;
 import dev.ghostfusion.ui.GuiSlateTooltipLayout;
 import dev.ghostfusion.ui.GuiSlateSearchGeometry;
@@ -267,6 +268,24 @@ public final class GhostClickGui extends GuiScreen {
         rect(box.x,box.y,2,box.height,colors.accent);
         label(text,box.textX,box.textY,colors.text);
     }
+    /**
+     * Slate settings have a purposeful non-clickable state when a module
+     * exposes no configurable options. This uses the existing settings
+     * viewport only; keybinds, actions and footer geometry are unchanged.
+     */
+    private void drawSlateEmptySettings(int left,int top,int width,int height,
+                                        GuiThemePalette theme) {
+        GuiSlateSettingsEmptyState.Frame empty=
+            GuiSlateSettingsEmptyState.place(left,top,
+                Math.max(0,width),Math.max(0,height));
+        if(empty==null)return;
+        rect(empty.x,empty.y,empty.width,empty.height,theme.idleModule);
+        rect(empty.accentX,empty.y+9,2,empty.height-18,theme.accent);
+        rect(empty.x+12,empty.separatorY,empty.width-24,1,theme.divider);
+        label("NO EXTRA SETTINGS",empty.titleX,empty.titleY,theme.text);
+        label(trim("TOGGLE OR SET A KEY ABOVE",empty.width-24),
+            empty.titleX,empty.hintY,theme.muted);
+    }
     /** Dedicated Rise-style modules + settings panes, with native GUI input parity. */
     private void drawSlateModules(GuiSlateWorkspace pane,int mx,int my) {
         drawSlateSidebar(mx,my);
@@ -373,6 +392,9 @@ public final class GhostClickGui extends GuiScreen {
         label("SETTINGS",pane.detailsX+9,pane.settingY-14,color.muted);
         List<Map.Entry<String,Setting<?>>> settings=
             new ArrayList<Map.Entry<String,Setting<?>>>(entry.settings().entrySet());
+        if(settings.isEmpty())
+            drawSlateEmptySettings(pane.detailsX+9,pane.settingY,
+                pane.detailsWidth-18,pane.settingRows*30,color);
         settingScroll=Math.max(0,Math.min(settingScroll,
             Math.max(0,settings.size()-pane.settingRows)));
         keyboardSetting=GuiSettingKeyboard.visibleFocus(
@@ -826,6 +848,9 @@ public final class GhostClickGui extends GuiScreen {
         int sY = bindY + 24;
         List<Map.Entry<String, Setting<?>>> settings = new ArrayList<Map.Entry<String, Setting<?>>>(e.settings().entrySet());
         int available = Math.max(0, (y + h - 18 - sY) / 22);
+        if(slateCompact && settings.isEmpty())
+            drawSlateEmptySettings(x+side+11,sY,w-side-26,
+                Math.max(0,y+h-18-sY),compactTheme);
         settingScroll = Math.max(0, Math.min(settingScroll, Math.max(0, settings.size() - available)));
         keyboardSetting=GuiSettingKeyboard.visibleFocus(
             keyboardSetting,settingScroll,settings.size(),available);
