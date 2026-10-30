@@ -2,12 +2,14 @@ package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.features.ProjectileObservationWindow;
 import dev.ghostfusion.features.ProjectileInventoryReconciliation;
+import dev.ghostfusion.features.ProjectileHookProvenance;
 import dev.ghostfusion.features.ProjectileObservationWindow.Outcome;
 import dev.ghostfusion.features.ProjectileObservationWindow.Signal;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
+import net.minecraft.entity.projectile.EntityFishHook;
 import net.minecraft.item.ItemStack;
 import net.minecraft.world.World;
 
@@ -20,6 +22,7 @@ final class ForgeProjectileObservationSampler {
     private final Minecraft mc;
     private final HostRuntime host;
     private final ProjectileObservationWindow rod=new ProjectileObservationWindow();
+    private final ProjectileHookProvenance rodProvenance=new ProjectileHookProvenance();
     private final ProjectileObservationWindow snowball=new ProjectileObservationWindow();
     private EntityPlayerSP rodPlayer,snowPlayer;
     private World rodWorld,snowWorld;
@@ -33,9 +36,11 @@ final class ForgeProjectileObservationSampler {
             throw new IllegalArgumentException("null observation dependencies");
         mc=client;host=runtime;
     }
-    void armRod(EntityPlayerSP player,World world,long generation,long tick) {
+    void armRod(EntityPlayerSP player,World world,long generation,long tick,
+                EntityFishHook beforeNativeHook) {
         if(player==null||world==null)throw new IllegalArgumentException("rod session");
         rodPlayer=player;rodWorld=world;
+        rodProvenance.arm(player,world,beforeNativeHook);
         rod.arm(generation,tick);
     }
     void armSnowball(EntityPlayerSP player,World world,long generation,long tick,
@@ -57,12 +62,19 @@ final class ForgeProjectileObservationSampler {
             boolean same=mc.thePlayer!=null&&mc.thePlayer==rodPlayer &&
                 mc.theWorld==rodWorld &&
                 mc.theWorld.getEntityByID(rodPlayer.getEntityId())==rodPlayer;
-            boolean hook=same&&rodPlayer.fishEntity!=null&&
-                !rodPlayer.fishEntity.isDead;
+            final EntityFishHook hook=same?rodPlayer.fishEntity:null;
+            boolean newRegisteredHook=same && rodProvenance.eligible(
+                mc.thePlayer,mc.theWorld,hook,
+                hook==null?null:hook.angler,
+                hook==null?null:hook.worldObj,
+                hook==null?null:rodWorld.getEntityByID(hook.getEntityId()),
+                hook==null||hook.isDead);
             Outcome o=rod.observe(epoch,tick,same,
-                hook?Signal.ROD_HOOK_VISIBLE:Signal.NONE);
+                newRegisteredHook?Signal.ROD_HOOK_VISIBLE:Signal.NONE);
             record(o,true);
-            if(!rod.pending()) {rodPlayer=null;rodWorld=null;}
+            if(!rod.pending()) {
+                rodPlayer=null;rodWorld=null;rodProvenance.reset();
+            }
         }
         if(snowball.pending()) {
             boolean same=mc.thePlayer!=null&&mc.thePlayer==snowPlayer &&
@@ -108,7 +120,7 @@ final class ForgeProjectileObservationSampler {
         }
     }
     void reset() {
-        rod.reset();snowball.reset();
+        rod.reset();snowball.reset();rodProvenance.reset();
         rodPlayer=snowPlayer=null;
         rodWorld=snowWorld=null;
         snowStack=null;snowItem=null;snowSlot=snowCount=-1;
