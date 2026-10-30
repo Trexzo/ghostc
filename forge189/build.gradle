@@ -140,3 +140,13 @@ task nativeProjectileUseOutcomeProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeProjectileUseOutcomeTests'
 }
 check.dependsOn nativeProjectileUseOutcomeProbe
+
+
+// R3.62 mandatory original Minecraft 1.8.9 passive fishing-hook and
+// snowball inventory observation API probe under Forge Java 8.
+task nativeProjectileObservationProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeProjectileObservationTests'
+}
+check.dependsOn nativeProjectileObservationProbe
