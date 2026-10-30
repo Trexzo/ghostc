@@ -51,6 +51,12 @@ public final class RuntimeDiagnostics {
         // actual local Forge attack callbacks do NOT prove server hit ACKs.
         COMBAT_AIM_TRIGGER_YIELD, COMBAT_AIM_MOUSE_YIELD,
         COMBAT_NATIVE_ATTACK_CALLBACK,
+        // R3.65: opt-in same-frame native-write checks, NOT PvP hit/ACK.
+        COMBAT_FRAME_INACTIVE, COMBAT_FRAME_COMBAT_RAN,
+        COMBAT_FRAME_COMBAT_SKIPPED, COMBAT_FRAME_PROJECTILE_EXCLUSIVE,
+        COMBAT_FRAME_MANUAL_OVERRIDE, COMBAT_FRAME_OWNER_CONFLICT,
+        COMBAT_FRAME_POST_PROJECTILE_REARM,
+        COMBAT_FRAME_UNEXPECTED_NATIVE_WRITE,
         ACCEPT_GAMEPLAY, ACCEPT_CONCURRENT, ACCEPT_ARMOR, ACCEPT_SORTER,
         ACCEPT_CHEST, ACCEPT_GUI_BLOCK, ACCEPT_FOCUS_BLOCK, ACCEPT_WTAP_HOLD,
         ACCEPT_HOOK_ATTACHED, ACCEPT_S12_LOCAL, ACCEPT_S27_EXPLOSION
@@ -110,7 +116,8 @@ public final class RuntimeDiagnostics {
         // remain forbidden by the permitted-key whitelist.
         if(counter.name().startsWith("ACTION_") ||
            counter.name().startsWith("COMBAT_") ||
-           counter.name().startsWith("ACCEPT_"))return true;
+           counter.name().startsWith("ACCEPT_") ||
+           counter.name().startsWith("PROJECTILE_"))return true;
         switch(counter) {
             case MODULE_WTAP_PREEMPTED_SPRINT:
             case MODULE_ARMOR_PREEMPTED_SORTER:
