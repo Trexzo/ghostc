@@ -16,6 +16,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemFishingRod;
 import net.minecraft.item.ItemStack;
+import net.minecraft.entity.projectile.EntityFishHook;
 import net.minecraft.item.ItemSword;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.world.World;
@@ -279,6 +280,9 @@ final class ForgeAutoRodController {
             // change. It has nevertheless submitted the use packet before
             // calling useItemRightClick in non-spectator mode. Fishing rods
             // normally return the SAME stack; false is NOT a rejected cast.
+            // Baseline the exact pre-use hook; only a NEW hook of this same
+            // player registered in this same world can count as evidence.
+            final EntityFishHook hookBeforeNativeUse=p.fishEntity;
             boolean localChanged=mc.playerController.sendUseItem(
                 p,mc.theWorld,rodStack);
             useOutcome=ProjectileNativeUseResult.classify(
@@ -287,7 +291,8 @@ final class ForgeAutoRodController {
             inventoryFence.nativeUsed(epoch,tick);
             // Passive window survives SELECT/USE/RESTORE hotbar ownership.
             if(observations!=null)
-                observations.armRod(p,mc.theWorld,epoch,tick);
+                observations.armRod(p,mc.theWorld,epoch,tick,
+                    hookBeforeNativeUse);
             // Local native submission only, never proof of server receipt,
             // spawned hook/projectile or a PvP hit.
             host.nativeAction(ModuleActionTelemetry.Lane.AUTOROD,
