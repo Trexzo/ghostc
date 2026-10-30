@@ -279,12 +279,17 @@ public final class GhostClickGui extends GuiScreen {
             GuiSlateSettingsEmptyState.place(left,top,
                 Math.max(0,width),Math.max(0,height));
         if(empty==null)return;
+        // Small GUI scales can be narrower than the full headline. Ask the
+        // actual Minecraft FontRenderer for both complete captions, never
+        // allow a clipped fallback to overlap another UI control.
+        GuiSlateSettingsEmptyState.Copy copy=
+            GuiSlateSettingsEmptyState.copy(empty,guiFontWidths);
+        if(copy==null)return;
         rect(empty.x,empty.y,empty.width,empty.height,theme.idleModule);
         rect(empty.accentX,empty.y+9,2,empty.height-18,theme.accent);
         rect(empty.x+12,empty.separatorY,empty.width-24,1,theme.divider);
-        label("NO EXTRA SETTINGS",empty.titleX,empty.titleY,theme.text);
-        label(trim("TOGGLE OR SET A KEY ABOVE",empty.width-24),
-            empty.titleX,empty.hintY,theme.muted);
+        label(copy.title,empty.titleX,empty.titleY,theme.text);
+        label(copy.hint,empty.titleX,empty.hintY,theme.muted);
     }
     /** Dedicated Rise-style modules + settings panes, with native GUI input parity. */
     private void drawSlateModules(GuiSlateWorkspace pane,int mx,int my) {
