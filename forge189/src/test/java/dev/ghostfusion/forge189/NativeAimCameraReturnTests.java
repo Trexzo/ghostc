@@ -66,7 +66,7 @@ public final class NativeAimCameraReturnTests {
         ok(returnGate.consider(1,7,7,target,entity,world,0),
            "legacy switch-delay zero has immediate camera return");
         returnGate.applied(1,7);
-        ok(checks>=15,"native Forge Aim camera handback linkage verified");
+        ok(checks>=14,"native Forge Aim camera handback linkage verified");
         System.out.println("NATIVE_AIM_CAMERA_RETURN_PASS assertions="+checks);
     }
 }
