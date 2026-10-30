@@ -36,12 +36,17 @@ final class ForgeAutoRodController {
     private final ProjectileTargetFence targetFence=new ProjectileTargetFence();
     private final ProjectileInventoryFence inventoryFence=new ProjectileInventoryFence();
     private Outcome useOutcome=Outcome.NOT_INVOKED;
+    private ForgeProjectileObservationSampler observations;
     private EntityPlayerSP owner;
     private World world;
     ForgeAutoRodController(Minecraft minecraft,HostRuntime runtime) {
         if(minecraft==null||runtime==null)
             throw new IllegalArgumentException("null AutoRod dependencies");
         mc=minecraft;host=runtime;
+    }
+    void bindObservations(ForgeProjectileObservationSampler sampler) {
+        if(sampler==null)throw new IllegalArgumentException("null observations");
+        observations=sampler;
     }
     private static boolean physical(int code) {
         if(code>0 && code<256 && Keyboard.isCreated())
@@ -280,6 +285,9 @@ final class ForgeAutoRodController {
                 false,true,localChanged);
             policy.committed(Action.USE,epoch,tick);
             inventoryFence.nativeUsed(epoch,tick);
+            // Passive window survives SELECT/USE/RESTORE hotbar ownership.
+            if(observations!=null)
+                observations.armRod(p,mc.theWorld,epoch,tick);
             // Local native submission only, never proof of server receipt,
             // spawned hook/projectile or a PvP hit.
             host.nativeAction(ModuleActionTelemetry.Lane.AUTOROD,
