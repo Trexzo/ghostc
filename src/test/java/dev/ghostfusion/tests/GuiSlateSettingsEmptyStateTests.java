@@ -39,7 +39,48 @@ public final class GuiSlateSettingsEmptyStateTests {
                "two independent text lines with comfortable baselines");
             ok(f.accentX>=f.x&&f.accentX<f.x+f.width,
                 "accent stays inside surface");
+            // Exact current-font widths rather than assumptions about the
+            // default Minecraft 9px font or GUI Scale Auto.
+            final int px=3+r.nextInt(10);
+            java.util.function.ToIntFunction<String> font=
+                value->value.length()*px;
+            GuiSlateSettingsEmptyState.Copy copy=
+                GuiSlateSettingsEmptyState.copy(f,font);
+            if(copy!=null) {
+                ok(!copy.title.contains("...")&&!copy.hint.contains("..."),
+                    "neither caption is a misleading partial phrase");
+                ok(font.applyAsInt(copy.title)<=f.width-24,
+                    "measured heading fits horizontal inset");
+                ok(font.applyAsInt(copy.hint)<=f.width-24,
+                    "measured hint fits horizontal inset");
+                ok(copy.textBudget==f.width-24,"rendered pixel budget matches UI");
+            }
         }
+        // At narrow compact widths, preserve meaningful shorter wording
+        // instead of allowing the long heading to paint over the border.
+        java.util.function.ToIntFunction<String> six=s->s.length()*6;
+        GuiSlateSettingsEmptyState.Frame compact=
+            GuiSlateSettingsEmptyState.place(10,15,110,52);
+        GuiSlateSettingsEmptyState.Copy shortCopy=
+            GuiSlateSettingsEmptyState.copy(compact,six);
+        ok(shortCopy!=null,"compact has usable measured copy");
+        ok(shortCopy.title.equals("NO SETTINGS"),"compact shortened heading");
+        ok(shortCopy.hint.equals("TOGGLE / KEY"),"compact shortened hint");
+        GuiSlateSettingsEmptyState.Copy wideCopy=
+            GuiSlateSettingsEmptyState.copy(
+                GuiSlateSettingsEmptyState.place(1,1,220,80),six);
+        ok(wideCopy.title.equals("NO EXTRA SETTINGS"),
+            "wide layout retains expressive heading");
+        ok(wideCopy.hint.equals("TOGGLE OR SET A KEY ABOVE"),
+            "wide layout retains full action hint");
+        ok(GuiSlateSettingsEmptyState.copy(compact,str->1000)==null,
+            "unusually large font skips caption rather than clipping");
+        fails(()->GuiSlateSettingsEmptyState.copy(compact,str->-1),
+            "negative invalid font measurement rejected");
+        fails(()->GuiSlateSettingsEmptyState.copy(null,six),
+            "null frame rejected");
+        fails(()->GuiSlateSettingsEmptyState.copy(compact,null),
+            "null font rejected");
         fails(()->GuiSlateSettingsEmptyState.place(0,0,-1,30),
             "negative available width rejected");
         fails(()->GuiSlateSettingsEmptyState.place(0,0,200,-2),
