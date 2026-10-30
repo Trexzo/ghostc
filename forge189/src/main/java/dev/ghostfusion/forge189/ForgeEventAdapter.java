@@ -49,6 +49,7 @@ public final class ForgeEventAdapter {
     private final ForgeCombatController combat;
     private final ForgeAutoRodController autoRod;
     private final ForgeAutoSnowballController autoSnowball;
+    private final ForgeProjectileObservationSampler projectileObservations;
     private final ForgeBridgeAssistController bridge;
     private final ForgeVelocityController velocity;
     private final ForgeWTapController wtap;
@@ -86,6 +87,9 @@ public final class ForgeEventAdapter {
         this.combat = new ForgeCombatController(minecraft,host);
         this.autoRod = new ForgeAutoRodController(minecraft,host);
         this.autoSnowball = new ForgeAutoSnowballController(minecraft,host);
+        this.projectileObservations = new ForgeProjectileObservationSampler(minecraft,host);
+        this.autoRod.bindObservations(projectileObservations);
+        this.autoSnowball.bindObservations(projectileObservations);
         this.bridge = new ForgeBridgeAssistController(minecraft,host);
         this.velocity = new ForgeVelocityController(minecraft,host);
         this.wtap = new ForgeWTapController(minecraft,host);
@@ -119,6 +123,8 @@ public final class ForgeEventAdapter {
             autoRod.reset();
             autoSnowball.reset();
             projectileManual.reset();
+            projectileObservations.reset();
+
             chestStealer.reset();
             inventoryManager.reset();
             autoArmor.reset();
@@ -137,6 +143,8 @@ public final class ForgeEventAdapter {
             autoRod.reset();
             autoSnowball.reset();
             projectileManual.reset();
+            projectileObservations.reset();
+
             chestStealer.reset();
             inventoryManager.reset();
             autoArmor.reset();
@@ -144,6 +152,9 @@ public final class ForgeEventAdapter {
         // Keep the standard presence reconciliation for starting menus.
         host.worldPresence(worldReady);
         host.tick();
+        // Read-only reconciliation runs independently from hotbar ownership
+        // and may finish after Rod/Snowball have restored the user's slot.
+        projectileObservations.sample();
         if (!worldReady || focusBlocked) {
             features.reset();
             bridge.reset();
@@ -678,6 +689,8 @@ public final class ForgeEventAdapter {
             autoRod.reset();
             autoSnowball.reset();
             projectileManual.reset();
+            projectileObservations.reset();
+
                 chestStealer.reset();
                 inventoryManager.reset();
                 autoArmor.reset();
