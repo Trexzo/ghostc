@@ -50,7 +50,7 @@ public final class AimCameraReturnFence {
         clearCandidate();
     }
     /** Called once per camera-yield END frame; no writes are permitted. */
-    public void yield(long epoch,long tick) {
+    public void yieldCamera(long epoch,long tick) {
         check();clock(epoch,tick);
         awaitingReturn=true;
         clearCandidate();
