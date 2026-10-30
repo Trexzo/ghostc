@@ -6,6 +6,7 @@ import dev.ghostfusion.features.ProjectileObservationWindow.Outcome;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.projectile.EntityFishHook;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Item;
 import net.minecraft.world.World;
 import net.minecraft.entity.Entity;
 import java.lang.reflect.Field;
@@ -24,6 +25,12 @@ public final class NativeProjectileObservationTests {
         Field size=ItemStack.class.getField("stackSize");
         ok(size.getType()==Integer.TYPE,
            "original Minecraft stack size supports passive local reads");
+        Method getItem=ItemStack.class.getMethod("getItem");
+        ok(Item.class.isAssignableFrom(getItem.getReturnType()),
+           "original Minecraft snowball item identity available for provenance");
+        Method getDamage=ItemStack.class.getMethod("getItemDamage");
+        ok(getDamage.getReturnType()==Integer.TYPE,
+           "native item metadata can be checked for correction ambiguity");
         Method lookup=World.class.getMethod("getEntityByID",Integer.TYPE);
         ok(Entity.class.isAssignableFrom(lookup.getReturnType()),
            "same-world player object identity can be rechecked");
@@ -37,7 +44,7 @@ public final class NativeProjectileObservationTests {
         obs.arm(3,30);
         ok(obs.observe(3,31,true,Signal.SNOWBALL_COUNT_DECREASED)==Outcome.LOCAL_DECREASE,
            "native decreased stack is local observation only");
-        ok(checks>=6,"genuine Minecraft 1.8.9 observation API checked");
+        ok(checks>=8,"genuine Minecraft 1.8.9 observation API checked");
         System.out.println("NATIVE_PROJECTILE_OBSERVATION_PASS assertions="+checks);
     }
 }
