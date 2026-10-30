@@ -150,3 +150,13 @@ task nativeProjectileObservationProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeProjectileObservationTests'
 }
 check.dependsOn nativeProjectileObservationProbe
+
+
+// R3.64: require native 1.8.9 fishing hook exact owner/world/registry
+// class linkage and read-only provenance negative controls under Java8.
+task nativeProjectileHookProvenanceProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeProjectileHookProvenanceTests'
+}
+check.dependsOn nativeProjectileHookProvenanceProbe
