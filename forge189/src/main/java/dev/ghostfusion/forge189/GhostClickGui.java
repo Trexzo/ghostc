@@ -1965,7 +1965,7 @@ public final class GhostClickGui extends GuiScreen {
         super.keyTyped(character,keyCode);
     }
     @Override public void onGuiClosed() {
-        smoothSlateFont.close();
+        smoothSlateFont.reportAndClose();
         scrollDrag.end();
         finishSliderDrag();
         boolean endedHudDrag=hudDragging;
