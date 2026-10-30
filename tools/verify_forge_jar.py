@@ -49,6 +49,7 @@ REQUIRED = (
     "dev/ghostfusion/ui/HudEditorSlateTabTypography.class",
     "dev/ghostfusion/ui/GuiSlateTypeScale.class",
     "dev/ghostfusion/ui/GuiSlateSettingsEmptyState.class",
+    "dev/ghostfusion/ui/GuiSlateDetailTitleTooltip.class",
     "dev/ghostfusion/ui/GuiSettingKeyboard.class",
     "dev/ghostfusion/ui/GuiSearchFocus.class",
     "dev/ghostfusion/ui/GuiKeybindCapture.class",

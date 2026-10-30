@@ -20,6 +20,7 @@ import dev.ghostfusion.ui.GuiSlateCompactMetrics;
 import dev.ghostfusion.ui.GuiSlateModuleCaption;
 import dev.ghostfusion.ui.GuiSlateTypeScale;
 import dev.ghostfusion.ui.GuiSlateSettingsEmptyState;
+import dev.ghostfusion.ui.GuiSlateDetailTitleTooltip;
 import dev.ghostfusion.ui.GuiSlateEmptyStateLayout;
 import dev.ghostfusion.ui.GuiSlateTooltipLayout;
 import dev.ghostfusion.ui.GuiSlateSearchGeometry;
@@ -494,6 +495,13 @@ public final class GhostClickGui extends GuiScreen {
                     reveal=original;
             }
         }
+        // The selected title can be shortened independently of list rows.
+        // This reveal stops before ACTIVE/FAULT and never changes hitboxes.
+        if(reveal==null && GuiSlateDetailTitleTooltip.reveal(
+               entry.module().displayName(),heading,
+               pane.detailsX+9,pane.detailsY+21,
+               Math.max(0,statusX-pane.detailsX-27),13,mx,my))
+            reveal=entry.module().displayName();
         if(reveal!=null)drawSlateTooltip(reveal,mx,my,color);
     }
     private int bg() { return palette().background; }
@@ -964,6 +972,15 @@ public final class GhostClickGui extends GuiScreen {
                     if(!trim(original,budget).equals(original))
                         reveal=original;
                 }
+            }
+            // Compact SETTINGS title has its own measured, read-only
+            // hover space, distinct from the keybind and toggle rows.
+            if(reveal==null && e.state()!=ModuleRegistry.State.FAULTED) {
+                String full="SETTINGS  "+e.module().displayName();
+                String fitted=trim(full,Math.max(0,w-side-30));
+                if(GuiSlateDetailTitleTooltip.reveal(full,fitted,
+                    x+side+13,sy+3,Math.max(0,w-side-30),12,mx,my))
+                    reveal=e.module().displayName();
             }
             if(reveal!=null)drawSlateTooltip(reveal,mx,my,compactTheme);
         }
