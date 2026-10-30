@@ -88,6 +88,8 @@ jobs:
           grep -q 'GUI_SLATE_SMOOTH_TRIAL_METRICS_PASS' .build/gui-slate-smooth-trial-metrics.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateEmptyStateLayoutTests | tee .build/gui-slate-empty-state.log
           grep -q 'GUI_SLATE_EMPTY_STATE_PASS' .build/gui-slate-empty-state.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateSettingsEmptyStateTests | tee .build/gui-slate-settings-empty.log
+          grep -q 'GUI_SLATE_SETTINGS_EMPTY_STATE_PASS' .build/gui-slate-settings-empty.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateCompactSearchGeometryTests | tee .build/gui-slate-compact-search.log
           grep -q 'GUI_SLATE_COMPACT_SEARCH_PASS' .build/gui-slate-compact-search.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiKeyboardNavigationTests | tee .build/gui-keyboard.log
