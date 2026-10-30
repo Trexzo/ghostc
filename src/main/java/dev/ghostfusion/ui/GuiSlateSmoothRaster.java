@@ -24,10 +24,14 @@ public final class GuiSlateSmoothRaster {
     public static final class Run {
         public final String text;
         public final int width,height,inkWidth;
+        /** Baseline's pixel position within the cropped texture, not its top. */
+        public final int baselineFromTop;
         public final int[] pixels;
-        private Run(String text,int w,int h,int inkWidth,int[] pixels) {
+        private Run(String text,int w,int h,int inkWidth,int baselineFromTop,
+                    int[] pixels) {
             this.text=text;this.width=w;this.height=h;
-            this.inkWidth=inkWidth;this.pixels=pixels;
+            this.inkWidth=inkWidth;this.baselineFromTop=baselineFromTop;
+            this.pixels=pixels;
         }
     }
 
@@ -114,12 +118,16 @@ public final class GuiSlateSmoothRaster {
             }
         }
         if(maxInk<0)
-            return new Run(cleaned,width,1,advance,new int[width]);
+            return new Run(cleaned,width,1,advance,0,new int[width]);
         int first=Math.max(0,minInk-1);
         int last=Math.min(height,maxInk+2);
         int croppedHeight=last-first;
         int[] pixels=new int[width*croppedHeight];
         System.arraycopy(full,first*width,pixels,0,pixels.length);
-        return new Run(cleaned,width,croppedHeight,advance,pixels);
+        // Preserve the original AWT font baseline through transparent-row
+        // cropping. This lets all labels align correctly independent of
+        // whether their visible ink contains ascenders or descenders.
+        return new Run(cleaned,width,croppedHeight,advance,
+            baseline-first,pixels);
     }
 }
