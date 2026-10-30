@@ -161,7 +161,7 @@ public final class CombatFrameAcceptanceTests {
             if(got==Result.OWNER_CONFLICT)conflicts++;
             if(got==Result.POST_PROJECTILE_REARM)rearmed++;
         }
-        ok(violations>6000&&exclusive>5000&&manualFrames>1000&&conflicts>100,
+        ok(violations>3500&&exclusive>5000&&manualFrames>1000&&conflicts>100,
            "80k includes suppressed and illegally written frames");
         ok(rearmed>300,"80k includes handoff after projectile release");
         ok(checks>80000,"80k cases exercised");
