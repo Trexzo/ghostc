@@ -1072,6 +1072,41 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('PlayerControllerMP.class.getMethod("sendUseItem"',native_probe)
         self.assertIn("seeded();",tests)
 
+    def test_triggerbot_native_entity_identity_and_aim_handoff(self):
+        combat=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeCombatController.java")
+        fence=content("src/main/java/dev/ghostfusion/features/TriggerNativeIdentityFence.java")
+        trigger=content("src/main/java/dev/ghostfusion/features/TriggerBotPolicy.java")
+        core=content("src/test/java/dev/ghostfusion/tests/TriggerNativeIdentityTests.java")
+        native=content("forge189/src/test/java/dev/ghostfusion/forge189/NativeTriggerIdentityTests.java")
+        catalog=content("src/test/java/dev/ghostfusion/tests/IntegratedModuleCatalogTests.java")
+        gradle=content("forge189/build.gradle")
+        self.assertIn("new TriggerNativeIdentityFence();",combat)
+        self.assertIn("boolean replaced=triggerIdentity.observe(",combat)
+        self.assertIn("if(replaced)triggerBot.invalidateCandidate();",combat)
+        self.assertIn("triggerIdentity.permits(session.generation(),session.tick(),",combat)
+        self.assertIn("target,mc.theWorld) &&",combat)
+        self.assertIn("triggerTargetValid(player,target,sword))",combat)
+        self.assertIn("triggerBot.invalidateCandidate();",combat)
+        self.assertIn("triggerIdentity.invalidate();",combat)
+        self.assertIn("triggerIdentity.reset();",combat)
+        self.assertIn("final boolean yieldToTrigger = AimTriggerHandoff.yieldCamera(",combat)
+        self.assertLess(combat.index("boolean replaced=triggerIdentity.observe("),
+                        combat.index("triggerIdentity.permits(session.generation(),session.tick(),"))
+        self.assertLess(combat.index("triggerIdentity.permits(session.generation(),session.tick(),"),
+                        combat.index("KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());",
+                                     combat.index("triggerIdentity.permits(session.generation(),session.tick(),")))
+        self.assertIn("entity!=player||currentWorld!=world",fence)
+        self.assertIn("lastTick==tick",fence)
+        self.assertIn("public void invalidateCandidate()",trigger)
+        self.assertIn("identity=null;firstSeen=-1;readyTick=-1;",trigger)
+        self.assertIn("TriggerNativeIdentityTests.main(args);",catalog)
+        self.assertIn("seeded();",core)
+        self.assertIn('Entity.class.getMethod("getUniqueID")',native)
+        self.assertIn('MovingObjectPosition.class.getField("entityHit")',native)
+        self.assertIn("check.dependsOn nativeTriggerIdentityProbe",gradle)
+        self.assertNotIn("sendUseItem(",fence)
+        self.assertNotIn("KeyBinding.onTick(",fence)
+
     def test_combat_frame_acceptance_is_native_opt_in_no_server_claim(self):
         adapter=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeEventAdapter.java")
         policy=content("src/main/java/dev/ghostfusion/features/CombatFrameAcceptance.java")

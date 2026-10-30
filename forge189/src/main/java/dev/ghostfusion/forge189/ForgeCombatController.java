@@ -12,6 +12,7 @@ import dev.ghostfusion.features.BlockHitPolicy;
 import dev.ghostfusion.features.PhysicalInputGate;
 import dev.ghostfusion.features.LiveCombatTargetGate;
 import dev.ghostfusion.features.TriggerBotPolicy;
+import dev.ghostfusion.features.TriggerNativeIdentityFence;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.ModuleActionTelemetry;
@@ -57,6 +58,8 @@ public final class ForgeCombatController {
     private final PatternClickScheduler patternScheduler = new PatternClickScheduler();
     private final HitSelectPolicy hitSelect = new HitSelectPolicy();
     private final TriggerBotPolicy triggerBot = new TriggerBotPolicy();
+    private final TriggerNativeIdentityFence triggerIdentity =
+        new TriggerNativeIdentityFence();
     private final BlockHitPolicy blockHit = new BlockHitPolicy();
     private final PhysicalInputGate physicalInput = new PhysicalInputGate();
 
@@ -295,6 +298,15 @@ public final class ForgeCombatController {
                         !player.isUsingItem() && !aimAdjusted[0] &&
                         triggerTargetValid(player,target,sword);
                     java.util.UUID uuid = eligible ? target.getUniqueID() : null;
+                    // A player may respawn / be re-instantiated with the
+                    // SAME UUID or numeric ID while still under crosshair.
+                    // In that case the earlier entity's dwell cannot count.
+                    boolean replaced=triggerIdentity.observe(
+                        session.generation(),session.tick(),eligible,uuid,
+                        eligible ? target.getEntityId() : -1,
+                        eligible ? target : null,
+                        eligible ? mc.theWorld : null);
+                    if(replaced)triggerBot.invalidateCandidate();
                     if (triggerBot.due(session.generation(),session.tick(),
                             eligible,uuid,host.triggerAcquireTicks(),
                             host.triggerCooldownTicks()))
@@ -306,10 +318,12 @@ public final class ForgeCombatController {
             });
             if (!healthy) {
                 triggerBot.reset();
+                triggerIdentity.reset();
                 session.actions().cancelOwner(TRIGGER_ID);
             }
         } else {
             triggerBot.reset();
+            triggerIdentity.reset();
         }
 
         // Hit Select must evaluate the WINNING request only, never both
@@ -360,6 +374,10 @@ public final class ForgeCombatController {
             !mc.gameSettings.keyBindAttack.isKeyDown() &&
             !mc.gameSettings.keyBindUseItem.isKeyDown() &&
             !player.isUsingItem() && !aimAdjusted[0] &&
+            target instanceof EntityPlayer &&
+            triggerIdentity.permits(session.generation(),session.tick(),
+                ((EntityPlayer)target).getUniqueID(),target.getEntityId(),
+                target,mc.theWorld) &&
             triggerTargetValid(player,target,sword)) {
             host.runFeature(TRIGGER_ID, new Runnable() {
                 public void run() {
@@ -378,6 +396,11 @@ public final class ForgeCombatController {
             host.nativeAction(ModuleActionTelemetry.Lane.CLICKER,
                 ModuleActionTelemetry.Event.REJECTED);
         } else if (selectedAttack != null && TRIGGER_ID.equals(selectedAttack.owner)) {
+            // A final native target, LOS, crosshair or Hit Select veto must
+            // not leave previously accumulated dwell ready for next tick.
+            // Preserve last genuine dispatch cooldown across this denial.
+            triggerBot.invalidateCandidate();
+            triggerIdentity.invalidate();
             host.nativeAction(ModuleActionTelemetry.Lane.TRIGGER,
                 ModuleActionTelemetry.Event.REJECTED);
         }
@@ -480,6 +503,7 @@ public final class ForgeCombatController {
         physicalInput.reset();
         hitSelect.reset();
         triggerBot.reset();
+        triggerIdentity.reset();
         blockHit.reset();
         SessionServices session = host.services();
         if (!session.connected()) return;

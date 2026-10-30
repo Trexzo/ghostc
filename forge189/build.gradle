@@ -170,3 +170,14 @@ task nativeCombatFrameAcceptanceProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeCombatFrameAcceptanceTests'
 }
 check.dependsOn nativeCombatFrameAcceptanceProbe
+
+
+// R3.66: require exact original Minecraft 1.8.9 UUID/entityId,
+// objectMouseOver Entity and native KeyBinding dispatch with fresh
+// per-entity TriggerBot dwell (no launched game or remote hit).
+task nativeTriggerIdentityProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeTriggerIdentityTests'
+}
+check.dependsOn nativeTriggerIdentityProbe
