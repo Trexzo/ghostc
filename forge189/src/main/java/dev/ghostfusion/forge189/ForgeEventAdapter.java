@@ -122,7 +122,8 @@ public final class ForgeEventAdapter {
             jumpReset.reset();
             autoRod.reset();
             autoSnowball.reset();
-            projectileManual.reset();            projectileObservations.reset();
+            projectileManual.reset();
+            projectileObservations.reset();
 
             chestStealer.reset();
             inventoryManager.reset();
@@ -141,7 +142,8 @@ public final class ForgeEventAdapter {
             jumpReset.reset();
             autoRod.reset();
             autoSnowball.reset();
-            projectileManual.reset();            projectileObservations.reset();
+            projectileManual.reset();
+            projectileObservations.reset();
 
             chestStealer.reset();
             inventoryManager.reset();
@@ -686,7 +688,8 @@ public final class ForgeEventAdapter {
             jumpReset.reset();
             autoRod.reset();
             autoSnowball.reset();
-            projectileManual.reset();            projectileObservations.reset();
+            projectileManual.reset();
+            projectileObservations.reset();
 
                 chestStealer.reset();
                 inventoryManager.reset();
