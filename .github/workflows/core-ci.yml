@@ -130,6 +130,8 @@ jobs:
           grep -q 'MODULE_LIST_TEXT_GEOMETRY_PASS' .build/modulelist-text-geometry.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.ModuleListSlateRowGeometryTests | tee .build/modulelist-slate-row-geometry.log
           grep -q 'MODULE_LIST_SLATE_ROW_GEOMETRY_PASS' .build/modulelist-slate-row-geometry.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.ModuleListSlateMiniatureGeometryTests | tee .build/modulelist-slate-miniature.log
+          grep -q 'MODULE_LIST_SLATE_MINIATURE_GEOMETRY_PASS' .build/modulelist-slate-miniature.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.UiTests | tee .build/ui.log
           grep -q 'UI_REGRESSION_PASS' .build/ui.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.ServicesTests | tee .build/services.log
