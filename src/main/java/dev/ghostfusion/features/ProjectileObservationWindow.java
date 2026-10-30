@@ -35,11 +35,11 @@ public final class ProjectileObservationWindow {
         check();
         if(signal==null)throw new IllegalArgumentException("null observation");
         if(!active)return Outcome.NONE;
-        if(tick<lastTick)throw new IllegalArgumentException("backward observation tick");
-        lastTick=tick;
         if(!sameWorldPlayer||generation!=epoch) {
             active=false;return Outcome.INVALIDATED;
         }
+        if(tick<lastTick)throw new IllegalArgumentException("backward observation tick");
+        lastTick=tick;
         // Never infer a confirmation from the same tick as sendUseItem.
         if(tick<=castTick)return Outcome.PENDING;
         if(tick-castTick>MAX_TICKS) {
