@@ -318,3 +318,12 @@ The native editor calls this renderer only for `ui.theme()==SLATE` and `moduleLi
 **Implemented:** `GuiSlateSettingsEmptyState` is a pure-Java, non-interactive viewport geometry with a minimum 110×47px admission, maximum 72px panel height, muted graphite background, restrained Slate accent rail, divider, two fitted lines (`NO EXTRA SETTINGS` / `TOGGLE OR SET A KEY ABOVE`). It appears only when the **real selected module has zero settings**, separately in the wide Slate workspace and the compact Slate layout. The message explicitly points to the existing native toggle and keybind row rather than inventing controls. If a compact viewport cannot fit the text without intruding on the footer, it paints nothing. It never edits module settings, registry membership, keyboard or pointer hit zones, focus, profile serialization or other appearance themes.
 
 **Verification:** `GuiSlateSettingsEmptyStateTests` runs 50,000 deterministic randomized wide/compact candidate sizes and offsets, asserting no clipping, non-overlapping text baselines, and full containment inside the already reserved settings viewport. Both Java 17/21 Core CI and Forge 1.8.9 source/JAR contracts include the addition. This is a paint-only improvement; native screenshots remain unverified.
+
+
+### 30 Oct follow-up: actual-font-width safe zero-settings labels
+
+Source review found a real narrow-viewport overflow in the new empty settings panel. Its admitted minimum width is 110px, but the two full text lines could exceed its horizontal margins when drawn with the current Minecraft font. Pixel containment tests originally verified only the rectangle, not the text.
+
+`GuiSlateSettingsEmptyState.copy(frame, fontWidth)` now chooses **complete, truthful wording** using actual `FontRenderer.getStringWidth` metrics: wide surfaces retain `NO EXTRA SETTINGS` and `TOGGLE OR SET A KEY ABOVE`, while compact ones select shorter alternatives such as `NO SETTINGS` and `TOGGLE / KEY`. If neither full caption fits, the entire decorative panel is skipped. It never uses character-count approximations or half-word ellipses, and it does not change toggle/keybind input geometry or setting data.
+
+The existing 50,000 seeded geometry tests now also vary simulated font advance and verify every admitted caption's pixel budget, full short/long copy, and font failure handling. Forge source contracts verify both layouts call the measured-copy helper. Native Minecraft visual acceptance remains outstanding.
