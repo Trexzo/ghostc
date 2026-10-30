@@ -82,6 +82,17 @@ public final class TriggerBotPolicy {
         state=State.COOLDOWN;
     }
 
+    /**
+     * A changed native EntityPlayer object or last-moment crosshair veto
+     * invalidates pending dwell. Preserve the last dispatched tick so entity
+     * replacement cannot bypass an already earned cooldown.
+     */
+    public void invalidateCandidate() {
+        check();
+        identity=null;firstSeen=-1;readyTick=-1;
+        state=State.IDLE;
+    }
+
     private void resetState() {
         identity=null;firstSeen=-1;lastDispatched=-1;lastTick=-1;
         readyTick=-1;previousAcquire=-1;state=State.IDLE;
