@@ -40,6 +40,7 @@ import dev.ghostfusion.ui.HudThemeTokens;
 import dev.ghostfusion.ui.HudSnapPolicy;
 import dev.ghostfusion.ui.HudEditorConflicts;
 import dev.ghostfusion.ui.ModuleListLayout;
+import dev.ghostfusion.ui.ModuleListSlateMiniatureGeometry;
 import dev.ghostfusion.ui.HudFootprints;
 import dev.ghostfusion.ui.HudScaleLayout;
 import dev.ghostfusion.ui.HudScaleEditor;
@@ -1064,7 +1065,22 @@ public final class GhostClickGui extends GuiScreen {
     }
     private void drawHudMiniature(Rect bounds,Widget widget,boolean selected) {
         miniatureTheme=miniatureThemeFor(widget);
-        HudPreviewArt.paint(bounds,widget,miniaturePainter);
+        boolean liveSlateList=false;
+        if(widget==Widget.MODULE_LIST &&
+           ui.theme()==UiState.Theme.SLATE &&
+           "slate".equals(host.moduleListAppearance())) {
+            // F7 shows the same enabled-only list as the actual HUD, with
+            // one measured bar per module rather than invented 3-row art.
+            // Keep the original widget footprint and all input behavior.
+            boolean right=host.moduleListPosition().endsWith("_right") ||
+                ("custom".equals(host.moduleListPosition()) &&
+                 ui.widgets().x(Widget.MODULE_LIST)>=0.5);
+            liveSlateList=ModuleListSlateMiniatureGeometry.paint(
+                bounds,listFootprint(),right,
+                host.moduleListBackground(),host.moduleListAccent(),
+                miniaturePainter);
+        }
+        if(!liveSlateList)HudPreviewArt.paint(bounds,widget,miniaturePainter);
         if(selected && ui.theme()!=UiState.Theme.SLATE) {
             // Legacy preserves its former full outline; Slate uses short,
             // high-contrast corner brackets after all miniatures are drawn.
