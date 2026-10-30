@@ -108,7 +108,7 @@ public final class TriggerNativeIdentityTests {
         ok(grant!=null&&"combat.triggerbot".equals(grant.owner),
            "single shared coordinator issues one candidate");
         trigger.dispatched(5,2,id);
-        ok(!attacks.hasPending(Type.ATTACK,Phase.OUTPUT,2,5),
+        ok(attacks.consume(Type.ATTACK,Phase.OUTPUT,2,5)==null,
            "consumed attack cannot be double-dispatched");
         ok(fence.observe(5,3,true,id,14,replacement,world),
            "same UUID/ID replaced native object must restart acquired dwell");
