@@ -1,6 +1,7 @@
 package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.ui.GuiSlateSmoothRaster;
+import dev.ghostfusion.ui.GuiSlateSmoothPlacement;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -71,7 +72,12 @@ final class SlateSmoothFontRenderer {
                 }
             } else if(texture.width>pixelBudget||texture.height>heightBudget)
                 return false;
-            paint(texture,x,y,argb);
+            // Never align cropped text by its top edge. A capital-only
+            // caption and a descender-heavy one must share one baseline.
+            int top=GuiSlateSmoothPlacement.top(texture.height,
+                texture.baselineFromTop,heightBudget);
+            if(top<0)return false;
+            paint(texture,x,y+top,argb);
             return true;
         } catch(RuntimeException error) {
             failed=true;
@@ -113,7 +119,8 @@ final class SlateSmoothFontRenderer {
             } finally {
                 GL11.glPopAttrib();
             }
-            return new Texture(id,raster.width,raster.height);
+            return new Texture(id,raster.width,raster.height,
+                raster.baselineFromTop);
         } catch(RuntimeException problem) {
             GL11.glDeleteTextures(id);
             throw problem;
@@ -188,9 +195,10 @@ final class SlateSmoothFontRenderer {
     }
 
     private static final class Texture {
-        final int id,width,height;
-        Texture(int id,int width,int height) {
+        final int id,width,height,baselineFromTop;
+        Texture(int id,int width,int height,int baselineFromTop) {
             this.id=id;this.width=width;this.height=height;
+            this.baselineFromTop=baselineFromTop;
         }
     }
     private static final class Key {
