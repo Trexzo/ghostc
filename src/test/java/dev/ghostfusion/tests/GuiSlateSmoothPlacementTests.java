@@ -18,7 +18,7 @@ public final class GuiSlateSmoothPlacementTests {
     public static void main(String[] args) {
         Random rng=new Random(30102026L);
         for(int i=0;i<50000;i++) {
-            int h=1+rng.nextInt(48),baseline=rng.nextInt(49);
+            int h=1+rng.nextInt(48),baseline=rng.nextInt(97)-48;
             int budget=1+rng.nextInt(48);
             int y=GuiSlateSmoothPlacement.top(h,baseline,budget);
             if(y!=-1) {
@@ -52,7 +52,12 @@ public final class GuiSlateSmoothPlacementTests {
         }
         ok(accepted>5,"real font fits multiple original compact rows");
         invalid(()->GuiSlateSmoothPlacement.top(0,1,10),"empty glyph");
-        invalid(()->GuiSlateSmoothPlacement.top(5,-1,10),"negative ascent");
+        // A standalone underscore/dot may start below the font baseline,
+        // which is legitimate; if it cannot fit the row, return fallback.
+        ok(GuiSlateSmoothPlacement.top(3,-1,10)==-1,
+            "below-baseline punctuation falls back when it overflows");
+        invalid(()->GuiSlateSmoothPlacement.top(5,-49,10),
+            "unreasonable negative baseline");
         invalid(()->GuiSlateSmoothPlacement.top(5,2,49),"oversized row");
         System.out.println("GUI_SLATE_SMOOTH_PLACEMENT_PASS checks="+count);
     }
