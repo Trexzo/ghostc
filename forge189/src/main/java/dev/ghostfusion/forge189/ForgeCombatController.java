@@ -5,6 +5,7 @@ import dev.ghostfusion.features.AimTargetLock;
 import dev.ghostfusion.features.AimTargetSwitchPolicy;
 import dev.ghostfusion.features.AimManualInputPolicy;
 import dev.ghostfusion.features.AimTriggerHandoff;
+import dev.ghostfusion.features.AimCameraReturnFence;
 import dev.ghostfusion.features.FixedClickScheduler;
 import dev.ghostfusion.features.PatternClickScheduler;
 import dev.ghostfusion.features.HitSelectPolicy;
@@ -54,6 +55,7 @@ public final class ForgeCombatController {
     private final AimTargetLock aimLock = new AimTargetLock();
     private final AimTargetSwitchPolicy aimSwitch = new AimTargetSwitchPolicy();
     private final AimManualInputPolicy manualAim = new AimManualInputPolicy();
+    private final AimCameraReturnFence cameraReturn = new AimCameraReturnFence();
     private final FixedClickScheduler scheduler = new FixedClickScheduler();
     private final PatternClickScheduler patternScheduler = new PatternClickScheduler();
     private final HitSelectPolicy hitSelect = new HitSelectPolicy();
@@ -131,6 +133,7 @@ public final class ForgeCombatController {
             aimLock.clear();
             aimSwitch.reset();
             manualAim.reset();
+            cameraReturn.reset();
         }
         final WorldSnapshot snapshot = session.snapshot();
         final boolean[] aimAdjusted = {false};
@@ -138,14 +141,23 @@ public final class ForgeCombatController {
             boolean healthy = host.runFeature(AIM_ID, new Runnable() {
                 public void run() {
                     if (yieldToTrigger) {
+                        cameraReturn.yieldCamera(session.generation(),session.tick());
                         if(host.diagnosticsEnabled())
                             host.diagnostics().record(Counter.COMBAT_AIM_TRIGGER_YIELD);
                         aimLock.clear();
                         aimSwitch.reset();
-                        manualAim.reset();
+                        // Physical mouse motion during TriggerBot camera
+                        // ownership must NOT disappear from its opt-in
+                        // manual-input pause just because Aim yielded.
+                        if(host.aimRespectMouse() && mc.mouseHelper!=null) {
+                            manualAim.suppressed(session.generation(),session.tick(),
+                                true,mc.mouseHelper.deltaX,mc.mouseHelper.deltaY,
+                                host.aimMouseThreshold(),host.aimMousePauseTicks());
+                        } else if(!host.aimRespectMouse()) manualAim.reset();
                         return;
                     }
                     if (host.aimRequireClick() && !held) {
+                        cameraReturn.interrupt();
                         aimLock.clear();
                         aimSwitch.reset();
                         manualAim.reset();
@@ -161,6 +173,7 @@ public final class ForgeCombatController {
                                 host.aimMouseThreshold(),host.aimMousePauseTicks())) {
                             if(host.diagnosticsEnabled())
                                 host.diagnostics().record(Counter.COMBAT_AIM_MOUSE_YIELD);
+                            cameraReturn.interrupt();
                             aimLock.clear();
                             aimSwitch.reset();
                             return;
@@ -186,6 +199,7 @@ public final class ForgeCombatController {
                         host.aimVerticalFraction(), preferred,
                         host.aimTargetPriority());
                     if (suggestion == null) {
+                        cameraReturn.interrupt();
                         aimLock.clear();
                         aimSwitch.reset();
                         return;
@@ -197,6 +211,7 @@ public final class ForgeCombatController {
                     // Missing live target is a strict no-write veto. The
                     // retained hint is independently UUID-checked next tick.
                     if(!(live instanceof EntityPlayer)) {
+                        cameraReturn.interrupt();
                         aimLock.clear();
                         aimSwitch.reset();
                         return;
@@ -209,8 +224,20 @@ public final class ForgeCombatController {
                         !suggestion.sameTargetPosition(candidate.posX,candidate.posY,candidate.posZ) ||
                         !suggestion.sameSourcePose(player.posX,player.posY,player.posZ,
                             player.rotationYaw,player.rotationPitch,player.getEyeHeight())) {
+                        cameraReturn.interrupt();
                         aimLock.clear();
                         aimSwitch.reset();
+                        return;
+                    }
+                    // Returning from native TriggerBot ownership must not
+                    // bypass an explicitly configured Aim switch delay just
+                    // because the earlier Aim switch policy was reset.
+                    // The exact live entity/world must stay eligible across
+                    // the handback dwell; zero delay is the legacy behavior.
+                    if(!cameraReturn.consider(
+                            session.generation(),session.tick(),
+                            candidate.getEntityId(),candidate.getUniqueID(),
+                            candidate,mc.theWorld,host.aimSwitchDelayTicks())) {
                         return;
                     }
                     // Only live-verified UUID candidates may request a camera
@@ -234,6 +261,8 @@ public final class ForgeCombatController {
                         player.rotationPitch = rotation.pitch;
                         aimSwitch.applied(session.generation(),session.tick(),
                             suggestion.entityId,candidate.getUniqueID());
+                        if(cameraReturn.pending())
+                            cameraReturn.applied(session.generation(),session.tick());
                         aimAdjusted[0] = true;
                         if (locking) aimLock.applied(
                             session.generation(), session.tick(),
@@ -246,6 +275,7 @@ public final class ForgeCombatController {
                 }
             });
             if (!healthy) {
+                cameraReturn.interrupt();
                 aimLock.clear();
                 aimSwitch.reset();
                 manualAim.reset();
@@ -498,6 +528,7 @@ public final class ForgeCombatController {
         aimLock.reset();
         aimSwitch.reset();
         manualAim.reset();
+        cameraReturn.reset();
         scheduler.reset();
         patternScheduler.reset();
         physicalInput.reset();
