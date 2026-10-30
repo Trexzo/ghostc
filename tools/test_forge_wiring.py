@@ -1018,7 +1018,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("new ForgeAutoRodController(minecraft,host)",adapter)
         self.assertIn("else rodOwns=autoRod.tick(false);",adapter)
         self.assertIn("ProjectileOwnerArbiter.mayStartRod(prior,false)",adapter)
-        self.assertIn("!manualSlotEvent && !projectileConflict)",adapter)
+        self.assertIn("!manualSlotEvent && !projectileConflict;",adapter)
         self.assertIn("Resource.AUTO_ROD",arbiter)
         self.assertIn("enabled.autoRod&&!wtapReserved",arbiter)
         self.assertIn("ActionCoordinator.Type.HOTBAR_SELECT",native)
