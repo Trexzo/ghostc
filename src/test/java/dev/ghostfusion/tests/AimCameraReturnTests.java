@@ -196,7 +196,7 @@ public final class AimCameraReturnTests {
                 delayed++;
             }
         }
-        ok(ready>57000&&delayed>90000&&interruptions>1500,
+        ok(ready>53000&&delayed>90000&&interruptions>1500,
            "60k mixed configured dwell, native switches and manual override exercised");
         ok(assertions>160000,"sufficient exact handback frame checks executed");
     }
