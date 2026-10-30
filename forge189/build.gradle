@@ -181,3 +181,13 @@ task nativeTriggerIdentityProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeTriggerIdentityTests'
 }
 check.dependsOn nativeTriggerIdentityProbe
+
+
+// R3.67: original Minecraft 1.8.9 MouseHelper and native entity/world
+// linkage with Aim/Trigger handback. Java8-only headless; no game launch.
+task nativeAimCameraReturnProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeAimCameraReturnTests'
+}
+check.dependsOn nativeAimCameraReturnProbe
