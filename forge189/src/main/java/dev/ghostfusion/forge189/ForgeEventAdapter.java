@@ -7,6 +7,8 @@ import dev.ghostfusion.features.ProjectileManualInputGate;
 import dev.ghostfusion.features.ProjectileOwnerArbiter;
 import dev.ghostfusion.features.ModuleInteractionReadout;
 import dev.ghostfusion.features.LiveAcceptanceCoverage;
+import dev.ghostfusion.features.CombatFrameAcceptance;
+import dev.ghostfusion.host.ModuleActionTelemetry;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.gui.inventory.GuiChest;
 import org.lwjgl.opengl.Display;
@@ -69,6 +71,8 @@ public final class ForgeEventAdapter {
     // No game entity, packet object or channel reference is retained.
     private final LiveAcceptanceCoverage liveAcceptance =
         new LiveAcceptanceCoverage();
+    private final CombatFrameAcceptance combatFrameAcceptance =
+        new CombatFrameAcceptance();
     private final WorldIdentityTracker worldIdentity = new WorldIdentityTracker();
     // Two capped, owner-thread groups are reused every tick. Every raw
     // EntityPlayer reference is released before publishing an immutable
@@ -124,6 +128,7 @@ public final class ForgeEventAdapter {
             autoSnowball.reset();
             projectileManual.reset();
             projectileObservations.reset();
+            combatFrameAcceptance.reset();
 
             chestStealer.reset();
             inventoryManager.reset();
@@ -144,6 +149,7 @@ public final class ForgeEventAdapter {
             autoSnowball.reset();
             projectileManual.reset();
             projectileObservations.reset();
+            combatFrameAcceptance.reset();
 
             chestStealer.reset();
             inventoryManager.reset();
@@ -360,6 +366,22 @@ public final class ForgeEventAdapter {
         // merely on the tick the key pulse was emitted. A prior Snowball
         // owner keeps the slot until its RESTORE; otherwise Rod wins a
         // simultaneous new physical-attack edge, then Snowball can propose.
+        // Snapshot strictly opt-in native writes BEFORE any projectile or
+        // combat controller executes. Compare after the same END frame:
+        // intents, KeyBinding pulses and Forge attack callbacks are distinct.
+        final boolean checkCombatFrame=host.diagnosticsEnabled();
+        if(!checkCombatFrame)combatFrameAcceptance.reset();
+        final long beforeAim=checkCombatFrame?
+            host.diagnostics().count(Counter.AIM_APPLIED):0L;
+        final long beforeClick=checkCombatFrame?
+            host.nativeActionCount(ModuleActionTelemetry.Lane.CLICKER,
+                ModuleActionTelemetry.Event.DISPATCHED):0L;
+        final long beforeTrigger=checkCombatFrame?
+            host.nativeActionCount(ModuleActionTelemetry.Lane.TRIGGER,
+                ModuleActionTelemetry.Event.DISPATCHED):0L;
+        final long beforeBlock=checkCombatFrame?
+            host.nativeActionCount(ModuleActionTelemetry.Lane.BLOCKHIT,
+                ModuleActionTelemetry.Event.DISPATCHED):0L;
         boolean rodOwns=false,snowballOwns=false;
         final boolean manualSlotEvent=projectileManual.take();
         ProjectileOwnerArbiter.Owner prior=ProjectileOwnerArbiter.observed(
@@ -380,10 +402,33 @@ public final class ForgeEventAdapter {
                 autoSnowball.reset();
             else snowballOwns=autoSnowball.tick(false);
         }
-        if(plan.combat && !rodOwns && !snowballOwns &&
-           !manualSlotEvent && !projectileConflict)
-            combat.tick();
+        final boolean combatCalled=plan.combat && !rodOwns && !snowballOwns &&
+            !manualSlotEvent && !projectileConflict;
+        if(combatCalled)combat.tick();
         else combat.reset();
+
+        if(checkCombatFrame) {
+            final boolean clickWrite=host.nativeActionCount(
+                ModuleActionTelemetry.Lane.CLICKER,
+                ModuleActionTelemetry.Event.DISPATCHED)>beforeClick;
+            final boolean triggerWrite=host.nativeActionCount(
+                ModuleActionTelemetry.Lane.TRIGGER,
+                ModuleActionTelemetry.Event.DISPATCHED)>beforeTrigger;
+            final boolean blockWrite=host.nativeActionCount(
+                ModuleActionTelemetry.Lane.BLOCKHIT,
+                ModuleActionTelemetry.Event.DISPATCHED)>beforeBlock;
+            final boolean aimWrite=host.diagnostics().count(
+                Counter.AIM_APPLIED)>beforeAim;
+            final CombatFrameAcceptance.Result evidence=
+                combatFrameAcceptance.observe(
+                    host.services().generation(),host.services().tick(),
+                    plan.combat,rodOwns,snowballOwns,manualSlotEvent,
+                    projectileConflict,combatCalled,
+                    clickWrite||triggerWrite||blockWrite||aimWrite,
+                    clickWrite||triggerWrite);
+            host.diagnostics().record(Counter.valueOf(
+                "COMBAT_FRAME_"+evidence.name()));
+        }
         if(plan.bridge)bridge.tick();else bridge.reset();
         if(plan.velocity)velocity.tick();else velocity.reset();
         if(plan.wtap)wtap.tick();else wtap.reset();
@@ -690,6 +735,7 @@ public final class ForgeEventAdapter {
             autoSnowball.reset();
             projectileManual.reset();
             projectileObservations.reset();
+            combatFrameAcceptance.reset();
 
                 chestStealer.reset();
                 inventoryManager.reset();
