@@ -51,6 +51,10 @@ public final class NativeCombatFrameAcceptanceTests {
         ok(frame.observe(epoch,t++,true,false,false,false,false,true,
                          false,false)==Result.POST_PROJECTILE_REARM,
            "first game tick after rod release cannot replay the old attack");
+        // The real ForgeEventAdapter calls combat.reset() on every
+        // projectile-exclusive frame. Reproduce its physical-input reset
+        // before testing held-key re-admission, not just KeyBinding.unPress.
+        physical.reset();
         ok(!physical.allowed(epoch,true,true,false,true,217,218),
            "fresh held key alone is not a newly authorized synthetic click");
         ok(!physical.allowed(epoch,true,true,false,false,217,218),
