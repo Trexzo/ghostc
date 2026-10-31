@@ -118,7 +118,6 @@ public final class AimHandoffContinuityTests {
         Random random=new Random(3682026L);
         long epoch=20,lastPhysical=-1;
         int previousThreshold=-1,previousPause=-1;
-        boolean previousEnabled=false;
         // The independent oracle observes physical deltas on EVERY active
         // Aim tick, including TriggerBot yields and require-click denials.
         for(int tick=0;tick<90000;tick++) {
@@ -155,18 +154,24 @@ public final class AimHandoffContinuityTests {
             final boolean yield=triggerYield(crosshair,attack,use,trigger);
             final boolean cameraAllowed=!actual&&!yield&&
                 (!requireClick||attack);
-            ok(!cameraAllowed||(enabled||!enabled),
-                "enabled/disabled option never changes native crosshair permission");
+            // This oracle is computed independently from the sampled policy
+            // outcome and AimTriggerHandoff implementation.
+            final boolean expectedYield=trigger&&!attack&&!use&&crosshair;
+            final boolean expectedCamera=!expected&&!expectedYield&&
+                (!requireClick||attack);
+            ok(yield==expectedYield,
+                "native TriggerBot yield matches independent input guards "+tick);
+            ok(cameraAllowed==expectedCamera,
+                "mouse/crosshair/required-click handoff equals independent oracle "+tick);
+            if(!enabled)ok(!actual,
+                "disabled mouse option never introduces camera suppression");
             if(actual)ok(!cameraAllowed,
                 "mouse pause takes priority over lost or changing TriggerBot target");
             if(yield)ok(!cameraAllowed,
                 "TriggerBot camera yield never turns into Aim Assist camera write");
             if(requireClick&&!attack)ok(!cameraAllowed,
                 "missing physical attack hold still vetoes aim output");
-            previousEnabled=enabled;
         }
-        ok(previousEnabled==true||previousEnabled==false,
-            "seeded final setting outcome valid");
     }
 
     public static void main(String[] args) throws Exception {
