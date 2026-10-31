@@ -80,6 +80,17 @@ public final class HudEditorSlateCanvasGeometryTests {
             ok(visible==null?hover==null:
                 visible.equals(expectedCaption(hover)),
                 "hover name identifies exact native hit-selected widget");
+            // Preview art persists for editing when its live module is OFF.
+            // Descriptive UI must not imply it is active.
+            String off=HudEditorSlateCanvasGeometry.hoverCaption(
+                hover,false,false,false);
+            if(hover==null)ok(off==null,"empty canvas reports no feature");
+            else {
+                ok(off.endsWith(" OFF"),"disabled Slate HUD is identified");
+                ok(HudEditorSlateCanvasGeometry.hoverCaption(
+                    hover,true,false,true)==null,
+                    "drag suppression wins over all visibility flags");
+            }
             ok(HudEditorSlateCanvasGeometry.hovered(
                 canvas,rects,canvas.x-1,canvas.y)==null,
                 "letterbox gutters never select a widget");
@@ -101,6 +112,22 @@ public final class HudEditorSlateCanvasGeometryTests {
         }
         ok(HudEditorSlateCanvasGeometry.hoverCaption(null,false)==null,
             "empty canvas never creates a tooltip");
+        ok("STATUS + METRICS".equals(
+            HudEditorSlateCanvasGeometry.hoverCaption(items[0],false,true,true)),
+            "both genuinely visible Status and Metrics are acknowledged");
+        ok("METRICS ONLY (STATUS OFF)".equals(
+            HudEditorSlateCanvasGeometry.hoverCaption(items[0],false,false,true)),
+            "metrics-only preview cannot claim Status is active");
+        ok("STATUS HUD OFF".equals(
+            HudEditorSlateCanvasGeometry.hoverCaption(items[0],false,false,false)),
+            "disabled status and no visible metrics are explicitly described");
+        ok("STATUS HUD".equals(
+            HudEditorSlateCanvasGeometry.hoverCaption(items[0],false,true,false)),
+            "status-only preview is distinguished from metrics");
+        ok("MODULE LIST OFF".equals(
+            HudEditorSlateCanvasGeometry.hoverCaption(
+                HudEditorControls.Item.MODULE_LIST,false,false,true)),
+            "unrelated metrics cannot change Module List availability");
         ok(HudEditorSlateCanvasGeometry.coordinateLabel(items[0],0,1)
                 .equals("Status  X 0%  Y 100%"),
             "exact saved edge positions");

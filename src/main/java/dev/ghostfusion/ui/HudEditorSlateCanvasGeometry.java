@@ -68,15 +68,33 @@ public final class HudEditorSlateCanvasGeometry {
      */
     public static String hoverCaption(HudEditorControls.Item hovered,
                                       boolean dragging) {
+        return hoverCaption(hovered,dragging,true,false);
+    }
+
+    /**
+     * Slate editor previews are positionable even if their live HUD feature
+     * is disabled. Label that state rather than implying preview=active.
+     * Status is independent from Metrics, which may remain drawn alone.
+     * Only the caller can know actual current feature/visible-row flags.
+     */
+    public static String hoverCaption(HudEditorControls.Item hovered,
+                                      boolean dragging,boolean enabled,
+                                      boolean visibleMetrics) {
         if(hovered==null||dragging)return null;
+        if(hovered==HudEditorControls.Item.STATUS) {
+            if(enabled)
+                return visibleMetrics?"STATUS + METRICS":"STATUS HUD";
+            return visibleMetrics?"METRICS ONLY (STATUS OFF)":"STATUS HUD OFF";
+        }
+        String name;
         switch(hovered) {
-            case STATUS: return "STATUS HUD";
-            case KEYS: return "KEYSTROKES";
-            case CPS: return "CPS METER";
-            case TARGET: return "TARGET HUD";
-            case MODULE_LIST: return "MODULE LIST";
+            case KEYS: name="KEYSTROKES";break;
+            case CPS: name="CPS METER";break;
+            case TARGET: name="TARGET HUD";break;
+            case MODULE_LIST: name="MODULE LIST";break;
             default: throw new IllegalArgumentException("F7 Slate hovered widget");
         }
+        return enabled?name:name+" OFF";
     }
     public static String coordinateLabel(HudEditorControls.Item item,
                                           double normalizedX,double normalizedY) {

@@ -2500,7 +2500,11 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("HudEditorSlateCanvasGeometry.hovered(",gui)
         self.assertIn("slateHoveredWidget=HudEditorSlateCanvasGeometry.hovered(",gui)
         self.assertIn("HudEditorSlateCanvasGeometry.hoverCaption(",gui)
-        self.assertIn("slateHoveredWidget,hudDragging",gui)
+        self.assertIn("slateHoveredWidget,hudDragging,hoveredEnabled,metricsVisible",gui)
+        self.assertIn("host.featureEnabled(HudScaleEditor.moduleId(slateHoveredWidget))",gui)
+        self.assertIn("editorStatus.coordinatesY>=0 || editorStatus.pingY>=0",gui)
+        self.assertIn("METRICS ONLY (STATUS OFF)",
+            content("src/main/java/dev/ghostfusion/ui/HudEditorSlateCanvasGeometry.java"))
         self.assertIn("drawSlateTooltip(widgetHint,mx,my,palette());",gui)
         self.assertIn("hover name identifies exact native hit-selected widget",
             content("src/test/java/dev/ghostfusion/tests/HudEditorSlateCanvasGeometryTests.java"))

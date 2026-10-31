@@ -1362,8 +1362,12 @@ public final class GhostClickGui extends GuiScreen {
             // Full widget names help distinguish closely stacked preview
             // footprints. Suppressed while dragging, and bounded by the
             // existing tooltip/footer containment instead of a new surface.
+            boolean hoveredEnabled=slateHoveredWidget!=null &&
+                host.featureEnabled(HudScaleEditor.moduleId(slateHoveredWidget));
+            boolean metricsVisible=editorStatus.fpsY>=0 ||
+                editorStatus.coordinatesY>=0 || editorStatus.pingY>=0;
             String widgetHint=HudEditorSlateCanvasGeometry.hoverCaption(
-                slateHoveredWidget,hudDragging);
+                slateHoveredWidget,hudDragging,hoveredEnabled,metricsVisible);
             if(widgetHint!=null)
                 drawSlateTooltip(widgetHint,mx,my,palette());
             // Tab labels can be clipped at Minecraft GUI Scale Auto.
