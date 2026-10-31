@@ -1639,7 +1639,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertLess(combat.index("LiveCombatTargetGate.eligible(candidate,"),
                         combat.index("final boolean validTarget = target != null;"))
         self.assertLess(combat.index("player.isDead || !Double.isFinite(player.getHealth())"),
-                        combat.index("boolean physicalDown ="))
+                        combat.index("final boolean physicalDown="))
         self.assertIn("!host.clickEntityOnly() || validTarget",combat)
         self.assertIn("!host.hitRequireTarget() || validTarget",combat)
         self.assertIn("host.blockRequireTarget()",combat)
