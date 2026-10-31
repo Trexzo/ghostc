@@ -19,6 +19,10 @@ public final class AimTargetSwitchPolicy {
     private long stagedTick = -1L;
     private int appliedId = -1, candidateId = -1, stagedId = -1;
     private UUID appliedIdentity, candidateIdentity, stagedIdentity;
+    // Exact native EntityPlayer and World references; never persisted.
+    private Object appliedEntity,appliedWorld,candidateEntity,candidateWorld;
+    private Object stagedEntity,stagedWorld;
+    private boolean appliedNative,candidateNative,stagedNative;
     private int previousDelay = -1;
 
     private void checkOwner() {
@@ -28,10 +32,24 @@ public final class AimTargetSwitchPolicy {
     private static boolean same(int leftId, UUID left, int rightId, UUID right) {
         return leftId == rightId && left != null && left.equals(right);
     }
+    private static boolean sameTarget(int leftId,UUID left,Object entity,Object world,
+                                      boolean nativeSample,int rightId,UUID right,
+                                      Object savedEntity,Object savedWorld,boolean savedNative) {
+        return same(leftId,left,rightId,right) && nativeSample==savedNative &&
+            (!nativeSample || (entity==savedEntity && world==savedWorld));
+    }
+    private void clearCandidate() {
+        candidateSince=-1L;candidateId=-1;candidateIdentity=null;
+        candidateEntity=candidateWorld=null;candidateNative=false;
+    }
+    private void clearStaged() {
+        stagedTick=-1L;stagedId=-1;stagedIdentity=null;
+        stagedEntity=stagedWorld=null;stagedNative=false;
+    }
     private void resetState() {
-        appliedId = candidateId = stagedId = -1;
-        appliedIdentity = candidateIdentity = stagedIdentity = null;
-        candidateSince = stagedTick = -1L;
+        appliedId=-1;appliedIdentity=null;
+        appliedEntity=appliedWorld=null;appliedNative=false;
+        clearCandidate();clearStaged();
         previousDelay = -1;
     }
 
@@ -43,69 +61,87 @@ public final class AimTargetSwitchPolicy {
      */
     public boolean consider(long epoch, long tick, int id, UUID identity,
                             int switchDelayTicks) {
+        return considerInternal(epoch,tick,id,identity,null,null,false,switchDelayTicks);
+    }
+    /**
+     * Genuine Minecraft-only extension: a retained UUID/entity ID does not
+     * imply the SAME player if the native EntityPlayer object or World changed.
+     * Zero delay remains the explicit legacy immediate-switch setting.
+     */
+    public boolean considerNative(long epoch,long tick,int id,UUID identity,
+                                  Object entity,Object world,int switchDelayTicks) {
+        if(entity==null||world==null)
+            throw new IllegalArgumentException("missing native aim identity");
+        return considerInternal(epoch,tick,id,identity,entity,world,true,switchDelayTicks);
+    }
+    private boolean considerInternal(long epoch,long tick,int id,UUID identity,
+                                     Object entity,Object world,boolean nativeSample,
+                                     int switchDelayTicks) {
         checkOwner();
         if (epoch < 0 || tick < 0 || id < 0 || identity == null ||
             switchDelayTicks < 0 || switchDelayTicks > 10)
             throw new IllegalArgumentException("invalid aim switch candidate");
         if (epoch != generation) {
             resetState();
-            lastTick = -1L;
-            generation = epoch;
+            lastTick=-1L;
+            generation=epoch;
         }
         if (lastTick >= 0 && tick < lastTick)
             throw new IllegalArgumentException("backward aim switch tick");
-        lastTick = tick;
-        stagedTick = -1L;
-        stagedIdentity = null;
-        stagedId = -1;
+        lastTick=tick;
+        clearStaged();
 
-        // A live UI edit must not inherit elapsed dwell from older settings.
-        if (switchDelayTicks != previousDelay) {
-            candidateSince = -1L;
-            candidateIdentity = null;
-            candidateId = -1;
-            previousDelay = switchDelayTicks;
+        // Live UI edits never borrow earlier dwell under different settings.
+        if(switchDelayTicks!=previousDelay) {
+            clearCandidate();
+            previousDelay=switchDelayTicks;
         }
-        if (same(id, identity, appliedId, appliedIdentity) ||
-            appliedIdentity == null || switchDelayTicks == 0) {
-            candidateSince = -1L;
-            candidateIdentity = null;
-            candidateId = -1;
-            return stage(tick,id,identity);
+        if(sameTarget(id,identity,entity,world,nativeSample,
+                appliedId,appliedIdentity,appliedEntity,appliedWorld,appliedNative) ||
+           appliedIdentity==null || switchDelayTicks==0) {
+            clearCandidate();
+            return stage(tick,id,identity,entity,world,nativeSample);
         }
-        if (!same(id,identity,candidateId,candidateIdentity)) {
-            candidateId = id;
-            candidateIdentity = identity;
-            candidateSince = tick;
+        if(!sameTarget(id,identity,entity,world,nativeSample,
+                candidateId,candidateIdentity,candidateEntity,candidateWorld,candidateNative)) {
+            candidateId=id;candidateIdentity=identity;candidateSince=tick;
+            candidateEntity=entity;candidateWorld=world;candidateNative=nativeSample;
             return false;
         }
-        if (tick-candidateSince < switchDelayTicks) return false;
-        return stage(tick,id,identity);
+        if(tick-candidateSince<switchDelayTicks)return false;
+        return stage(tick,id,identity,entity,world,nativeSample);
     }
-    private boolean stage(long tick,int id,UUID identity) {
-        stagedTick = tick;
-        stagedId = id;
-        stagedIdentity = identity;
+    private boolean stage(long tick,int id,UUID identity,Object entity,Object world,
+                          boolean nativeSample) {
+        stagedTick=tick;stagedId=id;stagedIdentity=identity;
+        stagedEntity=entity;stagedWorld=world;stagedNative=nativeSample;
         return true;
     }
-    /** Only the completed native camera write may update the retained UUID. */
+    /** Legacy pure-core callers never claim native entity/world provenance. */
     public void applied(long epoch,long tick,int id,UUID identity) {
-        checkOwner();
-        if (generation != epoch || tick != lastTick ||
-            stagedTick != tick || !same(id,identity,stagedId,stagedIdentity))
-            throw new IllegalStateException("unverified aim switch commit");
-        appliedId = id;
-        appliedIdentity = identity;
-        stagedTick = candidateSince = -1L;
-        stagedId = candidateId = -1;
-        stagedIdentity = candidateIdentity = null;
+        commit(epoch,tick,id,identity,null,null,false);
     }
-    /** A rotation request was rejected: keep no stale prepared commit. */
-    public void cancelPrepared() {
+    /** A winning native CAMERA rotation alone commits exact entity retention. */
+    public void appliedNative(long epoch,long tick,int id,UUID identity,
+                              Object entity,Object world) {
+        if(entity==null||world==null)
+            throw new IllegalArgumentException("missing native aim commit");
+        commit(epoch,tick,id,identity,entity,world,true);
+    }
+    private void commit(long epoch,long tick,int id,UUID identity,Object entity,
+                        Object world,boolean nativeSample) {
         checkOwner();
-        stagedTick = -1L;
-        stagedIdentity = null;
-        stagedId = -1;
+        if(generation!=epoch||tick!=lastTick||stagedTick!=tick||
+           !sameTarget(id,identity,entity,world,nativeSample,
+                       stagedId,stagedIdentity,stagedEntity,stagedWorld,stagedNative))
+            throw new IllegalStateException("unverified aim switch commit");
+        appliedId=id;appliedIdentity=identity;
+        appliedEntity=entity;appliedWorld=world;appliedNative=nativeSample;
+        clearCandidate();clearStaged();
+    }
+    /** A rejected rotation never commits; candidate dwell is still pending. */
+    public void cancelPrepared() {
+        checkOwner();clearStaged();
     }
     /** Losing a live target, manual input grant or world resets all retention. */
     public void reset() {
