@@ -207,6 +207,7 @@ public final class IntegratedModuleCatalogTests {
         AimTargetSwitchTests.main(args);
         AimNativeIdentityTests.main(args);
         AimManualInputTests.main(args);
+        AimHandoffContinuityTests.main(args);
         ok(count>65,"real integrated module and persisted profile coverage");
         System.out.println("INTEGRATED_MODULE_CATALOG_PASS assertions="+count);
     }

@@ -1131,6 +1131,36 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("randomReplay();",core)
         self.assertNotIn("KeyBinding.onTick",policy)
 
+    def test_r368_aim_mouse_is_sampled_before_all_camera_handoffs(self):
+        combat=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeCombatController.java")
+        catalog=content("src/test/java/dev/ghostfusion/tests/IntegratedModuleCatalogTests.java")
+        core=content("src/test/java/dev/ghostfusion/tests/AimHandoffContinuityTests.java")
+        native=content("forge189/src/test/java/dev/ghostfusion/forge189/NativeAimHandoffTests.java")
+        gradle=content("forge189/build.gradle")
+        start=combat.index("final boolean mouseSuppressed;")
+        sample=combat.index("manualAim.suppressed(session.generation(),session.tick(),",start)
+        manual=combat.index("if (mouseSuppressed) {",start)
+        trigger=combat.index("if (yieldToTrigger) {",start)
+        required=combat.index("if (host.aimRequireClick() && !held) {",start)
+        aim=combat.index("final boolean locking = host.aimLockTarget();",start)
+        self.assertLess(sample,manual)
+        self.assertLess(manual,trigger)
+        self.assertLess(trigger,required)
+        self.assertLess(required,aim)
+        # The camera veto, TriggerBot handoff and no-required-click branches
+        # must not reset manual mouse history; only the disabled case may.
+        self.assertNotIn("manualAim.reset();",combat[manual:aim])
+        self.assertIn("manualAim.reset();",combat[start:manual])
+        self.assertIn("aimSwitch.reset();",combat[manual:aim])
+        self.assertIn("COMBAT_AIM_MOUSE_YIELD",combat[manual:trigger])
+        self.assertIn("COMBAT_AIM_TRIGGER_YIELD",combat[trigger:required])
+        self.assertIn("AimHandoffContinuityTests.main(args);",catalog)
+        self.assertIn("randomReplay();",core)
+        self.assertIn("check.dependsOn nativeAimHandoffProbe",gradle)
+        self.assertIn('MouseHelper.class.getField("deltaX")',native)
+        self.assertIn('MouseHelper.class.getField("deltaY")',native)
+        self.assertNotIn("KeyBinding.onTick(",core)
+
     def test_combat_frame_acceptance_is_native_opt_in_no_server_claim(self):
         adapter=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeEventAdapter.java")
         policy=content("src/main/java/dev/ghostfusion/features/CombatFrameAcceptance.java")

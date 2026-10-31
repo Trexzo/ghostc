@@ -191,3 +191,13 @@ task nativeAimIdentityProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeAimIdentityTests'
 }
 check.dependsOn nativeAimIdentityProbe
+
+// R3.68 Minecraft 1.8.9 MouseHelper/KeyBinding linkage for
+// continuous physical-mouse precedence across TriggerBot camera yield.
+// Pure/headless probe: no physical mouse or Minecraft launch.
+task nativeAimHandoffProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeAimHandoffTests'
+}
+check.dependsOn nativeAimHandoffProbe
