@@ -1320,12 +1320,13 @@ public final class GhostClickGui extends GuiScreen {
             hudPreviewRects[item.ordinal()]=r;
             drawHudMiniature(r,widget,hudControls.selected()==item,null);
         }
+        HudEditorControls.Item slateHoveredWidget=null;
         if(slateEditor) {
-            // Hover respects original preview click priority, so the
-            // visually highlighted widget is the one a click would select.
-            HudEditorControls.Item underPointer=
-                HudEditorSlateCanvasGeometry.hovered(
-                    canvas,hudPreviewRects,mx,my);
+            // One native-compatible read-only hit test drives both outline
+            // and descriptive hover; no duplicate geometry or action area.
+            slateHoveredWidget=HudEditorSlateCanvasGeometry.hovered(
+                canvas,hudPreviewRects,mx,my);
+            HudEditorControls.Item underPointer=slateHoveredWidget;
             if(underPointer!=null && underPointer!=hudControls.selected())
                 hudSlateOutline(hudPreviewRects[underPointer.ordinal()],
                     editorStyle.idleText);
@@ -1358,6 +1359,13 @@ public final class GhostClickGui extends GuiScreen {
             w-side-20),
             previewX,previewY+previewH+8,editorStyle.helpText);
         if(slateEditor) {
+            // Full widget names help distinguish closely stacked preview
+            // footprints. Suppressed while dragging, and bounded by the
+            // existing tooltip/footer containment instead of a new surface.
+            String widgetHint=HudEditorSlateCanvasGeometry.hoverCaption(
+                slateHoveredWidget,hudDragging);
+            if(widgetHint!=null)
+                drawSlateTooltip(widgetHint,mx,my,palette());
             // Tab labels can be clipped at Minecraft GUI Scale Auto.
             // Resolve the native tab under the pointer (no new hitboxes)
             // and reveal only a name that was shortened by the real font.

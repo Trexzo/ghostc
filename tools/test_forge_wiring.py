@@ -2498,6 +2498,12 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("HudEditorSlateCanvasGeometry.centerY(canvas)",gui)
         self.assertIn("HudEditorSlateCanvasGeometry.corner(r)",gui)
         self.assertIn("HudEditorSlateCanvasGeometry.hovered(",gui)
+        self.assertIn("slateHoveredWidget=HudEditorSlateCanvasGeometry.hovered(",gui)
+        self.assertIn("HudEditorSlateCanvasGeometry.hoverCaption(",gui)
+        self.assertIn("slateHoveredWidget,hudDragging",gui)
+        self.assertIn("drawSlateTooltip(widgetHint,mx,my,palette());",gui)
+        self.assertIn("hover name identifies exact native hit-selected widget",
+            content("src/test/java/dev/ghostfusion/tests/HudEditorSlateCanvasGeometryTests.java"))
         self.assertIn("HudEditorSlateCanvasGeometry.coordinateLabel(",gui)
         self.assertIn("if(selected && ui.theme()!=UiState.Theme.SLATE)",gui)
         self.assertIn("HUD_EDITOR_SLATE_CANVAS_PASS",content(".github/workflows/core-ci.yml"))

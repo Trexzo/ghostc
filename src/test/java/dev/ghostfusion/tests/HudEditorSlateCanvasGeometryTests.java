@@ -18,6 +18,17 @@ public final class HudEditorSlateCanvasGeometryTests {
         try{r.run();}catch(IllegalArgumentException expected){error=true;}
         ok(error,why);
     }
+    private static String expectedCaption(HudEditorControls.Item item) {
+        if(item==null)return null;
+        switch(item) {
+            case STATUS: return "STATUS HUD";
+            case KEYS: return "KEYSTROKES";
+            case CPS: return "CPS METER";
+            case TARGET: return "TARGET HUD";
+            case MODULE_LIST: return "MODULE LIST";
+            default: throw new AssertionError("Unexpected F7 item");
+        }
+    }
     public static void main(String[] args) {
         UiState ui=new UiState();
         HudEditorControls.Item[] items=HudEditorControls.Item.values();
@@ -63,6 +74,12 @@ public final class HudEditorSlateCanvasGeometryTests {
                 if(rects[j].contains(mx,my)){oracle=items[j];break;}
             }
             ok(hover==oracle,"hover matches actual reverse-paint hit order");
+            String visible=HudEditorSlateCanvasGeometry.hoverCaption(hover,false);
+            String duringDrag=HudEditorSlateCanvasGeometry.hoverCaption(hover,true);
+            ok(duringDrag==null,"hover label never obscures active F7 drag");
+            ok(visible==null?hover==null:
+                visible.equals(expectedCaption(hover)),
+                "hover name identifies exact native hit-selected widget");
             ok(HudEditorSlateCanvasGeometry.hovered(
                 canvas,rects,canvas.x-1,canvas.y)==null,
                 "letterbox gutters never select a widget");
@@ -73,6 +90,17 @@ public final class HudEditorSlateCanvasGeometryTests {
                 "truthful selected tab and percentages");
             ok(detail.length()<30,"compact display at native Minecraft font");
         }
+        // Validate every name, including widgets rarely hit by random
+        // overlapped thumbnails. These labels contain no game-state claims.
+        for(HudEditorControls.Item item:items) {
+            ok(expectedCaption(item).equals(
+                HudEditorSlateCanvasGeometry.hoverCaption(item,false)),
+                "complete truthful full name for every tab");
+            ok(HudEditorSlateCanvasGeometry.hoverCaption(item,true)==null,
+                "dragging suppresses every hover chip");
+        }
+        ok(HudEditorSlateCanvasGeometry.hoverCaption(null,false)==null,
+            "empty canvas never creates a tooltip");
         ok(HudEditorSlateCanvasGeometry.coordinateLabel(items[0],0,1)
                 .equals("Status  X 0%  Y 100%"),
             "exact saved edge positions");

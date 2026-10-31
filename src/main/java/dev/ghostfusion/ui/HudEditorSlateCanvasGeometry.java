@@ -59,6 +59,25 @@ public final class HudEditorSlateCanvasGeometry {
         }
         return null;
     }
+    /**
+     * On a stationary pointer, identify exactly the widget that native F7
+     * would select at that pixel. Hide the label during a drag so it never
+     * obscures snap lines or distracts from precise placement.
+     *
+     * Caller supplies the already computed reverse-order native hover.
+     */
+    public static String hoverCaption(HudEditorControls.Item hovered,
+                                      boolean dragging) {
+        if(hovered==null||dragging)return null;
+        switch(hovered) {
+            case STATUS: return "STATUS HUD";
+            case KEYS: return "KEYSTROKES";
+            case CPS: return "CPS METER";
+            case TARGET: return "TARGET HUD";
+            case MODULE_LIST: return "MODULE LIST";
+            default: throw new IllegalArgumentException("F7 Slate hovered widget");
+        }
+    }
     public static String coordinateLabel(HudEditorControls.Item item,
                                           double normalizedX,double normalizedY) {
         if(item==null||!Double.isFinite(normalizedX)||!Double.isFinite(normalizedY))
