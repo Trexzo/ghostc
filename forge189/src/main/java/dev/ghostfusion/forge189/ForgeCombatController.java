@@ -72,6 +72,7 @@ public final class ForgeCombatController {
     void tick() {
         final SessionServices session = host.services();
         final EntityPlayerSP player = mc.thePlayer;
+        final Object tickWorld = mc.theWorld;
         if (player == null || mc.theWorld == null || !session.connected() ||
             player.isDead || !Double.isFinite(player.getHealth()) ||
             player.getHealth()<=0 ||
@@ -172,7 +173,8 @@ public final class ForgeCombatController {
                     if (preferred >= 0) {
                         Entity previous = mc.theWorld.getEntityByID(preferred);
                         if (!(previous instanceof EntityPlayer) ||
-                            !aimLock.sameIdentity(((EntityPlayer)previous).getUniqueID())) {
+                            !aimLock.sameNativeIdentity(((EntityPlayer)previous).getUniqueID(),
+                                previous,mc.theWorld)) {
                             // Entity IDs can be reused without changing the
                             // current world epoch. UUID must still match.
                             aimLock.clear();
@@ -218,8 +220,9 @@ public final class ForgeCombatController {
                     // a stable consecutive candidate window; while waiting,
                     // manual camera control stays completely untouched.
                     // Hard UUID lock retains its original immediate fallback.
-                    if (!aimSwitch.consider(session.generation(), session.tick(),
+                    if (!aimSwitch.considerNative(session.generation(), session.tick(),
                             suggestion.entityId, candidate.getUniqueID(),
+                            candidate,mc.theWorld,
                             locking ? 0 : host.aimSwitchDelayTicks())) {
                         return;
                     }
@@ -230,14 +233,30 @@ public final class ForgeCombatController {
                         RotationCoordinator.Scope.CAMERA, session.tick(), session.generation(),
                         player.rotationYaw, player.rotationPitch);
                     if (AIM_ID.equals(rotation.owner)) {
+                        // No staged camera decision survives a same-UUID
+                        // replacement, world swap or newer manual viewpoint.
+                        if(mc.thePlayer!=player || mc.theWorld!=tickWorld ||
+                           mc.theWorld.getEntityByID(suggestion.entityId)!=candidate ||
+                           !LiveCombatTargetGate.eligible(candidate,
+                               mc.theWorld.getEntityByID(candidate.getEntityId()),player,
+                               candidate.isDead,candidate.getHealth(),
+                               candidate.isInvisible(),host.aimVisibleOnly()) ||
+                           !suggestion.sameTargetPosition(candidate.posX,candidate.posY,candidate.posZ) ||
+                           !suggestion.sameSourcePose(player.posX,player.posY,player.posZ,
+                               player.rotationYaw,player.rotationPitch,player.getEyeHeight())) {
+                            aimLock.clear();
+                            aimSwitch.cancelPrepared();
+                            session.rotations().cancel(AIM_ID);
+                            return;
+                        }
                         player.rotationYaw = rotation.yaw;
                         player.rotationPitch = rotation.pitch;
-                        aimSwitch.applied(session.generation(),session.tick(),
-                            suggestion.entityId,candidate.getUniqueID());
+                        aimSwitch.appliedNative(session.generation(),session.tick(),
+                            suggestion.entityId,candidate.getUniqueID(),candidate,mc.theWorld);
                         aimAdjusted[0] = true;
-                        if (locking) aimLock.applied(
+                        if (locking) aimLock.appliedNative(
                             session.generation(), session.tick(),
-                            suggestion.entityId, candidate.getUniqueID());
+                            suggestion.entityId, candidate.getUniqueID(),candidate,mc.theWorld);
                         host.diagnostics().record(Counter.AIM_APPLIED);
                     } else {
                         aimLock.clear();

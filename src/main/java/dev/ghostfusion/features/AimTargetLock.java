@@ -3,71 +3,64 @@ package dev.ghostfusion.features;
 import java.util.UUID;
 
 /**
- * Owner-thread target retention for the opt-in Aim Assist. The lock is always
- * a hint, never permission to bypass FOV/range, visibility or live identity
- * checks. Reusing an entity ID with a different UUID invalidates the hint.
+ * Owner-thread target retention for opt-in Aim Assist. A retained ID is a
+ * hint, never permission to bypass live world/FOV/range/visibility checks.
  */
 public final class AimTargetLock {
-    private final Thread owner = Thread.currentThread();
-    private long generation = -1L, lastTick = -1L;
-    private int entityId = -1;
+    private final Thread owner=Thread.currentThread();
+    private long generation=-1L,lastTick=-1L;
+    private int entityId=-1;
     private UUID identity;
+    private Object nativeEntity,nativeWorld;
 
     private void checkOwner() {
-        if (Thread.currentThread() != owner)
+        if(Thread.currentThread()!=owner)
             throw new IllegalStateException("aim lock owner thread");
     }
-
-    /** Return the retained entity ID or -1 when disabled/expired. */
-    public int preferred(long epoch, long tick, boolean enabled) {
+    public int preferred(long epoch,long tick,boolean enabled) {
         checkOwner();
-        if (epoch < 0 || tick < 0)
+        if(epoch<0||tick<0)
             throw new IllegalArgumentException("aim lock clock");
-        if (generation != epoch || (lastTick >= 0 && tick < lastTick)) {
-            entityId = -1;
-            identity = null;
-            generation = epoch;
+        if(generation!=epoch||(lastTick>=0&&tick<lastTick)) {
+            clear();generation=epoch;
         }
-        lastTick = tick;
-        if (!enabled) {
-            entityId = -1;
-            identity = null;
-            return -1;
-        }
+        lastTick=tick;
+        if(!enabled) {clear();return -1;}
         return entityId;
     }
-
     public boolean sameIdentity(UUID current) {
         checkOwner();
-        return identity != null && identity.equals(current);
+        return identity!=null && identity.equals(current);
     }
-
-    /**
-     * Commit only after the Forge live-identity/freshness gate and rotation
-     * owner arbitration actually apply a camera movement this tick.
-     */
-    public void applied(long epoch, long tick, int id, UUID uuid) {
+    /** Native hard lock rejects replaced objects even when UUID+ID match. */
+    public boolean sameNativeIdentity(UUID current,Object entity,Object world) {
         checkOwner();
-        if (epoch < 0 || tick < 0 || id < 0 || uuid == null ||
-            generation != epoch || lastTick != tick)
-            throw new IllegalArgumentException("unverified aim lock commit");
-        entityId = id;
-        identity = uuid;
+        return sameIdentity(current) && entity!=null && world!=null &&
+            nativeEntity==entity && nativeWorld==world;
     }
-
-    /** No valid target / no owning camera decision / disabled module. */
+    /** Backward-compatible UUID/ID-only commit for legacy policy callers. */
+    public void applied(long epoch,long tick,int id,UUID uuid) {
+        checkOwner();
+        if(epoch<0||tick<0||id<0||uuid==null||
+           generation!=epoch||lastTick!=tick)
+            throw new IllegalArgumentException("unverified aim lock commit");
+        entityId=id;identity=uuid;
+        nativeEntity=nativeWorld=null;
+    }
+    public void appliedNative(long epoch,long tick,int id,UUID uuid,
+                              Object entity,Object world) {
+        if(entity==null||world==null)
+            throw new IllegalArgumentException("missing native aim lock");
+        applied(epoch,tick,id,uuid);
+        nativeEntity=entity;nativeWorld=world;
+    }
     public void clear() {
         checkOwner();
-        entityId = -1;
-        identity = null;
+        entityId=-1;identity=null;nativeEntity=nativeWorld=null;
     }
-
-    /** World, focus, input, or module reset. */
     public void reset() {
         checkOwner();
-        generation = -1L;
-        lastTick = -1L;
-        entityId = -1;
-        identity = null;
+        generation=lastTick=-1L;
+        clear();
     }
 }
