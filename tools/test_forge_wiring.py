@@ -1107,6 +1107,30 @@ class ForgeWiring(unittest.TestCase):
         self.assertNotIn("sendUseItem(",fence)
         self.assertNotIn("KeyBinding.onTick(",fence)
 
+    def test_aim_native_entity_identity_and_final_camera_gate(self):
+        combat=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeCombatController.java")
+        policy=content("src/main/java/dev/ghostfusion/features/AimTargetSwitchPolicy.java")
+        lock=content("src/main/java/dev/ghostfusion/features/AimTargetLock.java")
+        core=content("src/test/java/dev/ghostfusion/tests/AimNativeIdentityTests.java")
+        native=content("forge189/src/test/java/dev/ghostfusion/forge189/NativeAimIdentityTests.java")
+        catalog=content("src/test/java/dev/ghostfusion/tests/IntegratedModuleCatalogTests.java")
+        gradle=content("forge189/build.gradle")
+        self.assertIn("aimSwitch.considerNative(",combat)
+        self.assertIn("aimSwitch.appliedNative(",combat)
+        self.assertIn("aimLock.sameNativeIdentity(",combat)
+        self.assertIn("aimLock.appliedNative(",combat)
+        self.assertIn("mc.theWorld.getEntityByID(suggestion.entityId)!=candidate",combat)
+        self.assertIn("mc.theWorld!=tickWorld",combat)
+        self.assertLess(combat.index("mc.theWorld.getEntityByID(suggestion.entityId)!=candidate"),
+                        combat.index("player.rotationYaw = rotation.yaw;"))
+        self.assertIn("ae==be && aw==bw",policy)
+        self.assertIn("nativeEntity==entity && nativeWorld==world",lock)
+        self.assertIn("AimNativeIdentityTests.main(args);",catalog)
+        self.assertIn("check.dependsOn nativeAimIdentityProbe",gradle)
+        self.assertIn('Entity.class.getMethod("getUniqueID")',native)
+        self.assertIn("randomReplay();",core)
+        self.assertNotIn("KeyBinding.onTick",policy)
+
     def test_combat_frame_acceptance_is_native_opt_in_no_server_claim(self):
         adapter=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeEventAdapter.java")
         policy=content("src/main/java/dev/ghostfusion/features/CombatFrameAcceptance.java")
