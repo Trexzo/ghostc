@@ -24,6 +24,7 @@ import dev.ghostfusion.ui.GuiSlateDetailTitleTooltip;
 import dev.ghostfusion.ui.TargetHudSlateMiniatureGeometry;
 import dev.ghostfusion.ui.KeystrokesSlateMiniatureGeometry;
 import dev.ghostfusion.ui.CpsSlateMiniatureGeometry;
+import dev.ghostfusion.ui.StatusHudSlateMiniatureGeometry;
 import dev.ghostfusion.ui.GuiSlateEmptyStateLayout;
 import dev.ghostfusion.ui.GuiSlateTooltipLayout;
 import dev.ghostfusion.ui.GuiSlateSearchGeometry;
@@ -1113,7 +1114,8 @@ public final class GhostClickGui extends GuiScreen {
         }
         return HudThemeTokens.of(appearance);
     }
-    private void drawHudMiniature(Rect bounds,Widget widget,boolean selected) {
+    private void drawHudMiniature(Rect bounds,Widget widget,boolean selected,
+                                  StatusHudLayout statusLayout) {
         miniatureTheme=miniatureThemeFor(widget);
         boolean liveSlateList=false;
         if(widget==Widget.MODULE_LIST &&
@@ -1142,7 +1144,10 @@ public final class GhostClickGui extends GuiScreen {
         boolean slateCps=widget==Widget.CPS &&
             ui.theme()==UiState.Theme.SLATE &&
             "slate".equals(host.cpsAppearance());
-        if(slateTarget)
+        if(widget==null && ui.theme()==UiState.Theme.SLATE)
+            StatusHudSlateMiniatureGeometry.paint(bounds,statusLayout,
+                host.featureEnabled("hud.status"),miniaturePainter);
+        else if(slateTarget)
             TargetHudSlateMiniatureGeometry.paint(bounds,
                 host.targetHealth(),host.targetDistance(),miniaturePainter);
         else if(slateKeys)
@@ -1299,15 +1304,20 @@ public final class GhostClickGui extends GuiScreen {
                 rect(canvas.x,gy,canvas.width,1,editorStyle.previewGrid);
         }
 
-        Rect status=geometry.status(ui,statusPreviewWidth(),statusPreviewHeight());
+        // The same measured row snapshot now owns both Status's F7 frame
+        // and its purely visual contents. No synthetic metric values.
+        StatusHudLayout editorStatus=statusFootprint();
+        Rect status=geometry.status(ui,editorStatus.measuredWidth,
+            editorStatus.measuredHeight);
         hudPreviewRects[HudEditorControls.Item.STATUS.ordinal()]=status;
-        drawHudMiniature(status,null,hudControls.selected()==HudEditorControls.Item.STATUS);
+        drawHudMiniature(status,null,
+            hudControls.selected()==HudEditorControls.Item.STATUS,editorStatus);
 
         for(Widget widget:Widget.values()) {
             HudEditorControls.Item item=HudEditorControls.itemFor(widget);
             Rect r=hudPreviewRect(geometry,widget);
             hudPreviewRects[item.ordinal()]=r;
-            drawHudMiniature(r,widget,hudControls.selected()==item);
+            drawHudMiniature(r,widget,hudControls.selected()==item,null);
         }
         if(slateEditor) {
             // Hover respects original preview click priority, so the

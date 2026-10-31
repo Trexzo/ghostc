@@ -249,6 +249,8 @@ jobs:
           grep -q 'KEYSTROKES_SLATE_MINIATURE_PASS' .build/keys-slate-miniature.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.CpsSlateMiniatureGeometryTests | tee .build/cps-slate-miniature.log
           grep -q 'CPS_SLATE_MINIATURE_PASS' .build/cps-slate-miniature.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.StatusHudSlateMiniatureGeometryTests | tee .build/status-slate-miniature.log
+          grep -q 'STATUS_HUD_SLATE_MINIATURE_PASS' .build/status-slate-miniature.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudSlateMiniatureGeometryTests | tee .build/target-hud-slate-miniature.log
           grep -q 'TARGET_HUD_SLATE_MINIATURE_PASS' .build/target-hud-slate-miniature.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudOverlapPolicyTests | tee .build/hud-overlap.log

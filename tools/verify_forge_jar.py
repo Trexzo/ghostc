@@ -46,6 +46,7 @@ REQUIRED = (
     "dev/ghostfusion/ui/TargetHudSlateMiniatureGeometry.class",
     "dev/ghostfusion/ui/KeystrokesSlateMiniatureGeometry.class",
     "dev/ghostfusion/ui/CpsSlateMiniatureGeometry.class",
+    "dev/ghostfusion/ui/StatusHudSlateMiniatureGeometry.class",
     "dev/ghostfusion/ui/GuiSliderDrag.class",
     "dev/ghostfusion/ui/HudDragCapture.class",
     "dev/ghostfusion/ui/HudEditorSlateCanvasGeometry.class",
