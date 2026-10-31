@@ -13,6 +13,7 @@ import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.gui.inventory.GuiChest;
 import org.lwjgl.opengl.Display;
 import dev.ghostfusion.services.WorldSnapshot;
+import dev.ghostfusion.features.AimSnapshotNativeFence;
 import dev.ghostfusion.ui.StatusHudLayout;
 import dev.ghostfusion.services.WorldIdentityTracker;
 import dev.ghostfusion.services.WorldSnapshotAdmission;
@@ -74,9 +75,14 @@ public final class ForgeEventAdapter {
     private final CombatFrameAcceptance combatFrameAcceptance =
         new CombatFrameAcceptance();
     private final WorldIdentityTracker worldIdentity = new WorldIdentityTracker();
-    // Two capped, owner-thread groups are reused every tick. Every raw
-    // EntityPlayer reference is released before publishing an immutable
-    // WorldSnapshot, including when snapshot construction fails.
+    // Bounded, transient exact-native witnesses only for Aim snapshot rows.
+    // Unlike the immutable WorldSnapshot, this is never published or logged.
+    private final AimSnapshotNativeFence aimSnapshot =
+        new AimSnapshotNativeFence();
+    // Two capped, owner-thread groups are reused every tick. Their native
+    // references are released before snapshot publication. Only the separate
+    // bounded Aim provenance fence retains published-row identity through the
+    // immediate combat phase; it is never part of WorldSnapshot or logs.
     private final WorldSnapshotAdmission<EntityPlayer> nearestSnapshot =
         new WorldSnapshotAdmission<EntityPlayer>();
     // Holds only a primitive distance/ID: no game entity references survive
@@ -88,7 +94,7 @@ public final class ForgeEventAdapter {
         this.minecraft = minecraft;
         this.host = host;
         this.features = new ForgeFeatureDriver(minecraft,host);
-        this.combat = new ForgeCombatController(minecraft,host);
+        this.combat = new ForgeCombatController(minecraft,host,aimSnapshot);
         this.autoRod = new ForgeAutoRodController(minecraft,host);
         this.autoSnowball = new ForgeAutoSnowballController(minecraft,host);
         this.projectileObservations = new ForgeProjectileObservationSampler(minecraft,host);
@@ -158,6 +164,9 @@ public final class ForgeEventAdapter {
         // Keep the standard presence reconciliation for starting menus.
         host.worldPresence(worldReady);
         host.tick();
+        // A prior frame may have aborted before combat: never carry its
+        // native references into this new END tick.
+        aimSnapshot.clear();
         // Read-only reconciliation runs independently from hotbar ownership
         // and may finish after Rod/Snowball have restored the user's slot.
         projectileObservations.sample();
@@ -209,6 +218,14 @@ public final class ForgeEventAdapter {
             int scanned=0,passed=0,rays=0;
             nearestSnapshot.clear();
             teamHudPin.clear();
+            final boolean witnessAim=host.featureEnabled("combat.aimassist");
+            if(witnessAim) {
+                // No identity is retained by the ordinary immutable snapshot.
+                // This bounded sidecar belongs only to this single END frame.
+                aimSnapshot.begin(host.services().generation(),host.services().tick(),
+                    minecraft.theWorld,minecraft.thePlayer);
+            }
+            boolean snapshotPublished=false;
             try {
                 // No targets: publish an empty valid tick snapshot so unrelated
                 // click/hit/block policies keep their exact session admission.
@@ -272,8 +289,14 @@ public final class ForgeEventAdapter {
                         double currentDistanceSq=dx*dx+dy*dy+dz*dz;
                         boolean stillVisible=visible && !p.isInvisible();
                         if(!demand.admit(stillVisible,currentDistanceSq))return;
+                        // Use exactly the same sampled primitives for the
+                        // published snapshot row and native witness.
+                        final int nativeId=p.getEntityId();
+                        final double x=p.posX,y=p.posY,z=p.posZ;
                         players.add(new WorldSnapshot.Entity(
-                            p.getEntityId(),p.posX,p.posY,p.posZ,health,true,stillVisible,true));
+                            nativeId,x,y,z,health,true,stillVisible,true));
+                        if(witnessAim)
+                            aimSnapshot.record(nativeId,p.getUniqueID(),p);
                     }
                 });
                 host.diagnostics().record(Counter.SNAPSHOT);
@@ -281,6 +304,7 @@ public final class ForgeEventAdapter {
                     host.services().generation(),host.services().tick(),
                     minecraft.thePlayer.posX,minecraft.thePlayer.posY,minecraft.thePlayer.posZ,
                     minecraft.thePlayer.rotationYaw,minecraft.thePlayer.rotationPitch,players));
+                snapshotPublished=true;
                 // A clock anomaly must not invalidate an already published
                 // client-tick snapshot or stop normal gameplay callbacks.
                 if(profileSnapshot) {
@@ -292,8 +316,12 @@ public final class ForgeEventAdapter {
             } finally {
                 nearestSnapshot.clear();
                 teamHudPin.clear();
+                // A failed snapshot publication cannot leave a partially
+                // trusted set of native EntityPlayer witnesses.
+                if(!snapshotPublished)aimSnapshot.clear();
             }
         }
+        try {
         // A single session-fenced, immutable plan arbitrates native
         // actions before any module makes a write. Controllers preserve
         // their own physical input/entity/container and safety checks.
@@ -404,8 +432,14 @@ public final class ForgeEventAdapter {
         }
         final boolean combatCalled=plan.combat && !rodOwns && !snowballOwns &&
             !manualSlotEvent && !projectileConflict;
-        if(combatCalled)combat.tick();
-        else combat.reset();
+        try {
+            if(combatCalled)combat.tick();
+            else combat.reset();
+        } finally {
+            // Even failed/denied native combat cannot retain snapshot
+            // EntityPlayer references beyond this combat output phase.
+            aimSnapshot.clear();
+        }
 
         if(checkCombatFrame) {
             final boolean clickWrite=host.nativeActionCount(
@@ -455,6 +489,11 @@ public final class ForgeEventAdapter {
                 if((newly & LiveAcceptanceCoverage.bit(check))!=0)
                     host.diagnostics().record(Counter.valueOf(
                         "ACCEPT_"+check.name()));
+        }
+        } finally {
+            // Covers an exception before combat.tick() as well: no entity
+            // reference is held past this complete END callback.
+            aimSnapshot.clear();
         }
     }
 
@@ -725,6 +764,7 @@ public final class ForgeEventAdapter {
                 moduleState.reset();
                 lastArbitration=null;
                 worldIdentity.reset();
+                aimSnapshot.clear();
                 features.reset();
                 combat.reset();
                 bridge.reset();

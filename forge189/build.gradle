@@ -202,3 +202,14 @@ task nativeAimRetentionProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeAimRetentionTests'
 }
 check.dependsOn nativeAimRetentionProbe
+
+
+// R3.69: original Minecraft 1.8.9 world/player/entity-registry
+// linkage and immutable-snapshot-to-native-camera provenance.
+// Headless Forge Java8 check; NO launched game or server acceptance.
+task nativeAimSnapshotFenceProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeAimSnapshotFenceTests'
+}
+check.dependsOn nativeAimSnapshotFenceProbe
