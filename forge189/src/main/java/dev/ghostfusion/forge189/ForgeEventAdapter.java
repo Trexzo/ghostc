@@ -79,9 +79,10 @@ public final class ForgeEventAdapter {
     // Unlike the immutable WorldSnapshot, this is never published or logged.
     private final AimSnapshotNativeFence aimSnapshot =
         new AimSnapshotNativeFence();
-    // Two capped, owner-thread groups are reused every tick. Every raw
-    // EntityPlayer reference is released before publishing an immutable
-    // WorldSnapshot, including when snapshot construction fails.
+    // Two capped, owner-thread groups are reused every tick. Their native
+    // references are released before snapshot publication. Only the separate
+    // bounded Aim provenance fence retains published-row identity through the
+    // immediate combat phase; it is never part of WorldSnapshot or logs.
     private final WorldSnapshotAdmission<EntityPlayer> nearestSnapshot =
         new WorldSnapshotAdmission<EntityPlayer>();
     // Holds only a primitive distance/ID: no game entity references survive
@@ -224,6 +225,7 @@ public final class ForgeEventAdapter {
                 aimSnapshot.begin(host.services().generation(),host.services().tick(),
                     minecraft.theWorld,minecraft.thePlayer);
             }
+            boolean snapshotPublished=false;
             try {
                 // No targets: publish an empty valid tick snapshot so unrelated
                 // click/hit/block policies keep their exact session admission.
@@ -302,6 +304,7 @@ public final class ForgeEventAdapter {
                     host.services().generation(),host.services().tick(),
                     minecraft.thePlayer.posX,minecraft.thePlayer.posY,minecraft.thePlayer.posZ,
                     minecraft.thePlayer.rotationYaw,minecraft.thePlayer.rotationPitch,players));
+                snapshotPublished=true;
                 // A clock anomaly must not invalidate an already published
                 // client-tick snapshot or stop normal gameplay callbacks.
                 if(profileSnapshot) {
@@ -313,8 +316,12 @@ public final class ForgeEventAdapter {
             } finally {
                 nearestSnapshot.clear();
                 teamHudPin.clear();
+                // A failed snapshot publication cannot leave a partially
+                // trusted set of native EntityPlayer witnesses.
+                if(!snapshotPublished)aimSnapshot.clear();
             }
         }
+        try {
         // A single session-fenced, immutable plan arbitrates native
         // actions before any module makes a write. Controllers preserve
         // their own physical input/entity/container and safety checks.
@@ -482,6 +489,11 @@ public final class ForgeEventAdapter {
                 if((newly & LiveAcceptanceCoverage.bit(check))!=0)
                     host.diagnostics().record(Counter.valueOf(
                         "ACCEPT_"+check.name()));
+        }
+        } finally {
+            // Covers an exception before combat.tick() as well: no entity
+            // reference is held past this complete END callback.
+            aimSnapshot.clear();
         }
     }
 
