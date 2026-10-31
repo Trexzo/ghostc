@@ -201,3 +201,13 @@ task nativeAimHandoffProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeAimHandoffTests'
 }
 check.dependsOn nativeAimHandoffProbe
+
+
+// R3.69 original Minecraft 1.8.9 native MouseHelper and KeyBinding API
+// linkage, plus projectile-first-frame exclusivity and manual pause timing.
+task nativeProjectileCombatHandoffProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeProjectileCombatHandoffTests'
+}
+check.dependsOn nativeProjectileCombatHandoffProbe

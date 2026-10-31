@@ -5,6 +5,7 @@ import dev.ghostfusion.host.PanicController;
 import dev.ghostfusion.features.ModuleInteractionStateMachine;
 import dev.ghostfusion.features.ProjectileManualInputGate;
 import dev.ghostfusion.features.ProjectileOwnerArbiter;
+import dev.ghostfusion.features.ProjectileCombatHandoff;
 import dev.ghostfusion.features.ModuleInteractionReadout;
 import dev.ghostfusion.features.LiveAcceptanceCoverage;
 import dev.ghostfusion.features.CombatFrameAcceptance;
@@ -402,9 +403,17 @@ public final class ForgeEventAdapter {
                 autoSnowball.reset();
             else snowballOwns=autoSnowball.tick(false);
         }
-        final boolean combatCalled=plan.combat && !rodOwns && !snowballOwns &&
+        // A projectile that relinquishes its slot during this END tick
+        // still owned the native input path at the tick's START. Do not
+        // resume camera/attack merely because its final tick() returned false.
+        final boolean projectileFrameReserved=ProjectileCombatHandoff.reserved(
+            prior,rodOwns,snowballOwns);
+        final boolean combatCalled=plan.combat && !projectileFrameReserved &&
             !manualSlotEvent && !projectileConflict;
         if(combatCalled)combat.tick();
+        else if(plan.combat && projectileFrameReserved &&
+                !manualSlotEvent && !projectileConflict)
+            combat.suspendForProjectile();
         else combat.reset();
 
         if(checkCombatFrame) {
@@ -422,8 +431,10 @@ public final class ForgeEventAdapter {
             final CombatFrameAcceptance.Result evidence=
                 combatFrameAcceptance.observe(
                     host.services().generation(),host.services().tick(),
-                    plan.combat,rodOwns,snowballOwns,manualSlotEvent,
-                    projectileConflict,combatCalled,
+                    plan.combat,
+                    rodOwns||prior==ProjectileOwnerArbiter.Owner.ROD,
+                    snowballOwns||prior==ProjectileOwnerArbiter.Owner.SNOWBALL,
+                    manualSlotEvent,projectileConflict,combatCalled,
                     clickWrite||triggerWrite||blockWrite||aimWrite,
                     clickWrite||triggerWrite);
             host.diagnostics().record(Counter.valueOf(

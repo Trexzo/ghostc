@@ -1161,6 +1161,37 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('MouseHelper.class.getField("deltaY")',native)
         self.assertNotIn("KeyBinding.onTick(",core)
 
+    def test_r369_projectile_camera_handoff_is_reserved_and_manual_mouse_continuous(self):
+        adapter=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeEventAdapter.java")
+        combat=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeCombatController.java")
+        guard=content("src/main/java/dev/ghostfusion/features/ProjectileCombatHandoff.java")
+        core=content("src/test/java/dev/ghostfusion/tests/ProjectileCombatHandoffTests.java")
+        native=content("forge189/src/test/java/dev/ghostfusion/forge189/NativeProjectileCombatHandoffTests.java")
+        catalog=content("src/test/java/dev/ghostfusion/tests/IntegratedModuleCatalogTests.java")
+        gradle=content("forge189/build.gradle")
+        self.assertIn("ProjectileCombatHandoff.reserved(",adapter)
+        self.assertIn("prior,rodOwns,snowballOwns);",adapter)
+        self.assertIn("!projectileFrameReserved &&",adapter)
+        self.assertIn("combat.suspendForProjectile();",adapter)
+        self.assertIn("else combat.reset();",adapter)
+        self.assertIn("rodOwns||prior==ProjectileOwnerArbiter.Owner.ROD",adapter)
+        self.assertIn("snowballOwns||prior==ProjectileOwnerArbiter.Owner.SNOWBALL",adapter)
+        self.assertLess(adapter.index("ProjectileCombatHandoff.reserved("),
+                        adapter.index("if(combatCalled)combat.tick();"))
+        self.assertLess(adapter.index("combat.suspendForProjectile();"),
+                        adapter.index("combatFrameAcceptance.observe("))
+        suspend=combat.split("void suspendForProjectile() {",1)[1].split("void reset() {",1)[0]
+        self.assertIn("manualAim.suppressed(",suspend)
+        self.assertIn("resetNonMouse();",suspend)
+        self.assertNotIn("player.rotationYaw =",suspend)
+        self.assertNotIn("KeyBinding.onTick(",suspend)
+        self.assertIn("manualAim.reset();",combat.split("void reset() {",1)[1])
+        self.assertIn("atStart!=ProjectileOwnerArbiter.Owner.NONE",guard)
+        self.assertIn("ProjectileCombatHandoffTests.main(args);",catalog)
+        self.assertIn("randomized();",core)
+        self.assertIn('MouseHelper.class.getField("deltaX")',native)
+        self.assertIn("check.dependsOn nativeProjectileCombatHandoffProbe",gradle)
+
     def test_combat_frame_acceptance_is_native_opt_in_no_server_claim(self):
         adapter=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeEventAdapter.java")
         policy=content("src/main/java/dev/ghostfusion/features/CombatFrameAcceptance.java")
@@ -1176,10 +1207,11 @@ class ForgeWiring(unittest.TestCase):
         for lane in ("CLICKER","TRIGGER","BLOCKHIT"):
             self.assertIn("ModuleActionTelemetry.Lane."+lane,adapter)
         self.assertIn("ModuleActionTelemetry.Event.DISPATCHED",adapter)
-        self.assertIn("final boolean combatCalled=plan.combat && !rodOwns && !snowballOwns &&",adapter)
+        self.assertIn("final boolean combatCalled=plan.combat && !projectileFrameReserved &&",adapter)
         self.assertIn("!manualSlotEvent && !projectileConflict;",adapter)
         self.assertIn("if(combatCalled)combat.tick();",adapter)
         self.assertIn("else combat.reset();",adapter)
+        self.assertIn("combat.suspendForProjectile();",adapter)
         self.assertIn("combatFrameAcceptance.observe(",adapter)
         self.assertIn('"COMBAT_FRAME_"+evidence.name()',adapter)
         self.assertLess(adapter.index("final long beforeAim="),
@@ -1264,7 +1296,8 @@ class ForgeWiring(unittest.TestCase):
         # own RESTORE tick. After reset, physical attack needs a fresh release.
         self.assertIn("else rodOwns=autoRod.tick(false);",adapter)
         self.assertIn("else snowballOwns=autoSnowball.tick(false);",adapter)
-        self.assertIn("!rodOwns && !snowballOwns",adapter)
+        self.assertIn("!projectileFrameReserved &&",adapter)
+        self.assertIn("ProjectileCombatHandoff.reserved(",adapter)
         self.assertIn("else combat.reset();",adapter)
 
     def test_projectile_local_observation_is_readonly_and_bounded(self):

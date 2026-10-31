@@ -522,11 +522,41 @@ public final class ForgeCombatController {
             player.getTeam()!=target.getTeam();
     }
 
+    /**
+     * While an exclusive projectile hotbar transaction is active, preserve
+     * bounded physical mouse history without ever submitting a camera write.
+     * All attack, camera-target, key-rearm and rotation intents are still
+     * reset on every exclusive tick. This only runs in the adapter's live,
+     * focused, GUI-free projectile frame.
+     */
+    void suspendForProjectile() {
+        final SessionServices session=host.services();
+        if(host.featureEnabled(AIM_ID) && host.aimRespectMouse() &&
+           session.connected() && mc.thePlayer!=null && mc.theWorld!=null &&
+           mc.currentScreen==null && mc.inGameHasFocus &&
+           mc.mouseHelper!=null) {
+            try {
+                manualAim.suppressed(session.generation(),session.tick(),true,
+                    mc.mouseHelper.deltaX,mc.mouseHelper.deltaY,
+                    host.aimMouseThreshold(),host.aimMousePauseTicks());
+            } catch(RuntimeException badMouseSample) {
+                // No incomplete or stale physical input history may escape
+                // a faulty sampling transition into a new camera grant.
+                manualAim.reset();
+            }
+        } else manualAim.reset();
+        resetNonMouse();
+    }
+
     /** Clears timers and all pending owned intents on world or focus change. */
     void reset() {
+        manualAim.reset();
+        resetNonMouse();
+    }
+
+    private void resetNonMouse() {
         aimLock.reset();
         aimSwitch.reset();
-        manualAim.reset();
         scheduler.reset();
         patternScheduler.reset();
         physicalInput.reset();
