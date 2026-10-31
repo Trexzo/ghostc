@@ -13,6 +13,7 @@ import dev.ghostfusion.features.BlockHitPolicy;
 import dev.ghostfusion.features.PhysicalInputGate;
 import dev.ghostfusion.features.LiveCombatTargetGate;
 import dev.ghostfusion.features.AimSnapshotNativeFence;
+import dev.ghostfusion.features.AimFinalCameraWriteGate;
 import dev.ghostfusion.features.TriggerBotPolicy;
 import dev.ghostfusion.features.TriggerNativeIdentityFence;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
@@ -53,6 +54,7 @@ public final class ForgeCombatController {
     private final Minecraft mc;
     private final HostRuntime host;
     private final AimSnapshotNativeFence aimSnapshot;
+    private final AimFinalCameraWriteGate finalCamera = new AimFinalCameraWriteGate();
     private final AimAssistPolicy aim = new AimAssistPolicy();
     private final AimTargetLock aimLock = new AimTargetLock();
     private final AimTargetSwitchPolicy aimSwitch = new AimTargetSwitchPolicy();
@@ -73,6 +75,28 @@ public final class ForgeCombatController {
         this.mc=mc;
         this.host=host;
         this.aimSnapshot=aimSnapshot;
+    }
+
+    private AimFinalCameraWriteGate.SourcePose nativeSource(EntityPlayerSP player) {
+        return new AimFinalCameraWriteGate.SourcePose(
+            player.posX,player.posY,player.posZ,player.rotationYaw,
+            player.rotationPitch,player.getEyeHeight());
+    }
+    private AimFinalCameraWriteGate.TargetState nativeTarget(EntityPlayer candidate) {
+        return new AimFinalCameraWriteGate.TargetState(
+            candidate.posX,candidate.posY,candidate.posZ,candidate.getHealth(),
+            candidate.isDead,candidate.isInvisible());
+    }
+    private AimFinalCameraWriteGate.Inputs nativeInputs(EntityPlayerSP player,
+                                                          SessionServices session) {
+        return new AimFinalCameraWriteGate.Inputs(
+            host.featureEnabled(AIM_ID),session.connected(),mc.inGameHasFocus,
+            mc.currentScreen==null,host.aimRequireClick(),host.aimRespectMouse(),
+            mc.gameSettings.keyBindAttack.isKeyDown(),
+            mc.gameSettings.keyBindUseItem.isKeyDown(),player.isUsingItem(),
+            mc.mouseHelper!=null,
+            mc.mouseHelper==null?0:mc.mouseHelper.deltaX,
+            mc.mouseHelper==null?0:mc.mouseHelper.deltaY);
     }
 
     void tick() {
@@ -272,6 +296,15 @@ public final class ForgeCombatController {
                         aimSwitch.reset();
                         return;
                     }
+                    // Capture the last validated native state. The ticket
+                    // is a local stack reference, not retained beyond this
+                    // synchronous CAMERA decision/output.
+                    final AimFinalCameraWriteGate.Ticket cameraTicket=
+                        finalCamera.capture(session.generation(),session.tick(),
+                            mc.theWorld,player,snapshot,candidate,
+                            suggestion.entityId,candidate.getUniqueID(),
+                            nativeSource(player),nativeTarget(candidate),
+                            nativeInputs(player,session));
                     session.rotations().request(AIM_ID, RotationCoordinator.Scope.CAMERA,
                         suggestion.yaw, suggestion.pitch, 10,
                         session.tick(), 1, session.generation());
@@ -279,6 +312,38 @@ public final class ForgeCombatController {
                         RotationCoordinator.Scope.CAMERA, session.tick(), session.generation(),
                         player.rotationYaw, player.rotationPitch);
                     if (AIM_ID.equals(rotation.owner)) {
+                        // Re-read world/player/entity, camera pose and native
+                        // physical mouse/key state AFTER arbitration and
+                        // immediately BEFORE the first camera field write.
+                        // A previously valid intent does not make fresh game
+                        // state authoritative, even within this END callback.
+                        if(!finalCamera.permits(cameraTicket,
+                                session.generation(),session.tick(),
+                                mc.theWorld,mc.thePlayer,session.snapshot(),
+                                candidate,suggestion.entityId,candidate.getUniqueID(),
+                                nativeSource(player),nativeTarget(candidate),
+                                nativeInputs(player,session)) ||
+                            !LiveCombatTargetGate.eligible(candidate,
+                                mc.theWorld==null?null:
+                                    mc.theWorld.getEntityByID(suggestion.entityId),
+                                player,candidate.isDead,candidate.getHealth(),
+                                candidate.isInvisible(),host.aimVisibleOnly()) ||
+                            !suggestion.sameTargetPosition(
+                                candidate.posX,candidate.posY,candidate.posZ) ||
+                            !suggestion.sameSourcePose(player.posX,player.posY,
+                                player.posZ,player.rotationYaw,player.rotationPitch,
+                                player.getEyeHeight()) ||
+                            !aimSnapshot.matches(session.generation(),session.tick(),
+                                suggestion.entityId,candidate.getUniqueID(),
+                                candidate,mc.theWorld,mc.thePlayer,
+                                mc.theWorld==null?null:
+                                    mc.theWorld.getEntityByID(suggestion.entityId))) {
+                            session.rotations().cancel(AIM_ID);
+                            cameraReturn.interrupt();
+                            aimLock.clear();
+                            aimSwitch.reset();
+                            return;
+                        }
                         player.rotationYaw = rotation.yaw;
                         player.rotationPitch = rotation.pitch;
                         aimSwitch.appliedNative(session.generation(),session.tick(),
