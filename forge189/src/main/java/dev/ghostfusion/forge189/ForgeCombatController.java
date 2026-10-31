@@ -12,6 +12,7 @@ import dev.ghostfusion.features.HitSelectPolicy;
 import dev.ghostfusion.features.BlockHitPolicy;
 import dev.ghostfusion.features.PhysicalInputGate;
 import dev.ghostfusion.features.LiveCombatTargetGate;
+import dev.ghostfusion.features.AimSnapshotNativeFence;
 import dev.ghostfusion.features.TriggerBotPolicy;
 import dev.ghostfusion.features.TriggerNativeIdentityFence;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
@@ -51,6 +52,7 @@ public final class ForgeCombatController {
 
     private final Minecraft mc;
     private final HostRuntime host;
+    private final AimSnapshotNativeFence aimSnapshot;
     private final AimAssistPolicy aim = new AimAssistPolicy();
     private final AimTargetLock aimLock = new AimTargetLock();
     private final AimTargetSwitchPolicy aimSwitch = new AimTargetSwitchPolicy();
@@ -65,10 +67,12 @@ public final class ForgeCombatController {
     private final BlockHitPolicy blockHit = new BlockHitPolicy();
     private final PhysicalInputGate physicalInput = new PhysicalInputGate();
 
-    ForgeCombatController(Minecraft mc, HostRuntime host) {
-        if (mc == null || host == null) throw new IllegalArgumentException("null bridge dependency");
-        this.mc = mc;
-        this.host = host;
+    ForgeCombatController(Minecraft mc,HostRuntime host,AimSnapshotNativeFence aimSnapshot) {
+        if(mc==null||host==null||aimSnapshot==null)
+            throw new IllegalArgumentException("null bridge dependency");
+        this.mc=mc;
+        this.host=host;
+        this.aimSnapshot=aimSnapshot;
     }
 
     void tick() {
@@ -253,6 +257,19 @@ public final class ForgeCombatController {
                             suggestion.entityId,candidate.getUniqueID(),
                             candidate,mc.theWorld,
                             locking ? 0 : host.aimSwitchDelayTicks())) {
+                        return;
+                    }
+                    // R3.69: the live, currently registered candidate MUST
+                    // be the exact EntityPlayer that supplied this immutable
+                    // snapshot row. A replacement with equal ID, UUID and
+                    // position after sampling is NOT the same camera target.
+                    if(!aimSnapshot.matches(
+                            session.generation(),session.tick(),suggestion.entityId,
+                            candidate.getUniqueID(),candidate,mc.theWorld,player,
+                            mc.theWorld.getEntityByID(suggestion.entityId))) {
+                        cameraReturn.interrupt();
+                        aimLock.clear();
+                        aimSwitch.reset();
                         return;
                     }
                     session.rotations().request(AIM_ID, RotationCoordinator.Scope.CAMERA,
