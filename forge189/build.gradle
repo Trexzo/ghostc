@@ -221,3 +221,13 @@ task nativeAttackOutputProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeAttackOutputTests'
 }
 check.dependsOn nativeAttackOutputProbe
+
+
+// R3.71 mandatory native Java8 KeyBinding and Block Hit preview/commit/cancel
+// acceptance under original Minecraft 1.8.9 classes (no launched game).
+task nativeBlockHitCommitProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeBlockHitCommitTests'
+}
+check.dependsOn nativeBlockHitCommitProbe

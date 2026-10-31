@@ -1220,6 +1220,35 @@ class ForgeWiring(unittest.TestCase):
         self.assertNotIn("KeyBinding.onTick(",gate)
         self.assertNotIn("addToSendQueue",gate)
 
+    def test_r371_blockhit_two_phase_native_commit_and_denial_rearm(self):
+        combat=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeCombatController.java")
+        block=content("src/main/java/dev/ghostfusion/features/BlockHitPolicy.java")
+        core=content("src/test/java/dev/ghostfusion/tests/BlockHitNativeCommitTests.java")
+        native=content("forge189/src/test/java/dev/ghostfusion/forge189/NativeBlockHitCommitTests.java")
+        catalog=content("src/test/java/dev/ghostfusion/tests/IntegratedModuleCatalogTests.java")
+        gradle=content("forge189/build.gradle")
+        self.assertIn("blockHit.preview(true, held,",combat)
+        self.assertIn("blockHit.committed(session.tick(),session.generation());",combat)
+        self.assertIn("blockHit.cancelPrepared();",combat)
+        self.assertLess(combat.index("blockHit.preview(true, held,"),
+                        combat.index("blockHit.committed(session.tick(),session.generation());"))
+        self.assertLess(combat.index("KeyBinding.onTick(mc.gameSettings.keyBindUseItem.getKeyCode());"),
+                        combat.index("blockHit.committed(session.tick(),session.generation());"))
+        self.assertLess(combat.index("blockHit.committed(session.tick(),session.generation());"),
+                        combat.index("blockHit.cancelPrepared();"))
+        self.assertIn("beforePulse=savedPulse;",block)
+        self.assertIn("beforePending=savedPending;",block)
+        self.assertIn("lastPulse=beforePulse;",block)
+        self.assertIn("pendingSince=beforePending;",block)
+        self.assertIn("BlockHitNativeCommitTests.main(args);",catalog)
+        self.assertIn("randomized();",core)
+        self.assertIn("check.dependsOn nativeBlockHitCommitProbe",gradle)
+        self.assertIn("KeyBinding.onTick(useCode);",native)
+        self.assertNotIn("KeyBinding.onTick(",block)
+        self.assertNotIn("addToSendQueue",block)
+        self.assertIn("if (attackApproved) {",combat)
+        self.assertIn("patternScheduler.reset();",combat)
+
     def test_combat_frame_acceptance_is_native_opt_in_no_server_claim(self):
         adapter=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeEventAdapter.java")
         policy=content("src/main/java/dev/ghostfusion/features/CombatFrameAcceptance.java")
