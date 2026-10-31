@@ -191,3 +191,14 @@ task nativeAimCameraReturnProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeAimCameraReturnTests'
 }
 check.dependsOn nativeAimCameraReturnProbe
+
+
+// R3.68: actual Minecraft 1.8.9 EntityPlayer/World and camera
+// linkage with exact native Aim target switch and lock retention.
+// Headless Forge Java8 checks only, NOT real in-game acceptance.
+task nativeAimRetentionProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeAimRetentionTests'
+}
+check.dependsOn nativeAimRetentionProbe
