@@ -11,6 +11,7 @@ import dev.ghostfusion.features.HitSelectPolicy;
 import dev.ghostfusion.features.BlockHitPolicy;
 import dev.ghostfusion.features.PhysicalInputGate;
 import dev.ghostfusion.features.LiveCombatTargetGate;
+import dev.ghostfusion.features.NativeAttackFrameGate;
 import dev.ghostfusion.features.TriggerBotPolicy;
 import dev.ghostfusion.features.TriggerNativeIdentityFence;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
@@ -85,10 +86,11 @@ public final class ForgeCombatController {
             return;
         }
 
-        boolean physicalDown = mc.gameSettings.keyBindAttack.isKeyDown();
-        final boolean held = physicalInput.allowed(session.generation(), true, true, false,
-            physicalDown, mc.gameSettings.keyBindAttack.getKeyCode(),
-            mc.gameSettings.keyBindUseItem.getKeyCode());
+        final int tickAttackBinding=mc.gameSettings.keyBindAttack.getKeyCode();
+        final int tickUseBinding=mc.gameSettings.keyBindUseItem.getKeyCode();
+        final boolean physicalDown=mc.gameSettings.keyBindAttack.isKeyDown();
+        final boolean held=physicalInput.allowed(session.generation(),true,true,false,
+            physicalDown,tickAttackBinding,tickUseBinding);
         if (physicalDown && !held) host.diagnostics().record(Counter.INPUT_SUPPRESSED);
 
         // Snapshot the current crosshair exactly once for all combat policies.
@@ -385,8 +387,26 @@ public final class ForgeCombatController {
         // are no packets, attackEntity calls or bypass controllers here.
         if (selectedAttack != null && CLICK_ID.equals(selectedAttack.owner) &&
             attackApproved && host.featureEnabled(CLICK_ID) &&
-            held && !useHeld && !player.isUsingItem() &&
-            (!host.clickEntityOnly() || validTarget)) {
+            held && NativeAttackFrameGate.sameFrame(
+                player,mc.thePlayer,tickWorld,mc.theWorld,
+                tickAttackBinding,tickUseBinding,
+                mc.gameSettings.keyBindAttack.getKeyCode(),
+                mc.gameSettings.keyBindUseItem.getKeyCode(),
+                mc.inGameHasFocus,mc.currentScreen!=null,
+                mc.theWorld!=null &&
+                    mc.theWorld.getEntityByID(player.getEntityId())==player) &&
+            NativeAttackFrameGate.attackState(false,physicalDown,
+                mc.gameSettings.keyBindAttack.isKeyDown(),
+                mc.gameSettings.keyBindUseItem.isKeyDown(),
+                player.isUsingItem()) &&
+            (!host.clickEntityOnly() || NativeAttackFrameGate.target(
+                target,mc.objectMouseOver!=null &&
+                    mc.objectMouseOver.typeOfHit==MovingObjectPosition.MovingObjectType.ENTITY
+                    ? mc.objectMouseOver.entityHit : null,
+                mc.theWorld==null||target==null?null:
+                    mc.theWorld.getEntityByID(target.getEntityId()),
+                player,target!=null&&target.isDead,
+                target==null?0:target.getHealth()))) {
             host.runFeature(CLICK_ID, new Runnable() {
                 public void run() {
                     KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
@@ -400,9 +420,18 @@ public final class ForgeCombatController {
         } else if (selectedAttack != null && TRIGGER_ID.equals(selectedAttack.owner) &&
             attackApproved && host.featureEnabled(TRIGGER_ID) &&
             triggerBindingValid() &&
-            !mc.gameSettings.keyBindAttack.isKeyDown() &&
-            !mc.gameSettings.keyBindUseItem.isKeyDown() &&
-            !player.isUsingItem() && !aimAdjusted[0] &&
+            NativeAttackFrameGate.sameFrame(
+                player,mc.thePlayer,tickWorld,mc.theWorld,
+                tickAttackBinding,tickUseBinding,
+                mc.gameSettings.keyBindAttack.getKeyCode(),
+                mc.gameSettings.keyBindUseItem.getKeyCode(),
+                mc.inGameHasFocus,mc.currentScreen!=null,
+                mc.theWorld!=null &&
+                    mc.theWorld.getEntityByID(player.getEntityId())==player) &&
+            NativeAttackFrameGate.attackState(true,physicalDown,
+                mc.gameSettings.keyBindAttack.isKeyDown(),
+                mc.gameSettings.keyBindUseItem.isKeyDown(),
+                player.isUsingItem()) && !aimAdjusted[0] &&
             target instanceof EntityPlayer &&
             triggerIdentity.permits(session.generation(),session.tick(),
                 ((EntityPlayer)target).getUniqueID(),target.getEntityId(),
@@ -464,8 +493,29 @@ public final class ForgeCombatController {
             session.tick(), session.generation());
         if (use != null && BLOCK_ID.equals(use.owner) &&
             host.featureEnabled(BLOCK_ID) && held && sword &&
-            !useHeld && !player.isUsingItem() &&
-            (!host.blockRequireTarget() || validTarget)) {
+            NativeAttackFrameGate.sameFrame(
+                player,mc.thePlayer,tickWorld,mc.theWorld,
+                tickAttackBinding,tickUseBinding,
+                mc.gameSettings.keyBindAttack.getKeyCode(),
+                mc.gameSettings.keyBindUseItem.getKeyCode(),
+                mc.inGameHasFocus,mc.currentScreen!=null,
+                mc.theWorld!=null &&
+                    mc.theWorld.getEntityByID(player.getEntityId())==player) &&
+            NativeAttackFrameGate.safeUseBinding(tickUseBinding) &&
+            NativeAttackFrameGate.attackState(false,physicalDown,
+                mc.gameSettings.keyBindAttack.isKeyDown(),
+                mc.gameSettings.keyBindUseItem.isKeyDown(),
+                player.isUsingItem()) &&
+            player.getHeldItem()!=null &&
+            player.getHeldItem().getItem() instanceof ItemSword &&
+            (!host.blockRequireTarget() || NativeAttackFrameGate.target(
+                target,mc.objectMouseOver!=null &&
+                    mc.objectMouseOver.typeOfHit==MovingObjectPosition.MovingObjectType.ENTITY
+                    ? mc.objectMouseOver.entityHit : null,
+                mc.theWorld==null||target==null?null:
+                    mc.theWorld.getEntityByID(target.getEntityId()),
+                player,target!=null&&target.isDead,
+                target==null?0:target.getHealth()))) {
             host.runFeature(BLOCK_ID, new Runnable() {
                 public void run() {
                     KeyBinding.onTick(mc.gameSettings.keyBindUseItem.getKeyCode());

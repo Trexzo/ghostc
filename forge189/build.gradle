@@ -211,3 +211,13 @@ task nativeProjectileCombatHandoffProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeProjectileCombatHandoffTests'
 }
 check.dependsOn nativeProjectileCombatHandoffProbe
+
+
+// R3.70 original Minecraft 1.8.9 KeyBinding and World registry linkage
+// for the final physical-input and native-session combat output gate.
+task nativeAttackOutputProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeAttackOutputTests'
+}
+check.dependsOn nativeAttackOutputProbe

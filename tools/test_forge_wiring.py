@@ -1192,6 +1192,34 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('MouseHelper.class.getField("deltaX")',native)
         self.assertIn("check.dependsOn nativeProjectileCombatHandoffProbe",gradle)
 
+    def test_r370_native_attack_and_blockhit_output_are_freshly_guarded(self):
+        combat=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeCombatController.java")
+        gate=content("src/main/java/dev/ghostfusion/features/NativeAttackFrameGate.java")
+        catalog=content("src/test/java/dev/ghostfusion/tests/IntegratedModuleCatalogTests.java")
+        core=content("src/test/java/dev/ghostfusion/tests/NativeAttackFrameGateTests.java")
+        native=content("forge189/src/test/java/dev/ghostfusion/forge189/NativeAttackOutputTests.java")
+        gradle=content("forge189/build.gradle")
+        self.assertIn("final int tickAttackBinding=",combat)
+        self.assertIn("final int tickUseBinding=",combat)
+        self.assertEqual(combat.count("NativeAttackFrameGate.sameFrame("),3)
+        self.assertEqual(combat.count("NativeAttackFrameGate.attackState("),3)
+        self.assertEqual(combat.count("NativeAttackFrameGate.target("),2)
+        self.assertIn("NativeAttackFrameGate.safeUseBinding(tickUseBinding)",combat)
+        self.assertIn("mc.theWorld.getEntityByID(player.getEntityId())==player",combat)
+        self.assertIn("NativeAttackFrameGate.attackState(false,physicalDown,",combat)
+        self.assertIn("NativeAttackFrameGate.attackState(true,physicalDown,",combat)
+        self.assertIn("mc.gameSettings.keyBindAttack.isKeyDown(),",combat)
+        self.assertIn("mc.gameSettings.keyBindUseItem.isKeyDown(),",combat)
+        self.assertIn("player.getHeldItem().getItem() instanceof ItemSword",combat)
+        self.assertLess(combat.index("NativeAttackFrameGate.sameFrame("),
+                        combat.index("KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());"))
+        self.assertIn("NativeAttackFrameGateTests.main(args);",catalog)
+        self.assertIn("randomized();",core)
+        self.assertIn('KeyBinding.class.getMethod("getKeyCode")',native)
+        self.assertIn("check.dependsOn nativeAttackOutputProbe",gradle)
+        self.assertNotIn("KeyBinding.onTick(",gate)
+        self.assertNotIn("addToSendQueue",gate)
+
     def test_combat_frame_acceptance_is_native_opt_in_no_server_claim(self):
         adapter=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeEventAdapter.java")
         policy=content("src/main/java/dev/ghostfusion/features/CombatFrameAcceptance.java")
@@ -1611,7 +1639,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertLess(combat.index("LiveCombatTargetGate.eligible(candidate,"),
                         combat.index("final boolean validTarget = target != null;"))
         self.assertLess(combat.index("player.isDead || !Double.isFinite(player.getHealth())"),
-                        combat.index("boolean physicalDown ="))
+                        combat.index("final boolean physicalDown="))
         self.assertIn("!host.clickEntityOnly() || validTarget",combat)
         self.assertIn("!host.hitRequireTarget() || validTarget",combat)
         self.assertIn("host.blockRequireTarget()",combat)
