@@ -213,3 +213,14 @@ task nativeAimSnapshotFenceProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeAimSnapshotFenceTests'
 }
 check.dependsOn nativeAimSnapshotFenceProbe
+
+
+// R3.70: original Minecraft 1.8.9 mouse/focus/key/world and native
+// rotation field linkage with last-moment Aim CAMERA veto. Java8 headless
+// only; this does NOT launch Minecraft or confirm live gameplay.
+task nativeAimFinalCameraWriteProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeAimFinalCameraWriteTests'
+}
+check.dependsOn nativeAimFinalCameraWriteProbe

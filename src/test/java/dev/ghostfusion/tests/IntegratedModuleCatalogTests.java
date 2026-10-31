@@ -196,6 +196,7 @@ public final class IntegratedModuleCatalogTests {
         AimCameraReturnTests.main(args);
         AimNativeRetentionTests.main(args);
         AimSnapshotNativeFenceTests.main(args);
+        AimFinalCameraWriteTests.main(args);
         ChestStealerTests.main(args);
         InventoryManagerTests.main(args);
         AutoArmorTests.main(args);
