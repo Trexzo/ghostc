@@ -2435,7 +2435,12 @@ class ForgeWiring(unittest.TestCase):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         model=content("src/main/java/dev/ghostfusion/ui/HudPreviewArt.java")
         tests=content("src/test/java/dev/ghostfusion/tests/HudPreviewArtTests.java")
-        self.assertIn("if(!liveSlateList)HudPreviewArt.paint(bounds,widget,miniaturePainter);",gui)
+        # The generic painter only owns non-Slate-target and non-live-list
+        # previews; the new Target preview follows actual health/range toggles.
+        self.assertIn("else if(!liveSlateList)",gui)
+        self.assertIn("HudPreviewArt.paint(bounds,widget,miniaturePainter);",gui)
+        self.assertLess(gui.index("if(slateTarget)"),
+                        gui.index("else if(!liveSlateList)"))
         self.assertIn("ModuleListSlateMiniatureGeometry.paint(",gui)
         self.assertIn("TARGET_HUD_SLATE_MINIATURE_PASS",content(".github/workflows/core-ci.yml"))
         self.assertIn("TargetHudSlateMiniatureGeometry.paint(bounds,",gui)
