@@ -11,6 +11,11 @@ public final class BlockHitPolicy {
     private int previousSelfHurt;
     private boolean armed;
     private String lastMode="interval";
+    // Native Forge calls preview -> actual KeyBinding.onTick -> committed.
+    // A refused native use restores only speculative cadence/event ownership,
+    // while keeping the current tick's real hurt-time observation.
+    private long stagedTick=-1,stagedEpoch=-1;
+    private long beforePulse=-1,beforePending=-1;
     private void owner() {
         if(Thread.currentThread()!=thread) throw new IllegalStateException("block-hit owner");
     }
@@ -111,8 +116,58 @@ public final class BlockHitPolicy {
         lastPulse=tick;
         return true;
     }
+    /**
+     * Forge-only two-phase admission. Legacy due() remains atomic for
+     * established pure-Java callers. Pending native USE must never advance
+     * the Block Hit cadence until its KeyBinding pulse actually occurs.
+     */
+    public boolean preview(boolean active, boolean attackHeld, boolean vanillaUseHeld,
+                           boolean swordEquipped, boolean targetPresent, boolean requireTarget,
+                           boolean attackPulseQueued, int intervalTicks,
+                           int selfHurtTime, String mode, long tick, long epoch) {
+        owner();
+        cancelPrepared();
+        long savedPulse=lastPulse,savedPending=pendingSince;
+        boolean due=due(active,attackHeld,vanillaUseHeld,swordEquipped,
+            targetPresent,requireTarget,attackPulseQueued,intervalTicks,
+            selfHurtTime,mode,tick,epoch);
+        if(due) {
+            stagedTick=tick;
+            stagedEpoch=epoch;
+            beforePulse=savedPulse;
+            beforePending=savedPending;
+        }
+        return due;
+    }
+
+    /** Mark a successful local native USE pulse as the committed cadence. */
+    public void committed(long tick,long epoch) {
+        owner();
+        if(tick<0||epoch<0||stagedTick!=tick||stagedEpoch!=epoch||
+            lastTick!=tick||generation!=epoch)
+            throw new IllegalStateException("block hit native output not staged");
+        stagedTick=stagedEpoch=-1;
+        beforePulse=beforePending=-1;
+    }
+
+    /**
+     * Restore the pre-preview cadence after native input, target, inventory,
+     * focus, arbitration or binding veto. The current hurt-time sample remains
+     * observed so a failed on_damage pulse is not treated as a fresh edge.
+     */
+    public void cancelPrepared() {
+        owner();
+        if(stagedTick>=0) {
+            lastPulse=beforePulse;
+            pendingSince=beforePending;
+        }
+        stagedTick=stagedEpoch=-1;
+        beforePulse=beforePending=-1;
+    }
+
     public void reset() {
         owner(); generation=-1; lastTick=-1; lastPulse=-1;
         pendingSince=-1; previousSelfHurt=0; armed=false; lastMode="interval";
+        stagedTick=stagedEpoch=-1; beforePulse=beforePending=-1;
     }
 }

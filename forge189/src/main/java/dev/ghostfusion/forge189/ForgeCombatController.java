@@ -451,6 +451,13 @@ public final class ForgeCombatController {
                 }
             });
         } else if (selectedAttack != null && CLICK_ID.equals(selectedAttack.owner)) {
+            // The cadence scheduler tracks ATTEMPTS. Keep its regular
+            // Hit Select-denied pacing, but force a fresh physical-input
+            // arming if an otherwise approved pulse failed its native gate.
+            if (attackApproved) {
+                scheduler.reset();
+                patternScheduler.reset();
+            }
             host.nativeAction(ModuleActionTelemetry.Lane.CLICKER,
                 ModuleActionTelemetry.Event.REJECTED);
         } else if (selectedAttack != null && TRIGGER_ID.equals(selectedAttack.owner)) {
@@ -469,7 +476,7 @@ public final class ForgeCombatController {
         if (host.featureEnabled(BLOCK_ID)) {
             boolean healthy = host.runFeature(BLOCK_ID, new Runnable() {
                 public void run() {
-                    if (!blockHit.due(true, held, useHeld || player.isUsingItem(),
+                    if (!blockHit.preview(true, held, useHeld || player.isUsingItem(),
                         sword, validTarget, host.blockRequireTarget(),
                         extraAttackQueued[0], host.blockIntervalTicks(),
                         player.hurtTime, host.blockMode(),
@@ -519,6 +526,7 @@ public final class ForgeCombatController {
             host.runFeature(BLOCK_ID, new Runnable() {
                 public void run() {
                     KeyBinding.onTick(mc.gameSettings.keyBindUseItem.getKeyCode());
+                    blockHit.committed(session.tick(),session.generation());
                     host.diagnostics().record(Counter.EXTRA_USE);
                     host.nativeAction(ModuleActionTelemetry.Lane.BLOCKHIT,
                         ModuleActionTelemetry.Event.DISPATCHED);
@@ -528,6 +536,9 @@ public final class ForgeCombatController {
             host.nativeAction(ModuleActionTelemetry.Lane.BLOCKHIT,
                 ModuleActionTelemetry.Event.REJECTED);
         }
+        // A failed final native guard, arbitration loss, or quarantined
+        // Block Hit module cannot consume an interval/event trigger.
+        blockHit.cancelPrepared();
     }
 
     /** Synthetic key pulses must not bind the GUI shortcut, unbound key or use key. */
