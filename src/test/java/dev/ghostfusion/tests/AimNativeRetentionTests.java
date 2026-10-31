@@ -185,13 +185,16 @@ public final class AimNativeRetentionTests {
             }
             delayed++;
             if(mode==6) {
-                // Switch back to original before full dwell must restart from
-                // a new candidate after the interrupted pending replacement.
+                // B was only proposed, never committed. Returning to the
+                // exact still-applied A is safe immediately; B did not own
+                // the camera and must not impose an artificial delay.
                 candidate=objectA;
                 got=policy.considerNative(epoch,t+2,id,candidateUuid,candidate,world,delay);
-                ok(!got,"80k rapid A-B-A interruption cannot borrow earlier dwell "+i);
-                first=2;
+                ok(got,"80k rapid A-B-A preserves exact original committed camera owner "+i);
+                policy.appliedNative(epoch,t+2,id,candidateUuid,candidate,world);
+                admitted++;
                 foreignDenied++;
+                continue;
             }
             for(int dt=1;dt<=delay;dt++) {
                 boolean due=policy.considerNative(epoch,t+first+dt,id,candidateUuid,
