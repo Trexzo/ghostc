@@ -64,7 +64,7 @@ public final class HudEditorSlateTabTooltipTests {
             "null native font rejected");
         invalid(()->HudEditorSlateTabTooltip.hovered(0,0,-1,1,1,six),
             "negative tab width rejected");
-        invalid(()->HudEditorSlateTabTooltip.hovered(0,0,40,0,0,s->-1),
+        invalid(()->HudEditorSlateTabTooltip.hovered(0,0,100,0,0,s->-1),
             "negative font measurement rejected");
         System.out.println("HUD_EDITOR_SLATE_TAB_TOOLTIP_PASS checks="+checks);
     }
