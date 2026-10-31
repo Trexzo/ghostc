@@ -181,3 +181,13 @@ task nativeTriggerIdentityProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeTriggerIdentityTests'
 }
 check.dependsOn nativeTriggerIdentityProbe
+
+
+// R3.67 native Minecraft 1.8.9 entity/world/camera linkage,
+// exact entity instance Aim Assist policy: no launched game.
+task nativeAimIdentityProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeAimIdentityTests'
+}
+check.dependsOn nativeAimIdentityProbe
