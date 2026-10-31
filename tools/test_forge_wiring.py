@@ -2489,6 +2489,12 @@ class ForgeWiring(unittest.TestCase):
         overlap=content("src/main/java/dev/ghostfusion/ui/HudOverlapPolicy.java")
         tests=content("src/test/java/dev/ghostfusion/tests/HudOverlapPolicyTests.java")
         self.assertIn("HudEditorConflicts.mask(hudControls.selected(),hudPreviewRects)",gui)
+        self.assertIn("HudEditorConflicts.activeMask(",gui)
+        self.assertIn("conflicts=HudEditorConflicts.activeMask(",gui)
+        self.assertIn("host.featureEnabled(\"hud.status\")||metricsVisible",gui)
+        self.assertIn("!listFootprint().rows.isEmpty()",gui)
+        self.assertIn("40k enabled-only real HUD collision masks agree",
+            content("src/test/java/dev/ghostfusion/tests/HudEditorConflictsTests.java"))
         self.assertIn("hudConflictOutline(hudPreviewRects[peer.ordinal()]);",gui)
         self.assertIn("hudConflictOutline(hudPreviewRects[hudControls.selected().ordinal()]);",gui)
         self.assertIn("HudEditorConflicts.message(hudControls.selected(),conflicts)",gui)

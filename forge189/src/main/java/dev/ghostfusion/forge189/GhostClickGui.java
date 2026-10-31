@@ -1335,7 +1335,27 @@ public final class GhostClickGui extends GuiScreen {
         }
         // A single, read-only pass drives both peer outlines and a truthful
         // named warning. No second list-footprint or font-width measurement.
-        int conflicts=HudEditorConflicts.mask(hudControls.selected(),hudPreviewRects);
+        int geometricConflicts=
+            HudEditorConflicts.mask(hudControls.selected(),hudPreviewRects);
+        boolean metricsVisible=editorStatus.fpsY>=0 ||
+            editorStatus.coordinatesY>=0 || editorStatus.pingY>=0;
+        int conflicts=geometricConflicts;
+        if(slateEditor) {
+            // Inactive editor placeholders are still draggable, but cannot
+            // cause a red visual conflict or a false overlap warning.
+            int activeBits=0;
+            if(host.featureEnabled("hud.status")||metricsVisible)
+                activeBits|=1<<HudEditorControls.Item.STATUS.ordinal();
+            for(Widget widget:Widget.values()) {
+                HudEditorControls.Item item=HudEditorControls.itemFor(widget);
+                if(host.featureEnabled(HudScaleEditor.moduleId(item)) &&
+                   (widget!=Widget.MODULE_LIST ||
+                    !listFootprint().rows.isEmpty()))
+                    activeBits|=1<<item.ordinal();
+            }
+            conflicts=HudEditorConflicts.activeMask(
+                hudControls.selected(),geometricConflicts,activeBits);
+        }
         boolean hudOverlaps=conflicts!=0;
         if(hudOverlaps) {
             for(HudEditorControls.Item peer:HudEditorControls.Item.values()) {
@@ -1364,8 +1384,6 @@ public final class GhostClickGui extends GuiScreen {
             // existing tooltip/footer containment instead of a new surface.
             boolean hoveredEnabled=slateHoveredWidget!=null &&
                 host.featureEnabled(HudScaleEditor.moduleId(slateHoveredWidget));
-            boolean metricsVisible=editorStatus.fpsY>=0 ||
-                editorStatus.coordinatesY>=0 || editorStatus.pingY>=0;
             String widgetHint=HudEditorSlateCanvasGeometry.hoverCaption(
                 slateHoveredWidget,hudDragging,hoveredEnabled,metricsVisible);
             if(widgetHint!=null)

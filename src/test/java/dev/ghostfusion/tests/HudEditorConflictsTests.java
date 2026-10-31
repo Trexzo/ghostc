@@ -46,6 +46,27 @@ public final class HudEditorConflictsTests {
         rejects(()->HudEditorConflicts.message(items[0],1),
             "never describe selected item overlapping itself");
         rejects(()->HudEditorConflicts.includes(-1,items[0]),"no invalid mask");
+        int statusBit=1<<HudEditorControls.Item.STATUS.ordinal();
+        int keysBit=1<<HudEditorControls.Item.KEYS.ordinal();
+        int targetBit=1<<HudEditorControls.Item.TARGET.ordinal();
+        ok(HudEditorConflicts.activeMask(items[0],mask,statusBit)==0,
+            "disabled peer is not reported as a live HUD collision");
+        ok(HudEditorConflicts.activeMask(items[0],mask,keysBit)==0,
+            "disabled selected HUD cannot produce a live overlap warning");
+        ok(HudEditorConflicts.activeMask(items[0],mask,
+            statusBit|keysBit)==keysBit,
+            "enabled selected HUD reports only its enabled peers");
+        ok(HudEditorConflicts.activeMask(items[0],mask,
+            statusBit|keysBit|targetBit)==(keysBit|targetBit),
+            "both actually enabled peers retain the accurate warning");
+        rejects(()->HudEditorConflicts.activeMask(null,mask,1),
+            "active mask needs a selected widget");
+        rejects(()->HudEditorConflicts.activeMask(items[0],mask,1<<9),
+            "unknown active mask bits rejected");
+        rejects(()->HudEditorConflicts.activeMask(items[0],statusBit,statusBit),
+            "self collision bit rejected");
+        rejects(()->HudEditorConflicts.activeMask(items[0],-1,0),
+            "negative geometry mask rejected");
         Random rng=new Random(20261028L);
         for(int i=0;i<40000;i++) {
             for(int j=0;j<rects.length;j++) {
@@ -61,6 +82,15 @@ public final class HudEditorConflictsTests {
             }
             ok(bits==oracle,"pixel oracle agrees "+i);
             ok(!HudEditorConflicts.includes(bits,selected),"self bit absent "+i);
+            int activeBits=rng.nextInt(1<<items.length);
+            int live=HudEditorConflicts.activeMask(selected,bits,activeBits);
+            int expected=(activeBits&(1<<selected.ordinal()))==0?0:
+                (bits&activeBits);
+            ok(live==expected,
+                "40k enabled-only real HUD collision masks agree "+i);
+            ok((live&~bits)==0,"filter never creates false overlap "+i);
+            if((activeBits&(1<<selected.ordinal()))==0)
+                ok(live==0,"disabled selected widget has no red warning "+i);
             String message=HudEditorConflicts.message(selected,bits);
             ok((bits==0)==message.isEmpty(),"warning iff overlapping "+i);
             if(bits!=0) {

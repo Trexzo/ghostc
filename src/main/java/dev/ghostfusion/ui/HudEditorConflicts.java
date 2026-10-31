@@ -32,6 +32,24 @@ public final class HudEditorConflicts {
         }
         return result;
     }
+    /**
+     * Slate only: classify collisions between *active HUD footprints*.
+     * Editor placeholders remain draggable even when modules are off, but
+     * two objects cannot visibly collide if either is disabled. This filters
+     * a precomputed geometric mask without rerunning collision math.
+     *
+     * The status bit is active when Status OR an independent Metrics row
+     * is drawn. Callers decide that from their existing measured snapshot.
+     */
+    public static int activeMask(HudEditorControls.Item selected,
+                                 int geometricMask,int activeBits) {
+        if(selected==null||geometricMask<0||activeBits<0||
+           (geometricMask&~ALL_BITS)!=0||(activeBits&~ALL_BITS)!=0||
+           (geometricMask&(1<<selected.ordinal()))!=0)
+            throw new IllegalArgumentException("F7 active overlap bits");
+        if((activeBits&(1<<selected.ordinal()))==0)return 0;
+        return geometricMask&activeBits;
+    }
     public static boolean includes(int mask,HudEditorControls.Item item) {
         if(item==null||(mask&~ALL_BITS)!=0||mask<0)
             throw new IllegalArgumentException("F7 conflict bits");
