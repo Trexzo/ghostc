@@ -22,6 +22,7 @@ import dev.ghostfusion.ui.GuiSlateTypeScale;
 import dev.ghostfusion.ui.GuiSlateSettingsEmptyState;
 import dev.ghostfusion.ui.GuiSlateDetailTitleTooltip;
 import dev.ghostfusion.ui.TargetHudSlateMiniatureGeometry;
+import dev.ghostfusion.ui.KeystrokesSlateMiniatureGeometry;
 import dev.ghostfusion.ui.GuiSlateEmptyStateLayout;
 import dev.ghostfusion.ui.GuiSlateTooltipLayout;
 import dev.ghostfusion.ui.GuiSlateSearchGeometry;
@@ -1134,9 +1135,15 @@ public final class GhostClickGui extends GuiScreen {
         boolean slateTarget=widget==Widget.TARGET &&
             ui.theme()==UiState.Theme.SLATE &&
             "slate".equals(host.targetSkin());
+        boolean slateKeys=widget==Widget.KEYSTROKES &&
+            ui.theme()==UiState.Theme.SLATE &&
+            "slate".equals(host.keysAppearance());
         if(slateTarget)
             TargetHudSlateMiniatureGeometry.paint(bounds,
                 host.targetHealth(),host.targetDistance(),miniaturePainter);
+        else if(slateKeys)
+            KeystrokesSlateMiniatureGeometry.paint(bounds,
+                host.keysJump(),host.keysSneak(),miniaturePainter);
         else if(!liveSlateList)
             HudPreviewArt.paint(bounds,widget,miniaturePainter);
         if(selected && ui.theme()!=UiState.Theme.SLATE) {
