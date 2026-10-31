@@ -261,6 +261,8 @@ jobs:
           grep -q 'HUD_EDITOR_SLATE_CANVAS_PASS' .build/hud-editor-slate-canvas.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudEditorSlateTabTypographyTests | tee .build/hud-editor-slate-tabs.log
           grep -q 'HUD_EDITOR_SLATE_TAB_TYPOGRAPHY_PASS' .build/hud-editor-slate-tabs.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudEditorSlateTabTooltipTests | tee .build/hud-editor-slate-tab-tooltip.log
+          grep -q 'HUD_EDITOR_SLATE_TAB_TOOLTIP_PASS' .build/hud-editor-slate-tab-tooltip.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudSnapPolicyTests | tee .build/hud-snap.log
           grep -q 'HUD_SNAP_POLICY_PASS' .build/hud-snap.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudPreviewTests | tee .build/hud-preview.log

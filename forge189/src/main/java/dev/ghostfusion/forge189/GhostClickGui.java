@@ -12,6 +12,7 @@ import dev.ghostfusion.ui.GuiCategoryActivity;
 import dev.ghostfusion.ui.GuiHudEditorStyle;
 import dev.ghostfusion.ui.HudEditorSlateCanvasGeometry;
 import dev.ghostfusion.ui.HudEditorSlateTabTypography;
+import dev.ghostfusion.ui.HudEditorSlateTabTooltip;
 import dev.ghostfusion.ui.GuiToggleMotion;
 import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiSlateWorkspace;
@@ -1356,6 +1357,14 @@ public final class GhostClickGui extends GuiScreen {
             :"1 Default 2 PvP 3 Stream | [ ] Resize | Alt: Free | 0: 1x | R: Position",
             w-side-20),
             previewX,previewY+previewH+8,editorStyle.helpText);
+        if(slateEditor) {
+            // Tab labels can be clipped at Minecraft GUI Scale Auto.
+            // Resolve the native tab under the pointer (no new hitboxes)
+            // and reveal only a name that was shortened by the real font.
+            String fullTab=HudEditorSlateTabTooltip.hovered(
+                tabsX,tabsY,tabsWidth,mx,my,guiFontWidths);
+            if(fullTab!=null)drawSlateTooltip(fullTab,mx,my,palette());
+        }
     }
     /** Compact outline used only for editor feedback; never affects live HUD paint. */
     private void hudConflictOutline(Rect r) {
