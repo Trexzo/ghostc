@@ -2465,6 +2465,12 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("bounds,listFootprint(),right,",gui)
         self.assertIn("host.moduleListBackground(),host.moduleListAccent(),",gui)
         self.assertIn("MODULE_LIST_SLATE_MINIATURE_GEOMETRY_PASS",content(".github/workflows/core-ci.yml"))
+        module_preview=content("src/main/java/dev/ghostfusion/ui/ModuleListSlateMiniatureGeometry.java")
+        self.assertIn("if(frame.rows.isEmpty()) {",module_preview)
+        self.assertIn("HudPreviewArt.MUTED",module_preview)
+        self.assertIn("return true;",module_preview)
+        self.assertIn("no fake enabled module rows",
+            content("src/test/java/dev/ghostfusion/tests/ModuleListSlateMiniatureGeometryTests.java"))
         self.assertIn("ModuleListSlateMiniatureGeometry.class",content("tools/verify_forge_jar.py"))
         self.assertIn("miniatureTheme=miniatureThemeFor(widget);",gui)
         self.assertIn("private final HudPreviewArt.Sink miniaturePainter",gui)

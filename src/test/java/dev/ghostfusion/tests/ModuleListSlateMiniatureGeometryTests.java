@@ -36,7 +36,7 @@ public final class ModuleListSlateMiniatureGeometryTests {
     }
     private static final class Sink implements HudPreviewArt.Sink {
         HudPreviewGeometry.Rect bounds;
-        int panels,lines,rails;
+        int panels,lines,rails,muted;
         int widest,shortest=Integer.MAX_VALUE;
         int lastPanelRight,lastPanelLeft;
         Sink(HudPreviewGeometry.Rect bounds){this.bounds=bounds;}
@@ -53,6 +53,7 @@ public final class ModuleListSlateMiniatureGeometryTests {
                 lastPanelRight=x+w;lastPanelLeft=x;
             }else if(role==HudPreviewArt.SECONDARY)lines++;
             else if(role==HudPreviewArt.PRIMARY)rails++;
+            else if(role==HudPreviewArt.MUTED)muted++;
             else throw new AssertionError("unexpected Slate miniature role");
         }
     }
@@ -111,6 +112,28 @@ public final class ModuleListSlateMiniatureGeometryTests {
         invalid(()->ModuleListSlateMiniatureGeometry.paint(
             box,sample,false,true,true,null),
             "null pixel sink");
+        // No enabled modules must NEVER reintroduce the generic fake
+        // three-row picture. Empty F7 widgets remain selectable.
+        for(String id:new String[]{"visual.one","visual.two","visual.three"})
+            registry.setEnabled(id,false);
+        ModuleListLayout.Frame empty=ModuleListLayout.calculate(
+            registry,800,500,9,24,true,"top_left","width",font);
+        ok(empty.rows.isEmpty()&&empty.width==0&&empty.height==0,
+            "real enabled-only model has no rows");
+        for(int i=0;i<30000;i++) {
+            int vw=100+rng.nextInt(2200),vh=100+rng.nextInt(1300);
+            int panelWidth=3+rng.nextInt(600),panelHeight=3+rng.nextInt(380);
+            HudPreviewGeometry geom=new HudPreviewGeometry(
+                5,7,panelWidth,panelHeight,vw,vh);
+            HudPreviewGeometry.Rect blank=geom.at(rng.nextDouble(),
+                rng.nextDouble(),128,36);
+            Sink sink=new Sink(blank);
+            boolean handled=ModuleListSlateMiniatureGeometry.paint(
+                blank,empty,(i&1)==0,(i&2)==0,(i&4)==0,sink);
+            ok(handled,"empty Slate list is fully handled without generic fallback");
+            ok(sink.panels==1&&sink.muted==1&&sink.lines==0&&sink.rails==0,
+                "one neutral surface and marker, no fake enabled module rows");
+        }
         registry.shutdown();
         System.out.println("MODULE_LIST_SLATE_MINIATURE_GEOMETRY_PASS checks="+checks);
     }

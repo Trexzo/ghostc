@@ -41,8 +41,9 @@ public final class ModuleListSlateMiniatureGeometry {
      * Every enabled row produces one measured line, and optional per-label
      * matte and side dash exactly as the native Slate HUD intends.
      *
-     * For an empty list, return false so the caller retains the existing
-     * generic selectable miniature. No fabricated module names are used.
+     * For an empty list, paint a neutral selectable editor placeholder and
+     * return true. Never fall back to the generic 3-enabled-rows pictogram
+     * when the real registry has zero visible enabled modules.
      */
     public static boolean paint(HudPreviewGeometry.Rect bounds,
                                 ModuleListLayout.Frame frame,
@@ -51,7 +52,17 @@ public final class ModuleListSlateMiniatureGeometry {
         if(bounds==null||frame==null||sink==null||
            bounds.width<1||bounds.height<1)
             throw new IllegalArgumentException("Slate miniature footprint");
-        if(frame.rows.isEmpty())return false;
+        if(frame.rows.isEmpty()) {
+            // No enabled row: still identify the F7 widget's footprint
+            // without depicting a made-up module or an active accent.
+            // Frame dimensions are intentionally zero in this case.
+            sink.box(bounds.x,bounds.y,bounds.width,bounds.height,
+                HudPreviewArt.PANEL);
+            int marker=Math.max(1,bounds.width/5);
+            sink.box(bounds.x+(bounds.width-marker)/2,
+                bounds.y+(bounds.height-1)/2,marker,1,HudPreviewArt.MUTED);
+            return true;
+        }
         if(frame.width<1||frame.height<1)
             throw new IllegalArgumentException("Slate miniature frame");
         for(ModuleListLayout.Row row:frame.rows) {
