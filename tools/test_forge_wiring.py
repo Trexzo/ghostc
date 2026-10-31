@@ -1296,7 +1296,8 @@ class ForgeWiring(unittest.TestCase):
         # own RESTORE tick. After reset, physical attack needs a fresh release.
         self.assertIn("else rodOwns=autoRod.tick(false);",adapter)
         self.assertIn("else snowballOwns=autoSnowball.tick(false);",adapter)
-        self.assertIn("!rodOwns && !snowballOwns",adapter)
+        self.assertIn("!projectileFrameReserved &&",adapter)
+        self.assertIn("ProjectileCombatHandoff.reserved(",adapter)
         self.assertIn("else combat.reset();",adapter)
 
     def test_projectile_local_observation_is_readonly_and_bounded(self):
