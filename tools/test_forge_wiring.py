@@ -1607,7 +1607,9 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("minecraft.theWorld.getEntityByID(p.getEntityId())!=p",adapter)
         self.assertIn("boolean stillVisible=visible && !p.isInvisible();",adapter)
         self.assertIn("demand.admit(stillVisible,currentDistanceSq)",adapter)
-        self.assertIn("p.getEntityId(),p.posX,p.posY,p.posZ,health,true,stillVisible,true",adapter)
+        self.assertIn("final double x=p.posX,y=p.posY,z=p.posZ;",adapter)
+        self.assertIn("nativeId,x,y,z,health,true,stillVisible,true",adapter)
+        self.assertIn("aimSnapshot.record(nativeId,p.getUniqueID(),p);",adapter)
         self.assertIn("Entity live=mc.theWorld.getEntityByID(suggestion.entityId);",combat)
         # R3.51: invalid native target must actively clear BOTH retained
         # camera identities before any write, not depend on one-line layout.
@@ -1798,7 +1800,9 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("if(demand.testVisibility(distanceSq) && !p.isInvisible())",adapter)
         self.assertIn("nearestSnapshot.offer(p,p.getEntityId(),distanceSq,visible)",adapter)
         self.assertIn("nearestSnapshot.forEachWithPinned(new WorldSnapshotAdmission.Visitor<EntityPlayer>()",adapter)
-        self.assertIn("p.getEntityId(),p.posX,p.posY,p.posZ,health,true,stillVisible,true",adapter)
+        self.assertIn("final double x=p.posX,y=p.posY,z=p.posZ;",adapter)
+        self.assertIn("nativeId,x,y,z,health,true,stillVisible,true",adapter)
+        self.assertIn("aimSnapshot.record(nativeId,p.getUniqueID(),p);",adapter)
         self.assertIn("new EspNearestBudget<T>(256)",admission)
         self.assertIn("hidden.removeId(id)",admission)
         self.assertIn("visible.containsId(id)",admission)
