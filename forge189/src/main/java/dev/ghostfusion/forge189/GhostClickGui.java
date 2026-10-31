@@ -8,11 +8,28 @@ import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
 import dev.ghostfusion.ui.UiState;
 import dev.ghostfusion.ui.GuiThemePalette;
+import dev.ghostfusion.ui.GuiCategoryActivity;
 import dev.ghostfusion.ui.GuiHudEditorStyle;
+import dev.ghostfusion.ui.HudEditorSlateCanvasGeometry;
+import dev.ghostfusion.ui.HudEditorSlateTabTypography;
+import dev.ghostfusion.ui.HudEditorSlateTabTooltip;
 import dev.ghostfusion.ui.GuiToggleMotion;
 import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiSlateWorkspace;
+import dev.ghostfusion.ui.GuiSlateControlGeometry;
+import dev.ghostfusion.ui.GuiSlateCompactMetrics;
+import dev.ghostfusion.ui.GuiSlateModuleCaption;
+import dev.ghostfusion.ui.GuiSlateTypeScale;
+import dev.ghostfusion.ui.GuiSlateSettingsEmptyState;
+import dev.ghostfusion.ui.GuiSlateDetailTitleTooltip;
+import dev.ghostfusion.ui.TargetHudSlateMiniatureGeometry;
+import dev.ghostfusion.ui.KeystrokesSlateMiniatureGeometry;
+import dev.ghostfusion.ui.CpsSlateMiniatureGeometry;
+import dev.ghostfusion.ui.StatusHudSlateMiniatureGeometry;
+import dev.ghostfusion.ui.GuiSlateEmptyStateLayout;
+import dev.ghostfusion.ui.GuiSlateTooltipLayout;
 import dev.ghostfusion.ui.GuiSlateSearchGeometry;
+import dev.ghostfusion.ui.GuiSlateCompactSearchGeometry;
 import dev.ghostfusion.ui.GuiSettingPresentation;
 import dev.ghostfusion.ui.GuiScrollIndicator;
 import dev.ghostfusion.ui.GuiScrollDrag;
@@ -28,8 +45,9 @@ import dev.ghostfusion.ui.HudPreviewGeometry;
 import dev.ghostfusion.ui.HudPreviewArt;
 import dev.ghostfusion.ui.HudThemeTokens;
 import dev.ghostfusion.ui.HudSnapPolicy;
-import dev.ghostfusion.ui.HudOverlapPolicy;
+import dev.ghostfusion.ui.HudEditorConflicts;
 import dev.ghostfusion.ui.ModuleListLayout;
+import dev.ghostfusion.ui.ModuleListSlateMiniatureGeometry;
 import dev.ghostfusion.ui.HudFootprints;
 import dev.ghostfusion.ui.HudScaleLayout;
 import dev.ghostfusion.ui.HudScaleEditor;
@@ -74,9 +92,18 @@ public final class GhostClickGui extends GuiScreen {
     private final HudDragCapture hudCapture = new HudDragCapture();
     private Widget draggingWidget; // null means the original Status HUD
     private final HudEditorControls hudControls = new HudEditorControls();
+    // Stable read-only preview references, reused for each paint: STATUS
+    // first, then Keystrokes/CPS/Target/ArrayList in F7 tab order.
+    private final Rect[] hudPreviewRects=
+        new Rect[HudEditorControls.Item.values().length];
     private final GuiSliderDrag sliderDrag = new GuiSliderDrag();
     private final GuiScrollDrag scrollDrag = new GuiScrollDrag();
     private final GuiToggleMotion slateToggleMotion = new GuiToggleMotion();
+    // Never active unless -Dghostc.slate.smoothFontExperimental=true.
+    private final SlateSmoothFontRenderer smoothSlateFont=new SlateSmoothFontRenderer();
+    // Reuse counter buffer instead of creating category tally objects on
+    // every Forge GUI frame. Index 0 = all; ordinal+1 = named category.
+    private final int[] slateCategoryCounts=new int[GuiCategoryActivity.COUNT];
     private int dragX, dragY, scroll, settingScroll;
     // -1 = keyboard focus on module list; >=0 selects a setting row.
     private int keyboardSetting=-1;
@@ -147,10 +174,14 @@ public final class GhostClickGui extends GuiScreen {
     }
     private void syncSearch(GuiLayout g) {
         GuiSlateWorkspace pane=slateWorkspace(g);
-        int targetX=pane==null?g.searchX:GuiSlateSearchGeometry.fieldX(pane);
-        int targetY=pane==null?g.searchY:GuiSlateSearchGeometry.fieldY(pane);
-        int targetWidth=pane==null?g.searchWidth:
-            GuiSlateSearchGeometry.fieldWidth(pane);
+        boolean compactSlate=pane==null && ui.theme()==UiState.Theme.SLATE &&
+            GuiChrome.interactive(g);
+        int targetX=pane!=null?GuiSlateSearchGeometry.fieldX(pane):
+            compactSlate?GuiSlateCompactSearchGeometry.fieldX(g):g.searchX;
+        int targetY=pane!=null?GuiSlateSearchGeometry.fieldY(pane):
+            compactSlate?GuiSlateCompactSearchGeometry.fieldY(g):g.searchY;
+        int targetWidth=pane!=null?GuiSlateSearchGeometry.fieldWidth(pane):
+            compactSlate?GuiSlateCompactSearchGeometry.fieldWidth(g):g.searchWidth;
         if (search!=null && searchPositionX==targetX &&
             searchPositionY==targetY && searchPositionWidth==targetWidth) return;
         String previous=search==null?ui.query():search.getText();
@@ -158,7 +189,7 @@ public final class GhostClickGui extends GuiScreen {
         GuiTextField resized=new GuiTextField(42,fontRendererObj,
             targetX,targetY,targetWidth,17);
         resized.setMaxStringLength(100);
-        if(pane!=null) {
+        if(pane!=null || compactSlate) {
             resized.setEnableBackgroundDrawing(false);
             resized.setTextColor(0xFFF1F4F6);
         }
@@ -219,6 +250,53 @@ public final class GhostClickGui extends GuiScreen {
             label("X",cx+5,cy+4,active?color.text:color.muted);
         }
     }
+    /**
+     * Show longer human-readable labels only when the existing inline font
+     * budget would clip them. Read-only; no new focus or pointer hit regions.
+     * Respect the bottom strip reserved for warnings and keyboard hints.
+     */
+    private void drawSlateTooltip(String name,
+                                  int mx,int my,GuiThemePalette colors) {
+        if(name==null)return;
+        int panelX=x+side+8,panelY=y+30;
+        int panelWidth=w-side-16,panelHeight=h-30;
+        int textBudget=Math.min(GuiSlateTooltipLayout.MAX_TEXT_WIDTH,
+            Math.max(0,panelWidth-28));
+        String text=trim(name,textBudget);
+        if(text.isEmpty())return;
+        GuiSlateTooltipLayout.Frame box=GuiSlateTooltipLayout.place(
+            panelX,panelY,panelWidth,panelHeight,mx,my,
+            fontRendererObj.getStringWidth(text));
+        if(box==null)return;
+        rect(box.x+1,box.y+2,box.width,box.height,0x39000000);
+        rect(box.x,box.y,box.width,box.height,0xF21B252B);
+        rect(box.x,box.y,box.width,1,colors.frame);
+        rect(box.x,box.y,2,box.height,colors.accent);
+        label(text,box.textX,box.textY,colors.text);
+    }
+    /**
+     * Slate settings have a purposeful non-clickable state when a module
+     * exposes no configurable options. This uses the existing settings
+     * viewport only; keybinds, actions and footer geometry are unchanged.
+     */
+    private void drawSlateEmptySettings(int left,int top,int width,int height,
+                                        GuiThemePalette theme) {
+        GuiSlateSettingsEmptyState.Frame empty=
+            GuiSlateSettingsEmptyState.place(left,top,
+                Math.max(0,width),Math.max(0,height));
+        if(empty==null)return;
+        // Small GUI scales can be narrower than the full headline. Ask the
+        // actual Minecraft FontRenderer for both complete captions, never
+        // allow a clipped fallback to overlap another UI control.
+        GuiSlateSettingsEmptyState.Copy copy=
+            GuiSlateSettingsEmptyState.copy(empty,guiFontWidths);
+        if(copy==null)return;
+        rect(empty.x,empty.y,empty.width,empty.height,theme.idleModule);
+        rect(empty.accentX,empty.y+9,2,empty.height-18,theme.accent);
+        rect(empty.x+12,empty.separatorY,empty.width-24,1,theme.divider);
+        label(copy.title,empty.titleX,empty.titleY,theme.text);
+        label(copy.hint,empty.titleX,empty.hintY,theme.muted);
+    }
     /** Dedicated Rise-style modules + settings panes, with native GUI input parity. */
     private void drawSlateModules(GuiSlateWorkspace pane,int mx,int my) {
         drawSlateSidebar(mx,my);
@@ -239,9 +317,22 @@ public final class GhostClickGui extends GuiScreen {
                 rect(pane.modulesX,yy,pane.modulesWidth,26,
                     active?0x5B35424B:0x24313B43);
             rect(pane.modulesX+6,yy+25,pane.modulesWidth-12,1,0x304D5669);
-            if(active)rect(pane.modulesX+1,yy+9,2,8,color.accent);
-            label(trim(entry.module().displayName(),pane.modulesWidth-61),
-                pane.modulesX+10,yy+8,active?color.text:color.muted);
+            if(active)rect(pane.modulesX+1,yy+8,2,11,color.accent);
+            // Rise-inspired hierarchy: the name is primary; the quieter
+            // second line shows only real registry category and keybind.
+            String primary=GuiSlateTypeScale.fit(entry.module().displayName(),
+                pane.modulesWidth-61,GuiSlateTypeScale.PRIMARY,guiFontWidths);
+            drawSlateType(primary,pane.modulesX+10,yy+2,
+                active?color.text:color.muted,GuiSlateTypeScale.PRIMARY,
+                pane.modulesWidth-61,14);
+            String keyName=entry.keybind()==0?null:
+                Keyboard.getKeyName(entry.keybind());
+            String metadata=GuiSlateTypeScale.fit(
+                GuiSlateModuleCaption.of(entry.module().category(),keyName),
+                pane.modulesWidth-61,GuiSlateTypeScale.SECONDARY,guiFontWidths);
+            drawSlateType(metadata,pane.modulesX+10,yy+16,
+                active?color.secondary:color.muted,GuiSlateTypeScale.SECONDARY,
+                pane.modulesWidth-61,12);
             boolean enabled=entry.state()==ModuleRegistry.State.ENABLED;
             boolean faulted=entry.state()==ModuleRegistry.State.FAULTED;
             if(faulted) {
@@ -253,18 +344,55 @@ public final class GhostClickGui extends GuiScreen {
         drawSlateScrollIndicator(GuiScrollDrag.Lane.MODULES,
             pane.modulesX+pane.modulesWidth+2,pane.modulesY,
             pane.moduleRows*29,pane.moduleRows,filtered.size(),scroll,mx,my);
+        if(filtered.isEmpty()) {
+            // Rise-style search results feedback with no invented module
+            // descriptions and no new pointer/action surfaces.
+            GuiSlateEmptyStateLayout.Frame empty=GuiSlateEmptyStateLayout.of(pane);
+            if(empty!=null) {
+                rect(empty.x,empty.y,empty.width,empty.height,color.idleModule);
+                rect(empty.x,empty.y,2,empty.height,color.accent);
+                rect(empty.x+9,empty.y+25,empty.width-18,1,color.divider);
+                label("NO RESULTS",empty.titleX,empty.titleY,color.text);
+                String hint=search!=null&&!search.getText().isEmpty()?
+                    "CHANGE SEARCH":"CHANGE CATEGORY";
+                label(trim(hint,empty.width-24),
+                    empty.titleX,empty.hintY,color.muted);
+            }
+        }
         label("CONFIGURATION",pane.detailsX+9,pane.detailsY+3,color.muted);
         // No eagerly-created description list or external font render path.
         if(selected==null) {
             keyboardSetting=-1;
-            label("No matching modules",pane.detailsX+9,pane.detailsY+28,color.muted);
+            label("NOTHING TO CONFIGURE",pane.detailsX+9,pane.detailsY+28,color.text);
+            label("Adjust search or category",pane.detailsX+9,
+                pane.detailsY+45,color.muted);
             return;
         }
         ModuleRegistry.Entry entry;
         try {entry=host.modules().get(selected);}
         catch(IllegalArgumentException ignored){return;}
-        label(trim(entry.module().displayName(),pane.detailsWidth-22),
-            pane.detailsX+9,pane.detailsY+23,color.text);
+        // Surface true registry state rather than implying selection means active.
+        // Reserve measured space so the status never collides with long names.
+        String status=entry.state()==ModuleRegistry.State.FAULTED?"FAULT":
+            entry.state()==ModuleRegistry.State.ENABLED?"ACTIVE":"OFF";
+        int statusColor=entry.state()==ModuleRegistry.State.FAULTED?0xFFEBA4AF:
+            entry.state()==ModuleRegistry.State.ENABLED?color.accent:color.muted;
+        int statusX=pane.detailsX+pane.detailsWidth-16-
+            fontRendererObj.getStringWidth(status);
+        String heading=GuiSlateTypeScale.fit(entry.module().displayName(),
+            Math.max(0,statusX-pane.detailsX-27),GuiSlateTypeScale.PRIMARY,
+            guiFontWidths);
+        drawSlateType(heading,pane.detailsX+9,pane.detailsY+21,
+            color.text,GuiSlateTypeScale.PRIMARY,
+            Math.max(0,statusX-pane.detailsX-27),13);
+        rect(statusX-9,pane.detailsY+26,4,4,statusColor);
+        label(status,statusX,pane.detailsY+23,statusColor);
+        // A distinct second-level breadcrumb, like the reference clients,
+        // uses registry metadata rather than invented module descriptions.
+        drawSlateType(GuiSlateModuleCaption.category(entry.module().category()),
+            pane.detailsX+9,pane.detailsY+34,
+            color.muted,GuiSlateTypeScale.SECONDARY,
+            pane.detailsWidth-18,10);
         rect(pane.detailsX+9,pane.detailsY+44,pane.detailsWidth-18,1,color.divider);
         rect(pane.detailsX+9,pane.bindingY,pane.detailsWidth-18,24,0x48313942);
         label("KEYBIND",pane.detailsX+16,pane.bindingY+8,color.muted);
@@ -275,16 +403,23 @@ public final class GhostClickGui extends GuiScreen {
         label("SETTINGS",pane.detailsX+9,pane.settingY-14,color.muted);
         List<Map.Entry<String,Setting<?>>> settings=
             new ArrayList<Map.Entry<String,Setting<?>>>(entry.settings().entrySet());
+        if(settings.isEmpty())
+            drawSlateEmptySettings(pane.detailsX+9,pane.settingY,
+                pane.detailsWidth-18,pane.settingRows*30,color);
         settingScroll=Math.max(0,Math.min(settingScroll,
             Math.max(0,settings.size()-pane.settingRows)));
         keyboardSetting=GuiSettingKeyboard.visibleFocus(
             keyboardSetting,settingScroll,settings.size(),pane.settingRows);
+        final int hoveredSetting=pane.settingIndex(mx,my,settingScroll,settings.size());
         for(int i=settingScroll;i<settings.size()&&i<settingScroll+pane.settingRows;i++){
             Map.Entry<String,Setting<?>> row=settings.get(i);
             Setting<?> setting=row.getValue();
             int yy=pane.settingY+(i-settingScroll)*30;
-            if(i==keyboardSetting)
-                rect(pane.detailsX+8,yy,pane.detailsWidth-16,27,0x50333E46);
+            // Subdued hover treatment shows where a click will act, using
+            // the exact same hit geometry as the native input path.
+            if(i==keyboardSetting || i==hoveredSetting)
+                rect(pane.detailsX+8,yy,pane.detailsWidth-16,27,
+                    i==keyboardSetting?0x50333E46:0x25333E46);
             rect(pane.detailsX+9,yy+26,pane.detailsWidth-18,1,0x263E4558);
             int kind=setting instanceof Setting.Bool?0:
                 setting instanceof Setting.Number?1:2;
@@ -300,23 +435,79 @@ public final class GhostClickGui extends GuiScreen {
                 int bx=pane.sliderX(),bw=pane.sliderWidth();
                 rect(bx,yy+13,bw,3,color.barTrack);
                 rect(bx,yy+13,(int)Math.round(bw*frac),3,color.accent);
+                // Four-pixel handle, contained by the exact native slider
+                // drag lane. Visual feedback does not adjust live values.
+                rect(GuiSlateControlGeometry.thumbX(pane,frac),yy+11,4,7,
+                    i==keyboardSetting||i==hoveredSetting?
+                        color.text:color.secondary);
                 label(trim(GuiSettingPresentation.number(row.getKey(),value.get()),
                     pane.sliderWidth()),bx,yy+2,color.muted);
             } else {
+                // A restrained down chevron signals cycle-on-click, while
+                // the fitted choice value cannot collide with the icon.
                 String text=trim(GuiSettingPresentation.choice(setting.serialize()),
-                    pane.choiceValueWidth());
-                label(text,pane.detailsX+pane.detailsWidth-16-
+                    GuiSlateControlGeometry.choiceBudget(pane));
+                label(text,GuiSlateControlGeometry.choiceTextRight(pane)-
                     fontRendererObj.getStringWidth(text),yy+9,color.accent);
+                int cx=GuiSlateControlGeometry.chevronX(pane);
+                int chevronColor=i==keyboardSetting||i==hoveredSetting?
+                    color.accent:color.muted;
+                rect(cx,yy+12,1,1,chevronColor);
+                rect(cx+1,yy+13,1,1,chevronColor);
+                rect(cx+2,yy+14,1,1,chevronColor);
+                rect(cx+3,yy+13,1,1,chevronColor);
+                rect(cx+4,yy+12,1,1,chevronColor);
             }
         }
         drawSlateScrollIndicator(GuiScrollDrag.Lane.SETTINGS,
             pane.detailsX+pane.detailsWidth-5,pane.settingY,
             pane.settingRows*30,pane.settingRows,settings.size(),
             settingScroll,mx,my);
-        if(settings.size()>pane.settingRows)
-            label((settingScroll+1)+"-"+Math.min(settings.size(),settingScroll+
-                pane.settingRows)+" / "+settings.size(),
+        // The quiet footer gives keyboard users the same discoverability
+        // as pointer users, but never paints across warnings.
+        String settingFooter=null;
+        if(keyboardSetting>=0 && keyboardSetting<settings.size())
+            settingFooter=GuiSettingKeyboard.hint(
+                settings.get(keyboardSetting).getValue());
+        else if(settings.size()>pane.settingRows)
+            settingFooter=(settingScroll+1)+"-"+
+                Math.min(settings.size(),settingScroll+pane.settingRows)+
+                " / "+settings.size()+"  SCROLL";
+        if(settingFooter!=null &&
+           GuiFooterText.warning(message,host.uiWarning()).isEmpty())
+            label(trim(settingFooter,pane.detailsWidth-23),
                 pane.detailsX+10,y+h-20,color.muted);
+        // Inspect only the row under the real pointer, using its *existing*
+        // native hit test. Never show a tooltip above a slider/choice button.
+        String reveal=null;
+        int hoverModule=pane.moduleIndex(mx,my,scroll,filtered.size());
+        if(hoverModule>=0 && !pane.moduleToggleArea(mx)) {
+            String original=filtered.get(hoverModule).module().displayName();
+            if(!GuiSlateTypeScale.fit(original,pane.modulesWidth-61,
+                    GuiSlateTypeScale.PRIMARY,guiFontWidths).equals(original))
+                reveal=original;
+        }
+        if(reveal==null && hoveredSetting>=0 &&
+           hoveredSetting<settings.size()) {
+            Map.Entry<String,Setting<?>> row=settings.get(hoveredSetting);
+            Setting<?> value=row.getValue();
+            int kind=value instanceof Setting.Bool?0:
+                value instanceof Setting.Number?1:2;
+            int budget=pane.settingLabelBudget(kind);
+            if(mx>=pane.detailsX+14 && mx<pane.detailsX+14+budget) {
+                String original=GuiSettingPresentation.label(row.getKey());
+                if(!trim(original,budget).equals(original))
+                    reveal=original;
+            }
+        }
+        // The selected title can be shortened independently of list rows.
+        // This reveal stops before ACTIVE/FAULT and never changes hitboxes.
+        if(reveal==null && GuiSlateDetailTitleTooltip.reveal(
+               entry.module().displayName(),heading,
+               pane.detailsX+9,pane.detailsY+21,
+               Math.max(0,statusX-pane.detailsX-27),13,mx,my))
+            reveal=entry.module().displayName();
+        if(reveal!=null)drawSlateTooltip(reveal,mx,my,color);
     }
     private int bg() { return palette().background; }
     private int panel() { return palette().panel; }
@@ -327,9 +518,31 @@ public final class GhostClickGui extends GuiScreen {
     private void rect(int rx, int ry, int rw, int rh, int color) {
         if (rw > 0 && rh > 0) drawRect(rx, ry, rx + rw, ry + rh, color);
     }
+    /**
+     * Scoped scale of Minecraft's own font glyphs. Unlike a global smooth-font
+     * filter, this does not modify any texture parameter, Minecraft font state,
+     * hitbox, GL blend state or third-party assets. Model computes pixel fit.
+     */
+    private void drawSlateType(String value,int atX,int atY,int color,double scale,
+                               int pixelBudget,int heightBudget) {
+        if(value==null || value.isEmpty())return;
+        // Experimental antialiased system font uses its own exact raster bounds.
+        // Width and height admission are caller-owned, never inferred from
+        // a different font's measured glyphs. Failure keeps vanilla fallback.
+        if(pixelBudget>0&&heightBudget>0 &&
+           smoothSlateFont.draw(value,atX,atY,color,
+               scale>=1?10:8,scale>=1,pixelBudget,heightBudget))return;
+        org.lwjgl.opengl.GL11.glPushMatrix();
+        try {
+            org.lwjgl.opengl.GL11.glTranslated(atX,atY,0);
+            org.lwjgl.opengl.GL11.glScaled(scale,scale,1);
+            fontRendererObj.drawString(value,0,0,color);
+        } finally {
+            org.lwjgl.opengl.GL11.glPopMatrix();
+        }
+    }
     private void label(String value, int atX, int atY, int color) {
-        // Pixel fonts still require future native acceptance, but Slate avoids
-        // doubled drop shadows that make the default font look blurry/crowded.
+        // Existing Minecraft renderer stays the primary unscaled path.
         if(ui.theme()==UiState.Theme.SLATE)
             fontRendererObj.drawString(value,atX,atY,color);
         else fontRendererObj.drawStringWithShadow(value,atX,atY,color);
@@ -364,7 +577,10 @@ public final class GhostClickGui extends GuiScreen {
         rect(x, y, side, h, panel());
         rect(x, y, w, 30, theme.header);
         if(theme.slate)drawSlateChrome(theme);
-        label("GHOSTC", x + 10, y + 10, accent());
+        if(theme.slate)
+            drawSlateType("GHOSTC",x+10,y+9,accent(),GuiSlateTypeScale.PRIMARY,
+                Math.max(0,side-20),17);
+        else label("GHOSTC",x+10,y+10,accent());
         int menuX = x + side + 8;
         GuiSlateWorkspace modern=slateWorkspace(
             GuiLayout.calculate(width,height,ui.layout(),ui.theme()));
@@ -375,6 +591,19 @@ public final class GhostClickGui extends GuiScreen {
         } else {
             label(hudPage ? "MODULES" : "[MODULES]", menuX, y + 11, hudPage ? 0xFFB5B6C1 : 0xFFFFFFFF);
             label(hudPage ? "[HUD]" : "HUD", menuX + 76, y + 11, hudPage ? 0xFFFFFFFF : 0xFFB5B6C1);
+        }
+        // At Minecraft Auto GUI scale, even a 1080p display can resolve to
+        // 480x270 scaled pixels and use the safe compact renderer instead of
+        // the three-pane Slate workspace. Explain the difference rather than
+        // silently presenting an old layout as the intended full Slate UI.
+        if(theme.slate && modern==null && !hudPage &&
+           ui.layout()==UiState.Layout.WIDE) {
+            String compactHint="REDUCE GUI SCALE";
+            int hintX=x+side+137;
+            // Real Minecraft font measurement keeps this noninteractive hint
+            // away from the HUD tab and the layout/theme buttons.
+            if(hintX+fontRendererObj.getStringWidth(compactHint)<=x+w-105)
+                label(compactHint,hintX,y+11,theme.muted);
         }
         rect(x + w - 99, y + 6, 40, 17, panel());
         rect(x + w - 55, y + 6, 50, 17, panel());
@@ -411,6 +640,7 @@ public final class GhostClickGui extends GuiScreen {
     private void drawSlateSidebar(int mx,int my) {
         GuiThemePalette theme=palette();
         label("NAVIGATION",x+10,y+49,theme.muted);
+        GuiCategoryActivity.tally(host.modules(),slateCategoryCounts);
         String[] captions={"All","Combat","Movement","World","Render","Utility"};
         GhostModule.Category[] categories=GhostModule.Category.values();
         for(int i=0;i<captions.length;i++){
@@ -422,6 +652,12 @@ public final class GhostClickGui extends GuiScreen {
                 rect(x+4,yy,side-8,19,active?0x45485C74:0x222F3D4C);
             if(active)rect(x+4,yy+5,2,9,theme.accent);
             label(captions[i],x+13,yy+6,active?theme.text:theme.muted);
+            String activity=GuiCategoryActivity.label(slateCategoryCounts[i]);
+            if(!activity.isEmpty()) {
+                // Quiet right-aligned indicators; no oversized badge boxes.
+                int activityX=x+side-12-fontRendererObj.getStringWidth(activity);
+                label(activity,activityX,yy+6,active?theme.accent:theme.muted);
+            }
         }
         rect(x+12,y+h-53,side-24,1,theme.divider);
         label("CTRL+F  SEARCH",x+11,y+h-44,theme.muted);
@@ -444,26 +680,46 @@ public final class GhostClickGui extends GuiScreen {
             barWidth,thumb,
             dragging?0xFFE1F0F4:hovered?0xFFC8E4EB:palette().accent);
     }
-    private void drawSidebar() {
+    private void drawSidebar(int mx,int my) {
+        GuiThemePalette theme=palette();
+        boolean slate=theme.slate;
         int yy = y + 47;
-        label("FILTER", x + 10, yy, 0xFF979DAF);
+        label(slate?"NAVIGATION":"FILTER",x+10,yy,
+            slate?theme.muted:0xFF979DAF);
         yy += 18;
         String[] names = {"ALL", "COMBAT", "MOVEMENT", "WORLD", "RENDER", "UTILITY"};
+        GuiLayout zone=GuiLayout.calculate(width,height,ui.layout(),ui.theme());
+        int hovered=slate?GuiChrome.categoryIndex(zone,mx,my):-1;
+        if(slate)GuiCategoryActivity.tally(host.modules(),slateCategoryCounts);
         for (int i = 0; i < names.length; i++) {
             GhostModule.Category c = i == 0 ? null : GhostModule.Category.valueOf(names[i]);
             boolean active = ui.category() == c;
-            if (active) {
+            if (active || (slate&&hovered==i)) {
                 rect(x + 4, yy - 3, side - 8, 19,
-                    palette().slate?palette().selectedCategory:0x556B83EA);
-                if(palette().slate)rect(x+4,yy-3,2,19,palette().accent);
+                    slate?(active?theme.selectedCategory:theme.idleSetting):0x556B83EA);
+                if(slate && active)rect(x+4,yy+2,2,9,theme.accent);
             }
-            if (yy < y + h - 48) label(names[i], x + 12, yy + 1,
-                active ? accent() : 0xFFD4D7E0);
+            if (yy < y + h - 48) {
+                label(names[i],x+12,yy+1,
+                    slate?(active?theme.text:theme.muted):
+                        active?accent():0xFFD4D7E0);
+                if(slate) {
+                    String activity=GuiCategoryActivity.label(slateCategoryCounts[i]);
+                    int activityX=x+side-12-fontRendererObj.getStringWidth(activity);
+                    if(!activity.isEmpty() &&
+                       activityX>=x+12+fontRendererObj.getStringWidth(names[i])+7)
+                        label(activity,activityX,yy+1,
+                            active?theme.accent:theme.muted);
+                }
+            }
             yy += 23;
         }
-        label("UP/DOWN", x + 10, y + h - 48, 0xFF929BAC);
-        label("F7: CLOSE", x + 10, y + h - 35, 0xFF929BAC);
-        label("ESC: CLOSE", x + 10, y + h - 23, 0xFF929BAC);
+        label(slate?"UP / DOWN":"UP/DOWN", x+10,y+h-48,
+            slate?theme.muted:0xFF929BAC);
+        label(slate?"F7  CLOSE":"F7: CLOSE", x+10,y+h-35,
+            slate?theme.muted:0xFF929BAC);
+        label(slate?"ESC  CLOSE":"ESC: CLOSE", x+10,y+h-23,
+            slate?theme.muted:0xFF929BAC);
     }
     private List<ModuleRegistry.Entry> entries() {
         List<ModuleRegistry.Entry> filtered=ui.filtered(host.modules());
@@ -479,12 +735,53 @@ public final class GhostClickGui extends GuiScreen {
         }
         return filtered;
     }
+    /** Vape-inspired compact search treatment: inset native input and a
+     * genuinely separate clear target, retaining its original owner keys. */
+    private void drawSlateCompactSearch(GuiLayout g,int mx,int my) {
+        if(search==null)return;
+        GuiThemePalette theme=palette();
+        int sx=GuiSlateCompactSearchGeometry.surfaceX(g);
+        int sy=GuiSlateCompactSearchGeometry.surfaceY(g);
+        int sw=GuiSlateCompactSearchGeometry.surfaceWidth(g);
+        boolean focus=search.isFocused();
+        boolean hover=GuiSlateCompactSearchGeometry.surfaceHit(g,mx,my);
+        int stroke=focus?theme.accent:hover?0xFF52616B:theme.divider;
+        rect(sx,sy,sw,GuiSlateCompactSearchGeometry.SURFACE_HEIGHT,
+            focus?0xFF253039:hover?0xFF222B33:0xFF1B2329);
+        rect(sx,sy,sw,1,stroke);
+        rect(sx,sy+GuiSlateCompactSearchGeometry.SURFACE_HEIGHT-1,sw,1,stroke);
+        rect(sx,sy,1,GuiSlateCompactSearchGeometry.SURFACE_HEIGHT,stroke);
+        rect(sx+sw-1,sy,1,GuiSlateCompactSearchGeometry.SURFACE_HEIGHT,stroke);
+        // Original glyph stays inside the search surface, with a full
+        // dedicated gutter before native caret and a separate clear button.
+        int gx=sx+7,gy=sy+7;
+        rect(gx+1,gy,5,1,theme.muted);
+        rect(gx,gy+1,1,5,theme.muted);
+        rect(gx+6,gy+1,1,5,theme.muted);
+        rect(gx+1,gy+6,5,1,theme.muted);
+        rect(gx+6,gy+6,2,2,theme.muted);
+        if(search.getText().isEmpty()&&!focus)
+            label("Search modules",GuiSlateCompactSearchGeometry.fieldX(g)+3,
+                sy+6,theme.muted);
+        search.drawTextBox();
+        if(!search.getText().isEmpty()) {
+            int cx=GuiSlateCompactSearchGeometry.clearX(g);
+            int cy=GuiSlateCompactSearchGeometry.clearY(g);
+            boolean clearHover=GuiSlateCompactSearchGeometry.clearHit(g,mx,my);
+            rect(cx,cy,14,15,clearHover?0xFF344650:0xFF26323A);
+            label("X",cx+4,cy+4,clearHover?theme.text:theme.muted);
+        }
+    }
     private void drawModules(int mx, int my) {
-        GuiSlateWorkspace workspace=slateWorkspace(
-            GuiLayout.calculate(width,height,ui.layout(),ui.theme()));
+        GuiLayout compactZone=GuiLayout.calculate(width,height,ui.layout(),ui.theme());
+        GuiSlateWorkspace workspace=slateWorkspace(compactZone);
         if(workspace!=null) {drawSlateModules(workspace,mx,my);return;}
-        drawSidebar();
-        if (search != null) search.drawTextBox();
+        drawSidebar(mx,my);
+        GuiThemePalette compactTheme=palette();
+        boolean slateCompact=compactTheme.slate;
+        if(slateCompact && GuiChrome.interactive(compactZone))
+            drawSlateCompactSearch(compactZone,mx,my);
+        else if(search!=null)search.drawTextBox();
         List<ModuleRegistry.Entry> filtered = entries();
         scroll = Math.max(0, Math.min(scroll, Math.max(0, filtered.size() - visibleRows)));
         int end = Math.min(filtered.size(), scroll + visibleRows);
@@ -493,23 +790,54 @@ public final class GhostClickGui extends GuiScreen {
             int ry = listY + (i - scroll) * 28;
             if (ry + 27 > listY + listH) break;
             boolean focused = e.module().id().equals(selected);
-            GuiThemePalette style=palette();
+            boolean hovered=slateCompact &&
+                GuiHitZones.moduleIndex(compactZone,mx,my,scroll,filtered.size())==i;
             rect(x + side + 9, ry, w - side - 20, 25,
-                style.slate?(focused?style.selectedModule:style.idleModule)
-                            :(focused?0x664B597D:0x442D344A));
-            if(style.slate && focused)
-                rect(x+side+9,ry,2,25,style.accent);
-            label(trim(e.module().displayName(), Math.max(60, w - side - 97)),
-                    x + side + 15, ry + 8, focused ? 0xFFFFFFFF : 0xFFE4E7F0);
+                slateCompact?(focused?compactTheme.selectedModule:
+                    hovered?compactTheme.selectedSetting:compactTheme.idleModule)
+                    :(focused?0x664B597D:0x442D344A));
+            if(slateCompact && focused)
+                rect(x+side+9,ry+7,2,11,compactTheme.accent);
+            if(slateCompact) {
+                // Measured 10/8px two-level typography at Minecraft GUI Auto:
+                // no change to action/hitbox positions or registry membership.
+                int budget=GuiSlateCompactMetrics.moduleLabelBudget(compactZone);
+                drawSlateType(GuiSlateTypeScale.fit(e.module().displayName(),budget,
+                    GuiSlateTypeScale.PRIMARY,guiFontWidths),
+                    x+side+15,ry+2,
+                    focused?compactTheme.text:compactTheme.muted,
+                    GuiSlateTypeScale.PRIMARY,budget,12);
+                String keyName=e.keybind()==0?null:Keyboard.getKeyName(e.keybind());
+                drawSlateType(GuiSlateTypeScale.fit(
+                    GuiSlateModuleCaption.of(e.module().category(),keyName),budget,
+                    GuiSlateTypeScale.SECONDARY,guiFontWidths),
+                    x+side+15,ry+14,
+                    focused?compactTheme.secondary:compactTheme.muted,
+                    GuiSlateTypeScale.SECONDARY,budget,11);
+            } else {
+                label(trim(e.module().displayName(),Math.max(60,w-side-97)),
+                    x+side+15,ry+8,focused?0xFFFFFFFF:0xFFE4E7F0);
+            }
             boolean enabled = e.state() == ModuleRegistry.State.ENABLED;
             boolean faulted = e.state() == ModuleRegistry.State.FAULTED;
             int right = x + w - 54;
-            rect(right, ry + 5, 39, 15,
-                faulted ? 0xFFAA5360 : enabled ? accent() : 0xFF586073);
-            // RESET is a distinct safe action, not another enable attempt.
-            label(faulted ? "RESET" : enabled ? "ON" : "OFF",
-                right + (faulted ? 5 : 9), ry + 8,
-                enabled && !faulted ? 0xFF101320 : 0xFFFFFFFF);
+            if(slateCompact) {
+                // Quiet state chip, not an opaque neon-colored toggle.
+                rect(right,ry+5,39,15,
+                    faulted?0x665A343F:
+                        enabled?compactTheme.selectedSetting:compactTheme.idleSetting);
+                rect(right,ry+5,2,15,
+                    faulted?0xFFEBA4AF:
+                        enabled?compactTheme.accent:compactTheme.divider);
+            } else
+                rect(right,ry+5,39,15,
+                    faulted?0xFFAA5360:enabled?accent():0xFF586073);
+            // Keep the exact old hit region and reset action.
+            label(faulted?"RESET":enabled?"ON":"OFF",
+                right+(faulted?5:9),ry+8,
+                slateCompact?(faulted?0xFFEBA4AF:
+                    enabled?compactTheme.accent:compactTheme.muted):
+                    enabled&&!faulted?0xFF101320:0xFFFFFFFF);
         }
         int sy = listY + listH + 5;
         rect(x + side + 9, sy - 4, w - side - 20, 1, palette().divider);
@@ -525,7 +853,10 @@ public final class GhostClickGui extends GuiScreen {
             label(trim("FAULT: "+e.lastFault()+"  (RESET to clear)",
                 Math.max(0,w-side-39)),x+side+13,sy+4,0xFFFFB3A6);
         else
-            label("SETTINGS  " + e.module().displayName(), x + side + 13, sy + 4, accent());
+            label(slateCompact?
+                trim("SETTINGS  "+e.module().displayName(),Math.max(0,w-side-30)):
+                "SETTINGS  "+e.module().displayName(),
+                x+side+13,sy+4,accent());
         int bindY = sy + 22;
         rect(x + side + 11, bindY, w - side - 26, 18,
             palette().slate?palette().idleSetting:0x66394359);
@@ -535,32 +866,79 @@ public final class GhostClickGui extends GuiScreen {
         int sY = bindY + 24;
         List<Map.Entry<String, Setting<?>>> settings = new ArrayList<Map.Entry<String, Setting<?>>>(e.settings().entrySet());
         int available = Math.max(0, (y + h - 18 - sY) / 22);
+        if(slateCompact && settings.isEmpty())
+            drawSlateEmptySettings(x+side+11,sY,w-side-26,
+                Math.max(0,y+h-18-sY),compactTheme);
         settingScroll = Math.max(0, Math.min(settingScroll, Math.max(0, settings.size() - available)));
         keyboardSetting=GuiSettingKeyboard.visibleFocus(
             keyboardSetting,settingScroll,settings.size(),available);
+        final long compactSwitchFrameTime=slateCompact?System.nanoTime():0L;
+        final int hoveredSetting=slateCompact?
+            GuiHitZones.settingIndex(compactZone,mx,my,settingScroll,settings.size()):-1;
         for (int i = settingScroll; i < settings.size() && i < settingScroll + available; i++) {
             Map.Entry<String, Setting<?>> kv = settings.get(i);
             Setting<?> setting = kv.getValue();
-            GuiThemePalette settingsTheme=palette();
+            GuiThemePalette settingsTheme=compactTheme;
             rect(x + side + 11, sY, w - side - 26, 19,
-                settingsTheme.slate?(i==keyboardSetting
-                    ?settingsTheme.selectedSetting:settingsTheme.idleSetting)
+                slateCompact?(i==keyboardSetting?
+                    settingsTheme.selectedSetting:
+                    i==hoveredSetting?settingsTheme.selectedModule:settingsTheme.idleSetting)
                     :(i==keyboardSetting ? 0x886A588D : 0x443B465C));
-            label(trim(setting.id(), Math.max(30, (w - side) / 2 - 14)), x + side + 15, sY + 5, 0xFFE0E4EF);
-            int right = x + w - 17;
-            if (setting instanceof Setting.Number) {
-                Setting.Number number = (Setting.Number) setting;
-                double fraction = NumericSliderScale.fraction(
+            int kind=setting instanceof Setting.Bool?0:
+                setting instanceof Setting.Number?1:2;
+            String caption=slateCompact?
+                GuiSettingPresentation.label(setting.id()):setting.id();
+            label(trim(caption,slateCompact?
+                GuiSlateCompactMetrics.labelBudget(compactZone,kind):
+                Math.max(30,(w-side)/2-14)),x+side+15,sY+5,
+                slateCompact?settingsTheme.text:0xFFE0E4EF);
+            int right=x+w-17;
+            if(slateCompact && setting instanceof Setting.Bool) {
+                slateSwitch(right-31,sY+3,slateToggleMotion.value(setting,
+                    ((Setting.Bool)setting).get(),compactSwitchFrameTime));
+            } else if(setting instanceof Setting.Number) {
+                Setting.Number number=(Setting.Number)setting;
+                double fraction=NumericSliderScale.fraction(
                     number.get(),number.min(),number.max());
-                int barWidth = Math.max(33, (w - side) / 3);
-                rect(right - barWidth, sY + 7, barWidth, 6, palette().barTrack);
-                rect(right - barWidth, sY + 7, (int) (barWidth * fraction), 6, accent());
-                label(String.format(java.util.Locale.ROOT, "%.2f", number.get()), right - barWidth - 37, sY + 5, 0xFFC6CBD7);
+                int barWidth=slateCompact?
+                    GuiSlateCompactMetrics.barWidth(compactZone):
+                    Math.max(33,(w-side)/3);
+                if(slateCompact) {
+                    rect(right-barWidth,sY+9,barWidth,3,settingsTheme.barTrack);
+                    rect(right-barWidth,sY+9,(int)Math.round(barWidth*fraction),
+                        3,settingsTheme.accent);
+                    int thumb=right-barWidth+(int)Math.round((barWidth-4)*fraction);
+                    rect(thumb,sY+7,4,7,
+                        i==keyboardSetting||i==hoveredSetting?
+                            settingsTheme.text:settingsTheme.secondary);
+                    label(trim(GuiSettingPresentation.number(setting.id(),number.get()),36),
+                        right-barWidth-39,sY+5,settingsTheme.muted);
+                } else {
+                    rect(right-barWidth,sY+7,barWidth,6,palette().barTrack);
+                    rect(right-barWidth,sY+7,(int)(barWidth*fraction),6,accent());
+                    label(String.format(java.util.Locale.ROOT,"%.2f",number.get()),
+                        right-barWidth-37,sY+5,0xFFC6CBD7);
+                }
+            } else if(slateCompact) {
+                String displayed=trim(GuiSettingPresentation.choice(setting.serialize()),
+                    GuiSlateCompactMetrics.choiceBudget(compactZone));
+                int textRight=GuiSlateCompactMetrics.choiceX(compactZone)+
+                    GuiSlateCompactMetrics.choiceBudget(compactZone);
+                label(displayed,textRight-fontRendererObj.getStringWidth(displayed),
+                    sY+5,settingsTheme.accent);
+                int arrow=GuiSlateCompactMetrics.choiceArrowX(compactZone);
+                int marker=i==keyboardSetting||i==hoveredSetting?
+                    settingsTheme.accent:settingsTheme.muted;
+                rect(arrow,sY+8,1,1,marker);
+                rect(arrow+1,sY+9,1,1,marker);
+                rect(arrow+2,sY+10,1,1,marker);
+                rect(arrow+3,sY+9,1,1,marker);
+                rect(arrow+4,sY+8,1,1,marker);
             } else {
-                label(trim(setting.serialize(), Math.max(30, (w - side) / 3)),
-                    x + w - 17 - Math.min((w - side) / 3, 90), sY + 5, accent());
+                label(trim(setting.serialize(),Math.max(30,(w-side)/3)),
+                    x+w-17-Math.min((w-side)/3,90),sY+5,accent());
             }
-            sY += 22;
+            sY+=22;
         }
         // Footer has an 18px reserved strip below visible settings; never
         // paint keyboard help over the keybind row. Warnings own this footer.
@@ -574,6 +952,43 @@ public final class GhostClickGui extends GuiScreen {
         if (footer!=null && GuiFooterText.warning(message,host.uiWarning()).isEmpty())
             label(trim(footer,GuiFooterText.pixelBudget(w,side)),
                 x+side+13,y+h-13,0xFFE7E8F5);
+        // The compact renderer now has the same read-only long-label
+        // discoverability as the full Slate workspace. Avoid actual toggle
+        // and slider input regions; keep all native hit testing unchanged.
+        if(slateCompact) {
+            String reveal=null;
+            int overModule=GuiHitZones.moduleIndex(
+                compactZone,mx,my,scroll,filtered.size());
+            if(overModule>=0 && mx<x+w-60) {
+                String original=filtered.get(overModule).module().displayName();
+                if(!GuiSlateTypeScale.fit(original,
+                    GuiSlateCompactMetrics.moduleLabelBudget(compactZone),
+                    GuiSlateTypeScale.PRIMARY,guiFontWidths).equals(original))
+                    reveal=original;
+            }
+            if(reveal==null && hoveredSetting>=0 &&
+               hoveredSetting<settings.size()) {
+                Setting<?> setting=settings.get(hoveredSetting).getValue();
+                int kind=setting instanceof Setting.Bool?0:
+                    setting instanceof Setting.Number?1:2;
+                int budget=GuiSlateCompactMetrics.labelBudget(compactZone,kind);
+                if(mx>=x+side+15 && mx<x+side+15+budget) {
+                    String original=GuiSettingPresentation.label(setting.id());
+                    if(!trim(original,budget).equals(original))
+                        reveal=original;
+                }
+            }
+            // Compact SETTINGS title has its own measured, read-only
+            // hover space, distinct from the keybind and toggle rows.
+            if(reveal==null && e.state()!=ModuleRegistry.State.FAULTED) {
+                String full="SETTINGS  "+e.module().displayName();
+                String fitted=trim(full,Math.max(0,w-side-30));
+                if(GuiSlateDetailTitleTooltip.reveal(full,fitted,
+                    x+side+13,sy+3,Math.max(0,w-side-30),12,mx,my))
+                    reveal=e.module().displayName();
+            }
+            if(reveal!=null)drawSlateTooltip(reveal,mx,my,compactTheme);
+        }
     }
     private String trim(String text, int maxPixels) {
         // The legacy substring loop could split a supplementary Unicode
@@ -700,16 +1115,70 @@ public final class GhostClickGui extends GuiScreen {
         }
         return HudThemeTokens.of(appearance);
     }
-    private void drawHudMiniature(Rect bounds,Widget widget,boolean selected) {
+    private void drawHudMiniature(Rect bounds,Widget widget,boolean selected,
+                                  StatusHudLayout statusLayout) {
         miniatureTheme=miniatureThemeFor(widget);
-        HudPreviewArt.paint(bounds,widget,miniaturePainter);
-        if(selected) {
-            // Preview-only selection outline. The collision-warning outline wins later.
+        boolean liveSlateList=false;
+        if(widget==Widget.MODULE_LIST &&
+           ui.theme()==UiState.Theme.SLATE &&
+           "slate".equals(host.moduleListAppearance())) {
+            // F7 shows the same enabled-only list as the actual HUD, with
+            // one measured bar per module rather than invented 3-row art.
+            // Keep the original widget footprint and all input behavior.
+            boolean right=host.moduleListPosition().endsWith("_right") ||
+                ("custom".equals(host.moduleListPosition()) &&
+                 ui.widgets().x(Widget.MODULE_LIST)>=0.5);
+            liveSlateList=ModuleListSlateMiniatureGeometry.paint(
+                bounds,listFootprint(),right,
+                host.moduleListBackground(),host.moduleListAccent(),
+                miniaturePainter);
+        }
+        // Respect actual Slate Target HUD options in the editor preview.
+        // Unlike the old static 70% schematic, this never implies a
+        // fabricated target or health fraction.
+        boolean slateTarget=widget==Widget.TARGET &&
+            ui.theme()==UiState.Theme.SLATE &&
+            "slate".equals(host.targetSkin());
+        boolean slateKeys=widget==Widget.KEYSTROKES &&
+            ui.theme()==UiState.Theme.SLATE &&
+            "slate".equals(host.keysAppearance());
+        boolean slateCps=widget==Widget.CPS &&
+            ui.theme()==UiState.Theme.SLATE &&
+            "slate".equals(host.cpsAppearance());
+        if(widget==null && ui.theme()==UiState.Theme.SLATE)
+            StatusHudSlateMiniatureGeometry.paint(bounds,statusLayout,
+                host.featureEnabled("hud.status"),miniaturePainter);
+        else if(slateTarget)
+            TargetHudSlateMiniatureGeometry.paint(bounds,
+                host.targetHealth(),host.targetDistance(),miniaturePainter);
+        else if(slateKeys)
+            KeystrokesSlateMiniatureGeometry.paint(bounds,
+                host.keysJump(),host.keysSneak(),miniaturePainter);
+        else if(slateCps)
+            CpsSlateMiniatureGeometry.paint(bounds,
+                host.cpsRight(),miniaturePainter);
+        else if(!liveSlateList)
+            HudPreviewArt.paint(bounds,widget,miniaturePainter);
+        if(selected && ui.theme()!=UiState.Theme.SLATE) {
+            // Legacy preserves its former full outline; Slate uses short,
+            // high-contrast corner brackets after all miniatures are drawn.
             rect(bounds.x,bounds.y,bounds.width,1,miniatureTheme.accent);
             rect(bounds.x,bounds.y+bounds.height-1,bounds.width,1,miniatureTheme.accent);
             rect(bounds.x,bounds.y,1,bounds.height,miniatureTheme.accent);
             rect(bounds.x+bounds.width-1,bounds.y,1,bounds.height,miniatureTheme.accent);
         }
+    }
+    /** Purely presentational, inset selection handles; never resize widgets. */
+    private void hudSlateOutline(Rect r,int color) {
+        int edge=HudEditorSlateCanvasGeometry.corner(r);
+        rect(r.x,r.y,edge,1,color);
+        rect(r.x,r.y,1,edge,color);
+        rect(r.x+r.width-edge,r.y,edge,1,color);
+        rect(r.x+r.width-1,r.y,1,edge,color);
+        rect(r.x,r.y+r.height-1,edge,1,color);
+        rect(r.x,r.y+r.height-edge,1,edge,color);
+        rect(r.x+r.width-edge,r.y+r.height-1,edge,1,color);
+        rect(r.x+r.width-1,r.y+r.height-edge,1,edge,color);
     }
     /** F7 preset actions intentionally change HUD anchors only. */
     private void applyHudLayoutPreset(Preset preset) {
@@ -742,7 +1211,13 @@ public final class GhostClickGui extends GuiScreen {
         if (previewW<1 || previewH<1) return;
         // F7 inherits the active theme, including its actual preview surface.
         GuiHudEditorStyle editorStyle=GuiHudEditorStyle.of(ui.theme());
-        label("HUD POSITION EDITOR",x+side+12,y+49,accent());
+        if(ui.theme()==UiState.Theme.SLATE)
+            drawSlateType("HUD POSITION EDITOR",x+side+12,y+48,
+                accent(),GuiSlateTypeScale.PRIMARY,
+                GuiSlateTypeScale.displayWidth(
+                    fontRendererObj.getStringWidth("HUD POSITION EDITOR"),
+                    GuiSlateTypeScale.PRIMARY),14);
+        else label("HUD POSITION EDITOR",x+side+12,y+49,accent());
         drawHudPresetSidebar();
         // Display the scale of the selected widget in a fixed, readable place.
         String editorModule=HudScaleEditor.moduleId(hudControls.selected());
@@ -751,47 +1226,144 @@ public final class GhostClickGui extends GuiScreen {
                 .get(editorModule).settings().get("scale");
         label(String.format(java.util.Locale.ROOT,"%.2fx",zoom.get()),
             x+w-57,y+49,palette().secondary);
+        if(ui.theme()==UiState.Theme.SLATE) {
+            // The same normalized anchors used by actual drag/persistence,
+            // presented as quiet, truthful selected-widget metadata.
+            HudEditorControls.Item selectedItem=hudControls.selected();
+            double positionX=selectedItem.widget==null?ui.hudX():
+                ui.widgets().x(selectedItem.widget);
+            double positionY=selectedItem.widget==null?ui.hudY():
+                ui.widgets().y(selectedItem.widget);
+            int infoX=x+side+12+
+                GuiSlateTypeScale.displayWidth(
+                    fontRendererObj.getStringWidth("HUD POSITION EDITOR"),
+                    GuiSlateTypeScale.PRIMARY)+9;
+            int infoBudget=x+w-64-infoX;
+            if(infoBudget>=55)
+                label(trim(HudEditorSlateCanvasGeometry.coordinateLabel(
+                    selectedItem,positionX,positionY),infoBudget),
+                    infoX,y+49,palette().muted);
+        }
         int tabsX=x+side+12, tabsY=y+62, tabsWidth=w-side-24;
+        // Hover and click share HudEditorControls.tabAt(), so a highlighted
+        // pixel is always an actionable pixel; never stretch the hitbox.
+        boolean slateEditor=ui.theme()==UiState.Theme.SLATE;
+        HudEditorControls.Item hoveredTab=
+            HudEditorControls.tabAt(tabsX,tabsY,tabsWidth,mx,my);
         for (HudEditorControls.Item item:HudEditorControls.Item.values()) {
             int bx=HudEditorControls.tabLeft(tabsX,tabsWidth,item);
             int bw=HudEditorControls.tabWidth(tabsWidth,item);
-            rect(bx,tabsY,bw,17,item==hudControls.selected()?editorStyle.selectedTab:panel());
-            label(trim(item.label,bw-5),bx+3,tabsY+4,
-                item==hudControls.selected()?editorStyle.selectedText:editorStyle.idleText);
+            boolean chosen=item==hudControls.selected();
+            if(slateEditor) {
+                // Source-reference: Slinky measured centered tab glyphs.
+                // Native tabAt() owns the very same equal-width hit zones.
+                int surface=chosen?editorStyle.selectedTab:
+                    item==hoveredTab?palette().idleSetting:palette().idleModule;
+                rect(bx,tabsY,bw,17,surface);
+                int textBudget=HudEditorSlateTabTypography.labelBudget(bw);
+                String caption=trim(item.label,textBudget);
+                if(!caption.isEmpty()) {
+                    int measured=fontRendererObj.getStringWidth(caption);
+                    label(caption,HudEditorSlateTabTypography.labelX(bx,bw,measured),
+                        tabsY+4,chosen?editorStyle.selectedText:editorStyle.idleText);
+                }
+                if(chosen) {
+                    int inset=HudEditorSlateTabTypography.underlineInset(bw);
+                    rect(bx+inset,tabsY+16,
+                        HudEditorSlateTabTypography.underlineWidth(bw),
+                        1,palette().accent);
+                }
+            } else {
+                // Preserve both legacy themes' original UI pixels.
+                int tabColor=chosen?editorStyle.selectedTab:panel();
+                rect(bx,tabsY,bw,17,tabColor);
+                label(trim(item.label,bw-5),bx+3,tabsY+4,
+                    chosen?editorStyle.selectedText:editorStyle.idleText);
+            }
         }
         rect(previewX,previewY,previewW,previewH,editorStyle.previewSurround);
         HudPreviewGeometry geometry=previewGeometry();
         Rect canvas=geometry.canvas;
         rect(canvas.x,canvas.y,canvas.width,canvas.height,editorStyle.previewCanvas);
-        for(int gx=canvas.x+30;gx<canvas.x+canvas.width;gx+=30)
-            rect(gx,canvas.y,1,canvas.height,editorStyle.previewGrid);
-        for(int gy=canvas.y+30;gy<canvas.y+canvas.height;gy+=30)
-            rect(canvas.x,gy,canvas.width,1,editorStyle.previewGrid);
+        if(slateEditor) {
+            // Slinky-style breathing room and Vape-style positioning:
+            // adaptive third-lines instead of a dense fixed 30px grid.
+            for(int third=1;third<=2;third++) {
+                int gx=HudEditorSlateCanvasGeometry.gridX(canvas,third);
+                int gy=HudEditorSlateCanvasGeometry.gridY(canvas,third);
+                if(gx>=0)rect(gx,canvas.y,1,canvas.height,editorStyle.previewGrid);
+                if(gy>=0)rect(canvas.x,gy,canvas.width,1,editorStyle.previewGrid);
+            }
+            int cx=HudEditorSlateCanvasGeometry.centerX(canvas);
+            int cy=HudEditorSlateCanvasGeometry.centerY(canvas);
+            rect(cx,canvas.y,1,canvas.height,0x285E8291);
+            rect(canvas.x,cy,canvas.width,1,0x285E8291);
+        } else {
+            for(int gx=canvas.x+30;gx<canvas.x+canvas.width;gx+=30)
+                rect(gx,canvas.y,1,canvas.height,editorStyle.previewGrid);
+            for(int gy=canvas.y+30;gy<canvas.y+canvas.height;gy+=30)
+                rect(canvas.x,gy,canvas.width,1,editorStyle.previewGrid);
+        }
 
-        Rect status=geometry.status(ui,statusPreviewWidth(),statusPreviewHeight());
-        drawHudMiniature(status,null,hudControls.selected()==HudEditorControls.Item.STATUS);
+        // The same measured row snapshot now owns both Status's F7 frame
+        // and its purely visual contents. No synthetic metric values.
+        StatusHudLayout editorStatus=statusFootprint();
+        Rect status=geometry.status(ui,editorStatus.measuredWidth,
+            editorStatus.measuredHeight);
+        hudPreviewRects[HudEditorControls.Item.STATUS.ordinal()]=status;
+        drawHudMiniature(status,null,
+            hudControls.selected()==HudEditorControls.Item.STATUS,editorStatus);
 
         for(Widget widget:Widget.values()) {
+            HudEditorControls.Item item=HudEditorControls.itemFor(widget);
             Rect r=hudPreviewRect(geometry,widget);
-            drawHudMiniature(r,widget,
-                hudControls.selected()==HudEditorControls.itemFor(widget));
+            hudPreviewRects[item.ordinal()]=r;
+            drawHudMiniature(r,widget,hudControls.selected()==item,null);
         }
-        // Highlight only collisions involving the selected HUD; no automatic moves.
-        Rect selectedRect=hudControls.selected()==HudEditorControls.Item.STATUS
-            ?status:hudPreviewRect(geometry,hudControls.selected().widget);
-        boolean hudOverlaps=false;
-        if(HudOverlapPolicy.overlaps(selectedRect,status) &&
-           hudControls.selected()!=HudEditorControls.Item.STATUS) {
-            hudConflictOutline(status);hudOverlaps=true;
+        HudEditorControls.Item slateHoveredWidget=null;
+        if(slateEditor) {
+            // One native-compatible read-only hit test drives both outline
+            // and descriptive hover; no duplicate geometry or action area.
+            slateHoveredWidget=HudEditorSlateCanvasGeometry.hovered(
+                canvas,hudPreviewRects,mx,my);
+            HudEditorControls.Item underPointer=slateHoveredWidget;
+            if(underPointer!=null && underPointer!=hudControls.selected())
+                hudSlateOutline(hudPreviewRects[underPointer.ordinal()],
+                    editorStyle.idleText);
+            hudSlateOutline(hudPreviewRects[hudControls.selected().ordinal()],
+                palette().accent);
         }
-        for(Widget peer:Widget.values()) {
-            if(peer==hudControls.selected().widget)continue;
-            Rect other=hudPreviewRect(geometry,peer);
-            if(HudOverlapPolicy.overlaps(selectedRect,other)) {
-                hudConflictOutline(other);hudOverlaps=true;
+        // A single, read-only pass drives both peer outlines and a truthful
+        // named warning. No second list-footprint or font-width measurement.
+        int geometricConflicts=
+            HudEditorConflicts.mask(hudControls.selected(),hudPreviewRects);
+        boolean metricsVisible=editorStatus.fpsY>=0 ||
+            editorStatus.coordinatesY>=0 || editorStatus.pingY>=0;
+        int conflicts=geometricConflicts;
+        if(slateEditor) {
+            // Inactive editor placeholders are still draggable, but cannot
+            // cause a red visual conflict or a false overlap warning.
+            int activeBits=0;
+            if(host.featureEnabled("hud.status")||metricsVisible)
+                activeBits|=1<<HudEditorControls.Item.STATUS.ordinal();
+            for(Widget widget:Widget.values()) {
+                HudEditorControls.Item item=HudEditorControls.itemFor(widget);
+                if(host.featureEnabled(HudScaleEditor.moduleId(item)) &&
+                   (widget!=Widget.MODULE_LIST ||
+                    !listFootprint().rows.isEmpty()))
+                    activeBits|=1<<item.ordinal();
             }
+            conflicts=HudEditorConflicts.activeMask(
+                hudControls.selected(),geometricConflicts,activeBits);
         }
-        if(hudOverlaps)hudConflictOutline(selectedRect);
+        boolean hudOverlaps=conflicts!=0;
+        if(hudOverlaps) {
+            for(HudEditorControls.Item peer:HudEditorControls.Item.values()) {
+                if(HudEditorConflicts.includes(conflicts,peer))
+                    hudConflictOutline(hudPreviewRects[peer.ordinal()]);
+            }
+            hudConflictOutline(hudPreviewRects[hudControls.selected().ordinal()]);
+        }
         if(hudDragging) {
             if(snapGuideX!=HudSnapPolicy.NO_GUIDE)
                 rect(Math.min(canvas.x+canvas.width-1,Math.max(canvas.x,snapGuideX)),
@@ -801,10 +1373,28 @@ public final class GhostClickGui extends GuiScreen {
                     Math.max(canvas.y,snapGuideY)),canvas.width,1,editorStyle.snapGuide);
         }
         label(trim(hudOverlaps
-            ?"HUD overlap detected | Drag to separate | R: Reset"
+            ?HudEditorConflicts.message(hudControls.selected(),conflicts)+
+                " | Drag apart | R: Reset"
             :"1 Default 2 PvP 3 Stream | [ ] Resize | Alt: Free | 0: 1x | R: Position",
             w-side-20),
             previewX,previewY+previewH+8,editorStyle.helpText);
+        if(slateEditor) {
+            // Full widget names help distinguish closely stacked preview
+            // footprints. Suppressed while dragging, and bounded by the
+            // existing tooltip/footer containment instead of a new surface.
+            boolean hoveredEnabled=slateHoveredWidget!=null &&
+                host.featureEnabled(HudScaleEditor.moduleId(slateHoveredWidget));
+            String widgetHint=HudEditorSlateCanvasGeometry.hoverCaption(
+                slateHoveredWidget,hudDragging,hoveredEnabled,metricsVisible);
+            if(widgetHint!=null)
+                drawSlateTooltip(widgetHint,mx,my,palette());
+            // Tab labels can be clipped at Minecraft GUI Scale Auto.
+            // Resolve the native tab under the pointer (no new hitboxes)
+            // and reveal only a name that was shortened by the real font.
+            String fullTab=HudEditorSlateTabTooltip.hovered(
+                tabsX,tabsY,tabsWidth,mx,my,guiFontWidths);
+            if(fullTab!=null)drawSlateTooltip(fullTab,mx,my,palette());
+        }
     }
     /** Compact outline used only for editor feedback; never affects live HUD paint. */
     private void hudConflictOutline(Rect r) {
@@ -963,6 +1553,30 @@ public final class GhostClickGui extends GuiScreen {
             return;
         }
         GuiSlateWorkspace split=slateWorkspace(zone);
+        if(split==null && ui.theme()==UiState.Theme.SLATE && search!=null &&
+           !search.getText().isEmpty() &&
+           GuiSlateCompactSearchGeometry.clearHit(zone,mx,my)) {
+            // Identical clear/focus state transition as the full Slate bar.
+            search.setText("");
+            ui.query("");
+            search.setFocused(true);
+            search.setCursorPositionEnd();
+            scroll=0;settingScroll=0;keyboardSetting=-1;
+            entries();
+            return;
+        }
+        if(split==null && ui.theme()==UiState.Theme.SLATE && search!=null &&
+           GuiSlateCompactSearchGeometry.surfaceHit(zone,mx,my)) {
+            // The entire native search chrome is focusable; no module or
+            // setting input can share these exact y coordinates.
+            search.mouseClicked(mx,my,button);
+            if(!search.isFocused()) {
+                search.setFocused(true);
+                search.setCursorPositionEnd();
+            }
+            keyboardSetting=-1;
+            return;
+        }
         if(split!=null&&search!=null&&!search.getText().isEmpty()&&
            GuiSlateSearchGeometry.clearHit(split,mx,my)) {
             // Search-only action: never toggles or persists a module.
@@ -1488,6 +2102,7 @@ public final class GhostClickGui extends GuiScreen {
         super.keyTyped(character,keyCode);
     }
     @Override public void onGuiClosed() {
+        smoothSlateFont.reportAndClose();
         scrollDrag.end();
         finishSliderDrag();
         boolean endedHudDrag=hudDragging;

@@ -1,6 +1,6 @@
 package dev.ghostfusion.features;
 /**
- * Client-thread-only, allocation-free Nebula animation. Never caches player
+ * Client-thread-only, allocation-free Slate target animation. Never caches player
  * metadata or paints removed targets. Reset when the Forge world changes.
  */
 public final class TargetHudMotion {

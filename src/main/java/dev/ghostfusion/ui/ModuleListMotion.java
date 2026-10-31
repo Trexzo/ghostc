@@ -42,6 +42,12 @@ public final class ModuleListMotion {
         Iterator<Map.Entry<String,State>> it=live.entrySet().iterator();
         while(it.hasNext())if(it.next().getValue().seen!=generation)it.remove();
     }
+    /** Forget previous-world/disabled-HUD labels before the next appearance. */
+    public void reset() {
+        live.clear();
+        generation=0L;
+        frameTime=0L;
+    }
     public int activeCount(){return live.size();}
     public static int fade(int argb,double opacity) {
         if(!Double.isFinite(opacity)||opacity<0||opacity>1)

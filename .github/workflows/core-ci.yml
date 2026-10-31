@@ -54,6 +54,10 @@ jobs:
           grep -q 'TARGET_HUD_MOTION_PASS' .build/target-motion.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudModernLayoutTests | tee .build/target-hud-modern.log
           grep -q 'TARGET_HUD_MODERN_LAYOUT_PASS' .build/target-hud-modern.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudSlateBarGeometryTests | tee .build/target-hud-slate-bar.log
+          grep -q 'TARGET_HUD_SLATE_BAR_GEOMETRY_PASS' .build/target-hud-slate-bar.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudSlateReadoutGeometryTests | tee .build/target-hud-slate-readout.log
+          grep -q 'TARGET_HUD_SLATE_READOUT_GEOMETRY_PASS' .build/target-hud-slate-readout.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudPaletteTests | tee .build/target-hud-palette.log
           grep -q 'TARGET_HUD_PALETTE_PASS' .build/target-hud-palette.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSearchFocusTests | tee .build/gui-search-focus.log
@@ -64,6 +68,32 @@ jobs:
           grep -q 'SETTING_DEFAULT_RESET_PASS' .build/setting-default-reset.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSettingKeyboardTests | tee .build/gui-setting-keyboard.log
           grep -q 'GUI_SETTING_KEYBOARD_PASS' .build/gui-setting-keyboard.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateControlGeometryTests | tee .build/gui-slate-controls.log
+          grep -q 'GUI_SLATE_CONTROL_GEOMETRY_PASS' .build/gui-slate-controls.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateTooltipLayoutTests | tee .build/gui-slate-tooltips.log
+          grep -q 'GUI_SLATE_TOOLTIP_LAYOUT_PASS' .build/gui-slate-tooltips.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateDetailTitleTooltipTests | tee .build/gui-slate-detail-tooltip.log
+          grep -q 'GUI_SLATE_DETAIL_TOOLTIP_PASS' .build/gui-slate-detail-tooltip.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateScaleMatrixTests | tee .build/gui-slate-scale-matrix.log
+          grep -q 'GUI_SLATE_SCALE_MATRIX_PASS' .build/gui-slate-scale-matrix.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateCompactMetricsTests | tee .build/gui-slate-compact-metrics.log
+          grep -q 'GUI_SLATE_COMPACT_METRICS_PASS' .build/gui-slate-compact-metrics.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateModuleCaptionTests | tee .build/gui-slate-module-captions.log
+          grep -q 'GUI_SLATE_MODULE_CAPTION_PASS' .build/gui-slate-module-captions.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateTypeScaleTests | tee .build/gui-slate-type-scale.log
+          grep -q 'GUI_SLATE_TYPE_SCALE_PASS' .build/gui-slate-type-scale.log
+          java -Djava.awt.headless=true -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateSmoothRasterTests | tee .build/gui-slate-smooth-raster.log
+          grep -q 'GUI_SLATE_SMOOTH_RASTER_PASS' .build/gui-slate-smooth-raster.log
+          java -Djava.awt.headless=true -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateSmoothPlacementTests | tee .build/gui-slate-smooth-placement.log
+          grep -q 'GUI_SLATE_SMOOTH_PLACEMENT_PASS' .build/gui-slate-smooth-placement.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateSmoothTrialMetricsTests | tee .build/gui-slate-smooth-trial-metrics.log
+          grep -q 'GUI_SLATE_SMOOTH_TRIAL_METRICS_PASS' .build/gui-slate-smooth-trial-metrics.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateEmptyStateLayoutTests | tee .build/gui-slate-empty-state.log
+          grep -q 'GUI_SLATE_EMPTY_STATE_PASS' .build/gui-slate-empty-state.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateSettingsEmptyStateTests | tee .build/gui-slate-settings-empty.log
+          grep -q 'GUI_SLATE_SETTINGS_EMPTY_STATE_PASS' .build/gui-slate-settings-empty.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateCompactSearchGeometryTests | tee .build/gui-slate-compact-search.log
+          grep -q 'GUI_SLATE_COMPACT_SEARCH_PASS' .build/gui-slate-compact-search.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiKeyboardNavigationTests | tee .build/gui-keyboard.log
           grep -q 'GUI_KEYBOARD_NAVIGATION_PASS' .build/gui-keyboard.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.CoreTests | tee .build/test.log
@@ -84,16 +114,28 @@ jobs:
           grep -q 'SLATE_LEGACY_MIGRATION_PASS' .build/slate-legacy.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiThemePaletteTests | tee .build/gui-theme.log
           grep -q 'GUI_THEME_PALETTE_PASS' .build/gui-theme.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiCategoryActivityTests | tee .build/gui-category-activity.log
+          grep -q 'GUI_CATEGORY_ACTIVITY_PASS' .build/gui-category-activity.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiToggleMotionTests | tee .build/gui-toggle-motion.log
           grep -q 'GUI_TOGGLE_MOTION_PASS' .build/gui-toggle-motion.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudThemeTokensTests | tee .build/hud-theme-tokens.log
           grep -q 'HUD_THEME_TOKENS_PASS' .build/hud-theme-tokens.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.DiagnosticsHudStyleTests | tee .build/diagnostics-style.log
+          grep -q 'DIAGNOSTICS_HUD_STYLE_PASS' .build/diagnostics-style.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.SlateHudKeyStyleTests | tee .build/slate-hud-keys.log
+          grep -q 'SLATE_HUD_KEY_STYLE_PASS' .build/slate-hud-keys.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.ModuleListEditorTests | tee .build/modulelist-editor.log
           grep -q 'MODULE_LIST_EDITOR_PASS' .build/modulelist-editor.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.ModuleListMotionTests | tee .build/modulelist-motion.log
           grep -q 'MODULE_LIST_MOTION_PASS' .build/modulelist-motion.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.ModuleListLayoutTests | tee .build/modulelist.log
           grep -q 'MODULE_LIST_LAYOUT_PASS' .build/modulelist.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.ModuleListTextGeometryTests | tee .build/modulelist-text-geometry.log
+          grep -q 'MODULE_LIST_TEXT_GEOMETRY_PASS' .build/modulelist-text-geometry.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.ModuleListSlateRowGeometryTests | tee .build/modulelist-slate-row-geometry.log
+          grep -q 'MODULE_LIST_SLATE_ROW_GEOMETRY_PASS' .build/modulelist-slate-row-geometry.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.ModuleListSlateMiniatureGeometryTests | tee .build/modulelist-slate-miniature.log
+          grep -q 'MODULE_LIST_SLATE_MINIATURE_GEOMETRY_PASS' .build/modulelist-slate-miniature.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.UiTests | tee .build/ui.log
           grep -q 'UI_REGRESSION_PASS' .build/ui.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.ServicesTests | tee .build/services.log
@@ -203,8 +245,24 @@ jobs:
           grep -q 'HUD_PLACEMENT_PASS' .build/hud-placement.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudPreviewArtTests | tee .build/hud-preview-art.log
           grep -q 'HUD_PREVIEW_ART_PASS' .build/hud-preview-art.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.KeystrokesSlateMiniatureGeometryTests | tee .build/keys-slate-miniature.log
+          grep -q 'KEYSTROKES_SLATE_MINIATURE_PASS' .build/keys-slate-miniature.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.CpsSlateMiniatureGeometryTests | tee .build/cps-slate-miniature.log
+          grep -q 'CPS_SLATE_MINIATURE_PASS' .build/cps-slate-miniature.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.StatusHudSlateMiniatureGeometryTests | tee .build/status-slate-miniature.log
+          grep -q 'STATUS_HUD_SLATE_MINIATURE_PASS' .build/status-slate-miniature.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.TargetHudSlateMiniatureGeometryTests | tee .build/target-hud-slate-miniature.log
+          grep -q 'TARGET_HUD_SLATE_MINIATURE_PASS' .build/target-hud-slate-miniature.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudOverlapPolicyTests | tee .build/hud-overlap.log
           grep -q 'HUD_OVERLAP_POLICY_PASS' .build/hud-overlap.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudEditorConflictsTests | tee .build/hud-editor-conflicts.log
+          grep -q 'HUD_EDITOR_CONFLICTS_PASS' .build/hud-editor-conflicts.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudEditorSlateCanvasGeometryTests | tee .build/hud-editor-slate-canvas.log
+          grep -q 'HUD_EDITOR_SLATE_CANVAS_PASS' .build/hud-editor-slate-canvas.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudEditorSlateTabTypographyTests | tee .build/hud-editor-slate-tabs.log
+          grep -q 'HUD_EDITOR_SLATE_TAB_TYPOGRAPHY_PASS' .build/hud-editor-slate-tabs.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudEditorSlateTabTooltipTests | tee .build/hud-editor-slate-tab-tooltip.log
+          grep -q 'HUD_EDITOR_SLATE_TAB_TOOLTIP_PASS' .build/hud-editor-slate-tab-tooltip.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudSnapPolicyTests | tee .build/hud-snap.log
           grep -q 'HUD_SNAP_POLICY_PASS' .build/hud-snap.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudPreviewTests | tee .build/hud-preview.log

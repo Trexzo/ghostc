@@ -21,6 +21,12 @@ public final class ModuleListMotionTests {
         motion.beginFrame(1_300_000_000L);
         motion.endFrame();
         ok(motion.activeCount()==0,"disabled item immediately removed");
+        motion.beginFrame(1_350_000_000L);
+        motion.observe("hud.temporary");
+        motion.endFrame();
+        ok(motion.activeCount()==1,"temporary entry tracked");
+        motion.reset();
+        ok(motion.activeCount()==0,"world/HUD reset evicts live identity");
         motion.beginFrame(1_400_000_000L);
         ok(motion.observe("combat.aimassist")==0,
             "re-enabled module begins fresh transition");

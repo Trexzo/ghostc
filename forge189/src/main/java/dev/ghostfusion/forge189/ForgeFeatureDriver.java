@@ -6,10 +6,17 @@ import dev.ghostfusion.ui.HudFootprints;
 import dev.ghostfusion.ui.HudWidgetViewport;
 import dev.ghostfusion.ui.HudScaleLayout;
 import dev.ghostfusion.ui.DiagnosticsHudLayout;
+import dev.ghostfusion.ui.DiagnosticsHudStyle;
+import dev.ghostfusion.ui.UiState;
 import dev.ghostfusion.ui.HudTextFit;
 import dev.ghostfusion.ui.ModuleListLayout;
 import dev.ghostfusion.ui.ModuleListMotion;
+import dev.ghostfusion.ui.ModuleListTextGeometry;
+import dev.ghostfusion.ui.ModuleListSlateRowGeometry;
+import dev.ghostfusion.core.ModuleRegistry;
 import dev.ghostfusion.ui.HudThemeTokens;
+import dev.ghostfusion.ui.GuiSlateTypeScale;
+import dev.ghostfusion.ui.SlateHudKeyStyle;
 import dev.ghostfusion.features.SprintPolicy;
 import dev.ghostfusion.features.TargetHudPolicy;
 import dev.ghostfusion.features.HudLiveTargetGate;
@@ -18,6 +25,8 @@ import dev.ghostfusion.features.TargetHudDistanceText;
 import dev.ghostfusion.features.EspTeamPolicy;
 import dev.ghostfusion.features.TargetHudPalette;
 import dev.ghostfusion.features.TargetHudModernLayout;
+import dev.ghostfusion.features.TargetHudSlateBarGeometry;
+import dev.ghostfusion.features.TargetHudSlateReadoutGeometry;
 import dev.ghostfusion.features.TargetHudMotion;
 import dev.ghostfusion.host.HostRuntime;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
@@ -95,7 +104,7 @@ public final class ForgeFeatureDriver {
         boolean focused = mc.currentScreen == null && mc.inGameHasFocus && host.worldPresent();
         cps.mouse(button, Mouse.getEventButtonState(), System.nanoTime(), focused);
     }
-    void reset() { cps.clear(); targetMotion.reset(); }
+    void reset() { cps.clear(); targetMotion.reset(); moduleListMotion.reset(); }
     void render3d(final float partialTicks) {
         host.runFeature("render.esp", new Runnable() {
             public void run() { esp.draw(partialTicks); }
@@ -123,6 +132,10 @@ public final class ForgeFeatureDriver {
         drawFeature("hud.diagnostics", new Runnable() {
             public void run() { drawDiagnostics(sw,sh); }
         });
+        // A disabled/faulted Module List never renders, so evict its
+        // previous visual entry timelines before it can be re-enabled.
+        if(host.modules().get("hud.modulelist").state()!=ModuleRegistry.State.ENABLED)
+            moduleListMotion.reset();
         drawFeature("hud.modulelist", new Runnable() {
             public void run() { drawEnabledModules(sw,sh); }
         });
@@ -161,6 +174,9 @@ public final class ForgeFeatureDriver {
         final int classicAccent=host.ui().theme()==dev.ghostfusion.ui.UiState.Theme.GRAPHITE
             ? 0xFFB9C5D6 : 0xFFA59AFF;
         final int accent="classic".equals(appearance)?classicAccent:theme.accent;
+        // Switching away and back to Slate should start fresh motion,
+        // without changing a single legacy Classic/Minimal pixel.
+        if(!"slate".equals(appearance))moduleListMotion.reset();
         if("slate".equals(appearance)) {
             // A Slinky/Rise-inspired, text-first overlay; original Minecraft
             // lifecycle still controls visibility, not the animation cache.
@@ -171,22 +187,42 @@ public final class ForgeFeatureDriver {
             for(ModuleListLayout.Row row:frame.rows) {
                 double phase=moduleListMotion.observe(row.id);
                 int alpha=ModuleListMotion.fade(theme.text,phase);
-                int measured=mc.fontRendererObj.getStringWidth(row.label);
-                int textX=right?row.x+row.width-6-measured:row.x+6;
-                int direction=right?1:-1;
-                int travel=(int)Math.round((1.0-phase)*7.0)*direction;
-                textX=Math.max(0,Math.min(sw-measured,textX+travel));
-                if(background) {
-                    // At 1x this is intentionally almost transparent.
-                    Gui.drawRect(row.x,row.y,row.x+row.width,row.y+row.height,
-                        ModuleListMotion.fade(0x27151A25,phase));
+                // Vanilla FontRenderer can treat almost-zero alpha as fully
+                // opaque; skip those entry frames instead of flashing names.
+                if((alpha>>>24)<4)continue;
+                // Cached layout width avoids measuring the same glyphs twice.
+                int textX=ModuleListTextGeometry.x(
+                    row,row.textWidth,sw,right,phase);
+                if(background||stripe) {
+                    // Slinky/Vape-inspired text-first overlay: each moving
+                    // caption gets its own measured-width surface rather
+                    // than a slab sized to the longest enabled module.
+                    int surfaceWidth=ModuleListSlateRowGeometry.width(row);
+                    int surfaceX=ModuleListSlateRowGeometry.x(row,textX,sw);
+                    if(background) {
+                        Gui.drawRect(surfaceX,row.y,
+                            surfaceX+surfaceWidth,row.y+row.height,
+                            ModuleListMotion.fade(0x55151A20,phase));
+                        // One faint bottom hairline, matching the Slate HUD
+                        // palette without strong glow or rounded textures.
+                        if(row.height>=5)
+                            Gui.drawRect(surfaceX+3,row.y+row.height-1,
+                                surfaceX+surfaceWidth-3,row.y+row.height,
+                                ModuleListMotion.fade(theme.frame,phase*0.65));
+                    }
+                    if(stripe) {
+                        int markerX=ModuleListSlateRowGeometry.railX(
+                            surfaceX,surfaceWidth,right);
+                        int markerY=ModuleListSlateRowGeometry.railY(row);
+                        int markerHeight=ModuleListSlateRowGeometry.railHeight(row);
+                        Gui.drawRect(markerX,markerY,
+                            markerX+2,markerY+markerHeight,
+                            ModuleListMotion.fade(theme.accent,phase*0.75));
+                    }
                 }
-                if(stripe) {
-                    int markerX=right?row.x+row.width-2:row.x;
-                    Gui.drawRect(markerX,row.y+2,markerX+2,row.y+row.height-2,
-                        ModuleListMotion.fade(theme.accent,phase*0.72));
-                }
-                mc.fontRendererObj.drawStringWithShadow(row.label,textX,row.textY,alpha);
+                // Crisp font treatment is identical to the Target HUD;
+                // no second vanilla text shadow or RGB cycling.
+                mc.fontRendererObj.drawString(row.label,textX,row.textY,alpha);
             }
             moduleListMotion.endFrame();
             return;
@@ -227,18 +263,29 @@ public final class ForgeFeatureDriver {
             return;
         }
         HudThemeTokens theme=HudThemeTokens.of(appearance);
-        Gui.drawRect(x,y,x+width,y+17,pressed?theme.accent:theme.panel);
-        if("slate".equals(appearance)) {
-            // A restrained one-pixel aurora line, never text-obscuring full glow.
-            Gui.drawRect(x,y,x+width,y+1,pressed?theme.secondary:theme.frame);
-            if(!pressed)Gui.drawRect(x+1,y+15,x+width-1,y+16,theme.sheen);
+        boolean slate="slate".equals(appearance);
+        // Slate pressed keys use a restrained graphite shift with an ice
+        // underline, never a full-color button flash. Legacy Minimal is
+        // intentionally left pixel-identical.
+        Gui.drawRect(x,y,x+width,y+17,
+            slate?SlateHudKeyStyle.surface(pressed):
+                  pressed?theme.accent:theme.panel);
+        if(slate) {
+            Gui.drawRect(x,y,x+width,y+1,SlateHudKeyStyle.topEdge(pressed));
+            Gui.drawRect(x+1,y+16,x+width-1,y+17,
+                SlateHudKeyStyle.bottomEdge(pressed));
         }
         String fitted=HudTextFit.fit(label,Math.max(0,width-5),targetFontWidths);
         if(fitted.isEmpty())return;
         int textWidth=mc.fontRendererObj.getStringWidth(fitted);
-        mc.fontRendererObj.drawStringWithShadow(fitted,
-            x+(width-textWidth)/2,y+5,
-            pressed?0xFF121629:theme.text);
+        if(slate) {
+            mc.fontRendererObj.drawString(fitted,
+                x+(width-textWidth)/2,y+5,SlateHudKeyStyle.text(pressed));
+        } else {
+            mc.fontRendererObj.drawStringWithShadow(fitted,
+                x+(width-textWidth)/2,y+5,
+                pressed?0xFF121629:theme.text);
+        }
     }
     private void drawKeys(int sw,int sh) {
         // 1x remains the original byte-for-byte paint path.
@@ -313,14 +360,22 @@ public final class ForgeFeatureDriver {
             Gui.drawRect(x-2,y-2,x-1,bottom,theme.accent);
             if("slate".equals(appearance) && right>x)
                 Gui.drawRect(x-1,y-2,right,y-1,theme.sheen);
-            if(!text.isEmpty())
-                mc.fontRendererObj.drawStringWithShadow(text,x,y+1,theme.text);
+            if(!text.isEmpty()) {
+                // Match Slate ArrayList/Target/Keystrokes text rendering.
+                if("slate".equals(appearance))
+                    mc.fontRendererObj.drawString(text,x,y+1,theme.text);
+                else mc.fontRendererObj.drawStringWithShadow(text,x,y+1,theme.text);
+            }
         }
     }
-    private void drawDiagnosticText(String value,int x,int y,int maxWidth,int color) {
+    private void drawDiagnosticText(String value,int x,int y,int maxWidth,
+                                    int color,boolean slate) {
         String fitted=mc.fontRendererObj.trimStringToWidth(value,maxWidth);
-        if(!fitted.isEmpty())
-            mc.fontRendererObj.drawStringWithShadow(fitted,x,y,color);
+        if(fitted.isEmpty())return;
+        // Text-first Slate uses a single Minecraft font pass; legacy
+        // diagnostics keep their original shadowed pixels exactly.
+        if(slate)mc.fontRendererObj.drawString(fitted,x,y,color);
+        else mc.fontRendererObj.drawStringWithShadow(fitted,x,y,color);
     }
     /** Rendered-row-only metric acquisition. Snapshot distributions are read
      * once per visible panel rather than once per string or invisible row. */
@@ -401,15 +456,20 @@ public final class ForgeFeatureDriver {
             sw,sh,mc.fontRendererObj.FONT_HEIGHT);
         if(layout.rows==0)return;
         int x=layout.x, y=layout.y;
-        Gui.drawRect(x,y,x+layout.width,y+layout.height,0xC31B2133);
+        // The default Slate profile should never inherit the purple
+        // development overlay. Legacy profile colors stay unchanged.
+        UiState.Theme selectedTheme=host.ui().theme();
+        DiagnosticsHudStyle style=DiagnosticsHudStyle.of(selectedTheme);
+        boolean slate=selectedTheme==UiState.Theme.SLATE;
+        Gui.drawRect(x,y,x+layout.width,y+layout.height,style.panel);
         drawDiagnosticText("GhostC " + GhostCMod.CLIENT_VERSION +
-            " diagnostics",x+5,y+5,layout.textWidth,0xFFAEAAFF);
+            " diagnostics",x+5,y+5,layout.textWidth,style.title,slate);
         // Compact panels evaluate ONLY the rows the layout can actually paint.
         // Full panels retain exactly the original fourteen labels and order.
         DiagnosticLines lines=new DiagnosticLines();
         for(int slot=0;slot<layout.rows;slot++)
             drawDiagnosticText(lines.row(layout.sourceRow(slot)),x+5,
-                layout.rowY(slot),layout.textWidth,0xFFC9D1DF);
+                layout.rowY(slot),layout.textWidth,style.body,slate);
         // Focus/suppression remains in the saved local report.
     }
     /**
@@ -456,9 +516,24 @@ public final class ForgeFeatureDriver {
         }
     }
     /**
-     * Slate v2: its own aurora-inspired composition, not a recolored Minimal.
-     * No textures, shaders, caches or simulated targets.
+     * Slate: matte graphite, a neutral HP track and a small ice-blue accent.
+     * No textures, shaders, simulated targets, or doubled font shadows.
      */
+    /**
+     * Pixel-measured first-party type hierarchy on the Slate Target HUD.
+     * No global font texture changes or extra world/player reads.
+     */
+    private void drawSlateHudText(String text,int x,int y,int color,double scale) {
+        if(text==null||text.isEmpty())return;
+        GL11.glPushMatrix();
+        try {
+            GL11.glTranslated(x,y,0);
+            GL11.glScaled(scale,scale,1);
+            mc.fontRendererObj.drawString(text,0,0,color);
+        } finally {
+            GL11.glPopMatrix();
+        }
+    }
     private void drawSlateTarget(int x,int y,int width,int height,boolean health,
                                   TargetHudTextLayout.Result labels,EntityPlayer player) {
         TargetHudModernLayout layout=TargetHudModernLayout.of("slate");
@@ -476,36 +551,81 @@ public final class ForgeFeatureDriver {
             TargetHudMotion.fade(theme.secondary,alpha*0.72));
         Gui.drawRect(x+9,y+height-2,x+width-9,y+height-1,
             TargetHudMotion.fade(theme.frame,alpha*0.55));
-        mc.fontRendererObj.drawStringWithShadow(labels.name,x+9,
-            y+layout.nameY,TargetHudMotion.fade(theme.text,alpha));
+        // Reserve a true measured health-column width even when the primary
+        // bitmap name glyphs are scaled up; no overlap with the live HP text.
+        int healthPixels=health?GuiSlateTypeScale.displayWidth(
+            labels.healthLabelWidth,GuiSlateTypeScale.SECONDARY):0;
+        int nameBudget=Math.max(0,width-18-(health?healthPixels+6:0));
+        String primaryName=GuiSlateTypeScale.fit(labels.name,nameBudget,
+            GuiSlateTypeScale.PRIMARY,targetFontWidths);
+        drawSlateHudText(primaryName,x+9,y+layout.nameY-1,
+            TargetHudMotion.fade(theme.text,alpha),GuiSlateTypeScale.PRIMARY);
         if(health) {
-            int l=x+9,r=x+width-9,t=y+layout.trackY;
-            // The restrained neutral track and a clean filled bar avoid the
-            // old framed, multiple-stripe visual clutter.
-            Gui.drawRect(l,t,r,t+layout.trackHeight,
+            if(!TargetHudSlateBarGeometry.fits(width,height,
+                    mc.fontRendererObj.FONT_HEIGHT))return;
+            // One quiet horizontal separator separates legible combat
+            // identity from health, without adding a second glass panel.
+            Gui.drawRect(x+9,y+TargetHudSlateBarGeometry.DIVIDER_Y,
+                x+width-9,y+TargetHudSlateBarGeometry.DIVIDER_Y+1,
+                TargetHudMotion.fade(theme.frame,alpha*0.44));
+            int l=TargetHudSlateBarGeometry.left(x);
+            int r=TargetHudSlateBarGeometry.right(x,width);
+            int t=y+TargetHudSlateBarGeometry.TOP;
+            int barHeight=TargetHudSlateBarGeometry.HEIGHT;
+            // Slinky-inspired matte track; finer top highlight adds readable
+            // depth without the multicolor gradients found in older clients.
+            Gui.drawRect(l,t,r,t+barHeight,
                 TargetHudMotion.fade(theme.track,alpha));
-            int filled=(int)Math.round((r-l)*targetMotion.health());
+            int filled=TargetHudSlateBarGeometry.filled(r-l,targetMotion.health());
             if(filled>0) {
-                Gui.drawRect(l,t,l+filled,t+layout.trackHeight,
+                Gui.drawRect(l,t,l+filled,t+barHeight,
                     TargetHudMotion.fade(theme.accent,alpha));
+                if(filled>2)
+                    Gui.drawRect(l+1,t+1,l+filled-1,t+2,
+                        TargetHudMotion.fade(theme.secondary,alpha*0.57));
                 if(filled>4)
-                    Gui.drawRect(l+filled-2,t,l+filled,t+layout.trackHeight,
+                    Gui.drawRect(l+filled-2,t,l+filled,t+barHeight,
                         TargetHudMotion.fade(theme.secondary,alpha*0.88));
             }
-            mc.fontRendererObj.drawStringWithShadow(labels.healthLabel,
-                x+width-9-labels.healthLabelWidth,y+layout.healthLabelY,
-                TargetHudMotion.fade(theme.muted,alpha));
+            // Three low-contrast quarter ticks express scale when HP is
+            // partial; markers overlay both track and fill consistently.
+            for(int quarter=1;quarter<=3;quarter++) {
+                int at=l+TargetHudSlateBarGeometry.marker(r-l,quarter);
+                Gui.drawRect(at,t+1,at+1,t+barHeight-1,
+                    TargetHudMotion.fade(theme.frame,alpha*0.75));
+            }
+            drawSlateHudText(labels.healthLabel,
+                x+width-9-healthPixels,y+layout.healthLabelY,
+                TargetHudMotion.fade(theme.muted,alpha),GuiSlateTypeScale.SECONDARY);
         }
         if(host.targetDistance()) {
             int distY=y+(health?layout.distanceWithHealthY:layout.distanceWithoutHealthY);
+            int labelWidth=GuiSlateTypeScale.displayWidth(
+                mc.fontRendererObj.getStringWidth(TargetHudSlateReadoutGeometry.TITLE),
+                GuiSlateTypeScale.SECONDARY);
+            int budget=TargetHudSlateReadoutGeometry.valueBudget(width,labelWidth);
             String distance=TargetHudDistanceText.format(
                 player.posX,player.posY,player.posZ,
                 mc.thePlayer.posX,mc.thePlayer.posY,mc.thePlayer.posZ,
-                host.targetRange(),width-18,targetFontWidths);
-            if(!distance.isEmpty())
-                mc.fontRendererObj.drawStringWithShadow(distance,
-                    x+width-9-mc.fontRendererObj.getStringWidth(distance),
-                    distY,TargetHudMotion.fade(theme.muted,alpha));
+                host.targetRange(),GuiSlateTypeScale.sourceBudget(
+                    budget,GuiSlateTypeScale.SECONDARY),targetFontWidths);
+            if(!distance.isEmpty()) {
+                int valueWidth=GuiSlateTypeScale.displayWidth(
+                    mc.fontRendererObj.getStringWidth(distance),
+                    GuiSlateTypeScale.SECONDARY);
+                if(TargetHudSlateReadoutGeometry.separated(width,labelWidth,valueWidth)) {
+                    // A softer, smaller second tier uses measured true output
+                    // pixels; legacy skins and live distance sources unchanged.
+                    drawSlateHudText(TargetHudSlateReadoutGeometry.TITLE,
+                        x+TargetHudSlateReadoutGeometry.INSET,distY,
+                        TargetHudMotion.fade(theme.muted,alpha*0.78),
+                        GuiSlateTypeScale.SECONDARY);
+                    drawSlateHudText(distance,
+                        TargetHudSlateReadoutGeometry.valueX(x,width,valueWidth),
+                        distY,TargetHudMotion.fade(theme.secondary,alpha),
+                        GuiSlateTypeScale.SECONDARY);
+                }
+            }
         }
     }
     private void drawTarget(int sw,int sh) {
