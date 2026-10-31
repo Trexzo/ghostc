@@ -138,35 +138,45 @@ public final class ForgeCombatController {
         if (snapshot != null && host.featureEnabled(AIM_ID)) {
             boolean healthy = host.runFeature(AIM_ID, new Runnable() {
                 public void run() {
+                    // Observe physical mouse movement before *any* other
+                    // camera handoff. Previously TriggerBot yielding and
+                    // require-click denial reset the manual pause, allowing
+                    // Aim Assist to resume immediately after crosshair loss.
+                    // A disabled option still preserves the old camera path.
+                    final boolean mouseSuppressed;
+                    if (host.aimRespectMouse()) {
+                        // Missing mouse helper fails closed: do not rotate.
+                        mouseSuppressed = mc.mouseHelper == null ||
+                            manualAim.suppressed(session.generation(),session.tick(),
+                                true,mc.mouseHelper.deltaX,mc.mouseHelper.deltaY,
+                                host.aimMouseThreshold(),host.aimMousePauseTicks());
+                    } else {
+                        manualAim.reset();
+                        mouseSuppressed = false;
+                    }
+                    if (mouseSuppressed) {
+                        if(host.diagnosticsEnabled())
+                            host.diagnostics().record(Counter.COMBAT_AIM_MOUSE_YIELD);
+                        aimLock.clear();
+                        aimSwitch.reset();
+                        return;
+                    }
                     if (yieldToTrigger) {
                         if(host.diagnosticsEnabled())
                             host.diagnostics().record(Counter.COMBAT_AIM_TRIGGER_YIELD);
                         aimLock.clear();
                         aimSwitch.reset();
-                        manualAim.reset();
+                        // Preserve elapsed physical mouse pause across the
+                        // TriggerBot handoff; TriggerBot never owns the camera.
                         return;
                     }
                     if (host.aimRequireClick() && !held) {
                         aimLock.clear();
                         aimSwitch.reset();
-                        manualAim.reset();
+                        // A missing required attack hold is not a reason to
+                        // discard a physical mouse movement in this same tick.
                         return;
                     }
-                    // Only native Minecraft's sampled mouse-helper deltas can
-                    // veto our optional camera write. Legacy behavior is
-                    // unchanged unless the physical-input option is enabled.
-                    if (host.aimRespectMouse()) {
-                        if (mc.mouseHelper == null ||
-                            manualAim.suppressed(session.generation(),session.tick(),
-                                true,mc.mouseHelper.deltaX,mc.mouseHelper.deltaY,
-                                host.aimMouseThreshold(),host.aimMousePauseTicks())) {
-                            if(host.diagnosticsEnabled())
-                                host.diagnostics().record(Counter.COMBAT_AIM_MOUSE_YIELD);
-                            aimLock.clear();
-                            aimSwitch.reset();
-                            return;
-                        }
-                    } else manualAim.reset();
                     final boolean locking = host.aimLockTarget();
                     int preferred = aimLock.preferred(
                         session.generation(), session.tick(), locking);
