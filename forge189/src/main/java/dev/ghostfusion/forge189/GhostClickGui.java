@@ -21,6 +21,7 @@ import dev.ghostfusion.ui.GuiSlateModuleCaption;
 import dev.ghostfusion.ui.GuiSlateTypeScale;
 import dev.ghostfusion.ui.GuiSlateSettingsEmptyState;
 import dev.ghostfusion.ui.GuiSlateDetailTitleTooltip;
+import dev.ghostfusion.ui.TargetHudSlateMiniatureGeometry;
 import dev.ghostfusion.ui.GuiSlateEmptyStateLayout;
 import dev.ghostfusion.ui.GuiSlateTooltipLayout;
 import dev.ghostfusion.ui.GuiSlateSearchGeometry;
@@ -1127,7 +1128,17 @@ public final class GhostClickGui extends GuiScreen {
                 host.moduleListBackground(),host.moduleListAccent(),
                 miniaturePainter);
         }
-        if(!liveSlateList)HudPreviewArt.paint(bounds,widget,miniaturePainter);
+        // Respect actual Slate Target HUD options in the editor preview.
+        // Unlike the old static 70% schematic, this never implies a
+        // fabricated target or health fraction.
+        boolean slateTarget=widget==Widget.TARGET &&
+            ui.theme()==UiState.Theme.SLATE &&
+            "slate".equals(host.targetSkin());
+        if(slateTarget)
+            TargetHudSlateMiniatureGeometry.paint(bounds,
+                host.targetHealth(),host.targetDistance(),miniaturePainter);
+        else if(!liveSlateList)
+            HudPreviewArt.paint(bounds,widget,miniaturePainter);
         if(selected && ui.theme()!=UiState.Theme.SLATE) {
             // Legacy preserves its former full outline; Slate uses short,
             // high-contrast corner brackets after all miniatures are drawn.
