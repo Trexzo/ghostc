@@ -185,7 +185,8 @@ public final class ForgeCombatController {
                     if (preferred >= 0) {
                         Entity previous = mc.theWorld.getEntityByID(preferred);
                         if (!(previous instanceof EntityPlayer) ||
-                            !aimLock.sameIdentity(((EntityPlayer)previous).getUniqueID())) {
+                            !aimLock.sameNativeIdentity(
+                                ((EntityPlayer)previous).getUniqueID(),previous,mc.theWorld)) {
                             // Entity IDs can be reused without changing the
                             // current world epoch. UUID must still match.
                             aimLock.clear();
@@ -240,13 +241,17 @@ public final class ForgeCombatController {
                             candidate,mc.theWorld,host.aimSwitchDelayTicks())) {
                         return;
                     }
-                    // Only live-verified UUID candidates may request a camera
-                    // write. Switching to another player optionally requires
+                    // Only live-verified exact native EntityPlayer/World
+                    // identities may request camera output. A respawned or
+                    // replaced instance with identical ID and UUID must
+                    // never borrow another object's prior switch dwell.
+                    // Switching to another player optionally requires
                     // a stable consecutive candidate window; while waiting,
                     // manual camera control stays completely untouched.
                     // Hard UUID lock retains its original immediate fallback.
-                    if (!aimSwitch.consider(session.generation(), session.tick(),
-                            suggestion.entityId, candidate.getUniqueID(),
+                    if (!aimSwitch.considerNative(session.generation(), session.tick(),
+                            suggestion.entityId,candidate.getUniqueID(),
+                            candidate,mc.theWorld,
                             locking ? 0 : host.aimSwitchDelayTicks())) {
                         return;
                     }
@@ -259,14 +264,15 @@ public final class ForgeCombatController {
                     if (AIM_ID.equals(rotation.owner)) {
                         player.rotationYaw = rotation.yaw;
                         player.rotationPitch = rotation.pitch;
-                        aimSwitch.applied(session.generation(),session.tick(),
-                            suggestion.entityId,candidate.getUniqueID());
+                        aimSwitch.appliedNative(session.generation(),session.tick(),
+                            suggestion.entityId,candidate.getUniqueID(),candidate,mc.theWorld);
                         if(cameraReturn.pending())
                             cameraReturn.applied(session.generation(),session.tick());
                         aimAdjusted[0] = true;
-                        if (locking) aimLock.applied(
-                            session.generation(), session.tick(),
-                            suggestion.entityId, candidate.getUniqueID());
+                        if (locking) aimLock.appliedNative(
+                            session.generation(),session.tick(),
+                            suggestion.entityId,candidate.getUniqueID(),
+                            candidate,mc.theWorld);
                         host.diagnostics().record(Counter.AIM_APPLIED);
                     } else {
                         aimLock.clear();
