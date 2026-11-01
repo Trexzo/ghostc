@@ -27,6 +27,7 @@ import dev.ghostfusion.ui.KeystrokesSlateMiniatureGeometry;
 import dev.ghostfusion.ui.CpsSlateMiniatureGeometry;
 import dev.ghostfusion.ui.StatusHudSlateMiniatureGeometry;
 import dev.ghostfusion.ui.GuiSlateEmptyStateLayout;
+import dev.ghostfusion.ui.GuiSlateCompactEmptyState;
 import dev.ghostfusion.ui.GuiSlateTooltipLayout;
 import dev.ghostfusion.ui.GuiSlateSearchGeometry;
 import dev.ghostfusion.ui.GuiSlateCompactSearchGeometry;
@@ -838,6 +839,27 @@ public final class GhostClickGui extends GuiScreen {
                 slateCompact?(faulted?0xFFEBA4AF:
                     enabled?compactTheme.accent:compactTheme.muted):
                     enabled&&!faulted?0xFF101320:0xFFFFFFFF);
+        }
+        if(slateCompact && filtered.isEmpty()) {
+            // Wide Slate already shows a search-empty card; the compact
+            // fallback used to look blank while stale selected settings
+            // remained visible. This belongs entirely inside module rows.
+            GuiSlateCompactEmptyState.Frame empty=
+                GuiSlateCompactEmptyState.of(compactZone);
+            if(empty!=null) {
+                GuiSlateCompactEmptyState.Copy copy=
+                    GuiSlateCompactEmptyState.copy(empty,
+                        search!=null&&!search.getText().isEmpty(),guiFontWidths);
+                if(copy!=null) {
+                    rect(empty.x,empty.y,empty.width,empty.height,
+                        compactTheme.idleModule);
+                    rect(empty.x,empty.y,2,empty.height,compactTheme.accent);
+                    rect(empty.x+9,empty.y+25,empty.width-18,1,
+                        compactTheme.divider);
+                    label(copy.title,empty.titleX,empty.titleY,compactTheme.text);
+                    label(copy.hint,empty.titleX,empty.hintY,compactTheme.muted);
+                }
+            }
         }
         int sy = listY + listH + 5;
         rect(x + side + 9, sy - 4, w - side - 20, 1, palette().divider);
