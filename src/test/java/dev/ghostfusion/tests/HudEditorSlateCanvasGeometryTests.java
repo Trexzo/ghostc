@@ -90,7 +90,7 @@ public final class HudEditorSlateCanvasGeometryTests {
                 ok(HudEditorSlateCanvasGeometry.hoverCaption(
                     hover,true,false,true,false)==null,
                     "drag suppression wins over all visibility flags");
-                boolean hasRows=rng.nextBoolean();
+                boolean hasRows=random.nextBoolean();
                 String enabledLabel=HudEditorSlateCanvasGeometry.hoverCaption(
                     hover,false,true,false,hasRows);
                 ok(enabledLabel.equals(hover==HudEditorControls.Item.MODULE_LIST
