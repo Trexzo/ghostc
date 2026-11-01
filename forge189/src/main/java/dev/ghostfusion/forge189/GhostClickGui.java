@@ -19,6 +19,7 @@ import dev.ghostfusion.ui.GuiSlateWorkspace;
 import dev.ghostfusion.ui.GuiSlateControlGeometry;
 import dev.ghostfusion.ui.GuiSlateChoiceReveal;
 import dev.ghostfusion.ui.GuiSlateCompactMetrics;
+import dev.ghostfusion.ui.GuiSlateCompactModuleScroll;
 import dev.ghostfusion.ui.GuiSlateModuleCaption;
 import dev.ghostfusion.ui.GuiSlateTypeScale;
 import dev.ghostfusion.ui.GuiSlateSettingsEmptyState;
@@ -855,6 +856,18 @@ public final class GhostClickGui extends GuiScreen {
                 slateCompact?(faulted?0xFFEBA4AF:
                     enabled?compactTheme.accent:compactTheme.muted):
                     enabled&&!faulted?0xFF101320:0xFFFFFFFF);
+        }
+        if(slateCompact) {
+            // A high GUI scale may fit only two results. Read-only track
+            // outside GuiHitZones.moduleArea makes wheel overflow visible
+            // without introducing a fake draggable/toggle action.
+            GuiSlateCompactModuleScroll.Frame bar=
+                GuiSlateCompactModuleScroll.of(compactZone,filtered.size(),scroll);
+            if(bar!=null) {
+                rect(bar.x,bar.y,bar.width,bar.height,0x30343F49);
+                rect(bar.x,bar.thumbY,bar.width,bar.thumbHeight,
+                    compactTheme.secondary);
+            }
         }
         if(slateCompact && filtered.isEmpty()) {
             // Wide Slate already shows a search-empty card; the compact
