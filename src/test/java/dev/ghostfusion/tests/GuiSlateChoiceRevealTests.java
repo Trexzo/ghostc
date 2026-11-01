@@ -54,11 +54,11 @@ public final class GuiSlateChoiceRevealTests {
                 ok(shown==null,"no redundant footer when choice fits "+i);
             } else if(shown!=null) {
                 ok(shown.startsWith("VALUE  "),"readout has clear identity "+i);
-                ok(shown.length()>"VALUE  ...".length(),
+                String suffix=shown.substring("VALUE  ".length());
+                ok(!suffix.isEmpty()&&!suffix.equals("..."),
                     "useful visible value, not just ellipsis "+i);
                 ok(font.applyAsInt(shown)<=footerBudget,
                     "readout remains within actual footer pixel budget "+i);
-                String suffix=shown.substring("VALUE  ".length());
                 ok(suffix.equals(original)||suffix.endsWith("..."),
                     "truncation is explicit, not a false full value "+i);
             }
