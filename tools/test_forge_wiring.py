@@ -1681,6 +1681,38 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("JumpResetTests.main(args);",catalog)
         self.assertIn("random();",tests)
 
+    def test_r376_wtap_native_cancel_admission_and_idempotent_sprint_writes(self):
+        policy=content("src/main/java/dev/ghostfusion/features/WTapPolicy.java")
+        adapter=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeEventAdapter.java")
+        arbiter=content("src/main/java/dev/ghostfusion/features/ModuleInteractionStateMachine.java")
+        controller=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeWTapController.java")
+        core=content("src/test/java/dev/ghostfusion/tests/WTapNativeCadenceTests.java")
+        native=content("forge189/src/test/java/dev/ghostfusion/forge189/NativeWTapAdmissionTests.java")
+        gradle=content("forge189/build.gradle")
+        catalog=content("src/test/java/dev/ghostfusion/tests/IntegratedModuleCatalogTests.java")
+        old=content("src/test/java/dev/ghostfusion/tests/WTapTests.java")
+        self.assertIn("private long lastDecisionTick=-1;",policy)
+        self.assertIn("if(lastDecisionTick==tick)return Decision.NONE;",policy)
+        self.assertIn("lastDecisionTick=tick;",policy)
+        self.assertIn("if(!active || !eligible) {",policy)
+        self.assertLess(policy.index("if(!active || !eligible) {"),
+                        policy.index("if(lastDecisionTick==tick)return Decision.NONE;"))
+        self.assertIn("EventPriority.LOWEST",adapter)
+        self.assertIn("receiveCanceled=false",adapter)
+        self.assertIn("event.isCanceled() || event.entityPlayer!=minecraft.thePlayer",adapter)
+        self.assertIn("wtap.attack(event.target);",adapter)
+        self.assertIn("if(result==WTapPolicy.Decision.RESET)",controller)
+        self.assertIn("result==WTapPolicy.Decision.HOLD",controller)
+        self.assertIn("enabled.sprint&&!wtapReserved",arbiter)
+        self.assertIn("WTapNativeCadenceTests.main(args);",catalog)
+        self.assertIn("randomized();",core)
+        self.assertIn("EventPriority.LOWEST",native)
+        self.assertIn("AttackEntityEvent.class.isAnnotationPresent(Cancelable.class)",native)
+        self.assertIn("duplicate reset tick never repeats sprint write",old)
+        self.assertIn("check.dependsOn nativeWTapAdmissionProbe",gradle)
+        self.assertNotIn("KeyBinding.onTick(",policy)
+        self.assertNotIn("sendPacket(",policy)
+
     def test_native_combat_evidence_keeps_keys_distinct_from_real_events(self):
         # Source wiring is mandatory for later opt-in original-game evidence.
         # A dispatched synthetic KeyBinding must never be counted as a
