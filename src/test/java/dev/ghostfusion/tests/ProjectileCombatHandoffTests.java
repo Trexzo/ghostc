@@ -88,7 +88,7 @@ public final class ProjectileCombatHandoffTests {
         ok(trigger.due(2,2,true,identity,2,4),
             "full valid target dwell is required");
         trigger.dispatched(2,2,identity);
-        trigger.reset(); // projectiles reset in-flight TriggerBot acquisition
+        trigger.invalidateCandidate(); // projectiles clear dwell but preserve last native dispatch cooldown
         ok(!trigger.due(2,6,true,identity,2,4),
             "no saved target readiness after projectile");
         ok(!trigger.due(2,7,true,identity,2,4),

@@ -299,3 +299,13 @@ task nativeWTapJumpContinuityProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeWTapJumpContinuityTests'
 }
 check.dependsOn nativeWTapJumpContinuityProbe
+
+
+// R3.79: original Minecraft 1.8.9 KeyBinding and projectile item linkage
+// plus TriggerBot/Hit Select cooldown continuity on exclusive hotbar frames.
+task nativeProjectileCombatCooldownProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeProjectileCombatCooldownTests'
+}
+check.dependsOn nativeProjectileCombatCooldownProbe

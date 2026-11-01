@@ -212,6 +212,7 @@ public final class IntegratedModuleCatalogTests {
         AimManualInputTests.main(args);
         AimHandoffContinuityTests.main(args);
         ProjectileCombatHandoffTests.main(args);
+        ProjectileCombatCooldownTests.main(args);
         NativeAttackFrameGateTests.main(args);
         BlockHitNativeCommitTests.main(args);
         NativePulseSettlementTests.main(args);
