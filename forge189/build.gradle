@@ -289,3 +289,13 @@ task nativeVelocityJumpHandoffProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeVelocityJumpHandoffTests'
 }
 check.dependsOn nativeVelocityJumpHandoffProbe
+
+
+// R3.78: original Forge/Minecraft 1.8.9 jump + attack API linkage,
+// WTap reservation preserves prior Jump Reset cooldown. Headless Java8.
+task nativeWTapJumpContinuityProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeWTapJumpContinuityTests'
+}
+check.dependsOn nativeWTapJumpContinuityProbe
