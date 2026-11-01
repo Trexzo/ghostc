@@ -9,6 +9,7 @@ public final class WTapPolicy {
     public enum Decision { NONE, RESET, HOLD, RESTORE }
     private final Thread owner=Thread.currentThread();
     private long epoch=-1,lastTick=-1,lastAttack=-1,resetAt=-1,restoreAt=-1;
+    private long lastDecisionTick=-1;
     private void checkOwner() {
         if(Thread.currentThread()!=owner)
             throw new IllegalStateException("wtap owner thread");
@@ -19,6 +20,7 @@ public final class WTapPolicy {
             throw new IllegalArgumentException("wtap clock");
         if(epoch!=generation) {
             epoch=generation;lastTick=-1;lastAttack=-1;resetAt=-1;restoreAt=-1;
+            lastDecisionTick=-1;
         }
         if(lastTick>=0 && tick<lastTick)
             throw new IllegalArgumentException("nonmonotonic wtap tick");
@@ -45,9 +47,16 @@ public final class WTapPolicy {
     public Decision tick(boolean active,boolean eligible,long tick,long generation) {
         clock(tick,generation);
         if(!active || !eligible) {
+            // Even a duplicate END-tick must immediately surrender an
+            // invalidated reservation; never defer manual precedence.
             resetAt=-1;restoreAt=-1;
+            lastDecisionTick=tick;
             return Decision.NONE;
         }
+        // Only one sprint-state write is permitted per native client tick.
+        // Duplicate callbacks are harmless reads, never repeat RESET/HOLD.
+        if(lastDecisionTick==tick)return Decision.NONE;
+        lastDecisionTick=tick;
         if(resetAt>=0) {
             if(tick<resetAt)return Decision.NONE; // original attack still running
             if(tick>resetAt) {
@@ -71,5 +80,6 @@ public final class WTapPolicy {
     public void reset() {
         checkOwner();
         epoch=-1;lastTick=-1;lastAttack=-1;resetAt=-1;restoreAt=-1;
+        lastDecisionTick=-1;
     }
 }

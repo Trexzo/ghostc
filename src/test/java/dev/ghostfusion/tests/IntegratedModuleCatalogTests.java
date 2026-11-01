@@ -181,6 +181,7 @@ public final class IntegratedModuleCatalogTests {
         loaded.close();
         VelocityTests.main(args);
         WTapTests.main(args);
+        WTapNativeCadenceTests.main(args);
         JumpResetTests.main(args);
         AutoRodTests.main(args);
         AutoSnowballTests.main(args);

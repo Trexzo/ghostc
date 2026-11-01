@@ -269,3 +269,13 @@ task nativeWarningRenderProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeWarningRenderTests'
 }
 check.dependsOn nativeWarningRenderProbe
+
+
+// R3.76 original Forge 1.8.9 AttackEntityEvent cancelability/priority
+// and Minecraft native sprint API, plus one-write WTap cadence. Headless.
+task nativeWTapAdmissionProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeWTapAdmissionTests'
+}
+check.dependsOn nativeWTapAdmissionProbe

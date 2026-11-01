@@ -35,7 +35,7 @@ public final class WTapTests {
             "attack transaction keeps native sprint until original hit is computed");
         ok(p.tick(true,true,2,1)==Decision.RESET,
             "first subsequent client tick performs sprint OFF");
-        ok(p.tick(true,true,2,1)==Decision.HOLD,"repeat tick remains off");
+        ok(p.tick(true,true,2,1)==Decision.NONE,"duplicate reset tick never repeats sprint write");
         ok(p.tick(true,true,3,1)==Decision.HOLD,"configured extra tick stays off");
         ok(p.tick(true,true,4,1)==Decision.RESTORE,"reengage at delayed tick after reset");
         ok(p.tick(true,true,4,1)==Decision.NONE,"restoration cannot replay");

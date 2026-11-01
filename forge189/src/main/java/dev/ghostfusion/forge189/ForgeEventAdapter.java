@@ -476,11 +476,15 @@ public final class ForgeEventAdapter {
         }
     }
 
-    @SubscribeEvent
+    // WTap must not reserve a sprint reset for a hit already vetoed by
+    // an earlier native Forge handler. Run last and ignore canceled events.
+    // This is still only a local callback, never a server hit receipt.
+    @SubscribeEvent(priority=net.minecraftforge.fml.common.eventhandler.EventPriority.LOWEST,
+                    receiveCanceled=false)
     public void onAttackEntity(AttackEntityEvent event) {
         // This is a native combat event, not merely a queued click intent.
         // World/player identity is checked at the native event boundary.
-        if(event.entityPlayer!=minecraft.thePlayer ||
+        if(event.isCanceled() || event.entityPlayer!=minecraft.thePlayer ||
            !worldIdentity.matches(minecraft.theWorld,minecraft.thePlayer)) return;
         // This native Forge callback is independent of our queued click.
         // It can be canceled or rejected by a server, so it proves no hit.
