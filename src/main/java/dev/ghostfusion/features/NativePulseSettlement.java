@@ -1,5 +1,7 @@
 package dev.ghostfusion.features;
 
+import java.lang.ref.WeakReference;
+
 /**
  * Owner-thread, session-scoped final settlement of optional Minecraft
  * KeyBinding pulses. An exception may happen AFTER vanilla accepted a pulse:
@@ -19,6 +21,9 @@ public final class NativePulseSettlement {
     public enum Phase { IDLE, IN_FLIGHT, RETURNED, UNCERTAIN }
     private final Thread owner=Thread.currentThread();
     private long generation=-1;
+    // Weak identity references cannot retain a disconnected Minecraft World.
+    private WeakReference<Object> nativeWorld,nativePlayer;
+    private boolean nativePinned;
     private final Phase[] phases={Phase.IDLE,Phase.IDLE};
     private final long[] activeTick={-1,-1};
     private final long[] lastAttemptTick={-1,-1};
@@ -42,9 +47,41 @@ public final class NativePulseSettlement {
     private void clock(long epoch) {
         if(epoch<0)throw new IllegalArgumentException("pulse generation");
         if(epoch<generation)throw new IllegalStateException("stale pulse generation");
-        if(epoch!=generation)clearForEpoch(epoch);
+        if(epoch!=generation) {
+            if(!nativePinned)clearForEpoch(epoch);
+            else {
+                // Numeric epoch alone is not evidence of a new native world:
+                // preserve uncertain lanes across same-object reentries.
+                generation=epoch;
+                for(int i=0;i<phases.length;i++)
+                    if(phases[i]==Phase.IN_FLIGHT||phases[i]==Phase.RETURNED)
+                        phases[i]=Phase.UNCERTAIN;
+            }
+        }
     }
-    /** Does not clear UNCERTAIN on reset/GUI/focus: never retry an unknown pulse. */
+    /**
+     * Only a newer session generation AND a different exact world/player
+     * instance may clear a pinned native uncertainty. Never rearm on a
+     * same-generation object swap before WorldIdentityTracker advances.
+     */
+    public boolean admitNative(Lane lane,long epoch,Object world,Object player) {
+        check();int i=index(lane);
+        if(world==null||player==null)return false;
+        final long formerGeneration=generation;
+        clock(epoch);
+        if(!nativePinned) {
+            nativeWorld=new WeakReference<Object>(world);
+            nativePlayer=new WeakReference<Object>(player);
+            nativePinned=true;
+        } else if(nativeWorld.get()!=world||nativePlayer.get()!=player) {
+            if(epoch==formerGeneration)return false;
+            clearForEpoch(epoch);
+            nativeWorld=new WeakReference<Object>(world);
+            nativePlayer=new WeakReference<Object>(player);
+        }
+        return phases[i]==Phase.IDLE;
+    }
+    /** Pure-policy compatibility; cannot clear a native-pinned uncertainty. */
     public boolean admit(Lane lane,long epoch) {
         check();int i=index(lane);clock(epoch);
         return phases[i]==Phase.IDLE;
