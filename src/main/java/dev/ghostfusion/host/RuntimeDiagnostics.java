@@ -51,6 +51,8 @@ public final class RuntimeDiagnostics {
         // actual local Forge attack callbacks do NOT prove server hit ACKs.
         COMBAT_AIM_TRIGGER_YIELD, COMBAT_AIM_MOUSE_YIELD,
         COMBAT_NATIVE_ATTACK_CALLBACK,
+        COMBAT_PULSE_ATTACK_UNCERTAIN, COMBAT_PULSE_USE_UNCERTAIN,
+        COMBAT_PULSE_RECOVERED,
         // R3.65: opt-in same-frame native-write checks, NOT PvP hit/ACK.
         COMBAT_FRAME_INACTIVE, COMBAT_FRAME_COMBAT_RAN,
         COMBAT_FRAME_COMBAT_SKIPPED, COMBAT_FRAME_PROJECTILE_EXCLUSIVE,
