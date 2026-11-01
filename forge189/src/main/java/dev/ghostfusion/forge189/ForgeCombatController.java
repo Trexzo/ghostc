@@ -650,7 +650,7 @@ public final class ForgeCombatController {
                 manualAim.reset();
             }
         } else manualAim.reset();
-        resetNonMouse();
+        resetNonMouse(true);
     }
 
     /** Observe actual world identity even while native combat is disabled. */
@@ -668,17 +668,28 @@ public final class ForgeCombatController {
     /** Clears timers and all pending owned intents on world or focus change. */
     void reset() {
         manualAim.reset();
-        resetNonMouse();
+        resetNonMouse(false);
     }
 
-    private void resetNonMouse() {
+    /**
+     * Full teardown is necessary for world, focus, Panic, or disabled combat.
+     * A LIVE exclusive projectile frame instead discards only pending combat
+     * intent while retaining previous native attack cooldown receipts.
+     * No target dwell, key hold or pending Hit Select preview survives.
+     */
+    private void resetNonMouse(boolean preserveCooldowns) {
         aimLock.reset();
         aimSwitch.reset();
         scheduler.reset();
         patternScheduler.reset();
         physicalInput.reset();
-        hitSelect.reset();
-        triggerBot.reset();
+        if(preserveCooldowns) {
+            hitSelect.cancelPrepared();
+            triggerBot.invalidateCandidate();
+        } else {
+            hitSelect.reset();
+            triggerBot.reset();
+        }
         triggerIdentity.reset();
         blockHit.reset();
         SessionServices session = host.services();

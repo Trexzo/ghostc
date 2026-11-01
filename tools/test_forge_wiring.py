@@ -1182,7 +1182,7 @@ class ForgeWiring(unittest.TestCase):
                         adapter.index("combatFrameAcceptance.observe("))
         suspend=combat.split("void suspendForProjectile() {",1)[1].split("void reset() {",1)[0]
         self.assertIn("manualAim.suppressed(",suspend)
-        self.assertIn("resetNonMouse();",suspend)
+        self.assertIn("resetNonMouse(true);",suspend)
         self.assertNotIn("player.rotationYaw =",suspend)
         self.assertNotIn("KeyBinding.onTick(",suspend)
         self.assertIn("manualAim.reset();",combat.split("void reset() {",1)[1])
@@ -1191,6 +1191,39 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("randomized();",core)
         self.assertIn('MouseHelper.class.getField("deltaX")',native)
         self.assertIn("check.dependsOn nativeProjectileCombatHandoffProbe",gradle)
+
+    def test_r379_projectile_suspension_preserves_native_combat_cooldowns(self):
+        combat=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeCombatController.java")
+        adapter=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeEventAdapter.java")
+        trigger=content("src/main/java/dev/ghostfusion/features/TriggerBotPolicy.java")
+        hit=content("src/main/java/dev/ghostfusion/features/HitSelectPolicy.java")
+        native=content("forge189/src/test/java/dev/ghostfusion/forge189/NativeProjectileCombatCooldownTests.java")
+        core=content("src/test/java/dev/ghostfusion/tests/ProjectileCombatCooldownTests.java")
+        catalog=content("src/test/java/dev/ghostfusion/tests/IntegratedModuleCatalogTests.java")
+        gradle=content("forge189/build.gradle")
+        self.assertIn("combat.suspendForProjectile();",adapter)
+        self.assertIn("private void resetNonMouse(boolean preserveCooldowns)",combat)
+        self.assertIn("resetNonMouse(true);",combat)
+        self.assertIn("resetNonMouse(false);",combat)
+        suspend=combat.split("void suspendForProjectile() {",1)[1].split("void reset() {",1)[0]
+        self.assertIn("manualAim.suppressed(",suspend)
+        self.assertIn("resetNonMouse(true);",suspend)
+        safe=combat.split("private void resetNonMouse(boolean preserveCooldowns) {",1)[1].split("SessionServices session",1)[0]
+        self.assertIn("if(preserveCooldowns) {",safe)
+        self.assertIn("hitSelect.cancelPrepared();",safe)
+        self.assertIn("triggerBot.invalidateCandidate();",safe)
+        self.assertIn("hitSelect.reset();",safe)
+        self.assertIn("triggerBot.reset();",safe)
+        self.assertIn("triggerIdentity.reset();",safe)
+        self.assertIn("physicalInput.reset();",safe)
+        self.assertIn("session.actions().cancelOwner(CLICK_ID);",combat)
+        self.assertIn("session.actions().cancelOwner(TRIGGER_ID);",combat)
+        self.assertIn("lastDispatched=tick;",trigger)
+        self.assertIn("lastAccepted=tick;",hit)
+        self.assertIn("PROJECTILE_COMBAT_COOLDOWN_PASS",core)
+        self.assertIn("ProjectileCombatCooldownTests.main(args);",catalog)
+        self.assertIn('getDeclaredMethod(\n            "suspendForProjectile")',native)
+        self.assertIn("check.dependsOn nativeProjectileCombatCooldownProbe",gradle)
 
     def test_r370_native_attack_and_blockhit_output_are_freshly_guarded(self):
         combat=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeCombatController.java")
