@@ -25,6 +25,39 @@ final class ForgeJumpResetController {
     void reset() { policy.reset(); }
 
     /**
+     * WTap has already reserved this entire native END frame. Observe the
+     * genuine hurt-time sample with active=false, but never authorize jump().
+     * This preserves a previously committed Jump Reset cooldown and consumes
+     * any hurt edge that occurred while WTap held sprint ownership.
+     *
+     * No jump, motion, sprint, KeyBinding or packet writes are permitted here.
+     */
+    void observeWTapReservation() {
+        if(!host.featureEnabled(MODULE) || mc.thePlayer==null ||
+           mc.theWorld==null || mc.currentScreen!=null ||
+           !mc.inGameHasFocus || !host.services().connected()) {
+            reset();return;
+        }
+        boolean healthy=host.runFeature(MODULE,new Runnable() {
+            public void run() {
+                final EntityPlayerSP p=mc.thePlayer;
+                // A stale or unregistered native player is not a valid damage
+                // observation, even when no native write is attempted.
+                if(mc.theWorld.getEntityByID(p.getEntityId())!=p ||
+                   p.isDead || !Double.isFinite(p.getHealth()) ||
+                   p.getHealth()<=0) {
+                    reset();return;
+                }
+                policy.preview(host.services().generation(),
+                    host.services().tick(),p.hurtTime,false,
+                    host.jumpResetMinHurtTime(),
+                    host.jumpResetCooldownTicks());
+            }
+        });
+        if(!healthy)reset();
+    }
+
+    /**
      * An earlier hurt-mode Velocity vertical write owns this damage impulse.
      * Continue observing hurtTime with active=false so it cannot be queued
      * for a later tick; never override the already-adjusted native motion.
