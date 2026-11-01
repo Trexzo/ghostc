@@ -1706,7 +1706,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("public static boolean jumpAvailable(",handoff)
         self.assertIn("VelocityJumpHandoffTests.main(args);",catalog)
         self.assertIn("randomized();",core)
-        self.assertRegex(native, r'getDeclaredMethod\\(\\s*"tick",Boolean\\.TYPE\\)')
+        self.assertRegex(native, r'getDeclaredMethod\(\s*"tick",Boolean\.TYPE\)')
         self.assertIn("check.dependsOn nativeVelocityJumpHandoffProbe",gradle)
         self.assertNotIn("KeyBinding.onTick(",handoff)
         self.assertNotIn("addToSendQueue",handoff)
