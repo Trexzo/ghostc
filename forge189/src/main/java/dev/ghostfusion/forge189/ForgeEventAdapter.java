@@ -75,6 +75,9 @@ public final class ForgeEventAdapter {
     private final CombatFrameAcceptance combatFrameAcceptance =
         new CombatFrameAcceptance();
     private final WorldIdentityTracker worldIdentity = new WorldIdentityTracker();
+    // Faults in the optional warning painter cannot abort the rest of HUD.
+    private final dev.ghostfusion.ui.HudWarningDrawGate warningDraw =
+        new dev.ghostfusion.ui.HudWarningDrawGate();
     // Two capped, owner-thread groups are reused every tick. Every raw
     // EntityPlayer reference is released before publishing an immutable
     // WorldSnapshot, including when snapshot construction fails.
@@ -681,16 +684,33 @@ public final class ForgeEventAdapter {
         if(!warning.isEmpty()) {
             final String notice=warning;
             final int nx=warningStatusX;
+            // The Status widget may be far right; restore the independent
+            // safety-warning anchor rather than showing zero visible glyphs.
+            final int warningX=dev.ghostfusion.ui.HudWarningPlacement.x(
+                nx,sw,minecraft.fontRendererObj.getStringWidth(notice));
             final int ny=dev.ghostfusion.ui.HudWarningPlacement.y(
                 warningStatusBottom,sh,fontHeight);
-            RenderStateGuard.draw(new Runnable() {
+            boolean wasFailed=warningDraw.failed();
+            boolean drawn=warningDraw.draw(new Runnable() {
                 public void run() {
-                    minecraft.fontRendererObj.drawStringWithShadow(
-                        minecraft.fontRendererObj.trimStringToWidth(notice,
-                            Math.max(0,sw-nx-2)),
-                        nx+2,ny,0xFFFF9999);
+                    RenderStateGuard.draw(new Runnable() {
+                        public void run() {
+                            minecraft.fontRendererObj.drawStringWithShadow(
+                                minecraft.fontRendererObj.trimStringToWidth(notice,
+                                    Math.max(0,sw-warningX-2)),
+                                warningX+2,ny,0xFFFF9999);
+                        }
+                    });
                 }
             });
+            if(host.diagnosticsEnabled()) {
+                if(!drawn&&!wasFailed)
+                    host.diagnostics().record(Counter.COMBAT_WARNING_DRAW_FAILED);
+                if(drawn&&wasFailed)
+                    host.diagnostics().record(Counter.COMBAT_WARNING_DRAW_RECOVERED);
+            }
+        } else {
+            warningDraw.idle();
         }
         // Only explicitly opted-in diagnostics display nonidentifying
         // immutable phase, ownership and suppression reason labels.

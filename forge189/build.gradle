@@ -259,3 +259,13 @@ task nativePulseVisibilityProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativePulseVisibilityTests'
 }
 check.dependsOn nativePulseVisibilityProbe
+
+
+// R3.75: original Minecraft font API and native KeyBinding still linked;
+// warning draw fault isolation remains headless, no OpenGL context or game.
+task nativeWarningRenderProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeWarningRenderTests'
+}
+check.dependsOn nativeWarningRenderProbe
