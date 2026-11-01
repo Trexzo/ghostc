@@ -458,7 +458,9 @@ public final class ForgeEventAdapter {
         // WTap's reserved sprint window still wins at plan admission.
         // If Velocity actually adjusted upward motion, Jump Reset observes
         // this hurt edge with active=false; never replay the edge later.
-        if(plan.jumpReset)jumpReset.tick(!verticalMotionOwned);
+        if(plan.jumpReset)jumpReset.tick(
+            dev.ghostfusion.features.DamageMotionHandoff.jumpAvailable(
+                plan.jumpReset,verticalMotionOwned));
         else jumpReset.reset();
 
         // Exactly one inventory controller may observe/write per GUI tick.
