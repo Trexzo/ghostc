@@ -250,3 +250,12 @@ task nativePulseRecoveryProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativePulseRecoveryTests'
 }
 check.dependsOn nativePulseRecoveryProbe
+
+
+// R3.74 read-only native pulse quarantine display, original MC Java8 linkage.
+task nativePulseVisibilityProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativePulseVisibilityTests'
+}
+check.dependsOn nativePulseVisibilityProbe
