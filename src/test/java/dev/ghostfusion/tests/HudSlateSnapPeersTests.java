@@ -25,8 +25,8 @@ public final class HudSlateSnapPeersTests {
         int all=HudSlateSnapPeers.allBits();
         ok(all==(1<<items.length)-1,"full bit mask covers native tab order");
         HudPreviewGeometry.Rect canvas=rect(0,0,300,200);
-        HudPreviewGeometry.Rect moved=rect(104,93,20,20);
-        HudPreviewGeometry.Rect ghost=rect(100,90,20,20);
+        HudPreviewGeometry.Rect moved=rect(104,80,20,20);
+        HudPreviewGeometry.Rect ghost=rect(100,77,20,20);
         HudPreviewGeometry.Rect[] peers=new HudPreviewGeometry.Rect[items.length];
         peers[0]=rect(230,140,25,20);
         peers[1]=null; // selected KEYS
@@ -36,7 +36,7 @@ public final class HudSlateSnapPeersTests {
         HudPreviewGeometry.Rect[] inactive=HudSlateSnapPeers.peers(
             HudEditorControls.Item.KEYS,peers,0);
         HudSnapPolicy.Result free=HudSnapPolicy.snap(canvas,moved,inactive,5);
-        ok(inactive.length==0 && free.x==104 && free.y==93 &&
+        ok(inactive.length==0 && free.x==104 && free.y==80 &&
            free.guideX==HudSnapPolicy.NO_GUIDE &&
            free.guideY==HudSnapPolicy.NO_GUIDE,
            "inactive HUD placeholder never attracts the active drag");
@@ -44,7 +44,7 @@ public final class HudSlateSnapPeersTests {
             HudEditorControls.Item.KEYS,peers,1<<items[2].ordinal());
         HudSnapPolicy.Result attracted=HudSnapPolicy.snap(canvas,moved,active,5);
         ok(active.length==1&&active[0]==ghost &&
-           attracted.x==100&&attracted.y==90,
+           attracted.x==100&&attracted.y==77,
            "enabled overlapping peer retains native magnetic guide");
         HudPreviewGeometry.Rect[] legacy=HudSlateSnapPeers.peers(
             HudEditorControls.Item.KEYS,peers,all);
