@@ -12,6 +12,7 @@ import dev.ghostfusion.features.BlockHitPolicy;
 import dev.ghostfusion.features.PhysicalInputGate;
 import dev.ghostfusion.features.LiveCombatTargetGate;
 import dev.ghostfusion.features.NativeAttackFrameGate;
+import dev.ghostfusion.features.NativePulseSettlement;
 import dev.ghostfusion.features.TriggerBotPolicy;
 import dev.ghostfusion.features.TriggerNativeIdentityFence;
 import dev.ghostfusion.host.RuntimeDiagnostics.Counter;
@@ -63,6 +64,7 @@ public final class ForgeCombatController {
         new TriggerNativeIdentityFence();
     private final BlockHitPolicy blockHit = new BlockHitPolicy();
     private final PhysicalInputGate physicalInput = new PhysicalInputGate();
+    private final NativePulseSettlement pulseSettlement = new NativePulseSettlement();
 
     ForgeCombatController(Minecraft mc, HostRuntime host) {
         if (mc == null || host == null) throw new IllegalArgumentException("null bridge dependency");
@@ -387,6 +389,8 @@ public final class ForgeCombatController {
         // are no packets, attackEntity calls or bypass controllers here.
         if (selectedAttack != null && CLICK_ID.equals(selectedAttack.owner) &&
             attackApproved && host.featureEnabled(CLICK_ID) &&
+            pulseSettlement.admit(NativePulseSettlement.Lane.ATTACK,
+                session.generation()) &&
             held && NativeAttackFrameGate.sameFrame(
                 player,mc.thePlayer,tickWorld,mc.theWorld,
                 tickAttackBinding,tickUseBinding,
@@ -409,8 +413,19 @@ public final class ForgeCombatController {
                 target==null?0:target.getHealth()))) {
             host.runFeature(CLICK_ID, new Runnable() {
                 public void run() {
-                    KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
-                    if (hitGateUsed) hitSelect.committed(session.tick(),session.generation());
+                    pulseSettlement.begin(NativePulseSettlement.Lane.ATTACK,
+                        session.generation(),session.tick());
+                    try {
+                        KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
+                        pulseSettlement.nativeReturned(NativePulseSettlement.Lane.ATTACK,
+                            session.generation(),session.tick());
+                        if (hitGateUsed) hitSelect.committed(session.tick(),session.generation());
+                        pulseSettlement.committed(NativePulseSettlement.Lane.ATTACK,
+                            session.generation(),session.tick());
+                    } finally {
+                        pulseSettlement.abandon(NativePulseSettlement.Lane.ATTACK,
+                            session.generation(),session.tick());
+                    }
                     extraAttackQueued[0] = true;
                     host.diagnostics().record(Counter.EXTRA_ATTACK);
                     host.nativeAction(ModuleActionTelemetry.Lane.CLICKER,
@@ -419,6 +434,8 @@ public final class ForgeCombatController {
             });
         } else if (selectedAttack != null && TRIGGER_ID.equals(selectedAttack.owner) &&
             attackApproved && host.featureEnabled(TRIGGER_ID) &&
+            pulseSettlement.admit(NativePulseSettlement.Lane.ATTACK,
+                session.generation()) &&
             triggerBindingValid() &&
             NativeAttackFrameGate.sameFrame(
                 player,mc.thePlayer,tickWorld,mc.theWorld,
@@ -439,10 +456,24 @@ public final class ForgeCombatController {
             triggerTargetValid(player,target,sword)) {
             host.runFeature(TRIGGER_ID, new Runnable() {
                 public void run() {
-                    KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
-                    if (hitGateUsed) hitSelect.committed(session.tick(),session.generation());
-                    triggerBot.dispatched(session.generation(),session.tick(),
-                        target.getUniqueID());
+                    pulseSettlement.begin(NativePulseSettlement.Lane.ATTACK,
+                        session.generation(),session.tick());
+                    try {
+                        KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
+                        pulseSettlement.nativeReturned(NativePulseSettlement.Lane.ATTACK,
+                            session.generation(),session.tick());
+                        if (hitGateUsed) hitSelect.committed(session.tick(),session.generation());
+                        triggerBot.dispatched(session.generation(),session.tick(),
+                            target.getUniqueID());
+                        pulseSettlement.committed(NativePulseSettlement.Lane.ATTACK,
+                            session.generation(),session.tick());
+                    } finally {
+                        // A partially committed native pulse is uncertain, not
+                        // another READY candidate. Suppress both attack owners
+                        // until a new verified game generation is established.
+                        pulseSettlement.abandon(NativePulseSettlement.Lane.ATTACK,
+                            session.generation(),session.tick());
+                    }
                     host.diagnostics().record(Counter.EXTRA_ATTACK);
                     // Only this actual local native key pulse enters the
                     // TriggerBot lane. It is not a hit or server ACK.
@@ -499,7 +530,9 @@ public final class ForgeCombatController {
             ActionCoordinator.Type.USE, ActionCoordinator.Phase.OUTPUT,
             session.tick(), session.generation());
         if (use != null && BLOCK_ID.equals(use.owner) &&
-            host.featureEnabled(BLOCK_ID) && held && sword &&
+            host.featureEnabled(BLOCK_ID) &&
+            pulseSettlement.admit(NativePulseSettlement.Lane.USE,
+                session.generation()) && held && sword &&
             NativeAttackFrameGate.sameFrame(
                 player,mc.thePlayer,tickWorld,mc.theWorld,
                 tickAttackBinding,tickUseBinding,
@@ -525,8 +558,19 @@ public final class ForgeCombatController {
                 target==null?0:target.getHealth()))) {
             host.runFeature(BLOCK_ID, new Runnable() {
                 public void run() {
-                    KeyBinding.onTick(mc.gameSettings.keyBindUseItem.getKeyCode());
-                    blockHit.committed(session.tick(),session.generation());
+                    pulseSettlement.begin(NativePulseSettlement.Lane.USE,
+                        session.generation(),session.tick());
+                    try {
+                        KeyBinding.onTick(mc.gameSettings.keyBindUseItem.getKeyCode());
+                        pulseSettlement.nativeReturned(NativePulseSettlement.Lane.USE,
+                            session.generation(),session.tick());
+                        blockHit.committed(session.tick(),session.generation());
+                        pulseSettlement.committed(NativePulseSettlement.Lane.USE,
+                            session.generation(),session.tick());
+                    } finally {
+                        pulseSettlement.abandon(NativePulseSettlement.Lane.USE,
+                            session.generation(),session.tick());
+                    }
                     host.diagnostics().record(Counter.EXTRA_USE);
                     host.nativeAction(ModuleActionTelemetry.Lane.BLOCKHIT,
                         ModuleActionTelemetry.Event.DISPATCHED);

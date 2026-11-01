@@ -231,3 +231,13 @@ task nativeBlockHitCommitProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeBlockHitCommitTests'
 }
 check.dependsOn nativeBlockHitCommitProbe
+
+
+// R3.72 original Minecraft 1.8.9 headless KeyBinding pulse + post-native
+// partial commit containment. A successful probe is not real server gameplay.
+task nativePulseSettlementProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativePulseSettlementTests'
+}
+check.dependsOn nativePulseSettlementProbe
