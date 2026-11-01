@@ -461,6 +461,12 @@ public final class ForgeEventAdapter {
         if(plan.jumpReset)jumpReset.tick(
             dev.ghostfusion.features.DamageMotionHandoff.jumpAvailable(
                 plan.jumpReset,verticalMotionOwned));
+        else if(plan.denial(ModuleInteractionStateMachine.Resource.JUMP_RESET)==
+                ModuleInteractionStateMachine.Denial.WTAP_RESERVED)
+            // Read-only damage observation during WTap's *original* plan
+            // reservation, even if WTap restores sprint in this same tick.
+            // Neither old damage nor pre-WTap cooldown is forgotten.
+            jumpReset.observeWTapReservation();
         else jumpReset.reset();
 
         // Exactly one inventory controller may observe/write per GUI tick.
