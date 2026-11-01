@@ -59,6 +59,8 @@ REQUIRED = (
     "dev/ghostfusion/ui/GuiSlateCompactEmptyState.class",
     "dev/ghostfusion/ui/GuiSlateCompactModuleScroll.class",
     "dev/ghostfusion/ui/GuiSlateCompactModuleScroll$Frame.class",
+    "dev/ghostfusion/ui/GuiSlateCompactSettingsScroll.class",
+    "dev/ghostfusion/ui/GuiSlateCompactSettingsScroll$Frame.class",
     "dev/ghostfusion/ui/GuiSlateDetailTitleTooltip.class",
     "dev/ghostfusion/ui/GuiSlateChoiceReveal.class",
     "dev/ghostfusion/ui/GuiSettingKeyboard.class",

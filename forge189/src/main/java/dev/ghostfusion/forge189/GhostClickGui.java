@@ -20,6 +20,7 @@ import dev.ghostfusion.ui.GuiSlateControlGeometry;
 import dev.ghostfusion.ui.GuiSlateChoiceReveal;
 import dev.ghostfusion.ui.GuiSlateCompactMetrics;
 import dev.ghostfusion.ui.GuiSlateCompactModuleScroll;
+import dev.ghostfusion.ui.GuiSlateCompactSettingsScroll;
 import dev.ghostfusion.ui.GuiSlateModuleCaption;
 import dev.ghostfusion.ui.GuiSlateTypeScale;
 import dev.ghostfusion.ui.GuiSlateSettingsEmptyState;
@@ -990,6 +991,19 @@ public final class GhostClickGui extends GuiScreen {
                     x+w-17-Math.min((w-side)/3,90),sY+5,accent());
             }
             sY+=22;
+        }
+        if(slateCompact) {
+            // The wheel can reveal additional settings even when Auto
+            // GUI scale paints only a single row. Show scroll progress in
+            // the right margin, outside settings and wheel hit regions.
+            GuiSlateCompactSettingsScroll.Frame bar=
+                GuiSlateCompactSettingsScroll.of(compactZone,
+                    settings.size(),settingScroll);
+            if(bar!=null) {
+                rect(bar.x,bar.y,bar.width,bar.height,0x30343F49);
+                rect(bar.x,bar.thumbY,bar.width,bar.thumbHeight,
+                    compactTheme.secondary);
+            }
         }
         // Footer has an 18px reserved strip below visible settings; never
         // paint keyboard help over the keybind row. Warnings own this footer.
