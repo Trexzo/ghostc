@@ -44,6 +44,7 @@ import dev.ghostfusion.ui.GuiKeybindCapture;
 import dev.ghostfusion.ui.HudPositions.Widget;
 import dev.ghostfusion.ui.HudPreviewGeometry;
 import dev.ghostfusion.ui.HudPreviewArt;
+import dev.ghostfusion.ui.HudSlatePreviewEmphasis;
 import dev.ghostfusion.ui.HudThemeTokens;
 import dev.ghostfusion.ui.HudSnapPolicy;
 import dev.ghostfusion.ui.HudEditorConflicts;
@@ -116,13 +117,12 @@ public final class GhostClickGui extends GuiScreen {
     // One reusable sink paints schematic HUD thumbnails without allocating
     // lambdas, arrays or per-widget scene graphs on each editor frame.
     private HudThemeTokens miniatureTheme=HudThemeTokens.of("classic");
+    private boolean miniatureVisible=true;
     private final HudPreviewArt.Sink miniaturePainter=new HudPreviewArt.Sink(){
         public void box(int px,int py,int pw,int ph,int role) {
-            int color=role==HudPreviewArt.PANEL?miniatureTheme.panel:
-                role==HudPreviewArt.PRIMARY?miniatureTheme.accent:
-                role==HudPreviewArt.SECONDARY?miniatureTheme.secondary:
-                role==HudPreviewArt.TRACK?miniatureTheme.track:
-                miniatureTheme.muted;
+            // Slate-only dimming never touches non-Slate themes or input.
+            int color=HudSlatePreviewEmphasis.color(
+                miniatureTheme,role,miniatureVisible);
             rect(px,py,pw,ph,color);
         }
     };
@@ -1140,6 +1140,20 @@ public final class GhostClickGui extends GuiScreen {
     private void drawHudMiniature(Rect bounds,Widget widget,boolean selected,
                                   StatusHudLayout statusLayout) {
         miniatureTheme=miniatureThemeFor(widget);
+        miniatureVisible=true;
+        if(ui.theme()==UiState.Theme.SLATE) {
+            HudEditorControls.Item item=widget==null
+                ?HudEditorControls.Item.STATUS
+                :HudEditorControls.itemFor(widget);
+            boolean enabled=host.featureEnabled(HudScaleEditor.moduleId(item));
+            boolean metricsVisible=widget==null && statusLayout!=null &&
+                (statusLayout.fpsY>=0||statusLayout.coordinatesY>=0||
+                 statusLayout.pingY>=0);
+            boolean rows=widget!=Widget.MODULE_LIST ||
+                !listFootprint().rows.isEmpty();
+            miniatureVisible=HudSlatePreviewEmphasis.visible(
+                item,enabled,metricsVisible,rows);
+        }
         boolean liveSlateList=false;
         if(widget==Widget.MODULE_LIST &&
            ui.theme()==UiState.Theme.SLATE &&

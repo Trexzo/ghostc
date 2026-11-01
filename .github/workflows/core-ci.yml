@@ -247,6 +247,8 @@ jobs:
           grep -q 'HUD_PLACEMENT_PASS' .build/hud-placement.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudPreviewArtTests | tee .build/hud-preview-art.log
           grep -q 'HUD_PREVIEW_ART_PASS' .build/hud-preview-art.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.HudSlatePreviewEmphasisTests | tee .build/hud-slate-preview-emphasis.log
+          grep -q 'HUD_SLATE_PREVIEW_EMPHASIS_PASS' .build/hud-slate-preview-emphasis.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.KeystrokesSlateMiniatureGeometryTests | tee .build/keys-slate-miniature.log
           grep -q 'KEYSTROKES_SLATE_MINIATURE_PASS' .build/keys-slate-miniature.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.CpsSlateMiniatureGeometryTests | tee .build/cps-slate-miniature.log
