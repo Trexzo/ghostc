@@ -1116,8 +1116,6 @@ public final class GhostClickGui extends GuiScreen {
             fontRendererObj.getStringWidth(coordsText),
             ping?fontRendererObj.getStringWidth(pingText):0,fontRendererObj.FONT_HEIGHT);
     }
-    private int statusPreviewWidth() { return statusFootprint().measuredWidth; }
-    private int statusPreviewHeight() { return statusFootprint().measuredHeight; }
     /** Match the chosen skin of each on-screen HUD, not the editor's selection. */
     private HudThemeTokens miniatureThemeFor(Widget widget) {
         String appearance;
@@ -1490,9 +1488,13 @@ public final class GhostClickGui extends GuiScreen {
             return;
         }
         HudPreviewGeometry geometry=previewGeometry();
+        // One live Status/Metrics read for the *entire* pointer event. FPS,
+        // coordinates or ping can change between separate width/height
+        // samples; never snap against a different footprint than we move.
+        StatusHudLayout dragStatus=statusFootprint();
+        int statusW=dragStatus.measuredWidth,statusH=dragStatus.measuredHeight;
         if(draggingWidget==null)
-            geometry.moveStatus(ui,statusPreviewWidth(),statusPreviewHeight(),
-                mx,my,dragX,dragY);
+            geometry.moveStatus(ui,statusW,statusH,mx,my,dragX,dragY);
         else
             geometry.moveWidget(ui.widgets(),draggingWidget,mx,my,dragX,dragY,
                 hudWidth(draggingWidget),hudHeight(draggingWidget));
@@ -1501,12 +1503,12 @@ public final class GhostClickGui extends GuiScreen {
         if(Keyboard.isKeyDown(Keyboard.KEY_LMENU) ||
            Keyboard.isKeyDown(Keyboard.KEY_RMENU))return;
         Rect active=draggingWidget==null
-            ? geometry.status(ui,statusPreviewWidth(),statusPreviewHeight())
+            ? geometry.status(ui,statusW,statusH)
             : hudPreviewRect(geometry,draggingWidget);
         Rect[] neighbors=new Rect[Widget.values().length+1];
         int count=0;
         if(draggingWidget!=null)
-            neighbors[count++]=geometry.status(ui,statusPreviewWidth(),statusPreviewHeight());
+            neighbors[count++]=geometry.status(ui,statusW,statusH);
         for(Widget widget:Widget.values())
             if(widget!=draggingWidget)
                 neighbors[count++]=hudPreviewRect(geometry,widget);
@@ -1518,7 +1520,7 @@ public final class GhostClickGui extends GuiScreen {
         // geometry as pointer dragging, never directly to stored fractions.
         if(snapped.x!=active.x || snapped.y!=active.y) {
             if(draggingWidget==null)
-                geometry.moveStatus(ui,statusPreviewWidth(),statusPreviewHeight(),
+                geometry.moveStatus(ui,statusW,statusH,
                     snapped.x,snapped.y,0,0);
             else
                 geometry.moveWidget(ui.widgets(),draggingWidget,
@@ -1583,7 +1585,11 @@ public final class GhostClickGui extends GuiScreen {
                     return;
                 }
             }
-            Rect status=geometry.status(ui,statusPreviewWidth(),statusPreviewHeight());
+            // Measure the Status rectangle once for this click. The same
+            // width and height must decide pointer capture at this instant.
+            StatusHudLayout clickedStatus=statusFootprint();
+            Rect status=geometry.status(ui,clickedStatus.measuredWidth,
+                clickedStatus.measuredHeight);
             if(status.contains(mx,my)) {
                 hudControls.select(HudEditorControls.Item.STATUS);
                 hudCapture.begin(ui,null,width,height,mx,my);
@@ -1973,10 +1979,14 @@ public final class GhostClickGui extends GuiScreen {
                 int step=(Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) ||
                           Keyboard.isKeyDown(Keyboard.KEY_RSHIFT))?10:1;
                 HudEditorControls.Item item=hudControls.selected();
-                int cw=item==HudEditorControls.Item.STATUS ?
-                    statusPreviewWidth():hudWidth(item.widget);
-                int ch=item==HudEditorControls.Item.STATUS ?
-                    statusPreviewHeight():hudHeight(item.widget);
+                // Keyboard nudge uses one coherent Status/Metrics snapshot;
+                // measuring the axes separately can mix changing FPS/ping.
+                StatusHudLayout keyboardStatus=
+                    item==HudEditorControls.Item.STATUS?statusFootprint():null;
+                int cw=keyboardStatus!=null?
+                    keyboardStatus.measuredWidth:hudWidth(item.widget);
+                int ch=keyboardStatus!=null?
+                    keyboardStatus.measuredHeight:hudHeight(item.widget);
                 if(item==HudEditorControls.Item.MODULE_LIST &&
                    !"custom".equals(host.moduleListPosition())) {
                     HudPreviewGeometry geometry=previewGeometry();

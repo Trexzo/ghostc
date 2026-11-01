@@ -2337,8 +2337,16 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("new HudPreviewGeometry(previewX,previewY,previewW,previewH,width,height)",gui)
         self.assertIn("Rect canvas=geometry.canvas",gui)
         self.assertIn("if (!geometry.canvas.contains(mx,my)) return;",gui)
-        self.assertIn("geometry.moveStatus(ui,statusPreviewWidth(),statusPreviewHeight()",gui)
-        self.assertIn("statusPreviewWidth()",gui)
+        # The same status layout must own both axes throughout each input
+        # event; the old separate width/height helpers sampled live metrics
+        # repeatedly and could yield mismatched drag/snap coordinates.
+        self.assertIn("StatusHudLayout dragStatus=statusFootprint();",gui)
+        self.assertIn("int statusW=dragStatus.measuredWidth,statusH=dragStatus.measuredHeight;",gui)
+        self.assertIn("geometry.moveStatus(ui,statusW,statusH,mx,my,dragX,dragY);",gui)
+        self.assertIn("geometry.status(ui,statusW,statusH)",gui)
+        self.assertIn("geometry.moveStatus(ui,statusW,statusH,",gui)
+        self.assertNotIn("statusPreviewWidth()",gui)
+        self.assertNotIn("statusPreviewHeight()",gui)
         self.assertIn("dev.ghostfusion.tests.HudPreviewTests",
                       content(".github/workflows/core-ci.yml"))
         self.assertNotIn("ui.widgets().positionPixels(draggingWidget,",gui)
@@ -2746,8 +2754,20 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("layout.y+layout.coordinatesY",adapter)
         self.assertIn("trimStringToWidth(statusText,allowed)",adapter)
         self.assertIn("StatusHudLayout.calculate(ui,width,height",gui)
-        self.assertIn("statusFootprint().measuredWidth",gui)
-        self.assertIn("statusFootprint().measuredHeight",gui)
+        self.assertIn("StatusHudLayout clickedStatus=statusFootprint();",gui)
+        self.assertIn("geometry.status(ui,clickedStatus.measuredWidth,",gui)
+        self.assertIn("StatusHudLayout keyboardStatus=",gui)
+        self.assertIn("item==HudEditorControls.Item.STATUS?statusFootprint():null;",gui)
+        self.assertIn("keyboardStatus.measuredWidth:hudWidth(item.widget)",gui)
+        self.assertIn("keyboardStatus.measuredHeight:hudHeight(item.widget)",gui)
+        # This source-level boundary prevents regressions that separately
+        # sample live FPS, ping and coordinates within a single drag event.
+        drag=gui.split("private void adjustHudDrag(",1)[1].split(
+            "@Override protected void mouseClicked",1)[0]
+        self.assertEqual(drag.count("statusFootprint()"),1)
+        click=gui.split("@Override protected void mouseClicked(",1)[1].split(
+            "@Override protected void mouseClickMove(",1)[0]
+        self.assertEqual(click.count("clickedStatus=statusFootprint()"),1)
         self.assertIn("Math.max(w,(long)fpsWidth+2)",layout)
         self.assertIn("Math.max(w,(long)coordinatesWidth+2)",layout)
         self.assertIn("ui.pixelX(viewportWidth,visibleW)",layout)

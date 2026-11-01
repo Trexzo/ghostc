@@ -121,6 +121,22 @@ public final class HudPreviewTests {
                 baseline.x+dragX)))<=1,"status x preview parity "+i);
             ok(Math.abs(moved.y-Math.max(c.y,Math.min(c.y+c.height-moved.height,
                 baseline.y+dragY)))<=1,"status y preview parity "+i);
+            // Simulate changing live status/metric text between input
+            // events. Each event must use its own internally coherent
+            // measured width+height pair for both move and subsequent paint.
+            int nextW=1+random.nextInt(400),nextH=1+random.nextInt(130);
+            HudPreviewGeometry.Rect nextBefore=g.status(ui,nextW,nextH);
+            int jumpX=random.nextInt(41)-20,jumpY=random.nextInt(41)-20;
+            g.moveStatus(ui,nextW,nextH,
+                nextBefore.x+jumpX,nextBefore.y+jumpY,0,0);
+            HudPreviewGeometry.Rect nextAfter=g.status(ui,nextW,nextH);
+            inside(nextAfter,c,"fresh status metric snapshot "+i);
+            ok(Math.abs(nextAfter.x-Math.max(c.x,Math.min(
+                c.x+c.width-nextAfter.width,nextBefore.x+jumpX)))<=1,
+                "newly measured status width remains coherent "+i);
+            ok(Math.abs(nextAfter.y-Math.max(c.y,Math.min(
+                c.y+c.height-nextAfter.height,nextBefore.y+jumpY)))<=1,
+                "newly measured status height remains coherent "+i);
         }
     }
     public static void main(String[] args) {
