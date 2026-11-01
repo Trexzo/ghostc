@@ -58,6 +58,7 @@ REQUIRED = (
     "dev/ghostfusion/ui/GuiSlateSettingsEmptyState.class",
     "dev/ghostfusion/ui/GuiSlateCompactEmptyState.class",
     "dev/ghostfusion/ui/GuiSlateDetailTitleTooltip.class",
+    "dev/ghostfusion/ui/GuiSlateChoiceReveal.class",
     "dev/ghostfusion/ui/GuiSettingKeyboard.class",
     "dev/ghostfusion/ui/GuiSearchFocus.class",
     "dev/ghostfusion/ui/GuiKeybindCapture.class",

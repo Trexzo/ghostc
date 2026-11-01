@@ -74,6 +74,8 @@ jobs:
           grep -q 'GUI_SLATE_TOOLTIP_LAYOUT_PASS' .build/gui-slate-tooltips.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateDetailTitleTooltipTests | tee .build/gui-slate-detail-tooltip.log
           grep -q 'GUI_SLATE_DETAIL_TOOLTIP_PASS' .build/gui-slate-detail-tooltip.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateChoiceRevealTests | tee .build/gui-slate-choice-reveal.log
+          grep -q 'GUI_SLATE_CHOICE_REVEAL_PASS' .build/gui-slate-choice-reveal.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateScaleMatrixTests | tee .build/gui-slate-scale-matrix.log
           grep -q 'GUI_SLATE_SCALE_MATRIX_PASS' .build/gui-slate-scale-matrix.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateCompactMetricsTests | tee .build/gui-slate-compact-metrics.log

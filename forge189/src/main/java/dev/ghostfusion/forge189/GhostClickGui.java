@@ -17,6 +17,7 @@ import dev.ghostfusion.ui.GuiToggleMotion;
 import dev.ghostfusion.ui.GuiLayout;
 import dev.ghostfusion.ui.GuiSlateWorkspace;
 import dev.ghostfusion.ui.GuiSlateControlGeometry;
+import dev.ghostfusion.ui.GuiSlateChoiceReveal;
 import dev.ghostfusion.ui.GuiSlateCompactMetrics;
 import dev.ghostfusion.ui.GuiSlateModuleCaption;
 import dev.ghostfusion.ui.GuiSlateTypeScale;
@@ -469,10 +470,23 @@ public final class GhostClickGui extends GuiScreen {
         // The quiet footer gives keyboard users the same discoverability
         // as pointer users, but never paints across warnings.
         String settingFooter=null;
-        if(keyboardSetting>=0 && keyboardSetting<settings.size())
+        // A clipped choice value has no long-form presentation in its narrow
+        // clickable column. Reveal it in the existing non-clickable footer,
+        // but only when hovering that value's native row and column.
+        if(hoveredSetting>=0 && hoveredSetting<settings.size() &&
+           mx>=pane.choiceValueX() &&
+           mx<pane.choiceValueX()+pane.choiceValueWidth()) {
+            Setting<?> hovered= settings.get(hoveredSetting).getValue();
+            if(hovered instanceof Setting.Choice)
+                settingFooter=GuiSlateChoiceReveal.footer(
+                    hovered.serialize(),GuiSlateControlGeometry.choiceBudget(pane),
+                    pane.detailsWidth-23,guiFontWidths);
+        }
+        if(settingFooter==null && keyboardSetting>=0 &&
+           keyboardSetting<settings.size())
             settingFooter=GuiSettingKeyboard.hint(
                 settings.get(keyboardSetting).getValue());
-        else if(settings.size()>pane.settingRows)
+        else if(settingFooter==null && settings.size()>pane.settingRows)
             settingFooter=(settingScroll+1)+"-"+
                 Math.min(settings.size(),settingScroll+pane.settingRows)+
                 " / "+settings.size()+"  SCROLL";
@@ -967,9 +981,20 @@ public final class GhostClickGui extends GuiScreen {
         // Footer has an 18px reserved strip below visible settings; never
         // paint keyboard help over the keybind row. Warnings own this footer.
         String footer = null;
-        if (keyboardSetting>=0 && available>0 && keyboardSetting<settings.size())
+        if(slateCompact && hoveredSetting>=0 &&
+           hoveredSetting<settings.size() &&
+           mx>=GuiSlateCompactMetrics.choiceX(compactZone) &&
+           mx<GuiSlateCompactMetrics.choiceArrowX(compactZone)+5) {
+            Setting<?> hovered=settings.get(hoveredSetting).getValue();
+            if(hovered instanceof Setting.Choice)
+                footer=GuiSlateChoiceReveal.footer(hovered.serialize(),
+                    GuiSlateCompactMetrics.choiceBudget(compactZone),
+                    GuiFooterText.pixelBudget(w,side),guiFontWidths);
+        }
+        if (footer==null && keyboardSetting>=0 &&
+            available>0 && keyboardSetting<settings.size())
             footer = GuiSettingKeyboard.hint(settings.get(keyboardSetting).getValue());
-        else if (settings.size() > available)
+        else if (footer==null && settings.size() > available)
             footer = (settingScroll + 1) + "-" +
                 Math.min(settings.size(), settingScroll + available) +
                 "/" + settings.size() + "  scroll";
