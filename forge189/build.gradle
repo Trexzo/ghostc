@@ -279,3 +279,13 @@ task nativeWTapAdmissionProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeWTapAdmissionTests'
 }
 check.dependsOn nativeWTapAdmissionProbe
+
+
+// R3.77 original Minecraft 1.8.9 local-motion/jump method linking,
+// plus same-frame Velocity-to-JumpReset arbitration. No game/server launch.
+task nativeVelocityJumpHandoffProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeVelocityJumpHandoffTests'
+}
+check.dependsOn nativeVelocityJumpHandoffProbe
