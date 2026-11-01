@@ -448,12 +448,20 @@ public final class ForgeEventAdapter {
                 "COMBAT_FRAME_"+evidence.name()));
         }
         if(plan.bridge)bridge.tick();else bridge.reset();
-        if(plan.velocity)velocity.tick();else velocity.reset();
+        // Hurt-mode Velocity may consume the upward damage impulse. Preserve
+        // that exact owner-tick decision for Jump Reset, but do not extend it
+        // across frames, world epochs, or asynchronous packet-mode hooks.
+        final boolean verticalMotionOwned;
+        if(plan.velocity)verticalMotionOwned=velocity.tick();
+        else {velocity.reset();verticalMotionOwned=false;}
         if(plan.wtap)wtap.tick();else wtap.reset();
-        // WTap's reserved sprint window takes precedence over a damage-edge
-        // jump. Bridge Assist already settled native sneak for this frame.
-        // Never replay a skipped hurt edge on a later allowed frame.
-        if(plan.jumpReset)jumpReset.tick();else jumpReset.reset();
+        // WTap's reserved sprint window still wins at plan admission.
+        // If Velocity actually adjusted upward motion, Jump Reset observes
+        // this hurt edge with active=false; never replay the edge later.
+        if(plan.jumpReset)jumpReset.tick(
+            dev.ghostfusion.features.DamageMotionHandoff.jumpAvailable(
+                plan.jumpReset,verticalMotionOwned));
+        else jumpReset.reset();
 
         // Exactly one inventory controller may observe/write per GUI tick.
         // Releasing a controller resets its pending transfer; no hidden

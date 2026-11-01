@@ -1,6 +1,7 @@
 package dev.ghostfusion.forge189;
 
 import dev.ghostfusion.features.VelocityPolicy;
+import dev.ghostfusion.features.DamageMotionHandoff;
 import dev.ghostfusion.host.HostRuntime;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
@@ -15,6 +16,8 @@ final class ForgeVelocityController {
     private final Minecraft mc;
     private final HostRuntime host;
     private final VelocityPolicy policy=new VelocityPolicy();
+    // Owner-tick native vertical mutation admission; not packet-mode telemetry.
+    private boolean verticalWriteAttempted;
     private final ForgeVelocityPacketBridge inbound=new ForgeVelocityPacketBridge();
 
     ForgeVelocityController(Minecraft game,HostRuntime runtime) {
@@ -23,6 +26,7 @@ final class ForgeVelocityController {
         mc=game;host=runtime;
     }
     void reset() {
+        verticalWriteAttempted=false;
         inbound.reset();
         policy.reset();
     }
@@ -31,16 +35,24 @@ final class ForgeVelocityController {
     ForgeVelocityPacketBridge.Health health() {
         return inbound.health();
     }
-    void tick() {
+    /**
+     * True if this owner tick attempted to write an adjusted vertical hurt
+     * impulse. An exception after the first motion-axis write still reserves
+     * the vertical handoff; it cannot authorize a competing jump.
+     */
+    boolean tick() {
+        verticalWriteAttempted=false;
         if(mc.theWorld==null || mc.thePlayer==null || mc.currentScreen!=null ||
            !mc.inGameHasFocus || !host.services().connected() ||
            !host.featureEnabled(MODULE)) {
-            reset();return;
+            reset();return false;
         }
         boolean healthy=host.runFeature(MODULE,new Runnable() {
             public void run(){evaluate();}
         });
+        final boolean reserved=verticalWriteAttempted;
         if(!healthy) reset();
+        return reserved;
     }
     private void evaluate() {
         EntityPlayerSP player=mc.thePlayer;
@@ -69,6 +81,10 @@ final class ForgeVelocityController {
             host.velocityHorizontalPercent(),host.velocityVerticalPercent(),
             host.services().tick(),host.services().generation());
         if(adjustment==null)return;
+        // Claim the vertical damage impulse before any local motion write.
+        // Packet mode and horizontal-only adjustments never claim this.
+        verticalWriteAttempted=DamageMotionHandoff.verticalChanged(
+            player.motionY,adjustment);
         // No direct attack, outgoing/incoming packets, or other entities
         // are ever manipulated. Only the local player's live motion axes.
         player.motionX=adjustment.x;

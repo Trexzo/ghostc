@@ -180,6 +180,7 @@ public final class IntegratedModuleCatalogTests {
         ok(loaded.featureEnabled("combat.aimassist"),"explicit reenable after Panic works");
         loaded.close();
         VelocityTests.main(args);
+        VelocityJumpHandoffTests.main(args);
         WTapTests.main(args);
         WTapNativeCadenceTests.main(args);
         JumpResetTests.main(args);

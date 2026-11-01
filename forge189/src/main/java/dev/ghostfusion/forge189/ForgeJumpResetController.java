@@ -24,18 +24,23 @@ final class ForgeJumpResetController {
     }
     void reset() { policy.reset(); }
 
-    void tick() {
+    /**
+     * An earlier hurt-mode Velocity vertical write owns this damage impulse.
+     * Continue observing hurtTime with active=false so it cannot be queued
+     * for a later tick; never override the already-adjusted native motion.
+     */
+    void tick(final boolean verticalImpulseAvailable) {
         if(!host.featureEnabled(MODULE) || mc.thePlayer==null ||
            mc.theWorld==null || mc.currentScreen!=null ||
            !mc.inGameHasFocus || !host.services().connected()) {
             reset();return;
         }
         boolean healthy=host.runFeature(MODULE,new Runnable() {
-            public void run() {evaluate();}
+            public void run() {evaluate(verticalImpulseAvailable);}
         });
         if(!healthy) reset();
     }
-    private void evaluate() {
+    private void evaluate(boolean verticalImpulseAvailable) {
         final EntityPlayerSP p=mc.thePlayer;
         final long tick=host.services().tick();
         final long epoch=host.services().generation();
@@ -54,7 +59,8 @@ final class ForgeJumpResetController {
         final boolean attackPermission =
             !host.jumpResetRequireAttackHeld() ||
             mc.gameSettings.keyBindAttack.isKeyDown();
-        if(!policy.preview(epoch,tick,p.hurtTime,nativeValid&&attackPermission,
+        if(!policy.preview(epoch,tick,p.hurtTime,
+                           nativeValid&&attackPermission&&verticalImpulseAvailable,
                            host.jumpResetMinHurtTime(),
                            host.jumpResetCooldownTicks()))return;
         // The pure policy grants no native write on its own. Revalidate the
