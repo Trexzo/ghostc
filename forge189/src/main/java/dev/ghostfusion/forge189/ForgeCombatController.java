@@ -389,8 +389,8 @@ public final class ForgeCombatController {
         // are no packets, attackEntity calls or bypass controllers here.
         if (selectedAttack != null && CLICK_ID.equals(selectedAttack.owner) &&
             attackApproved && host.featureEnabled(CLICK_ID) &&
-            pulseSettlement.admit(NativePulseSettlement.Lane.ATTACK,
-                session.generation()) &&
+            pulseSettlement.admitNative(NativePulseSettlement.Lane.ATTACK,
+                session.generation(),tickWorld,player) &&
             held && NativeAttackFrameGate.sameFrame(
                 player,mc.thePlayer,tickWorld,mc.theWorld,
                 tickAttackBinding,tickUseBinding,
@@ -434,8 +434,8 @@ public final class ForgeCombatController {
             });
         } else if (selectedAttack != null && TRIGGER_ID.equals(selectedAttack.owner) &&
             attackApproved && host.featureEnabled(TRIGGER_ID) &&
-            pulseSettlement.admit(NativePulseSettlement.Lane.ATTACK,
-                session.generation()) &&
+            pulseSettlement.admitNative(NativePulseSettlement.Lane.ATTACK,
+                session.generation(),tickWorld,player) &&
             triggerBindingValid() &&
             NativeAttackFrameGate.sameFrame(
                 player,mc.thePlayer,tickWorld,mc.theWorld,
@@ -531,8 +531,8 @@ public final class ForgeCombatController {
             session.tick(), session.generation());
         if (use != null && BLOCK_ID.equals(use.owner) &&
             host.featureEnabled(BLOCK_ID) &&
-            pulseSettlement.admit(NativePulseSettlement.Lane.USE,
-                session.generation()) && held && sword &&
+            pulseSettlement.admitNative(NativePulseSettlement.Lane.USE,
+                session.generation(),tickWorld,player) && held && sword &&
             NativeAttackFrameGate.sameFrame(
                 player,mc.thePlayer,tickWorld,mc.theWorld,
                 tickAttackBinding,tickUseBinding,

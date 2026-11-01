@@ -241,3 +241,12 @@ task nativePulseSettlementProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativePulseSettlementTests'
 }
 check.dependsOn nativePulseSettlementProbe
+
+
+// R3.73: real Minecraft Java8 KeyBinding recovery with native object identity.
+task nativePulseRecoveryProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativePulseRecoveryTests'
+}
+check.dependsOn nativePulseRecoveryProbe
