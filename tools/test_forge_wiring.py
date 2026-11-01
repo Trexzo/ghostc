@@ -1262,7 +1262,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertEqual(combat.count("pulseSettlement.committed("),3)
         self.assertEqual(combat.count("pulseSettlement.abandon("),3)
         self.assertEqual(combat.count("pulseSettlement.admit("),3)
-        self.assertRegex(combat, r"} finally \\{\\s+pulseSettlement\\.abandon\\(NativePulseSettlement\\.Lane\\.USE,")
+        self.assertRegex(combat, r"} finally \{\s+pulseSettlement\.abandon\(NativePulseSettlement\.Lane\.USE,")
         self.assertEqual(combat.count("} finally {"),3)
         self.assertIn("pulseSettlement.nativeReturned(NativePulseSettlement.Lane.ATTACK,",combat)
         self.assertIn("pulseSettlement.nativeReturned(NativePulseSettlement.Lane.USE,",combat)
