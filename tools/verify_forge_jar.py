@@ -51,6 +51,7 @@ REQUIRED = (
     "dev/ghostfusion/ui/HudDragCapture.class",
     "dev/ghostfusion/ui/HudEditorSlateCanvasGeometry.class",
     "dev/ghostfusion/ui/HudSlatePreviewEmphasis.class",
+    "dev/ghostfusion/ui/HudSlateSnapPeers.class",
     "dev/ghostfusion/ui/HudEditorSlateTabTypography.class",
     "dev/ghostfusion/ui/HudEditorSlateTabTooltip.class",
     "dev/ghostfusion/ui/GuiSlateTypeScale.class",

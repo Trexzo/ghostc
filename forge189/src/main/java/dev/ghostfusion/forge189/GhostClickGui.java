@@ -47,6 +47,8 @@ import dev.ghostfusion.ui.HudPreviewArt;
 import dev.ghostfusion.ui.HudSlatePreviewEmphasis;
 import dev.ghostfusion.ui.HudThemeTokens;
 import dev.ghostfusion.ui.HudSnapPolicy;
+import dev.ghostfusion.ui.HudSlateSnapPeers;
+import dev.ghostfusion.ui.HudSlatePreviewEmphasis;
 import dev.ghostfusion.ui.HudEditorConflicts;
 import dev.ghostfusion.ui.ModuleListLayout;
 import dev.ghostfusion.ui.ModuleListSlateMiniatureGeometry;
@@ -1505,15 +1507,34 @@ public final class GhostClickGui extends GuiScreen {
         Rect active=draggingWidget==null
             ? geometry.status(ui,statusW,statusH)
             : hudPreviewRect(geometry,draggingWidget);
-        Rect[] neighbors=new Rect[Widget.values().length+1];
-        int count=0;
+        // F7 thumbnails are draggable even when their actual modules are
+        // disabled. In Slate, invisible thumbnails cannot create magnetic
+        // "ghost" snap targets; legacy themes retain every original peer.
+        HudEditorControls.Item dragged=HudEditorControls.itemFor(draggingWidget);
+        Rect[] candidates=new Rect[HudEditorControls.Item.values().length];
         if(draggingWidget!=null)
-            neighbors[count++]=geometry.status(ui,statusW,statusH);
+            candidates[HudEditorControls.Item.STATUS.ordinal()]=
+                geometry.status(ui,statusW,statusH);
         for(Widget widget:Widget.values())
             if(widget!=draggingWidget)
-                neighbors[count++]=hudPreviewRect(geometry,widget);
+                candidates[HudEditorControls.itemFor(widget).ordinal()]=
+                    hudPreviewRect(geometry,widget);
+        int visibleBits=HudSlateSnapPeers.allBits();
+        if(ui.theme()==UiState.Theme.SLATE) {
+            visibleBits=0;
+            boolean metricsVisible=dragStatus.fpsY>=0 ||
+                dragStatus.coordinatesY>=0 || dragStatus.pingY>=0;
+            boolean listHasRows=!listFootprint().rows.isEmpty();
+            for(HudEditorControls.Item item:HudEditorControls.Item.values()) {
+                if(HudSlatePreviewEmphasis.visible(item,
+                    host.featureEnabled(HudScaleEditor.moduleId(item)),
+                    metricsVisible,listHasRows))
+                    visibleBits|=1<<item.ordinal();
+            }
+        }
+        Rect[] neighbors=HudSlateSnapPeers.peers(dragged,candidates,visibleBits);
         HudSnapPolicy.Result snapped=HudSnapPolicy.snap(geometry.canvas,active,
-            java.util.Arrays.copyOf(neighbors,count),HudSnapPolicy.DEFAULT_TOLERANCE);
+            neighbors,HudSnapPolicy.DEFAULT_TOLERANCE);
         snapGuideX=snapped.guideX;
         snapGuideY=snapped.guideY;
         // Project the snapped preview position through the same screen-aspect
