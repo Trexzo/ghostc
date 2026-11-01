@@ -41,6 +41,7 @@ public final class NativePulseSettlement {
     }
     private void clock(long epoch) {
         if(epoch<0)throw new IllegalArgumentException("pulse generation");
+        if(epoch<generation)throw new IllegalStateException("stale pulse generation");
         if(epoch!=generation)clearForEpoch(epoch);
     }
     /** Does not clear UNCERTAIN on reset/GUI/focus: never retry an unknown pulse. */
@@ -53,7 +54,7 @@ public final class NativePulseSettlement {
     }
     public void begin(Lane lane,long epoch,long tick) {
         check();int i=index(lane);clock(epoch);
-        if(tick<0||phases[i]!=Phase.IDLE || lastAttemptTick[i]==tick)
+        if(tick<0||phases[i]!=Phase.IDLE || tick<=lastAttemptTick[i])
             throw new IllegalStateException("duplicate or uncertain native pulse");
         phases[i]=Phase.IN_FLIGHT;
         activeTick[i]=lastAttemptTick[i]=tick;

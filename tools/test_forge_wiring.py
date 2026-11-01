@@ -1268,7 +1268,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("triggerBot.dispatched(session.generation(),session.tick(),",combat)
         self.assertIn("hitSelect.committed(session.tick(),session.generation());",combat)
         self.assertIn("blockHit.committed(session.tick(),session.generation());",combat)
-        self.assertIn("phase=Phase.UNCERTAIN;",gate)
+        self.assertIn("phases[i]=Phase.UNCERTAIN;",gate)
         self.assertIn("if(epoch!=generation)clearForEpoch(epoch);",gate)
         self.assertIn("NativePulseSettlementTests.main(args);",catalog)
         self.assertIn("randomized();",core)

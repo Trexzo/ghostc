@@ -105,6 +105,7 @@ public final class NativePulseSettlementTests {
         });foreign.start();foreign.join();
         ok(foreignDenied.get(),"foreign network thread cannot mutate native settlement");
         rejects(()->a.admit(null,4),"null native lane refused");
+        rejects(()->a.admit(Lane.ATTACK,3),"stale generation cannot rearm unknown pulse");
         rejects(()->a.begin(Lane.USE,-1,0),"negative generation refused");
     }
     private static void randomized() {
