@@ -80,6 +80,20 @@ public final class HudEditorSlateCanvasGeometry {
     public static String hoverCaption(HudEditorControls.Item hovered,
                                       boolean dragging,boolean enabled,
                                       boolean visibleMetrics) {
+        return hoverCaption(hovered,dragging,enabled,visibleMetrics,true);
+    }
+
+    /**
+     * An enabled Module List can have zero eligible rows, e.g. when no
+     * modules are enabled or the Render category is excluded. The editor's
+     * empty placeholder must not imply it currently displays modules.
+     *
+     * Existing four-argument callers retain their original behavior.
+     */
+    public static String hoverCaption(HudEditorControls.Item hovered,
+                                      boolean dragging,boolean enabled,
+                                      boolean visibleMetrics,
+                                      boolean listHasRows) {
         if(hovered==null||dragging)return null;
         if(hovered==HudEditorControls.Item.STATUS) {
             if(enabled)
@@ -91,7 +105,9 @@ public final class HudEditorSlateCanvasGeometry {
             case KEYS: name="KEYSTROKES";break;
             case CPS: name="CPS METER";break;
             case TARGET: name="TARGET HUD";break;
-            case MODULE_LIST: name="MODULE LIST";break;
+            case MODULE_LIST:
+                return !enabled?"MODULE LIST OFF":
+                    listHasRows?"MODULE LIST":"MODULE LIST EMPTY";
             default: throw new IllegalArgumentException("F7 Slate hovered widget");
         }
         return enabled?name:name+" OFF";

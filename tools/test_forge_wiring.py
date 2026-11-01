@@ -2515,7 +2515,13 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("HudEditorSlateCanvasGeometry.hovered(",gui)
         self.assertIn("slateHoveredWidget=HudEditorSlateCanvasGeometry.hovered(",gui)
         self.assertIn("HudEditorSlateCanvasGeometry.hoverCaption(",gui)
-        self.assertIn("slateHoveredWidget,hudDragging,hoveredEnabled,metricsVisible",gui)
+        self.assertIn("slateHoveredWidget,hudDragging,hoveredEnabled,metricsVisible,",gui)
+        self.assertIn("listHasRows);",gui)
+        self.assertIn("listHasRows=!listFootprint().rows.isEmpty();",gui)
+        self.assertIn("MODULE LIST EMPTY",
+            content("src/main/java/dev/ghostfusion/ui/HudEditorSlateCanvasGeometry.java"))
+        self.assertIn("enabled but no real rows is identified as empty",
+            content("src/test/java/dev/ghostfusion/tests/HudEditorSlateCanvasGeometryTests.java"))
         self.assertIn("host.featureEnabled(HudScaleEditor.moduleId(slateHoveredWidget))",gui)
         self.assertIn("editorStatus.coordinatesY>=0 || editorStatus.pingY>=0",gui)
         self.assertIn("METRICS ONLY (STATUS OFF)",

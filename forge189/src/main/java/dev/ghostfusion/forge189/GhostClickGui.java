@@ -1376,7 +1376,11 @@ public final class GhostClickGui extends GuiScreen {
         boolean metricsVisible=editorStatus.fpsY>=0 ||
             editorStatus.coordinatesY>=0 || editorStatus.pingY>=0;
         int conflicts=geometricConflicts;
+        boolean listHasRows=false;
         if(slateEditor) {
+            // One cached measured enabled-only list drives both live conflict
+            // admission and the hovered editor's truthful state label.
+            listHasRows=!listFootprint().rows.isEmpty();
             // Inactive editor placeholders are still draggable, but cannot
             // cause a red visual conflict or a false overlap warning.
             int activeBits=0;
@@ -1385,8 +1389,7 @@ public final class GhostClickGui extends GuiScreen {
             for(Widget widget:Widget.values()) {
                 HudEditorControls.Item item=HudEditorControls.itemFor(widget);
                 if(host.featureEnabled(HudScaleEditor.moduleId(item)) &&
-                   (widget!=Widget.MODULE_LIST ||
-                    !listFootprint().rows.isEmpty()))
+                   (widget!=Widget.MODULE_LIST || listHasRows))
                     activeBits|=1<<item.ordinal();
             }
             conflicts=HudEditorConflicts.activeMask(
@@ -1421,7 +1424,8 @@ public final class GhostClickGui extends GuiScreen {
             boolean hoveredEnabled=slateHoveredWidget!=null &&
                 host.featureEnabled(HudScaleEditor.moduleId(slateHoveredWidget));
             String widgetHint=HudEditorSlateCanvasGeometry.hoverCaption(
-                slateHoveredWidget,hudDragging,hoveredEnabled,metricsVisible);
+                slateHoveredWidget,hudDragging,hoveredEnabled,metricsVisible,
+                listHasRows);
             if(widgetHint!=null)
                 drawSlateTooltip(widgetHint,mx,my,palette());
             // Tab labels can be clipped at Minecraft GUI Scale Auto.

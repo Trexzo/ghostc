@@ -83,13 +83,20 @@ public final class HudEditorSlateCanvasGeometryTests {
             // Preview art persists for editing when its live module is OFF.
             // Descriptive UI must not imply it is active.
             String off=HudEditorSlateCanvasGeometry.hoverCaption(
-                hover,false,false,false);
+                hover,false,false,false,false);
             if(hover==null)ok(off==null,"empty canvas reports no feature");
             else {
                 ok(off.endsWith(" OFF"),"disabled Slate HUD is identified");
                 ok(HudEditorSlateCanvasGeometry.hoverCaption(
-                    hover,true,false,true)==null,
+                    hover,true,false,true,false)==null,
                     "drag suppression wins over all visibility flags");
+                boolean hasRows=rng.nextBoolean();
+                String enabledLabel=HudEditorSlateCanvasGeometry.hoverCaption(
+                    hover,false,true,false,hasRows);
+                ok(enabledLabel.equals(hover==HudEditorControls.Item.MODULE_LIST
+                    ?hasRows?"MODULE LIST":"MODULE LIST EMPTY"
+                    :expectedCaption(hover)),
+                    "real rows distinguish populated and empty Module List");
             }
             ok(HudEditorSlateCanvasGeometry.hovered(
                 canvas,rects,canvas.x-1,canvas.y)==null,
@@ -126,8 +133,19 @@ public final class HudEditorSlateCanvasGeometryTests {
             "status-only preview is distinguished from metrics");
         ok("MODULE LIST OFF".equals(
             HudEditorSlateCanvasGeometry.hoverCaption(
-                HudEditorControls.Item.MODULE_LIST,false,false,true)),
+                HudEditorControls.Item.MODULE_LIST,false,false,true,false)),
             "unrelated metrics cannot change Module List availability");
+        ok("MODULE LIST EMPTY".equals(
+            HudEditorSlateCanvasGeometry.hoverCaption(
+                HudEditorControls.Item.MODULE_LIST,false,true,false,false)),
+            "enabled but no real rows is identified as empty, not active");
+        ok("MODULE LIST".equals(
+            HudEditorSlateCanvasGeometry.hoverCaption(
+                HudEditorControls.Item.MODULE_LIST,false,true,false,true)),
+            "enabled list with actual rows retains its original caption");
+        ok(HudEditorSlateCanvasGeometry.hoverCaption(
+                HudEditorControls.Item.MODULE_LIST,true,true,false,false)==null,
+            "dragging an empty list never triggers a tooltip");
         ok(HudEditorSlateCanvasGeometry.coordinateLabel(items[0],0,1)
                 .equals("Status  X 0%  Y 100%"),
             "exact saved edge positions");
