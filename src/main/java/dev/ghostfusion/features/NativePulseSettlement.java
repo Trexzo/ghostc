@@ -64,8 +64,12 @@ public final class NativePulseSettlement {
      * instance may clear a pinned native uncertainty. Never rearm on a
      * same-generation object swap before WorldIdentityTracker advances.
      */
-    public boolean admitNative(Lane lane,long epoch,Object world,Object player) {
-        check();int i=index(lane);
+    /**
+     * Read-only native identity reconciliation, also permitted while modules
+     * are disabled. Uses the same recovery proof as action admission.
+     */
+    public boolean reconcileNative(long epoch,Object world,Object player) {
+        check();
         if(world==null||player==null)return false;
         final long formerGeneration=generation;
         clock(epoch);
@@ -79,7 +83,17 @@ public final class NativePulseSettlement {
             nativeWorld=new WeakReference<Object>(world);
             nativePlayer=new WeakReference<Object>(player);
         }
-        return phases[i]==Phase.IDLE;
+        return true;
+    }
+    public boolean admitNative(Lane lane,long epoch,Object world,Object player) {
+        check();int i=index(lane);
+        return reconcileNative(epoch,world,player) && phases[i]==Phase.IDLE;
+    }
+    /** Fixed two-bit, nonidentifying local quarantine state. */
+    public int uncertainMask() {
+        check();
+        return (phases[0]==Phase.UNCERTAIN?1:0) |
+            (phases[1]==Phase.UNCERTAIN?2:0);
     }
     /** Pure-policy compatibility; cannot clear a native-pinned uncertainty. */
     public boolean admit(Lane lane,long epoch) {

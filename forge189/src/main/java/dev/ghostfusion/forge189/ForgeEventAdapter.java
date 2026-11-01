@@ -159,6 +159,8 @@ public final class ForgeEventAdapter {
         // Keep the standard presence reconciliation for starting menus.
         host.worldPresence(worldReady);
         host.tick();
+        // Observe uncertainty even with disabled combat modules or GUI focus.
+        host.nativePulseStatus(combat.reconcileNativePulseStatus());
         // Read-only reconciliation runs independently from hotbar ownership
         // and may finish after Rod/Snowball have restored the user's slot.
         projectileObservations.sample();
@@ -415,6 +417,8 @@ public final class ForgeEventAdapter {
                 !manualSlotEvent && !projectileConflict)
             combat.suspendForProjectile();
         else combat.reset();
+        // Reflect a partial native output on the frame it was quarantined.
+        host.nativePulseStatus(combat.nativePulseUncertainMask());
 
         if(checkCombatFrame) {
             final boolean clickWrite=host.nativeActionCount(
@@ -669,7 +673,8 @@ public final class ForgeEventAdapter {
         }
         // Fault and recovery warnings remain visible when Status and Metrics
         // are disabled, using a screen-safe independent fallback anchor.
-        String warning=!host.faultWarning().isEmpty() ? host.faultWarning() :
+        String warning=!host.nativePulseWarning().isEmpty() ? host.nativePulseWarning() :
+            !host.faultWarning().isEmpty() ? host.faultWarning() :
             !host.uiWarning().isEmpty() ? host.uiWarning() :
             !host.diagnosticsWarning().isEmpty() ? host.diagnosticsWarning() :
             host.profileWarning();

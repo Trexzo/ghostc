@@ -262,6 +262,7 @@ public final class HostRuntime {
     // the operator repairs/removes it and starts a new session.
     private boolean profileLoadFailed, uiLoadFailed;
     private String diagnosticsWarning = "";
+    private int nativePulseUncertainMask;
  
     public HostRuntime(Path configDirectory) {
         if (configDirectory == null) throw new IllegalArgumentException("configDirectory");
@@ -420,6 +421,34 @@ public final class HostRuntime {
         framePerformance.frame(nowNanos,usedHeapBytes);
     }
     public String faultWarning() { modules.assertOwnerThread(); return featureFaults.latestFaultWarning(); }
+
+    /** Local native safety state; warnings are visible without opt-in. */
+    public void nativePulseStatus(int mask) {
+        modules.assertOwnerThread();
+        if(mask<0||(mask&~3)!=0)
+            throw new IllegalArgumentException("native pulse mask");
+        int before=nativePulseUncertainMask;
+        if(before==mask)return;
+        nativePulseUncertainMask=mask;
+        if(diagnosticsEnabled()) {
+            if((mask&1)!=0&&(before&1)==0)
+                diagnostics.record(Counter.COMBAT_PULSE_ATTACK_UNCERTAIN);
+            if((mask&2)!=0&&(before&2)==0)
+                diagnostics.record(Counter.COMBAT_PULSE_USE_UNCERTAIN);
+            if((before&~mask)!=0)
+                diagnostics.record(Counter.COMBAT_PULSE_RECOVERED);
+        }
+    }
+    public String nativePulseWarning() {
+        modules.assertOwnerThread();
+        if(nativePulseUncertainMask==3)
+            return "Combat ATTACK + USE paused: uncertain native output";
+        if(nativePulseUncertainMask==1)
+            return "Combat ATTACK paused: uncertain native output";
+        if(nativePulseUncertainMask==2)
+            return "Combat USE paused: uncertain native output";
+        return "";
+    }
     /** Visual/sprint callbacks are isolated per module; a failing module is disabled and persisted. */
     public boolean runFeature(String id, Runnable callback) {
         // onDisable callbacks run before closed becomes true. Never execute
