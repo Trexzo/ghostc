@@ -653,6 +653,18 @@ public final class ForgeCombatController {
         resetNonMouse();
     }
 
+    /** Observe actual world identity even while native combat is disabled. */
+    int reconcileNativePulseStatus() {
+        SessionServices session=host.services();
+        if(session.connected() && mc.theWorld!=null && mc.thePlayer!=null)
+            pulseSettlement.reconcileNative(session.generation(),
+                mc.theWorld,mc.thePlayer);
+        return pulseSettlement.uncertainMask();
+    }
+    int nativePulseUncertainMask() {
+        return pulseSettlement.uncertainMask();
+    }
+
     /** Clears timers and all pending owned intents on world or focus change. */
     void reset() {
         manualAim.reset();
