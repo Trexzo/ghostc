@@ -366,12 +366,14 @@ public final class ForgeCombatController {
             session.tick(),session.generation());
         boolean approved = selectedAttack != null;
         final boolean hitGateUsed = approved && host.featureEnabled(HIT_ID);
+        // An option changed after preview cannot weaken its original proof.
+        final boolean hitTargetRequiredAtPreview=host.hitRequireTarget();
         if (hitGateUsed) {
             final boolean[] allowed = {false};
             boolean healthy = host.runFeature(HIT_ID, new Runnable() {
                 public void run() {
                     allowed[0] = hitSelect.preview(true,
-                        !host.hitRequireTarget() || validTarget,
+                        !hitTargetRequiredAtPreview || validTarget,
                         target == null ? 0 : target.hurtTime,
                         host.hitMaxHurtTime(),host.hitGapTicks(),player.hurtTime,
                         host.hitMode(),host.hitTradeMinSelfHurt(),
@@ -404,7 +406,8 @@ public final class ForgeCombatController {
                 mc.gameSettings.keyBindUseItem.isKeyDown(),
                 player.isUsingItem()) &&
             (!NativeAttackFrameGate.requireExactClickTarget(
-                host.clickEntityOnly(),hitGateUsed,host.hitRequireTarget()) ||
+                host.clickEntityOnly(),hitGateUsed,
+                hitTargetRequiredAtPreview || host.hitRequireTarget()) ||
                 NativeAttackFrameGate.target(
                 target,mc.objectMouseOver!=null &&
                     mc.objectMouseOver.typeOfHit==MovingObjectPosition.MovingObjectType.ENTITY
@@ -412,7 +415,9 @@ public final class ForgeCombatController {
                 mc.theWorld==null||target==null?null:
                     mc.theWorld.getEntityByID(target.getEntityId()),
                 player,target!=null&&target.isDead,
-                target==null?0:target.getHealth()))) {
+                target==null?0:target.getHealth())) &&
+            (!hitGateUsed || confirmHitSelectNative(
+                target,player,hitTargetRequiredAtPreview,session))) {
             host.runFeature(CLICK_ID, new Runnable() {
                 public void run() {
                     pulseSettlement.begin(NativePulseSettlement.Lane.ATTACK,
@@ -455,7 +460,9 @@ public final class ForgeCombatController {
             triggerIdentity.permits(session.generation(),session.tick(),
                 ((EntityPlayer)target).getUniqueID(),target.getEntityId(),
                 target,mc.theWorld) &&
-            triggerTargetValid(player,target)) {
+            triggerTargetValid(player,target) &&
+            (!hitGateUsed || confirmHitSelectNative(
+                target,player,hitTargetRequiredAtPreview,session))) {
             host.runFeature(TRIGGER_ID, new Runnable() {
                 public void run() {
                     pulseSettlement.begin(NativePulseSettlement.Lane.ATTACK,
@@ -585,6 +592,48 @@ public final class ForgeCombatController {
         // A failed final native guard, arbitration loss, or quarantined
         // Block Hit module cannot consume an interval/event trigger.
         blockHit.cancelPrepared();
+    }
+
+    /**
+     * After one owner has won ATTACK arbitration and the native input/target
+     * gates have passed, bind the exact Hit Select preview to live damage
+     * and unchanged settings before Minecraft's sole KeyBinding pulse.
+     * This observer never queues an attack or commits a cooldown.
+     */
+    private boolean confirmHitSelectNative(final EntityLivingBase sampledTarget,
+                                           final EntityPlayerSP player,
+                                           final boolean requiredAtPreview,
+                                           final SessionServices session) {
+        if(!host.featureEnabled(HIT_ID)) {
+            hitSelect.cancelPrepared();
+            return false;
+        }
+        final boolean required=requiredAtPreview || host.hitRequireTarget();
+        final boolean sameTarget=sampledTarget!=null && mc.theWorld!=null &&
+            NativeAttackFrameGate.target(sampledTarget,
+                mc.objectMouseOver!=null &&
+                mc.objectMouseOver.typeOfHit==MovingObjectPosition.MovingObjectType.ENTITY
+                    ? mc.objectMouseOver.entityHit : null,
+                mc.theWorld.getEntityByID(sampledTarget.getEntityId()),
+                player,sampledTarget.isDead,sampledTarget.getHealth());
+        // A target sampled at preview cannot be silently replaced by a
+        // different entity or disappear before final damage verification.
+        if((sampledTarget!=null && !sameTarget) || (required && !sameTarget)) {
+            hitSelect.cancelPrepared();
+            return false;
+        }
+        final int currentTargetHurt=sameTarget?sampledTarget.hurtTime:0;
+        final boolean[] ready={false};
+        boolean healthy=host.runFeature(HIT_ID,new Runnable() {
+            public void run() {
+                ready[0]=hitSelect.confirmPrepared(true,true,
+                    currentTargetHurt,host.hitMaxHurtTime(),host.hitGapTicks(),
+                    player.hurtTime,host.hitMode(),host.hitTradeMinSelfHurt(),
+                    session.tick(),session.generation());
+            }
+        });
+        if(!healthy || !ready[0])hitSelect.cancelPrepared();
+        return healthy && ready[0];
     }
 
     /** Synthetic key pulses must not bind the GUI shortcut, unbound key or use key. */
