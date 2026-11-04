@@ -1356,6 +1356,35 @@ class ForgeWiring(unittest.TestCase):
         self.assertNotIn("KeyBinding.onTick(",gate)
         self.assertNotIn("addToSendQueue",gate)
 
+    def test_r383_blockhit_dependent_use_obeys_native_attack_uncertainty(self):
+        combat=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeCombatController.java")
+        settlement=content("src/main/java/dev/ghostfusion/features/NativePulseSettlement.java")
+        block=content("src/main/java/dev/ghostfusion/features/BlockHitPolicy.java")
+        core=content("src/test/java/dev/ghostfusion/tests/BlockHitAttackUncertaintyTests.java")
+        native=content("forge189/src/test/java/dev/ghostfusion/forge189/NativeBlockHitAttackUncertaintyTests.java")
+        catalog=content("src/test/java/dev/ghostfusion/tests/IntegratedModuleCatalogTests.java")
+        gradle=content("forge189/build.gradle")
+        self.assertIn("boolean attackConflictsWithBlockHit(long epoch,long tick)",settlement)
+        self.assertIn("epoch!=generation ||",settlement)
+        self.assertIn("phases[Lane.ATTACK.ordinal()]!=Phase.IDLE",settlement)
+        self.assertIn("lastAttemptTick[Lane.ATTACK.ordinal()]==tick",settlement)
+        self.assertIn("!pulseSettlement.attackConflictsWithBlockHit(",combat)
+        self.assertIn("session.generation(),session.tick()) && held && sword &&",combat)
+        self.assertIn("pulseSettlement.admitNative(NativePulseSettlement.Lane.USE,",combat)
+        self.assertLess(combat.index("pulseSettlement.admitNative(NativePulseSettlement.Lane.USE,"),
+                        combat.index("!pulseSettlement.attackConflictsWithBlockHit("))
+        self.assertLess(combat.index("!pulseSettlement.attackConflictsWithBlockHit("),
+                        combat.index("KeyBinding.onTick(mc.gameSettings.keyBindUseItem.getKeyCode());"))
+        self.assertIn("extraAttackQueued[0], host.blockIntervalTicks()",combat)
+        self.assertIn("if (hitGateUsed) hitSelect.cancelPrepared();",combat)
+        self.assertIn("blockHit.cancelPrepared();",combat)
+        self.assertIn("BlockHitAttackUncertaintyTests.main(args);",catalog)
+        self.assertIn("randomized();",core)
+        self.assertIn("NATIVE_BLOCKHIT_ATTACK_UNCERTAINTY_PASS",native)
+        self.assertIn("check.dependsOn nativeBlockHitAttackUncertaintyProbe",gradle)
+        self.assertNotIn("KeyBinding.onTick(",settlement)
+        self.assertNotIn("addToSendQueue",settlement)
+
     def test_r371_blockhit_two_phase_native_commit_and_denial_rearm(self):
         combat=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeCombatController.java")
         block=content("src/main/java/dev/ghostfusion/features/BlockHitPolicy.java")

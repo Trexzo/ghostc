@@ -339,3 +339,13 @@ task nativeHitSelectDamageProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeHitSelectDamageTests'
 }
 check.dependsOn nativeHitSelectDamageProbe
+
+
+// R3.83: original Minecraft 1.8.9 ATTACK/USE KeyBinding linkage and
+// incomplete ATTACK -> dependent Block Hit USE interlock, headless Java8.
+task nativeBlockHitAttackUncertaintyProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeBlockHitAttackUncertaintyTests'
+}
+check.dependsOn nativeBlockHitAttackUncertaintyProbe
