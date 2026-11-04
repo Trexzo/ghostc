@@ -35,16 +35,30 @@ public final class TriggerNativeIdentityFence {
             resetState();
             epoch=generation;
         }
-        if(lastTick>=0&&tick<=lastTick)
-            throw new IllegalArgumentException("Trigger native duplicate/backward tick");
+        if(lastTick>=0&&tick<lastTick)
+            throw new IllegalArgumentException("Trigger native backward tick");
+        if(nativeEligible &&
+           (identity==null||id<0||entity==null||currentWorld==null))
+            throw new IllegalArgumentException("Trigger native candidate");
+        if(lastTick==tick) {
+            // A duplicate identical snapshot is a passive observation. A
+            // replacement target or manual/crosshair veto in the SAME tick
+            // invalidates the old candidate without admitting a new one.
+            // The policy's duplicate-tick gate prevents same-frame rearming.
+            boolean identical=nativeEligible && eligible &&
+                identity.equals(uuid) && id==entityId &&
+                entity==player && currentWorld==world;
+            if(identical)return false;
+            boolean changed=eligible;
+            clear();
+            return changed;
+        }
         lastTick=tick;
         if(!nativeEligible) {
             boolean changed=eligible;
             clear();
             return changed;
         }
-        if(identity==null||id<0||entity==null||currentWorld==null)
-            throw new IllegalArgumentException("Trigger native candidate");
         boolean changed=eligible &&
             (!identity.equals(uuid)||id!=entityId||
              entity!=player||currentWorld!=world);

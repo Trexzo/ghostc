@@ -65,8 +65,9 @@ public final class TriggerNativeIdentityTests {
            "new Minecraft session never inherits prior target state");
         ok(!f.permits(1,0,a,42,player,world),
            "old world session not permitted after generation switch");
-        rejects(()->f.observe(2,0,true,a,42,player,world),
-                "same client tick cannot double-advance acquisition");
+        ok(!f.observe(2,0,true,a,42,player,world) &&
+           f.permits(2,0,a,42,player,world),
+           "same identical client tick is a passive observation, not a fault");
         rejects(()->f.observe(2,-1,false,null,-1,null,null),
                 "invalid negative game time");
         rejects(()->f.observe(2,1,true,null,42,player,world),

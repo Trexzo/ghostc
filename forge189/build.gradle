@@ -309,3 +309,13 @@ task nativeProjectileCombatCooldownProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeProjectileCombatCooldownTests'
 }
 check.dependsOn nativeProjectileCombatCooldownProbe
+
+
+// R3.80 original Forge/Minecraft 1.8.9 combat input method linkage
+// and idempotent same-tick TriggerBot/native identity admission.
+task nativeTriggerSameTickProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeTriggerSameTickAdmissionTests'
+}
+check.dependsOn nativeTriggerSameTickProbe

@@ -43,6 +43,14 @@ public final class TriggerBotPolicy {
         }
         if(lastTick>=0&&tick<lastTick)
             throw new IllegalArgumentException("backward triggerbot tick");
+        if(lastTick==tick) {
+            // The same END tick never grants a second ATTACK intent. A
+            // changed candidate, setting or manual-input loss still revokes
+            // the earlier preview; do not erase a completed cooldown.
+            if(!active||target==null||!target.equals(identity)||
+               previousAcquire!=acquireTicks)invalidateCandidate();
+            return false;
+        }
         lastTick=tick;
         readyTick=-1;
         if(!active||target==null) {
