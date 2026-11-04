@@ -613,7 +613,8 @@ public final class ForgeCombatController {
             target==player || target.isDead || target.getHealth()<=0 ||
             target.isInvisible() || !player.canEntityBeSeen(target) ||
             player.getDistanceToEntity(target)>host.triggerRange() ||
-            (host.triggerRequireSword() && !nativeSword(player)))
+            !NativeAttackFrameGate.triggerSwordAtOutput(
+                host.triggerRequireSword(),nativeSword(player)))
             return false;
         // Rendering's objectMouseOver is a cache. Revalidate the actual
         // current camera ray against the target's live native bounding box;
