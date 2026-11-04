@@ -3,13 +3,13 @@ package dev.ghostfusion.ui;
 import java.util.function.ToIntFunction;
 
 /**
- * Read-only compact Slate numeric labels. Prefer the complete source-formatted
+ * Read-only Slate numeric labels in both wide and compact layouts. Prefer the complete source-formatted
  * value, then a complete unitless number. Never paint a partially clipped
  * number as though it were the actual setting. No input or setting mutations.
  */
-public final class GuiSlateCompactNumberReadout {
+public final class GuiSlateNumberReadout {
     private static final String PREFIX="VALUE  ";
-    private GuiSlateCompactNumberReadout() { }
+    private GuiSlateNumberReadout() { }
 
     private static int measured(ToIntFunction<String> font,String text) {
         int pixels=font.applyAsInt(text);

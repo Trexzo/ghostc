@@ -21,7 +21,7 @@ import dev.ghostfusion.ui.GuiSlateChoiceReveal;
 import dev.ghostfusion.ui.GuiSlateCompactMetrics;
 import dev.ghostfusion.ui.GuiSlateCompactModuleScroll;
 import dev.ghostfusion.ui.GuiSlateCompactSettingsScroll;
-import dev.ghostfusion.ui.GuiSlateCompactNumberReadout;
+import dev.ghostfusion.ui.GuiSlateNumberReadout;
 import dev.ghostfusion.ui.GuiSlateModuleCaption;
 import dev.ghostfusion.ui.GuiSlateTypeScale;
 import dev.ghostfusion.ui.GuiSlateSettingsEmptyState;
@@ -447,8 +447,9 @@ public final class GhostClickGui extends GuiScreen {
                 rect(GuiSlateControlGeometry.thumbX(pane,frac),yy+11,4,7,
                     i==keyboardSetting||i==hoveredSetting?
                         color.text:color.secondary);
-                label(trim(GuiSettingPresentation.number(row.getKey(),value.get()),
-                    pane.sliderWidth()),bx,yy+2,color.muted);
+                label(GuiSlateNumberReadout.inline(
+                    row.getKey(),value.get(),pane.sliderWidth(),guiFontWidths),
+                    bx,yy+2,color.muted);
             } else {
                 // A restrained down chevron signals cycle-on-click, while
                 // the fitted choice value cannot collide with the icon.
@@ -476,14 +477,24 @@ public final class GhostClickGui extends GuiScreen {
         // A clipped choice value has no long-form presentation in its narrow
         // clickable column. Reveal it in the existing non-clickable footer,
         // but only when hovering that value's native row and column.
-        if(hoveredSetting>=0 && hoveredSetting<settings.size() &&
-           mx>=pane.choiceValueX() &&
-           mx<pane.choiceValueX()+pane.choiceValueWidth()) {
-            Setting<?> hovered= settings.get(hoveredSetting).getValue();
-            if(hovered instanceof Setting.Choice)
+        if(hoveredSetting>=0 && hoveredSetting<settings.size()) {
+            Map.Entry<String,Setting<?>> hoveredRow=settings.get(hoveredSetting);
+            Setting<?> hovered=hoveredRow.getValue();
+            if(hovered instanceof Setting.Choice &&
+               mx>=pane.choiceValueX() &&
+               mx<pane.choiceValueX()+pane.choiceValueWidth())
                 settingFooter=GuiSlateChoiceReveal.footer(
                     hovered.serialize(),GuiSlateControlGeometry.choiceBudget(pane),
                     pane.detailsWidth-23,guiFontWidths);
+            else if(hovered instanceof Setting.Number &&
+                    mx>=pane.sliderX() && mx<pane.sliderX()+pane.sliderWidth()) {
+                Setting.Number number=(Setting.Number)hovered;
+                String shown=GuiSlateNumberReadout.inline(
+                    hoveredRow.getKey(),number.get(),pane.sliderWidth(),guiFontWidths);
+                settingFooter=GuiSlateNumberReadout.footer(
+                    hoveredRow.getKey(),number.get(),shown,
+                    pane.detailsWidth-23,guiFontWidths);
+            }
         }
         if(settingFooter==null && keyboardSetting>=0 &&
            keyboardSetting<settings.size())
@@ -964,7 +975,7 @@ public final class GhostClickGui extends GuiScreen {
                     rect(thumb,sY+7,4,7,
                         i==keyboardSetting||i==hoveredSetting?
                             settingsTheme.text:settingsTheme.secondary);
-                    label(GuiSlateCompactNumberReadout.inline(
+                    label(GuiSlateNumberReadout.inline(
                         setting.id(),number.get(),36,guiFontWidths),
                         right-barWidth-39,sY+5,settingsTheme.muted);
                 } else {
@@ -1023,9 +1034,9 @@ public final class GhostClickGui extends GuiScreen {
                     mx>=x+w-17-GuiSlateCompactMetrics.barWidth(compactZone)-39 &&
                     mx<x+w-17) {
                 Setting.Number number=(Setting.Number)hovered;
-                String displayed=GuiSlateCompactNumberReadout.inline(
+                String displayed=GuiSlateNumberReadout.inline(
                     number.id(),number.get(),36,guiFontWidths);
-                footer=GuiSlateCompactNumberReadout.footer(
+                footer=GuiSlateNumberReadout.footer(
                     number.id(),number.get(),displayed,
                     GuiFooterText.pixelBudget(w,side),guiFontWidths);
             }
