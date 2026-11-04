@@ -541,7 +541,12 @@ public final class ForgeCombatController {
         if (use != null && BLOCK_ID.equals(use.owner) &&
             host.featureEnabled(BLOCK_ID) &&
             pulseSettlement.admitNative(NativePulseSettlement.Lane.USE,
-                session.generation(),tickWorld,player) && held && sword &&
+                session.generation(),tickWorld,player) &&
+            // ATTACK may have reached Minecraft even if its policy receipt
+            // failed. The absence of extraAttackQueued is NOT proof of no
+            // native pulse; forbid USE on this frame or while unresolved.
+            !pulseSettlement.attackConflictsWithBlockHit(
+                session.generation(),session.tick()) && held && sword &&
             NativeAttackFrameGate.sameFrame(
                 player,mc.thePlayer,tickWorld,mc.theWorld,
                 tickAttackBinding,tickUseBinding,
