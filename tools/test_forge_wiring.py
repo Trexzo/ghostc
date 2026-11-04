@@ -771,7 +771,7 @@ class ForgeWiring(unittest.TestCase):
         tests=content("src/test/java/dev/ghostfusion/tests/GuiSettingPresentationTests.java")
         self.assertIn("pane.settingLabelBudget(kind)",gui)
         self.assertIn("GuiSettingPresentation.label(row.getKey())",gui)
-        self.assertIn("GuiSettingPresentation.number(row.getKey(),value.get())",gui)
+        self.assertIn("row.getKey(),value.get(),pane.sliderWidth(),guiFontWidths",gui)
         self.assertIn("GuiSettingPresentation.choice(setting.serialize())",gui)
         self.assertIn("GuiSlateControlGeometry.choiceBudget(pane)",gui)
         self.assertIn("GuiSlateControlGeometry.choiceTextRight(pane)",gui)
