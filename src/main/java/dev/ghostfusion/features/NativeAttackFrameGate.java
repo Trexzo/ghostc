@@ -52,6 +52,12 @@ public final class NativeAttackFrameGate {
             (hitSelectWasApplied && hitSelectRequiresTarget);
     }
 
+    /** TriggerBot's sword requirement is checked against the LIVE item. */
+    public static boolean triggerSwordAtOutput(boolean required,
+                                               boolean currentlySword) {
+        return !required || currentlySword;
+    }
+
     /** Exact cached crosshair target must remain the live registered object. */
     public static boolean target(Object firstTarget,Object currentCrosshair,
                                  Object registered,Object player,
