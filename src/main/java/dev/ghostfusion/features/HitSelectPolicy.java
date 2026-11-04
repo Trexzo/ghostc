@@ -12,6 +12,11 @@ public final class HitSelectPolicy {
     private final Thread thread = Thread.currentThread();
     private long generation = -1, lastTick = -1, lastAccepted = -1, pendingTick = -1;
     private String lastMode = "normal";
+    // Bind final-output validation to the exact previewed configuration.
+    // A settings edit inside a tick may veto but cannot silently relax a
+    // staged attack or erase a prior completed native cooldown.
+    private int pendingHurtLimit=-1,pendingGap=-1,pendingTradeMin=-1;
+    private String pendingMode;
     private void owner() {
         if (Thread.currentThread() != thread) throw new IllegalStateException("hit-select owner");
     }
@@ -56,15 +61,51 @@ public final class HitSelectPolicy {
         if (lastTick >= 0 && tick < lastTick)
             throw new IllegalArgumentException("non-monotonic tick");
         lastTick = tick;
-        pendingTick = -1;
+        cancelPrepared();
         if (!active || !targetPresent || hurtTime > allowedHurtTime) return false;
         if ("ready".equals(mode) && hurtTime != 0) return false;
         if ("trade".equals(mode) && selfHurtTime < tradeMinSelfHurt) return false;
         if (lastAccepted >= 0 &&
             Long.compareUnsigned(tick-lastAccepted,minimumGapTicks)<0) return false;
         pendingTick=tick;
+        pendingHurtLimit=allowedHurtTime;
+        pendingGap=minimumGapTicks;
+        pendingTradeMin=tradeMinSelfHurt;
+        pendingMode=mode;
         return true;
     }
+    /**
+     * Second, FINAL validation immediately before native KeyBinding output.
+     * It never starts a new preview or commits an attack; only the exact
+     * approved session/tick/configuration can pass. Fresh target hurtTime,
+     * self hurtTime and target presence must STILL satisfy the original
+     * damage-mode constraints. Failure revokes the pending token, while
+     * preserving lastAccepted and the prior real native cooldown.
+     */
+    public boolean confirmPrepared(boolean active,boolean targetPresent,
+                                   int hurtTime,int allowedHurtTime,
+                                   int minimumGapTicks,int selfHurtTime,
+                                   String mode,int tradeMinSelfHurt,
+                                   long tick,long epoch) {
+        owner();
+        boolean valid=pendingTick>=0 && tick>=0 &&
+            tick==pendingTick && tick==lastTick &&
+            epoch>=0 && epoch==generation && pendingMode!=null &&
+            pendingMode.equals(mode) && lastMode.equals(mode) &&
+            allowedHurtTime==pendingHurtLimit &&
+            minimumGapTicks==pendingGap &&
+            tradeMinSelfHurt==pendingTradeMin &&
+            active && targetPresent && hurtTime>=0 &&
+            selfHurtTime>=0 && selfHurtTime<=20 &&
+            hurtTime<=pendingHurtLimit &&
+            (!"ready".equals(pendingMode) || hurtTime==0) &&
+            (!"trade".equals(pendingMode) || selfHurtTime>=pendingTradeMin) &&
+            (lastAccepted<0 ||
+                Long.compareUnsigned(tick-lastAccepted,pendingGap)>=0);
+        if(!valid)cancelPrepared();
+        return valid;
+    }
+
     /** Commit only after a real KeyBinding.onTick returned successfully. */
     public void committed(long tick,long epoch) {
         owner();
@@ -72,16 +113,19 @@ public final class HitSelectPolicy {
            tick!=pendingTick || lastAccepted==tick)
             throw new IllegalStateException("hit-select native dispatch not staged");
         lastAccepted=tick;
-        pendingTick=-1;
+        cancelPrepared();
     }
     /** An arbitrated candidate was denied by the final native safety gate. */
     public void cancelPrepared() {
         owner();
         pendingTick=-1;
+        pendingMode=null;
+        pendingHurtLimit=pendingGap=pendingTradeMin=-1;
     }
     public void reset() {
         owner();
-        generation=-1;lastTick=-1;lastAccepted=-1;pendingTick=-1;
+        generation=-1;lastTick=-1;lastAccepted=-1;
+        cancelPrepared();
         lastMode="normal";
     }
 }
