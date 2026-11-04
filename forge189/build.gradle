@@ -349,3 +349,13 @@ task nativeBlockHitAttackUncertaintyProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeBlockHitAttackUncertaintyTests'
 }
 check.dependsOn nativeBlockHitAttackUncertaintyProbe
+
+
+// R3.84: original Minecraft 1.8.9 native USE KeyBinding linkage and
+// Block Hit event-first, duplicate END-tick and bounded cancel/retry proof.
+task nativeBlockHitEventOwnershipProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeBlockHitEventOwnershipTests'
+}
+check.dependsOn nativeBlockHitEventOwnershipProbe

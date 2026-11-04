@@ -219,6 +219,7 @@ public final class IntegratedModuleCatalogTests {
         NativeAttackOutputRevalidationTests.main(args);
         BlockHitNativeCommitTests.main(args);
         BlockHitAttackUncertaintyTests.main(args);
+        BlockHitEventOwnershipTests.main(args);
         NativePulseSettlementTests.main(args);
         NativePulseRecoveryTests.main(args);
         NativePulseVisibilityTests.main(args);
