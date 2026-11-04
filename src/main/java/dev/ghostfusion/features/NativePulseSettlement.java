@@ -95,6 +95,26 @@ public final class NativePulseSettlement {
         return (phases[0]==Phase.UNCERTAIN?1:0) |
             (phases[1]==Phase.UNCERTAIN?2:0);
     }
+
+    /**
+     * Read-only dependent-USE admission. An attack KeyBinding may already
+     * have returned even when a later policy commit fails; a missing
+     * successful-attack receipt is NOT evidence that no attack happened.
+     *
+     * Block Hit may not issue USE during that attack's native tick, nor
+     * after ATTACK entered an unresolved IN_FLIGHT/RETURNED/UNCERTAIN state.
+     * Only the original world/player session proof can clear uncertainty.
+     * This does not block unrelated manual vanilla use or change the USE
+     * lane's own settlement protocol.
+     */
+    public boolean attackConflictsWithBlockHit(long epoch,long tick) {
+        check();
+        if(epoch<0||tick<0)
+            throw new IllegalArgumentException("block-hit native admission clock");
+        return epoch!=generation ||
+            phases[Lane.ATTACK.ordinal()]!=Phase.IDLE ||
+            lastAttemptTick[Lane.ATTACK.ordinal()]==tick;
+    }
     /** Pure-policy compatibility; cannot clear a native-pinned uncertainty. */
     public boolean admit(Lane lane,long epoch) {
         check();int i=index(lane);clock(epoch);
