@@ -21,6 +21,7 @@ import dev.ghostfusion.ui.GuiSlateChoiceReveal;
 import dev.ghostfusion.ui.GuiSlateCompactMetrics;
 import dev.ghostfusion.ui.GuiSlateCompactModuleScroll;
 import dev.ghostfusion.ui.GuiSlateCompactSettingsScroll;
+import dev.ghostfusion.ui.GuiSlateCompactNumberReadout;
 import dev.ghostfusion.ui.GuiSlateModuleCaption;
 import dev.ghostfusion.ui.GuiSlateTypeScale;
 import dev.ghostfusion.ui.GuiSlateSettingsEmptyState;
@@ -963,7 +964,8 @@ public final class GhostClickGui extends GuiScreen {
                     rect(thumb,sY+7,4,7,
                         i==keyboardSetting||i==hoveredSetting?
                             settingsTheme.text:settingsTheme.secondary);
-                    label(trim(GuiSettingPresentation.number(setting.id(),number.get()),36),
+                    label(GuiSlateCompactNumberReadout.inline(
+                        setting.id(),number.get(),36,guiFontWidths),
                         right-barWidth-39,sY+5,settingsTheme.muted);
                 } else {
                     rect(right-barWidth,sY+7,barWidth,6,palette().barTrack);
@@ -1009,14 +1011,24 @@ public final class GhostClickGui extends GuiScreen {
         // paint keyboard help over the keybind row. Warnings own this footer.
         String footer = null;
         if(slateCompact && hoveredSetting>=0 &&
-           hoveredSetting<settings.size() &&
-           mx>=GuiSlateCompactMetrics.choiceX(compactZone) &&
-           mx<GuiSlateCompactMetrics.choiceArrowX(compactZone)+5) {
+           hoveredSetting<settings.size()) {
             Setting<?> hovered=settings.get(hoveredSetting).getValue();
-            if(hovered instanceof Setting.Choice)
+            if(hovered instanceof Setting.Choice &&
+               mx>=GuiSlateCompactMetrics.choiceX(compactZone) &&
+               mx<GuiSlateCompactMetrics.choiceArrowX(compactZone)+5)
                 footer=GuiSlateChoiceReveal.footer(hovered.serialize(),
                     GuiSlateCompactMetrics.choiceBudget(compactZone),
                     GuiFooterText.pixelBudget(w,side),guiFontWidths);
+            else if(hovered instanceof Setting.Number &&
+                    mx>=x+w-17-GuiSlateCompactMetrics.barWidth(compactZone)-39 &&
+                    mx<x+w-17) {
+                Setting.Number number=(Setting.Number)hovered;
+                String displayed=GuiSlateCompactNumberReadout.inline(
+                    number.id(),number.get(),36,guiFontWidths);
+                footer=GuiSlateCompactNumberReadout.footer(
+                    number.id(),number.get(),displayed,
+                    GuiFooterText.pixelBudget(w,side),guiFontWidths);
+            }
         }
         if (footer==null && keyboardSetting>=0 &&
             available>0 && keyboardSetting<settings.size())

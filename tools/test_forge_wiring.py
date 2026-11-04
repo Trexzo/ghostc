@@ -807,6 +807,21 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("GUI_SETTING_PRESENTATION_PASS",content(".github/workflows/core-ci.yml"))
         self.assertIn("choice labels cannot overlap values",tests)
 
+    def test_slate_compact_numeric_labels_are_complete_and_revealed(self):
+        gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
+        helper=content("src/main/java/dev/ghostfusion/ui/GuiSlateCompactNumberReadout.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/GuiSlateCompactNumberReadoutTests.java")
+        self.assertIn("GuiSlateCompactNumberReadout.inline(",gui)
+        self.assertIn("GuiSlateCompactNumberReadout.footer(",gui)
+        self.assertIn("hovered instanceof Setting.Number",gui)
+        self.assertIn("mx>=GuiSlateCompactMetrics.choiceX(compactZone)",gui)
+        self.assertIn('return "";',helper)
+        self.assertIn("only complete source-formatted or complete numeric content",tests)
+        self.assertIn("GUI_SLATE_COMPACT_NUMBER_READOUT_PASS",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("GuiSlateCompactNumberReadout.class",
+                      content("tools/verify_forge_jar.py"))
+
     def test_slate_three_pane_renders_and_hits_from_one_geometry(self):
         gui=(FORGE/"GhostClickGui.java").read_text(encoding="utf-8")
         policy=content("src/main/java/dev/ghostfusion/ui/GuiSlateWorkspace.java")
