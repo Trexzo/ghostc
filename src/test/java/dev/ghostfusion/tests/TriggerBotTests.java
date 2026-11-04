@@ -29,6 +29,8 @@ public final class TriggerBotTests {
         ok(p.state()==TriggerBotPolicy.State.ACQUIRING,"acquisition state");
         ok(!p.due(1,11,true,a,2,4),"short dwell cannot fire");
         ok(p.due(1,12,true,a,2,4),"stable UUID reaches deadline");
+        ok(!p.due(1,12,true,a,2,4),
+            "duplicate END tick does not grant another TriggerBot intent");
         p.dispatched(1,12,a);
         ok(p.state()==TriggerBotPolicy.State.COOLDOWN,"dispatch owns cooldown");
         ok(!p.due(1,13,true,a,2,4),"native dispatch cooldown");
