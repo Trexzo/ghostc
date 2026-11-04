@@ -207,6 +207,7 @@ public final class IntegratedModuleCatalogTests {
         LiveAcceptanceCoverageTests.main(args);
         TriggerBotTests.main(args);
         AttackCommitTests.main(args);
+        HitSelectNativeDamageTests.main(args);
         AimTriggerHandoffTests.main(args);
         AimTargetSwitchTests.main(args);
         AimNativeIdentityTests.main(args);

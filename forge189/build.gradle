@@ -329,3 +329,13 @@ task nativeAttackOutputRevalidationProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeAttackOutputRevalidationTests'
 }
 check.dependsOn nativeAttackOutputRevalidationProbe
+
+
+// R3.82 genuine Minecraft 1.8.9 EntityLivingBase.hurtTime and native
+// KeyBinding linkage plus final Hit Select damage-preview confirmation.
+task nativeHitSelectDamageProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeHitSelectDamageTests'
+}
+check.dependsOn nativeHitSelectDamageProbe
