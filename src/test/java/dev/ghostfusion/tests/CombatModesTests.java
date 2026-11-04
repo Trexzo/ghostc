@@ -153,6 +153,10 @@ public final class CombatModesTests {
                 boolean gotPost=block(post,"post_attack",selfHurt,extra,tick,1);
                 boolean gotDefensive=block(defensive,"on_damage",selfHurt,extra,tick,1);
                 if(extra) latestAttack=tick;
+                // The latest rise in THIS tick cannot own a native USE
+                // already due from an earlier, still-live damage event.
+                // First-event ownership deliberately ignores newer overlaps.
+                long priorDamage=latestDamage;
                 if(selfHurt>prevHurt && tick>0) latestDamage=tick;
                 if(gotPost) {
                     ok(!extra && latestAttack>=0 &&
@@ -163,9 +167,9 @@ public final class CombatModesTests {
                     lastPost=tick;
                 }
                 if(gotDefensive) {
-                    ok(!extra && latestDamage>=0 &&
-                        tick>latestDamage && tick-latestDamage<=3,
-                        "local-damage event provenance "+seed+"/"+tick);
+                    ok(!extra && priorDamage>=0 &&
+                        tick>priorDamage && tick-priorDamage<=3,
+                        "earlier local-damage event provenance "+seed+"/"+tick);
                     ok(lastDefensive<0 || tick-lastDefensive>=4,
                         "on-damage cooldown "+seed+"/"+tick);
                     lastDefensive=tick;
