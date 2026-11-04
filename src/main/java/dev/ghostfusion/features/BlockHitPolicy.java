@@ -29,6 +29,8 @@ public final class BlockHitPolicy {
             generation=epoch; lastTick=-1; lastPulse=-1;
         }
         if(lastTick>=0 && tick<lastTick) throw new IllegalArgumentException("non-monotonic tick");
+        // A duplicated END callback must not stage a second native USE.
+        if(lastTick==tick)return false;
         lastTick=tick;
         if(!active || !attackHeld || vanillaUseHeld || !swordEquipped ||
             (requireTarget && !targetPresent)) {
@@ -82,6 +84,9 @@ public final class BlockHitPolicy {
         }
         if(lastTick>=0 && tick<lastTick)
             throw new IllegalArgumentException("non-monotonic tick");
+        // First observation for a tick owns damage/event provenance.
+        // Duplicate callbacks cannot repeat a staged or rejected USE.
+        if(lastTick==tick)return false;
         lastTick=tick;
         boolean eligible=active && attackHeld && !vanillaUseHeld &&
             swordEquipped && (!requireTarget || targetPresent);
@@ -101,15 +106,20 @@ public final class BlockHitPolicy {
                 pendingSince=tick;
             return false;
         }
-        if("post_attack".equals(mode) && attackPulseQueued)
-            pendingSince=tick;
-        else if("on_damage".equals(mode) && selfHurtTime>previousSelfHurt &&
-                selfHurtTime>0)
-            pendingSince=tick;
+        // A pending event is owned by its first genuine trigger. Later
+        // ATTACK or rising-damage edges may be observed, but must not
+        // refresh its fixed 3-tick lifetime or create another USE.
+        if(pendingSince>=0 && tick-pendingSince>3)pendingSince=-1;
+        if(pendingSince<0) {
+            if("post_attack".equals(mode) && attackPulseQueued)
+                pendingSince=tick;
+            else if("on_damage".equals(mode) &&
+                    selfHurtTime>previousSelfHurt && selfHurtTime>0)
+                pendingSince=tick;
+        }
         previousSelfHurt=selfHurtTime;
         if(pendingSince<0) return false;
         long age=tick-pendingSince;
-        if(age>3) { pendingSince=-1; return false; }
         if(age==0 || attackPulseQueued) return false;
         if(lastPulse>=0 && tick-lastPulse<intervalTicks) return false;
         pendingSince=-1;
