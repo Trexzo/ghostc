@@ -46,3 +46,34 @@ Leave the smooth font **disabled by default** unless paired screenshots clearly 
 ## 30 October — pre-upload geometry and repeat-fallback optimization
 
 The experimental font now checks actual raster width and baseline-safe vertical placement **before** uploading a texture. A bounded 96-entry, geometry-only negative cache remembers non-fitting glyph runs: a repeat at the same small row dimensions falls back without another Java2D rasterization, while a larger budget can retry normally. Closing the GUI and invalidating the OpenGL texture context clear the denial cache. No text is logged, and the default font path is unchanged. Core randomized admission checks and Forge source contracts cover the ordering; native frame-time and screenshot acceptance still remain outstanding.
+
+## 4 November — offline F2 comparison helper (visual-only)
+
+With real Minecraft still required for native acceptance, a standard-library-only
+`tools/slate_visual_review.py` prepares a **self-contained, local HTML A/B overlay**
+from two already captured F2 PNG screenshots. This does **not** capture screenshots,
+launch Minecraft, modify original PNGs, require third-party fonts, or send files
+to any server. It validates PNG CRCs and the exact pixel dimensions first, embeds
+both images, and adds an opacity slider for inspecting baselines, descenders,
+clipping, widget spacing and HUD previews. Different screenshot resolutions
+are rejected rather than silently resampled.
+
+Use the same screen resolution and GUI Scale for each pair:
+
+```powershell
+python tools/slate_visual_review.py --baseline "control-auto.png" --experimental "smooth-auto.png" --output "slate-auto-review.html"
+```
+
+Repeat for GUI Scale 2 and 3, keeping game state, module settings and capture
+composition as stable as possible. Open each resulting HTML file locally.
+Each page includes the input screenshot SHA-256 hashes and image dimensions.
+PNG inputs are checked as normal 8-bit RGB/RGBA, non-interlaced screenshots
+up to 50 MiB each. This is **only a comparison aid**: it cannot prove in-game
+FPS, OpenGL safety, launch correctness, runtime stability or release readiness.
+The opt-in smooth-font flag and release decision rule above remain unchanged.
+
+The companion `tools/test_slate_visual_review.py` uses generated, synthetic
+PNG fixtures to check image validation, equal-size admission, tampered CRC
+rejection, safe output path handling, HTML escaping and 500 randomized
+dimensions. Core CI runs it without network access or screenshot artifacts.
+
