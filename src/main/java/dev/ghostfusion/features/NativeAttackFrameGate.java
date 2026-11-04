@@ -39,6 +39,25 @@ public final class NativeAttackFrameGate {
         return code!=0 && code!=ReservedKeys.CLICK_GUI;
     }
 
+    /**
+     * Even with AutoClicker's entity-only option OFF, enabling Hit Select's
+     * require-target option makes the exact native target a condition of the
+     * resulting attack. Preview eligibility alone cannot prove that the
+     * crosshair and registered target stayed unchanged until output.
+     */
+    public static boolean requireExactClickTarget(boolean clickEntityOnly,
+                                                   boolean hitSelectWasApplied,
+                                                   boolean hitSelectRequiresTarget) {
+        return clickEntityOnly ||
+            (hitSelectWasApplied && hitSelectRequiresTarget);
+    }
+
+    /** TriggerBot's sword requirement is checked against the LIVE item. */
+    public static boolean triggerSwordAtOutput(boolean required,
+                                               boolean currentlySword) {
+        return !required || currentlySword;
+    }
+
     /** Exact cached crosshair target must remain the live registered object. */
     public static boolean target(Object firstTarget,Object currentCrosshair,
                                  Object registered,Object player,

@@ -124,7 +124,7 @@ public final class ForgeCombatController {
         final boolean safeAttackBinding = triggerEnabled && triggerBindingValid();
         final boolean nativeCrosshair = safeAttackBinding && !physicalDown &&
             !useHeld && !player.isUsingItem() &&
-            triggerTargetValid(player,target,sword);
+            triggerTargetValid(player,target);
         final boolean yieldToTrigger = AimTriggerHandoff.yieldCamera(
             triggerEnabled,physicalDown,useHeld,player.isUsingItem(),
             safeAttackBinding,nativeCrosshair);
@@ -329,7 +329,7 @@ public final class ForgeCombatController {
                 public void run() {
                     boolean eligible = triggerBindingValid() && !physicalDown && !held && !useHeld &&
                         !player.isUsingItem() && !aimAdjusted[0] &&
-                        triggerTargetValid(player,target,sword);
+                        triggerTargetValid(player,target);
                     java.util.UUID uuid = eligible ? target.getUniqueID() : null;
                     // A player may respawn / be re-instantiated with the
                     // SAME UUID or numeric ID while still under crosshair.
@@ -403,7 +403,9 @@ public final class ForgeCombatController {
                 mc.gameSettings.keyBindAttack.isKeyDown(),
                 mc.gameSettings.keyBindUseItem.isKeyDown(),
                 player.isUsingItem()) &&
-            (!host.clickEntityOnly() || NativeAttackFrameGate.target(
+            (!NativeAttackFrameGate.requireExactClickTarget(
+                host.clickEntityOnly(),hitGateUsed,host.hitRequireTarget()) ||
+                NativeAttackFrameGate.target(
                 target,mc.objectMouseOver!=null &&
                     mc.objectMouseOver.typeOfHit==MovingObjectPosition.MovingObjectType.ENTITY
                     ? mc.objectMouseOver.entityHit : null,
@@ -453,7 +455,7 @@ public final class ForgeCombatController {
             triggerIdentity.permits(session.generation(),session.tick(),
                 ((EntityPlayer)target).getUniqueID(),target.getEntityId(),
                 target,mc.theWorld) &&
-            triggerTargetValid(player,target,sword)) {
+            triggerTargetValid(player,target)) {
             host.runFeature(TRIGGER_ID, new Runnable() {
                 public void run() {
                     pulseSettlement.begin(NativePulseSettlement.Lane.ATTACK,
@@ -594,8 +596,14 @@ public final class ForgeCombatController {
     }
 
     /** Fresh crosshair, world, reach and team validation at native boundary. */
+    /** Read the current native hotbar item, not the tick-start sword snapshot. */
+    private static boolean nativeSword(EntityPlayerSP player) {
+        ItemStack held=player.getHeldItem();
+        return held!=null && held.getItem() instanceof ItemSword;
+    }
+
     private boolean triggerTargetValid(EntityPlayerSP player,
-                                       EntityLivingBase target,boolean sword) {
+                                       EntityLivingBase target) {
         if (!(target instanceof EntityPlayer) || mc.theWorld==null ||
             mc.currentScreen!=null || !mc.inGameHasFocus ||
             mc.objectMouseOver==null ||
@@ -605,7 +613,8 @@ public final class ForgeCombatController {
             target==player || target.isDead || target.getHealth()<=0 ||
             target.isInvisible() || !player.canEntityBeSeen(target) ||
             player.getDistanceToEntity(target)>host.triggerRange() ||
-            (host.triggerRequireSword() && !sword))
+            !NativeAttackFrameGate.triggerSwordAtOutput(
+                host.triggerRequireSword(),nativeSword(player)))
             return false;
         // Rendering's objectMouseOver is a cache. Revalidate the actual
         // current camera ray against the target's live native bounding box;

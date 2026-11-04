@@ -319,3 +319,13 @@ task nativeTriggerSameTickProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeTriggerSameTickAdmissionTests'
 }
 check.dependsOn nativeTriggerSameTickProbe
+
+
+// R3.81: actual Minecraft 1.8.9 current held ItemStack and KeyBinding
+// linkage, plus pure final attack-target / sword output admission.
+task nativeAttackOutputRevalidationProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeAttackOutputRevalidationTests'
+}
+check.dependsOn nativeAttackOutputRevalidationProbe
