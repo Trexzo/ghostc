@@ -716,6 +716,17 @@ public final class ForgeCombatController {
         resetNonMouse(true);
     }
 
+    /**
+     * A genuine manual hotbar key/wheel event takes priority over every
+     * optional combat write. Keep only already committed cooldown receipts;
+     * pending Block Hit events, USE stages, attack dwell and camera/keys
+     * are discarded. A separate native ownership conflict still hard resets.
+     */
+    void suspendForManualHotbar() {
+        manualAim.reset();
+        resetNonMouse(true);
+    }
+
     /** Observe actual world identity even while native combat is disabled. */
     int reconcileNativePulseStatus() {
         SessionServices session=host.services();
@@ -754,7 +765,13 @@ public final class ForgeCombatController {
             triggerBot.reset();
         }
         triggerIdentity.reset();
-        blockHit.reset();
+        // Live, same-world hotbar ownership is not a full world/Panic reset.
+        // Do not lose the clock of a completed native Block Hit USE, but never
+        // retain a queued event or pending USE when returning from a rod,
+        // snowball, or manual slot change.
+        if(preserveCooldowns && host.featureEnabled(BLOCK_ID))
+            blockHit.suspendTransient();
+        else blockHit.reset();
         SessionServices session = host.services();
         if (!session.connected()) return;
         session.rotations().cancel(AIM_ID);
