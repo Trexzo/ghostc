@@ -27,13 +27,21 @@ public final class GuiSettingPresentation {
     public static String choice(String raw) {
         return label(raw);
     }
-    /** Whitelisted units only; unknown numeric settings retain their value. */
-    public static String number(String id,double value) {
+    /** Unitless display digits, preserving percentage scaling (1.0 = 100). */
+    public static String numberWithoutSuffix(String id,double value) {
         if(id==null||!Double.isFinite(value))
             throw new IllegalArgumentException("numeric setting display");
-        double rounded=Math.rint(value*100.0)/100.0;
+        boolean percent=id.equals("opacity")||id.equals("fill_opacity")||
+            id.equals("fade_min_opacity");
+        double rounded=percent?Math.rint(value*10000.0)/100.0:
+            Math.rint(value*100.0)/100.0;
         String display=Double.toString(rounded);
         if(display.endsWith(".0"))display=display.substring(0,display.length()-2);
+        return display;
+    }
+    /** Whitelisted units only; unknown numeric settings retain their value. */
+    public static String number(String id,double value) {
+        String display=numberWithoutSuffix(id,value);
         if(id.equals("scale"))return display+"x";
         if(id.equals("cps"))return display+" CPS";
         if(id.equals("fov"))return display+" deg";
@@ -42,10 +50,7 @@ public final class GuiSettingPresentation {
             return display+" ticks";
         if(id.equals("range"))return display+" blocks";
         if(id.equals("opacity")||id.equals("fill_opacity")||
-           id.equals("fade_min_opacity")) {
-            double pct=Math.rint(value*10000.0)/100.0;
-            return Double.toString(pct).replaceAll("\\.0$","")+"%";
-        }
+           id.equals("fade_min_opacity"))return display+"%";
         return display;
     }
 }
