@@ -7,6 +7,11 @@ package dev.ghostfusion.features;
 public final class BlockHitPolicy {
     private final Thread thread=Thread.currentThread();
     private long generation=-1, lastTick=-1, lastPulse=-1;
+    // Only actual Forge KeyBinding.onTick followed by native policy commit
+    // is a trusted cooldown receipt. A first vanilla held-key baseline or
+    // a speculative USE preview is never a native commit.
+    private long lastNativeUse=-1;
+    private boolean rearmAfterSuspend;
     private long pendingSince=-1;
     private int previousSelfHurt;
     private boolean armed;
@@ -27,6 +32,7 @@ public final class BlockHitPolicy {
             throw new IllegalArgumentException("invalid block-hit timing");
         if(epoch!=generation) {
             generation=epoch; lastTick=-1; lastPulse=-1;
+            lastNativeUse=-1;rearmAfterSuspend=false;
         }
         if(lastTick>=0 && tick<lastTick) throw new IllegalArgumentException("non-monotonic tick");
         // A duplicated END callback must not stage a second native USE.
@@ -35,6 +41,16 @@ public final class BlockHitPolicy {
         if(!active || !attackHeld || vanillaUseHeld || !swordEquipped ||
             (requireTarget && !targetPresent)) {
             lastPulse=-1;
+            lastNativeUse=-1;
+            rearmAfterSuspend=false;
+            return false;
+        }
+        // The first eligible END tick after a temporary hotbar owner change
+        // is an input-observation tick. It cannot emit a synthetic USE.
+        // A previous *completed* native cooldown remains authoritative.
+        if(rearmAfterSuspend) {
+            rearmAfterSuspend=false;
+            if(lastPulse<0)lastPulse=tick;
             return false;
         }
         if(lastPulse<0) {
@@ -69,6 +85,8 @@ public final class BlockHitPolicy {
             generation=-1;
             lastTick=-1;
             lastPulse=-1;
+            lastNativeUse=-1;
+            rearmAfterSuspend=false;
             pendingSince=-1;
             previousSelfHurt=0;
             armed=false;
@@ -80,6 +98,7 @@ public final class BlockHitPolicy {
         if(epoch!=generation) {
             generation=epoch;
             lastTick=-1; lastPulse=-1; pendingSince=-1;
+            lastNativeUse=-1; rearmAfterSuspend=false;
             previousSelfHurt=0; armed=false;
         }
         if(lastTick>=0 && tick<lastTick)
@@ -94,11 +113,14 @@ public final class BlockHitPolicy {
             armed=false;
             pendingSince=-1;
             lastPulse=-1;
+            lastNativeUse=-1;
+            rearmAfterSuspend=false;
             previousSelfHurt=selfHurtTime;
             return false;
         }
         if(!armed) {
             armed=true;
+            rearmAfterSuspend=false;
             previousSelfHurt=selfHurtTime;
             // The first held press remains owned by Minecraft, but a
             // newly queued extra attack may arm a future post-attack pulse.
@@ -156,6 +178,9 @@ public final class BlockHitPolicy {
         if(tick<0||epoch<0||stagedTick!=tick||stagedEpoch!=epoch||
             lastTick!=tick||generation!=epoch)
             throw new IllegalStateException("block hit native output not staged");
+        // Exactly this successfully completed native USE owns the persistent
+        // cooldown across a subsequent live projectile/manual slot handoff.
+        lastNativeUse=tick;
         stagedTick=stagedEpoch=-1;
         beforePulse=beforePending=-1;
     }
@@ -175,8 +200,27 @@ public final class BlockHitPolicy {
         beforePulse=beforePending=-1;
     }
 
+    /**
+     * Live projectile/manual hotbar suspension: never retain a pending USE
+     * or damage/post-attack event. Preserve only a PREVIOUSLY COMPLETED
+     * native USE cooldown, not vanilla held-key baselines or speculative
+     * previews. No native key, inventory or camera write is performed.
+     * The first subsequently eligible END frame observes fresh input rather
+     * than dispatching a USE, after which original cadence still applies.
+     */
+    public void suspendTransient() {
+        owner();
+        cancelPrepared();
+        lastPulse=lastNativeUse;
+        pendingSince=-1;
+        previousSelfHurt=0;
+        armed=false;
+        rearmAfterSuspend=true;
+    }
+
     public void reset() {
         owner(); generation=-1; lastTick=-1; lastPulse=-1;
+        lastNativeUse=-1;rearmAfterSuspend=false;
         pendingSince=-1; previousSelfHurt=0; armed=false; lastMode="interval";
         stagedTick=stagedEpoch=-1; beforePulse=beforePending=-1;
     }
