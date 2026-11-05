@@ -29,7 +29,7 @@ class VisualReviewTests(unittest.TestCase):
     def test_dimensions_and_safe_embedded_comparison(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
-            baseline = root / "baseline<script>.png"
+            baseline = root / "baseline&quote'.png"
             experimental = root / "experimental.png"
             output = root / "review.html"
             original = png(12, 8)
@@ -42,8 +42,8 @@ class VisualReviewTests(unittest.TestCase):
             self.assertIn('id="experiment"', page)
             self.assertIn('type="range"', page)
             self.assertIn("12 × 8", page)
-            self.assertIn("&lt;script&gt;", page)
-            self.assertNotIn("baseline<script>.png", page)
+            self.assertIn("baseline&amp;quote&#x27;.png", page)
+            self.assertNotIn("baseline&quote'.png", page)
             self.assertIn(hashlib.sha256(original).hexdigest(), page)
             self.assertIn("data:image/png;base64,", page)
             self.assertIn("no internet connection required", page)
