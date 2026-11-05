@@ -23,8 +23,8 @@ public final class GuiSlateNumberReadout {
             throw new IllegalArgumentException("Slate numeric label");
         String full=GuiSettingPresentation.number(id,value);
         if(measured(font,full)<=budget)return full;
-        // Same rounded numeric source as the full native formatter.
-        String plain=GuiSettingPresentation.number("value",value);
+        // Remove only the unit suffix, retaining the displayed percentage scale.
+        String plain=GuiSettingPresentation.numberWithoutSuffix(id,value);
         if(measured(font,plain)<=budget)return plain;
         return "";
     }
