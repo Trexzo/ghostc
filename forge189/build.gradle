@@ -359,3 +359,13 @@ task nativeBlockHitEventOwnershipProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeBlockHitEventOwnershipTests'
 }
 check.dependsOn nativeBlockHitEventOwnershipProbe
+
+
+// R3.85: native Minecraft 1.8.9 USE KeyBinding linkage and Block Hit
+// cooldown preservation across exclusive projectile/manual hotbar frames.
+task nativeBlockHitTransientSuspensionProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeBlockHitTransientSuspensionTests'
+}
+check.dependsOn nativeBlockHitTransientSuspensionProbe

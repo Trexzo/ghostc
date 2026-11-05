@@ -1,0 +1,25 @@
+# GhostC R3.85 — Block Hit safe temporary hotbar suspension
+
+Parent: Core/Forge CI-verified R3.84 stacked combat draft PR #222 at `a2510d272189e956e9456d9d0f51252fbe463ae1`. Combat-only stacked draft; no merge, release, installation, Minecraft launch, user default change, new packet or visual branch change.
+
+## Source-audited behavior
+
+`ForgeEventAdapter` reserves the whole native frame from AutoRod / AutoSnowball (including SELECT/USE/RESTORE) and consumes actual manual hotbar number-key/wheel events before any combat write. When projectile owns the frame, the adapter calls `ForgeCombatController.suspendForProjectile`. That method already differentiates temporary handoff from full teardown for TriggerBot and Hit Select: it clears pending intents and target dwell while preserving their actual completed cooldown receipts. However `resetNonMouse(true)` still called `blockHit.reset()`, erasing the committed native USE clock, last event provenance and baseline unconditionally. An otherwise live same-world projectile transition could therefore lose a **real** Block Hit cooldown rather than merely canceling unsafe pending input.
+
+For real manual hotbar events, the adapter went directly to `combat.reset()`; this likewise discarded all completed receipts (including TriggerBot and Hit Select). A human hotbar event should still veto optional output for that frame and discard all pending events, but it does not by itself prove world/focus teardown.
+
+## R3.85 implementation
+
+- `BlockHitPolicy` now records `lastNativeUse` only in `committed(tick, epoch)` after a successfully completed **original Minecraft KeyBinding.onTick**. The first vanilla held-key baseline, an uncommitted preview, a canceled USE and a previous session are never treated as native cooldown receipts. Mode changes, loss of physical eligibility, new world epochs and explicit `reset()` invalidate that receipt as before.
+- New owner-thread `suspendTransient()` calls `cancelPrepared()`, discards speculative native USE and any `on_damage` or `post_attack` pending event, clears damage baseline and event arming, and restores `lastPulse` to **only the last committed native USE**. It marks the next eligible frame for passive observation: interval mode does not immediately emit USE and if no genuine commit existed, it seeds a fresh vanilla interval baseline. Event modes reacquire a new legitimate attack or new rising hurt edge after the first input observation. The pre-suspension pending event cannot replay.
+- `ForgeCombatController.resetNonMouse(true)` retains its existing Clicker scheduler, Aim lock/switch, key rearm, TriggerBot/Hit Select pending-intent and camera cleanup. It now calls `blockHit.suspendTransient()` only for live eligible Block Hit. Disabled Block Hit and any full reset still call `blockHit.reset()`, dropping every receipt and pending action. Persistent native ATTACK/USE uncertainty settlement is untouched.
+- New `ForgeCombatController.suspendForManualHotbar()` applies the same no-write pending-intent teardown, resetting manual camera input while preserving **completed** module receipts. `ForgeEventAdapter` chooses it for actual manual hotbar input when combat is otherwise enabled and the projectile owner state is not conflicting; it continues to hard-reset for native owner conflict, GUI/Panic/disabled combat, lost world/focus or unrelated lifecycle events. Genuine manual slot input still prevents ANY optional projectile or combat write on that frame.
+- Nothing writes a new key or packet. There is no synthetic cooldown added beyond existing native receipts, no queued replay of old damage/post-attack, and no change to interval, event expiry, slot priority, WTap, AutoClicker / TriggerBot arbitration, native pulse settlement, or user configuration.
+
+## Test evidence and limitations
+
+`BlockHitTransientSuspensionTests` covers exact completed and never-completed interval receipts; speculative pending USE dropped by a projectile; post-attack and on-damage pending event removal and fresh rearming; confirmed USE cooldown through multiple suspend ticks; manual hotbar veto and rod/snowball ownership; hard reset on world change; duplicate output denial and foreign-thread rejection. A 90,000-case seeded trace varies `interval`, `post_attack`, `on_damage`, original gap, actually committed vs uncommitted USE, and suspension duration. It compares earliest allowed output and event expiration with independent cooldown/event oracles.
+
+Mandatory original Minecraft 1.8.9 Java8 `NativeBlockHitTransientSuspensionTests` checks `KeyBinding.onTick` linkage, rod/snowball class presence, native Forge controller method signatures and exact live suspension/rearm. This is **headless**: it cannot establish Minecraft runtime gameplay or PvP/server hit acceptance. Python source-wiring tests assert the actual adapter manual/projectile branches, transient vs full teardown, and no new key or packet output. Mandatory Forge `check` includes the native test.
+
+Require exact-head Core Java17/21, Forge Linux/Windows Java8 compile/reobfuscation, Windows downloaded-artifact prepare/rollback acceptance. PR stays draft and unmerged.
