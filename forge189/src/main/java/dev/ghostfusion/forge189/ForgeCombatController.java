@@ -9,6 +9,7 @@ import dev.ghostfusion.features.FixedClickScheduler;
 import dev.ghostfusion.features.PatternClickScheduler;
 import dev.ghostfusion.features.HitSelectPolicy;
 import dev.ghostfusion.features.BlockHitPolicy;
+import dev.ghostfusion.features.CombatLifecycleFence;
 import dev.ghostfusion.features.PhysicalInputGate;
 import dev.ghostfusion.features.LiveCombatTargetGate;
 import dev.ghostfusion.features.NativeAttackFrameGate;
@@ -65,6 +66,7 @@ public final class ForgeCombatController {
     private final BlockHitPolicy blockHit = new BlockHitPolicy();
     private final PhysicalInputGate physicalInput = new PhysicalInputGate();
     private final NativePulseSettlement pulseSettlement = new NativePulseSettlement();
+    private final CombatLifecycleFence moduleLifecycle = new CombatLifecycleFence();
 
     ForgeCombatController(Minecraft mc, HostRuntime host) {
         if (mc == null || host == null) throw new IllegalArgumentException("null bridge dependency");
@@ -74,6 +76,7 @@ public final class ForgeCombatController {
 
     void tick() {
         final SessionServices session = host.services();
+        syncModuleLifecycle();
         final EntityPlayerSP player = mc.thePlayer;
         final Object tickWorld = mc.theWorld;
         if (player == null || mc.theWorld == null || !session.connected() ||
@@ -698,6 +701,7 @@ public final class ForgeCombatController {
      * focused, GUI-free projectile frame.
      */
     void suspendForProjectile() {
+        syncModuleLifecycle();
         final SessionServices session=host.services();
         if(host.featureEnabled(AIM_ID) && host.aimRespectMouse() &&
            session.connected() && mc.thePlayer!=null && mc.theWorld!=null &&
@@ -723,8 +727,46 @@ public final class ForgeCombatController {
      * are discarded. A separate native ownership conflict still hard resets.
      */
     void suspendForManualHotbar() {
+        syncModuleLifecycle();
         manualAim.reset();
         resetNonMouse(true);
+    }
+
+    /**
+     * OFF->ON through a GUI/hotkey can complete between consecutive Forge
+     * END ticks. Revoked policy state is observed before new native intent.
+     * Never clear NativePulseSettlement: its uncertain output remains fenced.
+     */
+    private void syncModuleLifecycle() {
+        SessionServices session=host.services();
+        int changed=moduleLifecycle.observe(session.generation(),
+            host.modules().get(AIM_ID).lifecycleRevision(),
+            host.modules().get(CLICK_ID).lifecycleRevision(),
+            host.modules().get(TRIGGER_ID).lifecycleRevision(),
+            host.modules().get(HIT_ID).lifecycleRevision(),
+            host.modules().get(BLOCK_ID).lifecycleRevision());
+        if((changed&CombatLifecycleFence.AIM)!=0) {
+            aimLock.reset();
+            aimSwitch.reset();
+            manualAim.reset();
+            session.rotations().cancel(AIM_ID);
+        }
+        if((changed&CombatLifecycleFence.CLICK)!=0) {
+            scheduler.reset();
+            patternScheduler.reset();
+            physicalInput.reset();
+            session.actions().cancelOwner(CLICK_ID);
+        }
+        if((changed&CombatLifecycleFence.TRIGGER)!=0) {
+            triggerBot.reset();
+            triggerIdentity.reset();
+            session.actions().cancelOwner(TRIGGER_ID);
+        }
+        if((changed&CombatLifecycleFence.HIT)!=0)hitSelect.reset();
+        if((changed&CombatLifecycleFence.BLOCK)!=0) {
+            blockHit.reset();
+            session.actions().cancelOwner(BLOCK_ID);
+        }
     }
 
     /** Observe actual world identity even while native combat is disabled. */
@@ -741,6 +783,7 @@ public final class ForgeCombatController {
 
     /** Clears timers and all pending owned intents on world or focus change. */
     void reset() {
+        moduleLifecycle.reset();
         manualAim.reset();
         resetNonMouse(false);
     }

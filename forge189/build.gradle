@@ -369,3 +369,13 @@ task nativeBlockHitTransientSuspensionProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeBlockHitTransientSuspensionTests'
 }
 check.dependsOn nativeBlockHitTransientSuspensionProbe
+
+
+// R3.86 native Minecraft 1.8.9 attack/use linkage, plus inter-tick
+// module toggles, fault/Panic lifecycle receipts and strict world reset.
+task nativeCombatLifecycleRevisionProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeCombatLifecycleRevisionTests'
+}
+check.dependsOn nativeCombatLifecycleRevisionProbe
