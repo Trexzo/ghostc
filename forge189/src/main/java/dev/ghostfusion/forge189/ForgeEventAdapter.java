@@ -416,6 +416,11 @@ public final class ForgeEventAdapter {
         final boolean combatCalled=plan.combat && !projectileFrameReserved &&
             !manualSlotEvent && !projectileConflict;
         if(combatCalled)combat.tick();
+        else if(plan.combat && manualSlotEvent && !projectileConflict)
+            // An actual player slot key/wheel vetoes ALL native combat
+            // output for this END frame, while preserving only completed
+            // cooldowns. Never carry a pending Block Hit USE across slots.
+            combat.suspendForManualHotbar();
         else if(plan.combat && projectileFrameReserved &&
                 !manualSlotEvent && !projectileConflict)
             combat.suspendForProjectile();
