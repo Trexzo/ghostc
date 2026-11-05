@@ -29,6 +29,18 @@ public final class GuiSlateNumberReadoutTests {
             "range",4.5,"4.5",180,six)),"wide footer also reveals full units");
         ok("82%".equals(GuiSlateNumberReadout.inline(
             "opacity",0.82,36,six)),"short meaningful unit is preserved");
+        ok("100".equals(GuiSlateNumberReadout.inline(
+            "opacity",1.0,18,six)),
+            "100 percent must not become raw one without its suffix");
+        ok("82".equals(GuiSlateNumberReadout.inline(
+            "opacity",0.82,12,six)),
+            "displayed 82 percent must retain percent magnitude");
+        ok("12.5".equals(GuiSlateNumberReadout.inline(
+            "fade_min_opacity",0.125,24,six)),
+            "fractional percentage remains truthful when units do not fit");
+        ok("VALUE  100%".equals(GuiSlateNumberReadout.footer(
+            "opacity",1.0,"100",180,six)),
+            "hover recovers the full percentage with units");
         ok("".equals(GuiSlateNumberReadout.inline(
             "range",4.5,2,six)),"never present a misleading partial number");
         ok("VALUE  4.5 blocks".equals(GuiSlateNumberReadout.footer(
@@ -57,7 +69,7 @@ public final class GuiSlateNumberReadoutTests {
         Random random=new Random(2026110403L);
         String[] ids={"range","scale","cps","fov","opacity",
             "interval_ticks","min_gap_ticks","degrees_per_tick",
-            "fill_opacity","red"};
+            "fill_opacity","fade_min_opacity","red"};
         for(int i=0;i<50000;i++) {
             String id=ids[random.nextInt(ids.length)];
             double value=(random.nextInt(50001)-25000)/100.0;
@@ -65,7 +77,7 @@ public final class GuiSlateNumberReadoutTests {
             int footerBudget=random.nextInt(270);
             ToIntFunction<String> font=s->s.codePointCount(0,s.length())*glyph;
             String full=GuiSettingPresentation.number(id,value);
-            String plain=GuiSettingPresentation.number("value",value);
+            String plain=GuiSettingPresentation.numberWithoutSuffix(id,value);
             String shown=GuiSlateNumberReadout.inline(
                 id,value,budget,font);
             ok(shown.equals(full)||shown.equals(plain)||shown.isEmpty(),
