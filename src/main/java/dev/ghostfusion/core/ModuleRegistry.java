@@ -19,6 +19,7 @@ public final class ModuleRegistry {
         private final int defaultKeybind;
         private String lastFault = "";
         private boolean transitioning;
+        private long lifecycleRevision;
         private Entry(GhostModule module, int defaultKey) {
             this.module = module;
             this.defaultKeybind = defaultKey;
@@ -30,6 +31,7 @@ public final class ModuleRegistry {
         /** Immutable registration baseline, unaffected by profile loads or GUI rebinds. */
         public int defaultKeybind() { return defaultKeybind; }
         public String lastFault() { return lastFault; }
+        public long lifecycleRevision() { return lifecycleRevision; }
         public Map<String, Setting<?>> settings() { return Collections.unmodifiableMap(settings); }
     }
     private final Thread owner = Thread.currentThread();
@@ -44,8 +46,13 @@ public final class ModuleRegistry {
     private int lifecycleCallbacks;
     private void beginLifecycle(Entry e) {
         if (e.transitioning) throw new IllegalStateException("Recursive module lifecycle: " + e.module.id());
+        bumpLifecycle(e);
         e.transitioning = true;
         lifecycleCallbacks++;
+    }
+    private void bumpLifecycle(Entry e) {
+        if(e.lifecycleRevision==Long.MAX_VALUE)throw new IllegalStateException("module revision overflow");
+        e.lifecycleRevision++;
     }
     private void endLifecycle(Entry e) {
         e.transitioning = false;
@@ -129,7 +136,7 @@ public final class ModuleRegistry {
                     // onDisable was already invoked; never invoke it twice.
                     catch (Throwable ex) { fault(e, ex, false); }
                 } finally { endLifecycle(e); }
-            } else if (e.state == State.FAULTED) { e.state = State.DISABLED; e.lastFault = ""; }
+            } else if (e.state == State.FAULTED) { bumpLifecycle(e); e.state = State.DISABLED; e.lastFault = ""; }
         }
     }
     /**
