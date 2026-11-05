@@ -198,9 +198,12 @@ public final class CombatLifecycleRevisionTests {
         ok(epochs>90&&actualChanges>90000&&sameStateCycles>10000,
             "rapid toggles, Panic-like fanout and session epochs covered");
 
+        final long stableEpoch=epoch;
+        final long[] stableRevisions=rev.clone();
         AtomicBoolean rejected=new AtomicBoolean();
         Thread foreign=new Thread(()->{
-            try{f.observe(epoch+1,rev[0],rev[1],rev[2],rev[3],rev[4]);}
+            try{f.observe(stableEpoch+1,stableRevisions[0],stableRevisions[1],
+                stableRevisions[2],stableRevisions[3],stableRevisions[4]);}
             catch(IllegalStateException expected){rejected.set(true);}
         });
         foreign.start();foreign.join();
@@ -208,7 +211,9 @@ public final class CombatLifecycleRevisionTests {
         f.reset();
         ok(observe(f,epoch+1,rev)==CombatLifecycleFence.ALL,
             "explicit full reset restarts independent native admission");
-        ok(denied(()->f.observe(epoch,rev[0],rev[1],rev[2],rev[3],rev[4])),
+        ok(denied(()->f.observe(stableEpoch,stableRevisions[0],
+            stableRevisions[1],stableRevisions[2],stableRevisions[3],
+            stableRevisions[4])),
             "backward generation is rejected before policy mutation");
     }
     public static void main(String[] args) throws Exception {
