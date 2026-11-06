@@ -415,18 +415,23 @@ public final class ForgeEventAdapter {
             prior,rodOwns,snowballOwns);
         final boolean combatCalled=plan.combat && !projectileFrameReserved &&
             !manualSlotEvent && !projectileConflict;
-        if(combatCalled)combat.tick();
-        else if(plan.combat && manualSlotEvent && !projectileConflict)
-            // An actual player slot key/wheel vetoes ALL native combat
-            // output for this END frame, while preserving only completed
-            // cooldowns. Never carry a pending Block Hit USE across slots.
-            combat.suspendForManualHotbar();
-        else if(plan.combat && projectileFrameReserved &&
-                !manualSlotEvent && !projectileConflict)
-            combat.suspendForProjectile();
-        else combat.reset();
-        // Reflect a partial native output on the frame it was quarantined.
-        host.nativePulseStatus(combat.nativePulseUncertainMask());
+        // Publish the native quarantine even when combat or suspension throws.
+        // A failed tick must not leave yesterday's warning on this frame.
+        // Never catch/suppress the original exception or rearm either lane.
+        try {
+            if(combatCalled)combat.tick();
+            else if(plan.combat && manualSlotEvent && !projectileConflict)
+                // An actual player slot key/wheel vetoes ALL native combat
+                // output for this END frame, while preserving only completed
+                // cooldowns. Never carry a pending Block Hit USE across slots.
+                combat.suspendForManualHotbar();
+            else if(plan.combat && projectileFrameReserved &&
+                    !manualSlotEvent && !projectileConflict)
+                combat.suspendForProjectile();
+            else combat.reset();
+        } finally {
+            host.nativePulseStatus(combat.nativePulseUncertainMask());
+        }
 
         if(checkCombatFrame) {
             final boolean clickWrite=host.nativeActionCount(
