@@ -389,3 +389,13 @@ task nativeCombatFrameFaultProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeCombatFrameFaultTests'
 }
 check.dependsOn nativeCombatFrameFaultProbe
+
+
+// R3.89: original MC Java8 KeyBinding is left untouched by combat-only
+// emergency cleanup; peer inventory actions remain independently admitted.
+task nativeCombatFaultPeerProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeCombatFaultPeerTests'
+}
+check.dependsOn nativeCombatFaultPeerProbe
