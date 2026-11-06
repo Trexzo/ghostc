@@ -943,6 +943,18 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("dev.ghostfusion.tests.HudTextFitTests",
                       content(".github/workflows/core-ci.yml"))
 
+    def test_clickgui_preserves_gl_texture_binding_cache_consistency(self):
+        gui=content("forge189/src/main/java/dev/ghostfusion/forge189/GhostClickGui.java")
+        guard=content("forge189/src/main/java/dev/ghostfusion/forge189/RenderStateGuard.java")
+        self.assertIn("RenderStateGuard.drawGui(new Runnable()",gui)
+        self.assertNotIn("RenderStateGuard.draw(new Runnable()",gui)
+        self.assertIn("drawScoped(action,GL11.GL_TRANSFORM_BIT);",guard)
+        self.assertIn("drawScoped(action,GL11.GL_ALL_ATTRIB_BITS);",guard)
+        self.assertIn("GL11.glPushAttrib(attributes);",guard)
+        self.assertIn("GL11.glPopAttrib();",guard)
+        self.assertIn("GL11.glPushMatrix();",guard)
+        self.assertIn("GL11.glPopMatrix();",guard)
+
     def test_separate_gl_guard_scopes_and_matrix_restoration(self):
         self.assertIn("GL11.GL_ALL_ATTRIB_BITS",self.gl)
         self.assertIn("GL11.GL_PROJECTION",self.gl)
@@ -1845,7 +1857,8 @@ class ForgeWiring(unittest.TestCase):
         self.assertLess(esp.index("GL11.glBegin(GL11.GL_QUADS);"),
                         esp.index("if(boxes) wireBox(box);"))
         self.assertIn("finally { GL11.glEnd(); }",esp)
-        self.assertIn("GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS)",guard)
+        self.assertIn("drawScoped(action,GL11.GL_ALL_ATTRIB_BITS);",guard)
+        self.assertIn("GL11.glPushAttrib(attributes);",guard)
         self.assertIn("if(!valid(minX,minY,minZ,maxX,maxY,maxZ))return false;",surface)
         self.assertIn('FILLED_BOX("filled_box"',mode)
         self.assertIn('FILLED_SKELETON("filled_skeleton"',mode)

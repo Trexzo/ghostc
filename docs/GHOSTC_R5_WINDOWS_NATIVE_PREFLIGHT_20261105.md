@@ -27,3 +27,11 @@ Scope: **visual PR #181 only**. Source branch `feature/ghostc-r5-slate-polish-20
 - No signed/release-ready native artifact, full gameplay soak or merge approval is implied.
 
 The normal Minecraft installation, launcher profiles, and existing mods were **not modified** during this isolated preflight. For visual evidence, use the existing `docs/SLATE_SMOOTH_FONT_NATIVE_ACCEPTANCE_R5.md` checklist and `tools/slate_visual_review.py` with original Minecraft F2 screenshots. Keep PR #181 draft and do not change the parallel combat branch.
+
+## 6 November — reproduced native ClickGUI glyph corruption and scoped guard fix
+
+A genuine Minecraft 1.8.9 visual review exposed severe colored atlas fragments instead of readable module/setting labels, even with the optional smooth font disabled. Source inspection isolated the original `RenderStateGuard.draw` wrapper around the entire `GhostClickGui.drawScreen`: its `GL_ALL_ATTRIB_BITS` pushes and restores `GL_TEXTURE_BIT`, potentially desynchronizing OpenGL's actual texture binding from Minecraft's `GlStateManager` binding cache. A locally compiled diagnostic build that skipped this GUI wrapper rendered the native text normally, without changing the font or layout.
+
+The production fix uses `RenderStateGuard.drawGui` with `GL_TRANSFORM_BIT`: it still protects projection/modelview matrices and caller matrix mode, but leaves Minecraft's font/texture binding state under its native managers. `RenderStateGuard.draw` retains full-attribute restoration for non-GUI callbacks. Added a Forge wiring contract that explicitly rejects returning to the old full-attribute GUI wrapper. No game logic, profile serialization, input capture, combat path, or default font flags changed.
+
+**Verification boundary:** diagnostic native screenshot establishes the full GUI guard as the source of corrupted glyphs; the scoped implementation compiled and loaded into an isolated Forge client/world, but a second pixel-perfect F7 screenshot of the scoped variant was not obtained before the test session closed. No FPS or long-session GL safety certification is implied. Continue native GUI-scale A/B acceptance before release.

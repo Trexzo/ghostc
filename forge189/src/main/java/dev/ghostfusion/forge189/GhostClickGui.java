@@ -585,7 +585,7 @@ public final class GhostClickGui extends GuiScreen {
             search.updateCursorCounter();
             ui.query(search.getText());
         }
-        RenderStateGuard.draw(new Runnable() {
+        RenderStateGuard.drawGui(new Runnable() {
             public void run() { drawUi(mx, my); }
         });
     }
