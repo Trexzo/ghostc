@@ -263,6 +263,7 @@ public final class HostRuntime {
     private boolean profileLoadFailed, uiLoadFailed;
     private String diagnosticsWarning = "";
     private int nativePulseUncertainMask;
+    private boolean combatDispatchQuarantined;
  
     public HostRuntime(Path configDirectory) {
         if (configDirectory == null) throw new IllegalArgumentException("configDirectory");
@@ -449,6 +450,21 @@ public final class HostRuntime {
             return "Combat USE paused: uncertain native output";
         return "";
     }
+    /** Independent shared-combat frame fault; no exception details retained. */
+    public void combatDispatchStatus(boolean quarantined) {
+        modules.assertOwnerThread();
+        if(combatDispatchQuarantined==quarantined)return;
+        combatDispatchQuarantined=quarantined;
+        if(diagnosticsEnabled())
+            diagnostics.record(quarantined ? Counter.COMBAT_DISPATCH_FAULT :
+                Counter.COMBAT_DISPATCH_RECOVERED);
+    }
+    public String combatDispatchWarning() {
+        modules.assertOwnerThread();
+        return combatDispatchQuarantined ?
+            "Combat paused: shared controller fault (new world required)" : "";
+    }
+
     /** Visual/sprint callbacks are isolated per module; a failing module is disabled and persisted. */
     public boolean runFeature(String id, Runnable callback) {
         // onDisable callbacks run before closed becomes true. Never execute

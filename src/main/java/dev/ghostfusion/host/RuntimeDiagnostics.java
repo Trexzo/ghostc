@@ -53,6 +53,8 @@ public final class RuntimeDiagnostics {
         COMBAT_NATIVE_ATTACK_CALLBACK,
         COMBAT_PULSE_ATTACK_UNCERTAIN, COMBAT_PULSE_USE_UNCERTAIN,
         COMBAT_PULSE_RECOVERED,
+        // R3.88: opt-in shared-frame quarantine transitions, never per-frame.
+        COMBAT_DISPATCH_FAULT, COMBAT_DISPATCH_RECOVERED,
         // R3.75: opt-in HUD warning fault edges, not native action state.
         COMBAT_WARNING_DRAW_FAILED, COMBAT_WARNING_DRAW_RECOVERED,
         // R3.65: opt-in same-frame native-write checks, NOT PvP hit/ACK.

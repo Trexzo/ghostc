@@ -379,3 +379,13 @@ task nativeCombatLifecycleRevisionProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeCombatLifecycleRevisionTests'
 }
 check.dependsOn nativeCombatLifecycleRevisionProbe
+
+
+// R3.88: original Minecraft/Forge Java8 END-tick linkage and independent
+// native ATTACK quarantine under a shared combat-frame runtime fault.
+task nativeCombatFrameFaultProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeCombatFrameFaultTests'
+}
+check.dependsOn nativeCombatFrameFaultProbe
