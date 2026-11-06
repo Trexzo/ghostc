@@ -106,9 +106,10 @@ public final class CombatFaultPeerContinuityTests {
         // by an untrusted callback. It cannot run another thread's reset.
         HostRuntime foreign=new HostRuntime(Files.createTempDirectory("ghostc-r389-owner-"));
         foreign.worldPresence(true);
+        final SessionServices foreignSession=foreign.services();
         AtomicBoolean denied=new AtomicBoolean(),ran=new AtomicBoolean();
         Thread t=new Thread(()->{
-            try {CombatFaultCleanup.contain(foreign.services(),()->ran.set(true));}
+            try {CombatFaultCleanup.contain(foreignSession,()->ran.set(true));}
             catch(IllegalStateException expected){denied.set(true);}
         });
         t.start();t.join();
