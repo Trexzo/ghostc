@@ -1593,6 +1593,46 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("check.dependsOn nativePulseRecoveryProbe",gradle)
         self.assertNotIn("KeyBinding.onTick(",gate)
 
+    def test_r389_quarantined_combat_never_enters_live_suspension(self):
+        adapter=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeEventAdapter.java")
+        cleanup=content("src/main/java/dev/ghostfusion/features/CombatFaultCleanup.java")
+        core=content("src/test/java/dev/ghostfusion/tests/CombatFaultPeerContinuityTests.java")
+        native=content("forge189/src/test/java/dev/ghostfusion/forge189/NativeCombatFaultPeerTests.java")
+        catalog=content("src/test/java/dev/ghostfusion/tests/IntegratedModuleCatalogTests.java")
+        gradle=content("forge189/build.gradle")
+        start=adapter.index("final boolean combatCalled=plan.combat &&")
+        end=adapter.index("if(checkCombatFrame) {",start)
+        dispatch=adapter[start:end]
+        self.assertIn("if(combatCalled)combat.tick();",dispatch)
+        self.assertIn("else if(!combatFrameAdmitted)combat.reset();",dispatch)
+        self.assertLess(dispatch.index("else if(!combatFrameAdmitted)combat.reset();"),
+                        dispatch.index("else if(plan.combat && manualSlotEvent && !projectileConflict)"))
+        self.assertLess(dispatch.index("else if(!combatFrameAdmitted)combat.reset();"),
+                        dispatch.index("else if(plan.combat && projectileFrameReserved &&"))
+        self.assertIn("combatFrameFault.quarantine();",dispatch)
+        self.assertIn("CombatFaultCleanup.contain(host.services(),new Runnable() {",dispatch)
+        self.assertIn("host.nativePulseStatus(combat.nativePulseUncertainMask());",dispatch)
+        self.assertIn("host.combatDispatchStatus(combatFrameFault.quarantined());",dispatch)
+        for path in ("if(plan.bridge)bridge.tick();else bridge.reset();",
+                     "if(plan.velocity)verticalMotionOwned=velocity.tick();",
+                     "if(plan.wtap)wtap.tick();else wtap.reset();",
+                     "if(plan.chestStealer)chestStealer.tick();else chestStealer.reset();",
+                     "if(plan.inventoryManager)inventoryManager.tick();else inventoryManager.reset();",
+                     "if(plan.autoArmor)autoArmor.tick();else autoArmor.reset();"):
+            self.assertLess(adapter.index("host.combatDispatchStatus(combatFrameFault.quarantined());"),
+                            adapter.index(path))
+        self.assertIn('session.rotations().cancel("combat.aimassist");',cleanup)
+        for owner in ("combat.clicker","combat.triggerbot","combat.blockhit"):
+            self.assertIn('session.actions().cancelOwner("'+owner+'");',cleanup)
+        self.assertNotIn("session.actions().reset()",cleanup)
+        self.assertNotIn("session.rotations().clear()",cleanup)
+        self.assertNotIn('"inventory.autoarmor"',cleanup)
+        self.assertNotIn('"movement.bridgeassist"',cleanup)
+        self.assertIn("CombatFaultPeerContinuityTests.main(args);",catalog)
+        self.assertIn("for(int i=0;i<12000;i++)",core)
+        self.assertIn("NATIVE_COMBAT_FAULT_PEER_PASS",native)
+        self.assertIn("check.dependsOn nativeCombatFaultPeerProbe",gradle)
+
     def test_r388_shared_combat_frame_fault_isolated_from_other_modules(self):
         adapter=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeEventAdapter.java")
         fence=content("src/main/java/dev/ghostfusion/features/CombatFrameFaultFence.java")
@@ -1608,8 +1648,8 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("if(combatCalled)combat.tick();",adapter)
         self.assertIn("} catch (RuntimeException frameFailure) {",adapter)
         self.assertIn("combatFrameFault.quarantine();",adapter)
-        self.assertIn("try { combat.reset(); }",adapter)
-        self.assertIn("catch (RuntimeException cleanupFailure)",adapter)
+        self.assertIn("CombatFaultCleanup.contain(host.services(),new Runnable() {",adapter)
+        self.assertIn("public void run() { combat.reset(); }",adapter)
         self.assertIn("host.nativePulseStatus(combat.nativePulseUncertainMask());",adapter)
         self.assertIn("host.combatDispatchStatus(combatFrameFault.quarantined());",adapter)
         self.assertIn("combatCalled && !combatFrameFault.quarantined(),",adapter)
