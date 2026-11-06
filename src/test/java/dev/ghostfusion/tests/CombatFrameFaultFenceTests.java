@@ -48,6 +48,7 @@ public final class CombatFrameFaultFenceTests {
         // Panic and a module off/on toggle cannot clear a shared dispatch fault.
         host.modules().setEnabled("combat.clicker",true);
         PanicController.disableAll(host);
+        host.modules().setEnabled("hud.diagnostics",true);
         host.modules().setEnabled("combat.clicker",true);
         ok(!fence.observe(epoch,world,player),"toggle/Panic cannot rearm");
         // Prove ATTACK native output remains completely independent.
@@ -88,7 +89,8 @@ public final class CombatFrameFaultFenceTests {
         for(int i=0;i<200;i++)host.combatDispatchStatus(fence.quarantined());
         ok(host.diagnostics().count(Counter.COMBAT_DISPATCH_FAULT)==1,
             "blocked frames do not flood telemetry");
-        ok(denied(()->fence.observe(-1,world,player)),
+        final Object lastWorld=world;
+        ok(denied(()->fence.observe(-1,lastWorld,player)),
             "negative epoch rejected");
         AtomicBoolean rejected=new AtomicBoolean();
         Thread t=new Thread(()->{
