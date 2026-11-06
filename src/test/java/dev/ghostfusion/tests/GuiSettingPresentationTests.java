@@ -37,6 +37,18 @@ public final class GuiSettingPresentationTests {
            "tick unit");
         ok(GuiSettingPresentation.number("opacity",0.82).equals("82%"),
            "alpha percentage display");
+        ok(GuiSettingPresentation.numberWithoutSuffix("opacity",0.82)
+            .equals("82"),"opacity unitless uses displayed percent scale");
+        ok(GuiSettingPresentation.numberWithoutSuffix("opacity",1.0)
+            .equals("100"),"full opacity remains 100");
+        ok(GuiSettingPresentation.numberWithoutSuffix("fill_opacity",0.125)
+            .equals("12.5"),"fractional percent retains units scale");
+        ok(GuiSettingPresentation.number("fade_min_opacity",0.125)
+            .equals("12.5%"),"other percent display remains compatible");
+        ok(GuiSettingPresentation.numberWithoutSuffix("scale",1.25)
+            .equals("1.25"),"scale readout remains unchanged");
+        invalid(()->GuiSettingPresentation.numberWithoutSuffix(
+            "opacity",Double.NaN),"nonfinite percent fallback rejected");
         ok(GuiSettingPresentation.number("red",0.62).equals("0.62"),
            "unknown value receives no invented unit");
         invalid(()->GuiSettingPresentation.label("bad__id"),
