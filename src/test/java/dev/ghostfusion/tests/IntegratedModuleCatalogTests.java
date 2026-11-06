@@ -225,6 +225,7 @@ public final class IntegratedModuleCatalogTests {
         NativePulseSettlementTests.main(args);
         NativePulseRecoveryTests.main(args);
         NativePulseVisibilityTests.main(args);
+        NativePulseFinallyPublicationTests.main(args);
         HudWarningRenderTests.main(args);
         ok(count>65,"real integrated module and persisted profile coverage");
         System.out.println("INTEGRATED_MODULE_CATALOG_PASS assertions="+count);
