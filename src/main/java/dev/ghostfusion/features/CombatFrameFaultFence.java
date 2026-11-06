@@ -29,9 +29,11 @@ public final class CombatFrameFaultFence {
         check();
         if(epoch<0 || epoch<generation)
             throw new IllegalArgumentException("combat frame generation");
+        // A menu/disconnect frame is not an identity observation: keep the
+        // last pinned generation until an actual world/player pair returns.
+        if(world==null || player==null)return !quarantined;
         final boolean newer=epoch>generation;
         generation=epoch;
-        if(world==null || player==null)return !quarantined;
         if(!pinned) {
             worldRef=new WeakReference<Object>(world);
             playerRef=new WeakReference<Object>(player);
