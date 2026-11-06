@@ -9,6 +9,7 @@ import dev.ghostfusion.features.ProjectileCombatHandoff;
 import dev.ghostfusion.features.ModuleInteractionReadout;
 import dev.ghostfusion.features.LiveAcceptanceCoverage;
 import dev.ghostfusion.features.CombatFrameAcceptance;
+import dev.ghostfusion.features.CombatFrameFaultFence;
 import dev.ghostfusion.host.ModuleActionTelemetry;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.gui.inventory.GuiChest;
@@ -74,6 +75,9 @@ public final class ForgeEventAdapter {
         new LiveAcceptanceCoverage();
     private final CombatFrameAcceptance combatFrameAcceptance =
         new CombatFrameAcceptance();
+    // Shared controller exceptions are distinct from per-module feature faults.
+    private final CombatFrameFaultFence combatFrameFault =
+        new CombatFrameFaultFence();
     private final WorldIdentityTracker worldIdentity = new WorldIdentityTracker();
     // Faults in the optional warning painter cannot abort the rest of HUD.
     private final dev.ghostfusion.ui.HudWarningDrawGate warningDraw =
@@ -413,11 +417,15 @@ public final class ForgeEventAdapter {
         // resume camera/attack merely because its final tick() returned false.
         final boolean projectileFrameReserved=ProjectileCombatHandoff.reserved(
             prior,rodOwns,snowballOwns);
+        // Uncaught shared-controller failures cannot be treated as ordinary
+        // module faults: prohibit later synthetic combat until BOTH a newer
+        // world generation and a different native world/player are observed.
+        final boolean combatFrameAdmitted=combatFrameFault.observe(
+            host.services().generation(),
+            worldReady && host.services().connected() ? minecraft.theWorld : null,
+            worldReady && host.services().connected() ? minecraft.thePlayer : null);
         final boolean combatCalled=plan.combat && !projectileFrameReserved &&
-            !manualSlotEvent && !projectileConflict;
-        // Publish the native quarantine even when combat or suspension throws.
-        // A failed tick must not leave yesterday's warning on this frame.
-        // Never catch/suppress the original exception or rearm either lane.
+            combatFrameAdmitted && !manualSlotEvent && !projectileConflict;
         try {
             if(combatCalled)combat.tick();
             else if(plan.combat && manualSlotEvent && !projectileConflict)
@@ -429,8 +437,20 @@ public final class ForgeEventAdapter {
                     !manualSlotEvent && !projectileConflict)
                 combat.suspendForProjectile();
             else combat.reset();
+        } catch (RuntimeException frameFailure) {
+            // Module callbacks already have FeatureFaultGuard isolation.
+            // This catches only failures escaping that boundary, without
+            // recording exception messages, native identities or packets.
+            combatFrameFault.quarantine();
+            try { combat.reset(); }
+            catch (RuntimeException cleanupFailure) {
+                // Still fail closed: the fence blocks later combat frames.
+            }
         } finally {
+            // Preserve R3.87: publish native uncertainty even after a fault.
+            // A shared-frame fault must never clear ATTACK/USE settlement.
             host.nativePulseStatus(combat.nativePulseUncertainMask());
+            host.combatDispatchStatus(combatFrameFault.quarantined());
         }
 
         if(checkCombatFrame) {
@@ -451,7 +471,8 @@ public final class ForgeEventAdapter {
                     plan.combat,
                     rodOwns||prior==ProjectileOwnerArbiter.Owner.ROD,
                     snowballOwns||prior==ProjectileOwnerArbiter.Owner.SNOWBALL,
-                    manualSlotEvent,projectileConflict,combatCalled,
+                    manualSlotEvent,projectileConflict,
+                    combatCalled && !combatFrameFault.quarantined(),
                     clickWrite||triggerWrite||blockWrite||aimWrite,
                     clickWrite||triggerWrite);
             host.diagnostics().record(Counter.valueOf(
@@ -705,6 +726,7 @@ public final class ForgeEventAdapter {
         // Fault and recovery warnings remain visible when Status and Metrics
         // are disabled, using a screen-safe independent fallback anchor.
         String warning=!host.nativePulseWarning().isEmpty() ? host.nativePulseWarning() :
+            !host.combatDispatchWarning().isEmpty() ? host.combatDispatchWarning() :
             !host.faultWarning().isEmpty() ? host.faultWarning() :
             !host.uiWarning().isEmpty() ? host.uiWarning() :
             !host.diagnosticsWarning().isEmpty() ? host.diagnosticsWarning() :
