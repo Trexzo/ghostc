@@ -1593,6 +1593,23 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("check.dependsOn nativePulseRecoveryProbe",gradle)
         self.assertNotIn("KeyBinding.onTick(",gate)
 
+    def test_r387_native_pulse_status_published_even_on_dispatch_fault(self):
+        adapter=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeEventAdapter.java")
+        tests=content("src/test/java/dev/ghostfusion/tests/NativePulseFinallyPublicationTests.java")
+        catalog=content("src/test/java/dev/ghostfusion/tests/IntegratedModuleCatalogTests.java")
+        begin=adapter.index("final boolean combatCalled=")
+        end=adapter.index("if(checkCombatFrame) {",begin)
+        dispatch=adapter[begin:end]
+        self.assertRegex(dispatch,r"try\\s*\\{\\s*if\\(combatCalled\\)combat\\.tick\\(\\);")
+        self.assertRegex(dispatch,r"else combat\\.reset\\(\\);\\s*\\}\\s*finally\\s*\\{\\s*host\\.nativePulseStatus\\(combat\\.nativePulseUncertainMask\\(\\)\\);\\s*\\}")
+        self.assertEqual(adapter.count("host.nativePulseStatus(combat.nativePulseUncertainMask());"),1)
+        self.assertIn("host.nativePulseStatus(combat.reconcileNativePulseStatus());",adapter)
+        self.assertIn("NativePulseFinallyPublicationTests.main(args);",catalog)
+        self.assertIn("for(int i=0;i<30000;i++)",tests)
+        self.assertIn("catch(RuntimeException|AssertionError expected)",tests)
+        self.assertIn("PanicController.disableAll(h);",tests)
+        self.assertIn("nativePulseWarning()",tests)
+
     def test_r374_native_quarantine_warning_and_transition_counters(self):
         gate=content("src/main/java/dev/ghostfusion/features/NativePulseSettlement.java")
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
