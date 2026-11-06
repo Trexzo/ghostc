@@ -10,6 +10,7 @@ import dev.ghostfusion.features.ModuleInteractionReadout;
 import dev.ghostfusion.features.LiveAcceptanceCoverage;
 import dev.ghostfusion.features.CombatFrameAcceptance;
 import dev.ghostfusion.features.CombatFrameFaultFence;
+import dev.ghostfusion.features.CombatFaultCleanup;
 import dev.ghostfusion.host.ModuleActionTelemetry;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.gui.inventory.GuiChest;
@@ -428,6 +429,9 @@ public final class ForgeEventAdapter {
             combatFrameAdmitted && !manualSlotEvent && !projectileConflict;
         try {
             if(combatCalled)combat.tick();
+            // A quarantined shared controller may only perform conservative
+            // reset, never live manual/projectile suspension policy updates.
+            else if(!combatFrameAdmitted)combat.reset();
             else if(plan.combat && manualSlotEvent && !projectileConflict)
                 // An actual player slot key/wheel vetoes ALL native combat
                 // output for this END frame, while preserving only completed
@@ -442,10 +446,12 @@ public final class ForgeEventAdapter {
             // This catches only failures escaping that boundary, without
             // recording exception messages, native identities or packets.
             combatFrameFault.quarantine();
-            try { combat.reset(); }
-            catch (RuntimeException cleanupFailure) {
-                // Still fail closed: the fence blocks later combat frames.
-            }
+            // Even if controller reset itself throws, revoke each combat-owned
+            // queued action/camera intent independently before peer controllers.
+            // Movement, inventory and projectile owners are never canceled here.
+            CombatFaultCleanup.contain(host.services(),new Runnable() {
+                public void run() { combat.reset(); }
+            });
         } finally {
             // Preserve R3.87: publish native uncertainty even after a fault.
             // A shared-frame fault must never clear ATTACK/USE settlement.
