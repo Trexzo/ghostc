@@ -286,7 +286,7 @@ public final class ForgeEventAdapter {
             // or coordinates from rendering in the same overlay frame.
             if(status) host.runFeature("hud.status",new Runnable() {
                 public void run() {
-                    RenderStateGuard.draw(new Runnable() {
+                    RenderStateGuard.drawGui(new Runnable() {
                         public void run() {
                             int allowed=Math.max(0,(int)((sw-layout.x-4)/scale));
                             String shown=minecraft.fontRendererObj.trimStringToWidth(statusText,allowed);
@@ -303,7 +303,7 @@ public final class ForgeEventAdapter {
             if(metrics && (fpsText!=null || coordsText!=null || pingText!=null))
                 host.runFeature("hud.metrics",new Runnable() {
                     public void run() {
-                        RenderStateGuard.draw(new Runnable() {
+                        RenderStateGuard.drawGui(new Runnable() {
                             public void run() {
                                 int available=Math.max(0,sw-layout.x-2);
                                 if(fpsText!=null) {
@@ -350,7 +350,7 @@ public final class ForgeEventAdapter {
             final int nx=warningStatusX;
             final int ny=dev.ghostfusion.ui.HudWarningPlacement.y(
                 warningStatusBottom,sh,fontHeight);
-            RenderStateGuard.draw(new Runnable() {
+            RenderStateGuard.drawGui(new Runnable() {
                 public void run() {
                     minecraft.fontRendererObj.drawStringWithShadow(
                         minecraft.fontRendererObj.trimStringToWidth(notice,

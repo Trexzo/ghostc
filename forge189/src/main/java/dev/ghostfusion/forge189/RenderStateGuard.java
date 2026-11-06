@@ -16,7 +16,7 @@ public final class RenderStateGuard {
      * Minecraft FontRenderer caches texture bindings in GlStateManager.
      * Restoring GL_TEXTURE_BIT behind that cache after ClickGUI painting can
      * silently bind a different atlas, turning every glyph into colored tiles.
-     * UI uses Minecraft's own drawRect/FontRenderer state handling; only the
+     * ClickGUI and text-based HUD use Minecraft's own drawRect/FontRenderer state handling; only the
      * matrix stack and original matrix mode need independent protection.
      * World/ESP callbacks retain the original full-attribute guard.
      */

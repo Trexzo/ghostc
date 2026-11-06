@@ -110,11 +110,11 @@ public final class ForgeFeatureDriver {
             public void run() { esp.draw(partialTicks); }
         });
     }
-    /** A separate guarded GL scope for every feature prevents a failed callback
-     * from contaminating another feature's render state in the same frame. */
+    /** Isolate the 2D HUD matrix stacks without restoring GL texture enables
+     * or bindings behind Minecraft's cached FontRenderer/GlStateManager state. */
     private void drawFeature(String id, final Runnable painter) {
         host.runFeature(id, new Runnable() {
-            public void run() { RenderStateGuard.draw(painter); }
+            public void run() { RenderStateGuard.drawGui(painter); }
         });
     }
     void render2d(final ScaledResolution resolution) {

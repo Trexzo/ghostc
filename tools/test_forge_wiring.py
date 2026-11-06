@@ -693,7 +693,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn('host.runFeature("movement.sprint"', self.feature)
         self.assertIn('host.runFeature("render.esp"', self.feature)
         self.assertIn("host.runFeature(id,", self.feature)
-        self.assertIn("RenderStateGuard.draw(painter)", self.feature)
+        self.assertIn("RenderStateGuard.drawGui(painter)", self.feature)
         self.assertIn('private void sprintTick()', self.feature)
 
     def test_keystrokes_use_native_bindings_not_hardcoded_wasd(self):
@@ -954,6 +954,14 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("GL11.glPopAttrib();",guard)
         self.assertIn("GL11.glPushMatrix();",guard)
         self.assertIn("GL11.glPopMatrix();",guard)
+        overlay=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeEventAdapter.java")
+        features=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeFeatureDriver.java")
+        esp=content("forge189/src/main/java/dev/ghostfusion/forge189/PlayerEspRenderer.java")
+        self.assertEqual(overlay.count("RenderStateGuard.drawGui(new Runnable()"),3)
+        self.assertNotIn("RenderStateGuard.draw(new Runnable()",overlay)
+        self.assertIn("RenderStateGuard.drawGui(painter);",features)
+        self.assertNotIn("RenderStateGuard.draw(painter);",features)
+        self.assertIn("RenderStateGuard.draw(new Runnable()",esp)
 
     def test_separate_gl_guard_scopes_and_matrix_restoration(self):
         self.assertIn("GL11.GL_ALL_ATTRIB_BITS",self.gl)
@@ -968,7 +976,7 @@ class ForgeWiring(unittest.TestCase):
         for module_id in hud_ids:
             self.assertEqual(self.feature.count('drawFeature("hud.'+module_id+'"'),1)
         self.assertIn('ModuleListLayout.calculate(',self.feature)
-        self.assertIn('RenderStateGuard.draw(painter);',self.feature)
+        self.assertIn('RenderStateGuard.drawGui(painter);',self.feature)
 
     def test_fault_warning_tracks_only_unresolved_feature_failures(self):
         host=content("src/main/java/dev/ghostfusion/host/HostRuntime.java")
