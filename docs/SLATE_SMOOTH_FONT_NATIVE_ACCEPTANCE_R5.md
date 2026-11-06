@@ -77,3 +77,23 @@ PNG fixtures to check image validation, equal-size admission, tampered CRC
 rejection, safe output path handling, HTML escaping and 500 randomized
 dimensions. Core CI runs it without network access or screenshot artifacts.
 
+## 6 November ? experimental texture cache correctness (source-level only)
+
+The original optional Slate smooth-font renderer used raw `glBindTexture` and
+`glPushAttrib(GL_TEXTURE_BIT)` both when uploading a glyph and when painting
+it. After the in-game ClickGUI font-atlas corruption exposed the danger of
+restoring texture bindings independently of Minecraft's `GlStateManager`
+cache, the experimental code now binds **and restores** each glyph texture
+through `GlStateManager.bindTexture`. Its eviction and teardown use
+`GlStateManager.deleteTexture` to invalidate cached IDs. Upload now restores
+the actual prior `GL_UNPACK_ALIGNMENT` explicitly (client pixel-store state
+is not saved by the server attribute stack), and glyph drawing saves/restores
+`GL_TEXTURE_ENV_MODE` explicitly. It retains the separate scope for color,
+blend and enable state and bounded glyph caches.
+
+This is a preventive renderer correctness change validated by Java 8/Forge
+compilation, reobfuscation and wiring regression checks. **It does not
+constitute native visual acceptance** for the opt-in smooth font, which remains
+disabled by default; the paired F2 screenshots, CPU trial metrics, GPU/font
+lifecycle and FPS comparisons above are still required.
+

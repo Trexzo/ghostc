@@ -7,6 +7,7 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import net.minecraft.client.renderer.GlStateManager;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 
@@ -14,7 +15,8 @@ import org.lwjgl.opengl.GL11;
  * Experimental original Slate font renderer, never enabled by default.
  * Java2D raster work is separate from bounded GL texture allocation.
  *
- * Render thread only. Every draw restores GL enable/color/texture attributes;
+ * Render thread only. Every draw restores GL enable/color and texture state
+ * through Minecraft's own texture-binding cache, not raw GL_TEXTURE_BIT pops;
  * the owning GUI releases textures when closed. Any raster/upload failure
  * disables this optional renderer and the caller uses vanilla FontRenderer.
  */
@@ -107,7 +109,7 @@ final class SlateSmoothFontRenderer {
                     Iterator<Map.Entry<Key,Texture>> i=textures.entrySet().iterator();
                     Map.Entry<Key,Texture> eldest=i.next();
                     i.remove();
-                    GL11.glDeleteTextures(eldest.getValue().id);
+                    GlStateManager.deleteTexture(eldest.getValue().id);
                     if(diagnostics)trial.evict();
                 }
             } else {
@@ -146,10 +148,13 @@ final class SlateSmoothFontRenderer {
                     .put((byte)(pixel>>>24));
             }
             rgba.flip();
-            // Scope texture, pixel-store and binding state during upload.
-            GL11.glPushAttrib(GL11.GL_TEXTURE_BIT|GL11.GL_PIXEL_MODE_BIT);
+            // Client pixel-store alignment is NOT saved by glPushAttrib.
+            // Scope it explicitly, and keep Minecraft's cached texture name
+            // synchronized with the real GL binding on every exit.
+            final int previousBinding=GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+            final int previousUnpack=GL11.glGetInteger(GL11.GL_UNPACK_ALIGNMENT);
             try {
-                GL11.glBindTexture(GL11.GL_TEXTURE_2D,id);
+                GlStateManager.bindTexture(id);
                 GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT,1);
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D,
                     GL11.GL_TEXTURE_MIN_FILTER,GL11.GL_LINEAR);
@@ -163,19 +168,26 @@ final class SlateSmoothFontRenderer {
                     raster.width,raster.height,0,GL11.GL_RGBA,
                     GL11.GL_UNSIGNED_BYTE,rgba);
             } finally {
-                GL11.glPopAttrib();
+                try {
+                    GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT,previousUnpack);
+                } finally {
+                    GlStateManager.bindTexture(previousBinding);
+                }
             }
             return new Texture(id,raster.width,raster.height,
                 raster.baselineFromTop);
         } catch(RuntimeException problem) {
-            GL11.glDeleteTextures(id);
+            GlStateManager.deleteTexture(id);
             throw problem;
         }
     }
 
     private static void paint(Texture glyph,int x,int y,int argb) {
+        final int previousBinding=GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        final int previousEnv=GL11.glGetTexEnvi(
+            GL11.GL_TEXTURE_ENV,GL11.GL_TEXTURE_ENV_MODE);
         GL11.glPushAttrib(GL11.GL_ENABLE_BIT|GL11.GL_COLOR_BUFFER_BIT|
-            GL11.GL_TEXTURE_BIT|GL11.GL_CURRENT_BIT);
+            GL11.GL_CURRENT_BIT);
         try {
             GL11.glEnable(GL11.GL_TEXTURE_2D);
             GL11.glEnable(GL11.GL_BLEND);
@@ -184,10 +196,10 @@ final class SlateSmoothFontRenderer {
             // faint outer AA pixels. GL_ENABLE_BIT restores it afterwards.
             GL11.glDisable(GL11.GL_ALPHA_TEST);
             GL11.glBlendFunc(GL11.GL_SRC_ALPHA,GL11.GL_ONE_MINUS_SRC_ALPHA);
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D,glyph.id);
+            GlStateManager.bindTexture(glyph.id);
             // A caller may have left the fixed-function texture environment
             // as REPLACE. Force MODULATE so Slate's text color and alpha
-            // multiply with white glyph coverage; GL_TEXTURE_BIT restores it.
+            // multiply with white glyph coverage; explicitly restore it below.
             GL11.glTexEnvi(GL11.GL_TEXTURE_ENV,GL11.GL_TEXTURE_ENV_MODE,
                 GL11.GL_MODULATE);
             GL11.glColor4f((argb>>>16&255)/255F,(argb>>>8&255)/255F,
@@ -199,7 +211,17 @@ final class SlateSmoothFontRenderer {
             GL11.glTexCoord2f(0,1);GL11.glVertex2f(x,y+glyph.height);
             GL11.glEnd();
         } finally {
-            GL11.glPopAttrib();
+            try {
+                try {
+                    // Texture env is not tracked by GlStateManager.
+                    GL11.glTexEnvi(GL11.GL_TEXTURE_ENV,
+                        GL11.GL_TEXTURE_ENV_MODE,previousEnv);
+                } finally {
+                    GlStateManager.bindTexture(previousBinding);
+                }
+            } finally {
+                GL11.glPopAttrib();
+            }
         }
     }
 
@@ -217,7 +239,7 @@ final class SlateSmoothFontRenderer {
         try {
             for(Texture t:textures.values()) {
                 try {
-                    GL11.glDeleteTextures(t.id);
+                    GlStateManager.deleteTexture(t.id);
                 } catch(RuntimeException ignored) {
                     // A destroyed GL context can reject deletion.
                 } catch(LinkageError ignored) {
