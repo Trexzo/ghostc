@@ -1600,8 +1600,8 @@ class ForgeWiring(unittest.TestCase):
         begin=adapter.index("final boolean combatCalled=")
         end=adapter.index("if(checkCombatFrame) {",begin)
         dispatch=adapter[begin:end]
-        self.assertRegex(dispatch,r"try\\s*\\{\\s*if\\(combatCalled\\)combat\\.tick\\(\\);")
-        self.assertRegex(dispatch,r"else combat\\.reset\\(\\);\\s*\\}\\s*finally\\s*\\{\\s*host\\.nativePulseStatus\\(combat\\.nativePulseUncertainMask\\(\\)\\);\\s*\\}")
+        self.assertRegex(dispatch,r"try\s*\{\s*if\(combatCalled\)combat\.tick\(\);")
+        self.assertRegex(dispatch,r"else combat\.reset\(\);\s*\}\s*finally\s*\{\s*host\.nativePulseStatus\(combat\.nativePulseUncertainMask\(\)\);\s*\}")
         self.assertEqual(adapter.count("host.nativePulseStatus(combat.nativePulseUncertainMask());"),1)
         self.assertIn("host.nativePulseStatus(combat.reconcileNativePulseStatus());",adapter)
         self.assertIn("NativePulseFinallyPublicationTests.main(args);",catalog)
