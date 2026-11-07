@@ -1727,7 +1727,7 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("} finally {",dispatch)
         self.assertLess(dispatch.index("} finally {"),dispatch.index("host.nativePulseStatus(combat.nativePulseUncertainMask());"))
         self.assertIn("host.combatDispatchStatus(combatFrameFault.quarantined());",dispatch)
-        self.assertEqual(adapter.count("host.nativePulseStatus(combat.nativePulseUncertainMask());"),1)
+        self.assertEqual(dispatch.count("host.nativePulseStatus(combat.nativePulseUncertainMask());"),1)
         self.assertIn("host.nativePulseStatus(combat.reconcileNativePulseStatus());",adapter)
         self.assertIn("NativePulseFinallyPublicationTests.main(args);",catalog)
         self.assertIn("for(int i=0;i<30000;i++)",tests)
@@ -1754,7 +1754,10 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("host.nativePulseStatus(combat.nativePulseUncertainMask());",adapter)
         self.assertIn("!host.nativePulseWarning().isEmpty() ? host.nativePulseWarning() :",adapter)
         self.assertLess(adapter.index("host.tick();"),adapter.index("host.nativePulseStatus(combat.reconcileNativePulseStatus());"))
-        self.assertLess(adapter.index("else combat.reset();"),adapter.index("host.nativePulseStatus(combat.nativePulseUncertainMask());"))
+        boundary=adapter.index("final boolean combatCalled=")
+        dispatch=adapter[boundary:adapter.index("if(checkCombatFrame) {",boundary)]
+        self.assertLess(dispatch.index("else combat.reset();"),
+                        dispatch.index("host.nativePulseStatus(combat.nativePulseUncertainMask());"))
         self.assertIn("private int nativePulseUncertainMask;",host)
         self.assertIn("public void nativePulseStatus(int mask)",host)
         self.assertIn("public String nativePulseWarning()",host)
