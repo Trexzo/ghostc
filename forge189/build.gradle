@@ -399,3 +399,13 @@ task nativeCombatFaultPeerProbe(type: JavaExec) {
     main = 'dev.ghostfusion.forge189.NativeCombatFaultPeerTests'
 }
 check.dependsOn nativeCombatFaultPeerProbe
+
+
+// R3.90: original Minecraft Java8 KeyBinding and native Forge world-transition
+// reset linkage, plus combat-only fallback when lifecycle reset throws.
+task nativeCombatWorldBoundaryRecoveryProbe(type: JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    main = 'dev.ghostfusion.forge189.NativeCombatWorldBoundaryRecoveryTests'
+}
+check.dependsOn nativeCombatWorldBoundaryRecoveryProbe
