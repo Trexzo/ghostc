@@ -1593,6 +1593,52 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("check.dependsOn nativePulseRecoveryProbe",gradle)
         self.assertNotIn("KeyBinding.onTick(",gate)
 
+    def test_r390_world_transition_combat_reset_fault_cannot_abort_peer_cleanup(self):
+        adapter=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeEventAdapter.java")
+        boundary=content("src/main/java/dev/ghostfusion/features/CombatWorldBoundaryRecovery.java")
+        cleanup=content("src/main/java/dev/ghostfusion/features/CombatFaultCleanup.java")
+        core=content("src/test/java/dev/ghostfusion/tests/CombatWorldBoundaryRecoveryTests.java")
+        native=content("forge189/src/test/java/dev/ghostfusion/forge189/NativeCombatWorldBoundaryRecoveryTests.java")
+        catalog=content("src/test/java/dev/ghostfusion/tests/IntegratedModuleCatalogTests.java")
+        gradle=content("forge189/build.gradle")
+        self.assertIn("private void resetCombatAtWorldBoundary() {",adapter)
+        self.assertEqual(adapter.count("            resetCombatAtWorldBoundary();"),2)
+        self.assertIn("CombatWorldBoundaryRecovery.reset(host.services(),combatFrameFault,",adapter)
+        self.assertIn("minecraft.theWorld,minecraft.thePlayer,new Runnable() {",adapter)
+        self.assertIn("public void run() { combat.reset(); }",adapter)
+        self.assertIn("host.nativePulseStatus(combat.nativePulseUncertainMask());",adapter)
+        self.assertIn("host.combatDispatchStatus(combatFrameFault.quarantined());",adapter)
+        tick=adapter.split("public void onClientTick(TickEvent.ClientTickEvent event) {",1)[1]
+        leave=tick.split("transition == WorldIdentityTracker.Transition.LEAVE) {",1)[1].split(
+            "if (transition == WorldIdentityTracker.Transition.ENTER ||",1)[0]
+        enter=tick.split("transition == WorldIdentityTracker.Transition.ENTER ||",1)[1].split(
+            "// Keep the standard presence reconciliation for starting menus.",1)[0]
+        self.assertLess(leave.index("host.worldPresence(false);"),
+                        leave.index("resetCombatAtWorldBoundary();"))
+        self.assertLess(leave.index("resetCombatAtWorldBoundary();"),
+                        leave.index("bridge.reset();"))
+        self.assertLess(enter.index("host.worldPresence(true);"),
+                        enter.index("resetCombatAtWorldBoundary();"))
+        self.assertLess(enter.index("resetCombatAtWorldBoundary();"),
+                        enter.index("bridge.reset();"))
+        for peers in ("bridge.reset();","velocity.reset();","wtap.reset();",
+                      "jumpReset.reset();","autoRod.reset();","autoSnowball.reset();",
+                      "chestStealer.reset();","inventoryManager.reset();",
+                      "autoArmor.reset();"):
+            self.assertIn(peers,leave)
+            self.assertIn(peers,enter)
+        self.assertIn("frameFault.observe(epoch,world,player);",boundary)
+        self.assertIn("frameFault.quarantine();",boundary)
+        self.assertIn("CombatFaultCleanup.contain(session,controllerReset);",boundary)
+        self.assertIn("catch (RuntimeException resetFailure)",boundary)
+        self.assertIn('session.actions().cancelOwner("combat.clicker");',cleanup)
+        self.assertNotIn("addToSendQueue",boundary)
+        self.assertNotIn("KeyBinding.onTick",boundary)
+        self.assertIn("CombatWorldBoundaryRecoveryTests.main(args);",catalog)
+        self.assertIn("for(int i=0;i<16000;i++)",core)
+        self.assertIn("NATIVE_COMBAT_WORLD_BOUNDARY_RECOVERY_PASS",native)
+        self.assertIn("check.dependsOn nativeCombatWorldBoundaryRecoveryProbe",gradle)
+
     def test_r389_quarantined_combat_never_enters_live_suspension(self):
         adapter=content("forge189/src/main/java/dev/ghostfusion/forge189/ForgeEventAdapter.java")
         cleanup=content("src/main/java/dev/ghostfusion/features/CombatFaultCleanup.java")
