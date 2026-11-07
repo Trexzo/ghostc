@@ -71,6 +71,7 @@ public final class CombatWorldBoundaryRecoveryTests {
         pulse.nativeReturned(Lane.ATTACK,s.generation(),0);
         pulse.abandon(Lane.ATTACK,s.generation(),0);
         ok(pulse.uncertainMask()==1,"native ATTACK uncertainty starts");
+        h.nativePulseStatus(pulse.uncertainMask());
         // SWITCH invokes worldPresence(false) before its first reset.
         h.worldPresence(false);
         final int[] calls={0},peerResets={0};
@@ -90,6 +91,7 @@ public final class CombatWorldBoundaryRecoveryTests {
             "native pulse has its own identity recovery");
         ok(pulse.uncertainMask()==0,
             "fresh new-world identity may independently recover native pulse");
+        h.nativePulseStatus(pulse.uncertainMask());
         h.combatDispatchStatus(fence.quarantined());
         ok(h.combatDispatchWarning().contains("shared controller fault"),
             "shared fault warning remains visible without diagnostics");
