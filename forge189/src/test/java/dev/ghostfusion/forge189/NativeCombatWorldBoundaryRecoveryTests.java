@@ -59,6 +59,8 @@ public final class NativeCombatWorldBoundaryRecoveryTests {
             ActionCoordinator.Phase.OUTPUT,tick,epoch);
         ok(peer!=null&&"inventory.autoarmor".equals(peer.owner),
             "independent inventory intent preserved");
+        ok(s.actions().pending()==0,
+            "no synthetic ATTACK/USE requests remain after independent peer is consumed");
         ok(manual.isPressed()&&!manual.isPressed(),
             "physical native Minecraft manual input unchanged");
         s.world(false);
