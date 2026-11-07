@@ -3,6 +3,7 @@ package dev.ghostfusion.forge189;
 import dev.ghostfusion.ui.GuiSlateSmoothRaster;
 import dev.ghostfusion.ui.GuiSlateSmoothPlacement;
 import dev.ghostfusion.ui.GuiSlateSmoothTrialMetrics;
+import dev.ghostfusion.ui.GuiSlateContextIdentity;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -10,6 +11,7 @@ import java.util.Map;
 import net.minecraft.client.renderer.GlStateManager;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GLContext;
 
 /**
  * Experimental original Slate font renderer, never enabled by default.
@@ -44,6 +46,7 @@ final class SlateSmoothFontRenderer {
         Boolean.getBoolean("ghostc.slate.fontDiagnostics");
     private final GuiSlateSmoothTrialMetrics trial=
         new GuiSlateSmoothTrialMetrics();
+    private final GuiSlateContextIdentity contextIdentity=new GuiSlateContextIdentity();
     private boolean failed;
 
     boolean enabled() {return requested&&!failed;}
@@ -55,6 +58,14 @@ final class SlateSmoothFontRenderer {
         final long started=diagnostics?System.nanoTime():0L;
         boolean painted=false;
         try {
+            // Texture IDs are scoped to an OpenGL context, NOT a JVM session.
+            // A new GL context can recycle an old integer ID for an unrelated
+            // atlas: glIsTexture(oldId) may then return true incorrectly.
+            // Drop old IDs without trying to delete them in the new context.
+            if(contextIdentity.observe(GLContext.getCapabilities())) {
+                textures.clear();
+                denied.clear();
+            }
             int allowed=Math.min(GuiSlateSmoothRaster.MAX_WIDTH,pixelBudget);
             FitKey request=new FitKey(raw,size,bold,allowed);
             String text=fitted.get(request);
@@ -234,22 +245,34 @@ final class SlateSmoothFontRenderer {
     }
 
     void close() {
-        // Resource teardown must never prevent the original Minecraft GUI
-        // from closing, or prevent fallback after a failed GL operation.
+        // Never delete stored GL names in a different/recreated context:
+        // those same numbers could already belong to Minecraft textures.
+        // A missing current context must not make GUI shutdown fail.
+        boolean deleteOwned=false;
         try {
-            for(Texture t:textures.values()) {
-                try {
-                    GlStateManager.deleteTexture(t.id);
-                } catch(RuntimeException ignored) {
-                    // A destroyed GL context can reject deletion.
-                } catch(LinkageError ignored) {
-                    // Optional renderer must not break vanilla shutdown.
+            deleteOwned=contextIdentity.owns(GLContext.getCapabilities());
+        } catch(RuntimeException ignored) {
+            // No live context: abandon stale names, do not issue GL deletes.
+        } catch(LinkageError ignored) {
+            // The optional font must not break GUI shutdown.
+        }
+        try {
+            if(deleteOwned) {
+                for(Texture t:textures.values()) {
+                    try {
+                        GlStateManager.deleteTexture(t.id);
+                    } catch(RuntimeException ignored) {
+                        // Context may disappear partway through teardown.
+                    } catch(LinkageError ignored) {
+                        // Optional renderer must not break vanilla shutdown.
+                    }
                 }
             }
         } finally {
             textures.clear();
             fitted.clear();
             denied.clear();
+            contextIdentity.forget();
         }
     }
 

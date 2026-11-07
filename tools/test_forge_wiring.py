@@ -2690,6 +2690,18 @@ class ForgeWiring(unittest.TestCase):
         self.assertIn("GL11.GL_MODULATE",smooth)
         self.assertIn("textures.clear();",smooth)
         self.assertIn("GL11.glIsTexture(texture.id)",smooth)
+        self.assertIn("contextIdentity.observe(GLContext.getCapabilities())",smooth)
+        self.assertIn("contextIdentity.owns(GLContext.getCapabilities())",smooth)
+        self.assertIn("private final GuiSlateContextIdentity contextIdentity=",smooth)
+        self.assertIn("contextIdentity.forget();",smooth)
+        self.assertIn("if(deleteOwned)",smooth)
+        after_close=smooth.split("    void close() {",1)[1]
+        self.assertLess(after_close.index("if(deleteOwned)"),
+                        after_close.index("GlStateManager.deleteTexture(t.id);"))
+        self.assertIn("GUI_SLATE_CONTEXT_IDENTITY_PASS",
+                      content(".github/workflows/core-ci.yml"))
+        self.assertIn("GuiSlateContextIdentity.class",
+                      content("tools/verify_forge_jar.py"))
         self.assertIn("catch(LinkageError ignored)",smooth)
         self.assertIn("GL11.glPopAttrib();",smooth)
         self.assertIn("GuiSlateSmoothRaster.fit(",smooth)

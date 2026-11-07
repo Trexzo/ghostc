@@ -97,3 +97,23 @@ constitute native visual acceptance** for the opt-in smooth font, which remains
 disabled by default; the paired F2 screenshots, CPU trial metrics, GPU/font
 lifecycle and FPS comparisons above are still required.
 
+## 7 November — prevent cached glyph IDs crossing GL contexts
+
+A texture name is meaningful only in the OpenGL context that allocated it.
+Previously the optional renderer checked `glIsTexture(id)`; after context
+recreation, the same integer can already refer to an unrelated Minecraft
+texture, so this check alone cannot establish ownership.
+
+The renderer now tracks LWJGL 2's `GLContext.getCapabilities()` reference
+identity. When the reference changes, it discards all old cached glyph IDs
+**without deleting them in the new context** and rerasterizes/uploads as needed.
+When closing, it deletes glyph textures only if the currently active GL context
+matches their recorded owner. If the context is already gone, it abandons the
+stale IDs safely. CPU-only fit layouts remain reusable. This preserves the
+default-disabled experimental state.
+
+A CPU-only Java 8 regression suite checks 100,000 seeded context transitions,
+same-identity reuse, different-but-equal objects, teardown and absent-context
+deletion rights. It does not emulate GPU context loss. A native Minecraft 1.8.9
+resource reload/context recreation and F7/FPS comparison remain necessary
+before this font experiment can be considered accepted.

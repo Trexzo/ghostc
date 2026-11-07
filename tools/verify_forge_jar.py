@@ -22,6 +22,7 @@ REQUIRED = (
     "dev/ghostfusion/ui/GuiSlateSmoothRaster.class",
     "dev/ghostfusion/ui/GuiSlateSmoothPlacement.class",
     "dev/ghostfusion/ui/GuiSlateSmoothTrialMetrics.class",
+    "dev/ghostfusion/ui/GuiSlateContextIdentity.class",
     "dev/ghostfusion/host/HostRuntime.class",
     "dev/ghostfusion/core/ModuleRegistry.class",
     "dev/ghostfusion/services/SessionServices.class",

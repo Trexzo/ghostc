@@ -97,6 +97,8 @@ jobs:
           grep -q 'GUI_SLATE_SMOOTH_PLACEMENT_PASS' .build/gui-slate-smooth-placement.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateSmoothTrialMetricsTests | tee .build/gui-slate-smooth-trial-metrics.log
           grep -q 'GUI_SLATE_SMOOTH_TRIAL_METRICS_PASS' .build/gui-slate-smooth-trial-metrics.log
+          java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateContextIdentityTests | tee .build/gui-slate-context-identity.log
+          grep -q 'GUI_SLATE_CONTEXT_IDENTITY_PASS' .build/gui-slate-context-identity.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateEmptyStateLayoutTests | tee .build/gui-slate-empty-state.log
           grep -q 'GUI_SLATE_EMPTY_STATE_PASS' .build/gui-slate-empty-state.log
           java -cp .build/classes:.build/tests dev.ghostfusion.tests.GuiSlateCompactEmptyStateTests | tee .build/gui-slate-compact-empty-state.log
