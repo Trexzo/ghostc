@@ -10,8 +10,22 @@ import org.lwjgl.opengl.GL11;
 public final class RenderStateGuard {
     private RenderStateGuard() { }
     public static void draw(Runnable action) {
+        drawScoped(action,GL11.GL_ALL_ATTRIB_BITS);
+    }
+    /**
+     * Minecraft FontRenderer caches texture bindings in GlStateManager.
+     * Restoring GL_TEXTURE_BIT behind that cache after ClickGUI painting can
+     * silently bind a different atlas, turning every glyph into colored tiles.
+     * ClickGUI and text-based HUD use Minecraft's own drawRect/FontRenderer state handling; only the
+     * matrix stack and original matrix mode need independent protection.
+     * World/ESP callbacks retain the original full-attribute guard.
+     */
+    public static void drawGui(Runnable action) {
+        drawScoped(action,GL11.GL_TRANSFORM_BIT);
+    }
+    private static void drawScoped(Runnable action,int attributes) {
         if (action == null) throw new IllegalArgumentException("render callback");
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GL11.glPushAttrib(attributes);
         boolean projectionPushed=false, modelviewPushed=false;
         try {
             GL11.glMatrixMode(GL11.GL_PROJECTION);

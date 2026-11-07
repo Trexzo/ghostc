@@ -1,0 +1,119 @@
+# GhostC R5 Slate — native font visual acceptance (Minecraft 1.8.9)
+
+**Status: Draft / opt-in experiment only.** This document prepares evidence collection; source-level CI is not equivalent to a native Minecraft screenshot or an FPS measurement.
+
+## Two runs, same environment and UI configuration
+
+Build the exact draft PR #181 commit with the project's usual Forge 1.8.9/JDK8 workflow. Keep the same game resolution, OS/JRE, modules enabled, HUD positions and settings in both runs. Do not merge this draft to run the comparison.
+
+1. **Control (default):** Launch with no smooth-font JVM flags. GhostC paints Slate with Minecraft's original bitmap font, including its existing 1.125×/0.875× text hierarchy.
+2. **Experimental:** Add both JVM properties to the **Java process launching Minecraft** (not to an in-game command or GhostC text field):
+   `-Dghostc.slate.smoothFontExperimental=true -Dghostc.slate.fontDiagnostics=true`
+   This affects the Slate ClickGUI's headings and module captions only; Target HUD uses the existing Minecraft font and is a useful untouched reference. Leave the flags absent for normal play.
+
+### Native screenshots (F2 in-game)
+
+For each run, set Minecraft's GUI Scale to **Auto**, **2**, and **3** in turn. Open F7, select Modules, then select the HUD editor. Use the exact same viewport and content in the paired screenshots. Use Minecraft's ordinary F2 screenshot path or the built-in screenshot UI. Do not crop the screenshots before reviewing alignment and clipping.
+
+Frame capture checklist:
+
+- Wide Slate layout: category/sidebar captions, medium-length enabled modules, a very long name, category/keybind subline, selected module details, keybind/state chip, long-label tooltip.
+- Compact Slate layout (especially Auto on a smaller resolution): primary name vs secondary category line, 25px row boundaries, hover/selected state, module toggle area and search results.
+- F7 HUD editor: heading, tabs, position readout, dynamic widget previews. Also compare Target HUD to ensure the experimental font flag did not change its paint path.
+- Inspect `g`, `j`, `p`, `q`, `y`, uppercase `GHOSTC`, underscore and punctuation. **All words in the same row must share a baseline**, without descenders clipping into adjacent rows.
+
+## Aggregate trial report
+
+Close the **F7 ClickGUI** after an experimental pass. The same Minecraft/Java console may print one line with prefix:
+
+`GHOSTC_SLATE_FONT_TRIAL attempts=<N> painted=<N> fallback=<N> fitHits=<N> rasters=<N> uploads=<N> evictions=<N> errors=<N> peakTextures=<N> peakLayouts=<N> avgDrawMicros=<N>`
+
+This line is emitted only if both experimental properties are present. It contains **only aggregate counts**, not module titles, player names, keybindings or text from the UI. Its average is CPU-side time per attempted smooth-font call; it is **not** a measured whole-game FPS value, GPU frame time, or proof that native visuals look good.
+
+Acceptance thresholds/observations:
+
+- `errors=0`, no client crashes, stable zoom and category changes.
+- `painted>0`. If `painted=0`, the smooth font is not being exercised and any visual comparison is inconclusive.
+- `peakTextures<=96`, `peakLayouts<=192` by construction.
+- Repeating a stable UI should increase `fitHits` much faster than `rasters` or `uploads`. Excessive uploads indicate cache churn.
+- Close and reopen F7 several times. No missing or colored glyphs, no persistent GL tint or unrelated texture corruption, no stale entries after closing.
+- Use the game's F3 FPS and frame-time graph as a rough directional comparison only; record several stable samples in both runs at the same viewport. Native acceptance should also include input response, screenshot inspection and GPU-state/resource-reload behavior.
+
+## Decision rule
+
+Leave the smooth font **disabled by default** unless paired screenshots clearly improve readability and spacing, diagnostic counts show actual paint use, no lifecycle state leak occurs, and native rendering performance is acceptable. A fallback to vanilla is a safe behavior, not evidence that the smooth font works. Retain this visual-only PR as draft; the parallel combat branch remains untouched.
+
+## 30 October — pre-upload geometry and repeat-fallback optimization
+
+The experimental font now checks actual raster width and baseline-safe vertical placement **before** uploading a texture. A bounded 96-entry, geometry-only negative cache remembers non-fitting glyph runs: a repeat at the same small row dimensions falls back without another Java2D rasterization, while a larger budget can retry normally. Closing the GUI and invalidating the OpenGL texture context clear the denial cache. No text is logged, and the default font path is unchanged. Core randomized admission checks and Forge source contracts cover the ordering; native frame-time and screenshot acceptance still remain outstanding.
+
+## 4 November — offline F2 comparison helper (visual-only)
+
+With real Minecraft still required for native acceptance, a standard-library-only
+`tools/slate_visual_review.py` prepares a **self-contained, local HTML A/B overlay**
+from two already captured F2 PNG screenshots. This does **not** capture screenshots,
+launch Minecraft, modify original PNGs, require third-party fonts, or send files
+to any server. It validates PNG CRCs and the exact pixel dimensions first, embeds
+both images, and adds an opacity slider for inspecting baselines, descenders,
+clipping, widget spacing and HUD previews. Different screenshot resolutions
+are rejected rather than silently resampled.
+
+Use the same screen resolution and GUI Scale for each pair:
+
+```powershell
+python tools/slate_visual_review.py --baseline "control-auto.png" --experimental "smooth-auto.png" --output "slate-auto-review.html"
+```
+
+Repeat for GUI Scale 2 and 3, keeping game state, module settings and capture
+composition as stable as possible. Open each resulting HTML file locally.
+Each page includes the input screenshot SHA-256 hashes and image dimensions.
+PNG inputs are checked as normal 8-bit RGB/RGBA, non-interlaced screenshots
+up to 50 MiB each. This is **only a comparison aid**: it cannot prove in-game
+FPS, OpenGL safety, launch correctness, runtime stability or release readiness.
+The opt-in smooth-font flag and release decision rule above remain unchanged.
+
+The companion `tools/test_slate_visual_review.py` uses generated, synthetic
+PNG fixtures to check image validation, equal-size admission, tampered CRC
+rejection, safe output path handling, HTML escaping and 500 randomized
+dimensions. Core CI runs it without network access or screenshot artifacts.
+
+## 6 November ? experimental texture cache correctness (source-level only)
+
+The original optional Slate smooth-font renderer used raw `glBindTexture` and
+`glPushAttrib(GL_TEXTURE_BIT)` both when uploading a glyph and when painting
+it. After the in-game ClickGUI font-atlas corruption exposed the danger of
+restoring texture bindings independently of Minecraft's `GlStateManager`
+cache, the experimental code now binds **and restores** each glyph texture
+through `GlStateManager.bindTexture`. Its eviction and teardown use
+`GlStateManager.deleteTexture` to invalidate cached IDs. Upload now restores
+the actual prior `GL_UNPACK_ALIGNMENT` explicitly (client pixel-store state
+is not saved by the server attribute stack), and glyph drawing saves/restores
+`GL_TEXTURE_ENV_MODE` explicitly. It retains the separate scope for color,
+blend and enable state and bounded glyph caches.
+
+This is a preventive renderer correctness change validated by Java 8/Forge
+compilation, reobfuscation and wiring regression checks. **It does not
+constitute native visual acceptance** for the opt-in smooth font, which remains
+disabled by default; the paired F2 screenshots, CPU trial metrics, GPU/font
+lifecycle and FPS comparisons above are still required.
+
+## 7 November — prevent cached glyph IDs crossing GL contexts
+
+A texture name is meaningful only in the OpenGL context that allocated it.
+Previously the optional renderer checked `glIsTexture(id)`; after context
+recreation, the same integer can already refer to an unrelated Minecraft
+texture, so this check alone cannot establish ownership.
+
+The renderer now tracks LWJGL 2's `GLContext.getCapabilities()` reference
+identity. When the reference changes, it discards all old cached glyph IDs
+**without deleting them in the new context** and rerasterizes/uploads as needed.
+When closing, it deletes glyph textures only if the currently active GL context
+matches their recorded owner. If the context is already gone, it abandons the
+stale IDs safely. CPU-only fit layouts remain reusable. This preserves the
+default-disabled experimental state.
+
+A CPU-only Java 8 regression suite checks 100,000 seeded context transitions,
+same-identity reuse, different-but-equal objects, teardown and absent-context
+deletion rights. It does not emulate GPU context loss. A native Minecraft 1.8.9
+resource reload/context recreation and F7/FPS comparison remain necessary
+before this font experiment can be considered accepted.

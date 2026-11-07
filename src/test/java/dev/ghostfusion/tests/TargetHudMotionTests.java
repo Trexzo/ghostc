@@ -1,7 +1,7 @@
 package dev.ghostfusion.tests;
 import dev.ghostfusion.features.TargetHudMotion;
 import java.util.Random;
-/** Deterministic Nebula motion, no dependency on actual Minecraft. */
+/** Deterministic Slate Target HUD motion; independent of Minecraft runtime. */
 public final class TargetHudMotionTests {
     private static int assertions;
     private static void ok(boolean b,String s){assertions++;if(!b)throw new AssertionError(s);}
