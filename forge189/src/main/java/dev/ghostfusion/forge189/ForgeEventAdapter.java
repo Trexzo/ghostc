@@ -11,6 +11,7 @@ import dev.ghostfusion.features.LiveAcceptanceCoverage;
 import dev.ghostfusion.features.CombatFrameAcceptance;
 import dev.ghostfusion.features.CombatFrameFaultFence;
 import dev.ghostfusion.features.CombatFaultCleanup;
+import dev.ghostfusion.features.CombatWorldBoundaryRecovery;
 import dev.ghostfusion.host.ModuleActionTelemetry;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.gui.inventory.GuiChest;
@@ -112,6 +113,22 @@ public final class ForgeEventAdapter {
         this.autoArmor = new ForgeAutoArmorController(minecraft,host);
     }
 
+    /**
+     * World LEAVE/ENTER/SWITCH must finish resetting independent controllers
+     * even when the combat controller has an unexpected reset exception.
+     * Pin the faulting native identity before any later session admission.
+     */
+    private void resetCombatAtWorldBoundary() {
+        CombatWorldBoundaryRecovery.reset(host.services(),combatFrameFault,
+            minecraft.theWorld,minecraft.thePlayer,new Runnable() {
+                public void run() { combat.reset(); }
+            });
+        // Present a fault immediately, including transitions with no normal
+        // combat END-tick dispatch. Native ATTACK/USE uncertainty is distinct.
+        host.nativePulseStatus(combat.nativePulseUncertainMask());
+        host.combatDispatchStatus(combatFrameFault.quarantined());
+    }
+
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
@@ -128,7 +145,7 @@ public final class ForgeEventAdapter {
             moduleState.reset();
             lastArbitration=null;
             features.reset();
-            combat.reset();
+            resetCombatAtWorldBoundary();
             bridge.reset();
             velocity.reset();
             wtap.reset();
@@ -149,7 +166,7 @@ public final class ForgeEventAdapter {
             moduleState.reset();
             lastArbitration=null;
             features.reset();
-            combat.reset();
+            resetCombatAtWorldBoundary();
             bridge.reset();
             velocity.reset();
             wtap.reset();
